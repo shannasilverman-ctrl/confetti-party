@@ -158,10 +158,12 @@ function PartyWorkspace() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "checklist" && <ChecklistTab partyId={party.id} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
         {tab === "timeline" && <TimelineTab partyId={party.id} />}
+
       </main>
 
       {/* Mobile bottom tab nav */}
