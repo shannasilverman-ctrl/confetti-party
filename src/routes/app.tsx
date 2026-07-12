@@ -13,6 +13,7 @@ import {
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
 import { BrandLockup } from "@/components/brand";
+import { AuthNav } from "@/components/auth-nav";
 import { ConfettiBurst } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check, Sparkles } from "lucide-react";
+import {
+  CalendarDays,
+  Users,
+  Wallet,
+  Plus,
+  ArrowRight,
+  PartyPopper,
+  Check,
+  Sparkles,
+  X,
+  RefreshCw,
+} from "lucide-react";
 
 
 type AppSearch = { new?: boolean };
