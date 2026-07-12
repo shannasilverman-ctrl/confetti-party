@@ -189,9 +189,10 @@ function NewPartyWizard({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { createParty } = useParties();
+  const { createParty, getParty } = useParties();
   const navigate = Route.useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | "done">(1);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const [occasion, setOccasion] = useState<OccasionType | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -203,6 +204,7 @@ function NewPartyWizard({
 
   function reset() {
     setStep(1);
+    setCreatedId(null);
     setOccasion(null);
     setName("");
     setDate("");
@@ -230,6 +232,13 @@ function NewPartyWizard({
       themeId: theme.id,
       extraTasks,
     });
+    setCreatedId(id);
+    setStep("done");
+  }
+
+  function openPlan() {
+    if (!createdId) return;
+    const id = createdId;
     onOpenChange(false);
     reset();
     void navigate({ to: "/party/$id", params: { id } });
@@ -240,6 +249,9 @@ function NewPartyWizard({
     setOccasion(o);
     setTheme(null);
   }
+
+  const createdParty = createdId ? getParty(createdId) : undefined;
+
 
   return (
     <Dialog
