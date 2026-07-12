@@ -150,7 +150,12 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                 <ul className="space-y-2">
                   {activeTheme.decorIdeas.map((idea, i) => {
                     const key = `${activeTheme.id}-${i}`;
-                    const added = pendingAdds.has(key);
+                    const added = isAdded(idea);
+                    const isBuy = idea.kind === "Buy";
+                    const AddIcon = isBuy ? ShoppingCart : Plus;
+                    const addLabel = isBuy ? "Add to shopping" : "Add to checklist";
+                    const onAdd = () =>
+                      isBuy ? addBuyToShopping(idea) : addDiyToChecklist(idea);
                     return (
                       <li
                         key={key}
@@ -170,7 +175,8 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                           size="sm"
                           variant={added ? "ghost" : "outline"}
                           disabled={added}
-                          onClick={() => addIdeaToChecklist(idea, key)}
+                          onClick={onAdd}
+                          aria-label={addLabel}
                         >
                           {added ? (
                             <>
@@ -178,7 +184,11 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                             </>
                           ) : (
                             <>
-                              <Plus className="h-3.5 w-3.5" /> Add
+                              <AddIcon className="h-3.5 w-3.5" />{" "}
+                              <span className="hidden sm:inline">
+                                {isBuy ? "Shop" : "DIY"}
+                              </span>
+                              <span className="sm:hidden">Add</span>
                             </>
                           )}
                         </Button>
