@@ -490,29 +490,5 @@ function PlanStat({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function Confetti() {
-  const dots = [
-    { c: "hsl(var(--primary))", x: "-20%", y: "-10%", d: "0ms" },
-    { c: "hsl(var(--accent))", x: "110%", y: "0%", d: "120ms" },
-    { c: "hsl(var(--secondary))", x: "-30%", y: "60%", d: "240ms" },
-    { c: "hsl(var(--primary))", x: "115%", y: "70%", d: "360ms" },
-    { c: "hsl(var(--accent))", x: "50%", y: "-25%", d: "180ms" },
-    { c: "hsl(var(--secondary))", x: "50%", y: "115%", d: "300ms" },
-  ];
-  return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden>
-      {dots.map((d, i) => (
-        <span
-          key={i}
-          className="absolute h-2 w-2 rounded-full animate-scale-in"
-          style={{
-            left: d.x,
-            top: d.y,
-            backgroundColor: d.c,
-            animationDelay: d.d,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
+
+
