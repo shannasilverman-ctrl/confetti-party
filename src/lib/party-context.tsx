@@ -328,6 +328,8 @@ function rowToParty(r: {
   name: string;
   occasion: string;
   date: string;
+  start_time?: string | null;
+  location?: string | null;
   guest_estimate: number;
   budget: number;
   theme: string;
@@ -344,6 +346,8 @@ function rowToParty(r: {
     name: r.name,
     occasion: r.occasion as OccasionType,
     date: r.date,
+    startTime: r.start_time ?? undefined,
+    location: r.location ?? undefined,
     guestEstimate: r.guest_estimate,
     budget: Number(r.budget),
     theme: r.theme,
@@ -364,6 +368,8 @@ function partyToRow(p: Party, userId: string) {
     name: p.name,
     occasion: p.occasion,
     date: p.date,
+    start_time: p.startTime ?? null,
+    location: p.location ?? null,
     guest_estimate: p.guestEstimate,
     budget: p.budget,
     theme: p.theme,
@@ -380,6 +386,8 @@ function makeParty(input: {
   name: string;
   occasion: OccasionType;
   date: string;
+  startTime?: string;
+  location?: string;
   guestEstimate: number;
   budget: number;
   theme: string;
@@ -391,6 +399,8 @@ function makeParty(input: {
     name: input.name,
     occasion: input.occasion,
     date: input.date,
+    startTime: input.startTime,
+    location: input.location,
     guestEstimate: input.guestEstimate,
     budget: input.budget,
     theme: input.theme,
