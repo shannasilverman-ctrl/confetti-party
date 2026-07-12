@@ -19,7 +19,8 @@ const buttonVariants = cva(
         festive:
           "bg-festive text-primary-foreground shadow-card hover:brightness-110 hover:shadow-elevated",
         onFestive:
-          "bg-white text-secondary shadow-card hover:bg-white/95",
+          "bg-card text-secondary shadow-card hover:bg-card/95",
+
       },
       size: {
         default: "h-9 px-4 py-2",
