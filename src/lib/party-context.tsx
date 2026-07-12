@@ -1,4 +1,17 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
+import { useAuth } from "./auth";
 import {
   generateShoppingItems,
   type ShoppingItem,
@@ -284,6 +297,9 @@ function seedGrad(): Party {
 
 type Ctx = {
   parties: Party[];
+  status: "loading" | "ready" | "error";
+  isDemo: boolean;
+  refetch: () => void;
   getParty: (id: string) => Party | undefined;
   createParty: (input: {
     name: string;
@@ -300,44 +316,180 @@ type Ctx = {
 
 const PartyContext = createContext<Ctx | null>(null);
 
+function rowToParty(r: {
+  id: string;
+  name: string;
+  occasion: string;
+  date: string;
+  guest_estimate: number;
+  budget: number;
+  theme: string;
+  theme_id: string | null;
+  tasks: unknown;
+  guests: unknown;
+  budget_categories: unknown;
+  shopping_items: unknown;
+  timeline: unknown;
+}): Party {
+  return {
+    id: r.id,
+    name: r.name,
+    occasion: r.occasion as OccasionType,
+    date: r.date,
+    guestEstimate: r.guest_estimate,
+    budget: Number(r.budget),
+    theme: r.theme,
+    themeId: r.theme_id ?? undefined,
+    tasks: (r.tasks as Task[]) ?? [],
+    guests: (r.guests as Guest[]) ?? [],
+    budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
+    shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
+    timeline: (r.timeline as TimelineItem[]) ?? [],
+  };
+}
+
+function partyToRow(p: Party, userId: string) {
+  return {
+    id: p.id,
+    user_id: userId,
+    name: p.name,
+    occasion: p.occasion,
+    date: p.date,
+    guest_estimate: p.guestEstimate,
+    budget: p.budget,
+    theme: p.theme,
+    theme_id: p.themeId ?? null,
+    tasks: p.tasks as unknown as Json,
+    guests: p.guests as unknown as Json,
+    budget_categories: p.budgetCategories as unknown as Json,
+    shopping_items: p.shoppingItems as unknown as Json,
+    timeline: p.timeline as unknown as Json,
+  };
+}
+
+function makeParty(input: {
+  name: string;
+  occasion: OccasionType;
+  date: string;
+  guestEstimate: number;
+  budget: number;
+  theme: string;
+  themeId?: string;
+  extraTasks?: Task[];
+}, id: string): Party {
+  return {
+    id,
+    name: input.name,
+    occasion: input.occasion,
+    date: input.date,
+    guestEstimate: input.guestEstimate,
+    budget: input.budget,
+    theme: input.theme,
+    themeId: input.themeId,
+    tasks: [
+      ...generateTasks(input.occasion, input.date),
+      ...(input.extraTasks ?? []),
+    ],
+    guests: [],
+    budgetCategories: DEFAULT_CATEGORIES(),
+    timeline: [],
+    shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
+  };
+}
+
 export function PartyProvider({ children }: { children: ReactNode }) {
-  const [parties, setParties] = useState<Party[]>(() => [seedMaya(), seedGrad()]);
+  const { user, loading: authLoading } = useAuth();
+  const isDemo = !user;
+  const [parties, setParties] = useState<Party[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [reloadKey, setReloadKey] = useState(0);
+  const savingRef = useRef<Set<string>>(new Set());
+
+  // Load data based on auth state.
+  useEffect(() => {
+    if (authLoading) return;
+    let cancelled = false;
+    if (!user) {
+      setParties([seedMaya(), seedGrad()]);
+      setStatus("ready");
+      return;
+    }
+    setStatus("loading");
+    supabase
+      .from("parties")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("[parties] load failed", error);
+          setParties([]);
+          setStatus("error");
+          return;
+        }
+        setParties((data ?? []).map(rowToParty));
+        setStatus("ready");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading, reloadKey]);
+
+  const persist = useCallback(
+    async (p: Party) => {
+      if (!user) return;
+      if (savingRef.current.has(p.id)) return;
+      savingRef.current.add(p.id);
+      try {
+        const { error } = await supabase
+          .from("parties")
+          .upsert(partyToRow(p, user.id));
+        if (error) {
+          console.error("[parties] save failed", error);
+          toast.error("Couldn't save changes. Check your connection.");
+        }
+      } finally {
+        savingRef.current.delete(p.id);
+      }
+    },
+    [user],
+  );
 
   const value = useMemo<Ctx>(
     () => ({
       parties,
+      status,
+      isDemo,
+      refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
-        const id = uid();
-        const p: Party = {
-          id,
-          name: input.name,
-          occasion: input.occasion,
-          date: input.date,
-          guestEstimate: input.guestEstimate,
-          budget: input.budget,
-          theme: input.theme,
-          themeId: input.themeId,
-          tasks: [
-            ...generateTasks(input.occasion, input.date),
-            ...(input.extraTasks ?? []),
-          ],
-          guests: [],
-          budgetCategories: DEFAULT_CATEGORIES(),
-          timeline: [],
-          shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
-        };
+        const id =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : uid();
+        const p = makeParty(input, id);
         setParties((prev) => [...prev, p]);
+        if (user) void persist(p);
         return id;
       },
-      updateParty: (id, updater) =>
-        setParties((prev) => prev.map((p) => (p.id === id ? updater(p) : p))),
+      updateParty: (id, updater) => {
+        let updated: Party | undefined;
+        setParties((prev) =>
+          prev.map((p) => {
+            if (p.id !== id) return p;
+            updated = updater(p);
+            return updated;
+          }),
+        );
+        if (user && updated) void persist(updated);
+      },
     }),
-    [parties],
+    [parties, status, isDemo, user, persist],
   );
 
   return <PartyContext.Provider value={value}>{children}</PartyContext.Provider>;
 }
+
 
 export function useParties() {
   const c = useContext(PartyContext);

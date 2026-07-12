@@ -13,6 +13,7 @@ import {
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
 import { BrandLockup } from "@/components/brand";
+import { AuthNav } from "@/components/auth-nav";
 import { ConfettiBurst } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,18 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check, Sparkles } from "lucide-react";
+import {
+  CalendarDays,
+  Users,
+  Wallet,
+  Plus,
+  ArrowRight,
+  PartyPopper,
+  Check,
+  Sparkles,
+  X,
+  RefreshCw,
+} from "lucide-react";
 
 
 type AppSearch = { new?: boolean };
@@ -46,30 +58,59 @@ export const Route = createFileRoute("/app")({
 });
 
 function Dashboard() {
-  const { parties } = useParties();
+  const { parties, status, isDemo, refetch } = useParties();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [wizardOpen, setWizardOpen] = useState(!!search.new);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
     if (search.new) {
       setWizardOpen(true);
-      // Clear the flag so refresh / back navigation doesn't reopen the wizard.
       void navigate({ to: "/app", search: {}, replace: true });
     }
   }, [search.new, navigate]);
 
+  const showBanner = isDemo && !bannerDismissed;
+  const isEmptyLoggedIn = !isDemo && status === "ready" && parties.length === 0;
 
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/60 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <BrandLockup />
-          <Button variant="festive" onClick={() => setWizardOpen(true)}>
-            <Plus /> New Party
-          </Button>
+          <div className="flex items-center gap-2">
+            <AuthNav variant="app" />
+            <Button variant="festive" onClick={() => setWizardOpen(true)}>
+              <Plus /> New Party
+            </Button>
+          </div>
         </div>
       </header>
+
+      {showBanner && (
+        <div className="border-b border-border bg-primary/5">
+          <div className="mx-auto flex max-w-6xl items-center gap-3 px-6 py-3">
+            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+            <p className="flex-1 text-sm text-secondary">
+              You're in demo mode. Sign up free to save your parties.
+            </p>
+            <Button asChild size="sm" variant="festive">
+              <Link to="/auth" search={{ mode: "signup" }}>
+                Sign up free
+              </Link>
+            </Button>
+            <button
+              type="button"
+              aria-label="Dismiss"
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              onClick={() => setBannerDismissed(true)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8 flex items-end justify-between">
@@ -78,99 +119,158 @@ function Dashboard() {
               Your parties
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {parties.length} in flight — pick one to keep planning.
+              {status === "loading"
+                ? "Loading your parties…"
+                : status === "error"
+                  ? "We couldn't load your parties."
+                  : parties.length === 0
+                    ? isDemo
+                      ? "Explore a sample or start your own."
+                      : "Nothing here yet — plan your first party."
+                    : `${parties.length} in flight — pick one to keep planning.`}
             </p>
           </div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {parties.map((p) => {
-            const days = daysUntil(p.date);
-            const g = guestCounts(p);
-            const spent = totalSpent(p);
-            const prog = progressPct(p);
-            return (
-              <Link
-                key={p.id}
-                to="/party/$id"
-                params={{ id: p.id }}
-                className="group flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-card transition hover:-translate-y-1 hover:shadow-elevated"
+        {status === "loading" ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-[320px] animate-pulse rounded-3xl border border-border bg-card"
               >
-                <div className="relative h-28 bg-festive p-5">
-                  <div className="absolute inset-0 bg-confetti opacity-40 mix-blend-overlay" />
-                  <Badge variant="onFestive" className="relative">
-                    {OCCASION_LABELS[p.occasion]}
-                  </Badge>
-
-                  <div className="relative mt-2 text-primary-foreground/90 text-sm">
-                    {p.theme}
+                <div className="h-28 rounded-t-3xl bg-muted/70" />
+                <div className="space-y-3 p-5">
+                  <div className="h-5 w-2/3 rounded bg-muted" />
+                  <div className="h-3 w-1/2 rounded bg-muted" />
+                  <div className="mt-6 grid grid-cols-2 gap-3">
+                    <div className="h-14 rounded-xl bg-muted/70" />
+                    <div className="h-14 rounded-xl bg-muted/70" />
                   </div>
+                  <div className="h-2 w-full rounded bg-muted" />
                 </div>
-                <div className="flex-1 p-5">
-                  <h3 className="font-display text-xl font-semibold text-secondary">{p.name}</h3>
-                  <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    {new Date(p.date).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                    <span className="mx-1">·</span>
-                    <span className="font-medium text-primary">
-                      {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
-                    </span>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl bg-muted/60 p-3">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Users className="h-3.5 w-3.5" /> Guests
-                      </div>
-                      <div className="mt-0.5 font-semibold text-secondary">
-                        {g.total || p.guestEstimate}
-                      </div>
-                    </div>
-                    <div className="rounded-xl bg-muted/60 p-3">
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Wallet className="h-3.5 w-3.5" /> Budget
-                      </div>
-                      <div className="mt-0.5 font-semibold text-secondary">
-                        ${spent} <span className="text-muted-foreground">/ ${p.budget}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    <div className="mb-1.5 flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Planning progress</span>
-                      <span className="font-semibold text-secondary">{prog}%</span>
-                    </div>
-                    <Progress value={prog} />
-                  </div>
-
-                  <div className="mt-5 flex items-center text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
-                    Open workspace <ArrowRight className="ml-1 h-4 w-4" />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-
-          <button
-            onClick={() => setWizardOpen(true)}
-            className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border bg-transparent p-6 text-muted-foreground transition hover:border-primary hover:bg-card hover:text-primary"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Plus className="h-6 w-6" />
+              </div>
+            ))}
+          </div>
+        ) : status === "error" ? (
+          <div className="rounded-3xl border border-border bg-card p-10 text-center">
+            <h3 className="font-display text-xl font-semibold text-secondary">
+              Something went wrong
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              We couldn't load your parties. Check your connection and try again.
+            </p>
+            <Button className="mt-5" variant="festive" onClick={refetch}>
+              <RefreshCw className="h-4 w-4" /> Retry
+            </Button>
+          </div>
+        ) : isEmptyLoggedIn ? (
+          <div className="rounded-3xl border-2 border-dashed border-border bg-card/60 p-12 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <PartyPopper className="h-7 w-7" />
             </div>
-            <div className="font-display text-lg text-secondary">Start a new party</div>
-            <div className="text-xs">3 quick steps</div>
-          </button>
-        </div>
+            <h3 className="mt-5 font-display text-2xl font-semibold text-secondary">
+              Plan your first party
+            </h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+              Answer a few quick questions and Confetti will set up your checklist, shopping
+              list, and day-of timeline.
+            </p>
+            <Button className="mt-6" variant="festive" onClick={() => setWizardOpen(true)}>
+              <Plus /> Start a party
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {parties.map((p) => {
+              const days = daysUntil(p.date);
+              const g = guestCounts(p);
+              const spent = totalSpent(p);
+              const prog = progressPct(p);
+              return (
+                <Link
+                  key={p.id}
+                  to="/party/$id"
+                  params={{ id: p.id }}
+                  className="group flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-card transition hover:-translate-y-1 hover:shadow-elevated"
+                >
+                  <div className="relative h-28 bg-festive p-5">
+                    <div className="absolute inset-0 bg-confetti opacity-40 mix-blend-overlay" />
+                    <Badge variant="onFestive" className="relative">
+                      {OCCASION_LABELS[p.occasion]}
+                    </Badge>
+
+                    <div className="relative mt-2 text-primary-foreground/90 text-sm">
+                      {p.theme}
+                    </div>
+                  </div>
+                  <div className="flex-1 p-5">
+                    <h3 className="font-display text-xl font-semibold text-secondary">{p.name}</h3>
+                    <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      {new Date(p.date).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                      <span className="mx-1">·</span>
+                      <span className="font-medium text-primary">
+                        {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-xl bg-muted/60 p-3">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Users className="h-3.5 w-3.5" /> Guests
+                        </div>
+                        <div className="mt-0.5 font-semibold text-secondary">
+                          {g.total || p.guestEstimate}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-muted/60 p-3">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Wallet className="h-3.5 w-3.5" /> Budget
+                        </div>
+                        <div className="mt-0.5 font-semibold text-secondary">
+                          ${spent} <span className="text-muted-foreground">/ ${p.budget}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <div className="mb-1.5 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Planning progress</span>
+                        <span className="font-semibold text-secondary">{prog}%</span>
+                      </div>
+                      <Progress value={prog} />
+                    </div>
+
+                    <div className="mt-5 flex items-center text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
+                      Open workspace <ArrowRight className="ml-1 h-4 w-4" />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+
+            <button
+              onClick={() => setWizardOpen(true)}
+              className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border bg-transparent p-6 text-muted-foreground transition hover:border-primary hover:bg-card hover:text-primary"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Plus className="h-6 w-6" />
+              </div>
+              <div className="font-display text-lg text-secondary">Start a new party</div>
+              <div className="text-xs">3 quick steps</div>
+            </button>
+          </div>
+        )}
       </main>
 
       <NewPartyWizard open={wizardOpen} onOpenChange={setWizardOpen} />
     </div>
+
   );
 }
 
