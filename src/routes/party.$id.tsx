@@ -253,11 +253,13 @@ function ChecklistTab({ partyId }: { partyId: string }) {
   }, [party.tasks]);
 
 
-  const toggle = (id: string) => {
+  const toggle = (id: string, e?: React.SyntheticEvent) => {
     const t = party.tasks.find((x) => x.id === id);
     if (t && !t.done) {
       setPoppedId(id);
       setTimeout(() => setPoppedId(null), 500);
+      if (e) celebrateAtEvent("micro", e as unknown as React.MouseEvent);
+      else celebrate("micro");
     }
     updateParty(partyId, (p) => ({
       ...p,
