@@ -397,14 +397,17 @@ function GuestsTab({ partyId }: { partyId: string }) {
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant="success">{g.yes} yes</Badge>
         <Badge variant="warning">{g.maybe} maybe</Badge>
         <Badge variant="destructive">{g.no} no</Badge>
         <Badge variant="soft">{g.invited} no reply</Badge>
-        <span className="ml-auto text-sm text-muted-foreground">
-          Headcount: <strong className="text-secondary">{g.adults}</strong> adults ·{" "}
-          <strong className="text-secondary">{g.kids}</strong> kids
+        <span className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
+          <span>
+            Headcount: <strong className="text-secondary">{g.adults}</strong> adults ·{" "}
+            <strong className="text-secondary">{g.kids}</strong> kids
+          </span>
+          <RsvpShareButton partyId={partyId} />
         </span>
       </div>
 
