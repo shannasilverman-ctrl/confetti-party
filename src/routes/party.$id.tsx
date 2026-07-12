@@ -331,7 +331,8 @@ function ChecklistTab({ partyId }: { partyId: string }) {
                   <div className={poppedId === t.id ? "animate-pop" : ""}>
                     <Checkbox
                       checked={t.done}
-                      onCheckedChange={() => toggle(t.id)}
+                      onClick={(e) => toggle(t.id, e)}
+                      onCheckedChange={() => {}}
                       className="h-5 w-5"
                     />
                   </div>
