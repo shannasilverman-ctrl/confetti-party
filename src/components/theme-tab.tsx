@@ -1,16 +1,11 @@
 import { useState } from "react";
-import {
-  BUCKETS,
-  newId,
-  useParties,
-  type Bucket,
-  type OccasionType,
-} from "@/lib/party-context";
+import { newId, useParties, type OccasionType } from "@/lib/party-context";
 import { themeById, themesForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Plus, Sparkles, DoorOpen, Utensils, Gamepad2, Camera } from "lucide-react";
 import { toast } from "sonner";
+
 
 export function ThemeTab({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
