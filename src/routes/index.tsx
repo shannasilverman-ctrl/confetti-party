@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { ConfettiBurst, fireConfetti } from "@/components/confetti-burst";
 import { CheckCircle2, Calendar, Wallet, Sparkles, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
