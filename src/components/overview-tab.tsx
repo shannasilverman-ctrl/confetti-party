@@ -196,10 +196,14 @@ export function OverviewTab({
             </p>
           </div>
         )}
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="festive" size="sm" onClick={() => setInviteOpen(true)}>
+            <Mail /> Create invite
+          </Button>
           <RsvpShareButton partyId={partyId} />
         </div>
       </section>
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} partyId={partyId} />
 
       {/* Budget health */}
       <section
