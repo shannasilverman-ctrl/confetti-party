@@ -80,6 +80,7 @@ export function InviteDialog({
     try {
       await navigator.clipboard.writeText(url);
       toast.success("RSVP link copied");
+      celebrate("micro");
     } catch {
       toast.error("Couldn't copy link", { description: url });
     }
