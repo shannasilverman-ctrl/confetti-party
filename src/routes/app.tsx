@@ -267,16 +267,20 @@ function NewPartyWizard({
             {step === 1 && "What are you hosting?"}
             {step === 2 && "The essentials"}
             {step === 3 && "Pick your theme"}
+            {step === "done" && "Your plan is ready"}
           </DialogTitle>
           <div className="mt-2 flex gap-1.5">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className={`h-1.5 flex-1 rounded-full transition ${
-                  n <= step ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            ))}
+            {[1, 2, 3].map((n) => {
+              const active = step === "done" ? true : n <= step;
+              return (
+                <div
+                  key={n}
+                  className={`h-1.5 flex-1 rounded-full transition ${
+                    active ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              );
+            })}
           </div>
         </DialogHeader>
 
