@@ -41,9 +41,12 @@ import {
   ArrowUp,
   ArrowDown,
   Sparkles,
+  Palette,
 } from "lucide-react";
+import { ThemeTab } from "@/components/theme-tab";
 
-type TabKey = "checklist" | "guests" | "budget" | "timeline";
+type TabKey = "theme" | "checklist" | "guests" | "budget" | "timeline";
+
 
 export const Route = createFileRoute("/party/$id")({
   component: PartyWorkspace,
