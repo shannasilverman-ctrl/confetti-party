@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { fireConfetti } from "@/components/confetti-burst";
+import { fireConfetti, celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import {
   BUCKETS,
   categoryActual,
