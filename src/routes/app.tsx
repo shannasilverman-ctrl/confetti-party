@@ -77,9 +77,10 @@ function Dashboard() {
               >
                 <div className="relative h-28 bg-festive p-5">
                   <div className="absolute inset-0 bg-confetti opacity-40 mix-blend-overlay" />
-                  <Badge className="relative bg-white/90 text-secondary hover:bg-white">
+                  <Badge variant="onFestive" className="relative">
                     {OCCASION_LABELS[p.occasion]}
                   </Badge>
+
                   <div className="relative mt-2 text-primary-foreground/90 text-sm">
                     {p.theme}
                   </div>
