@@ -571,7 +571,7 @@ export const THEMES: Theme[] = [
     decorIdeas: [
       { title: "Red-and-black buffalo plaid tablecloth", kind: "Buy", bucket: "1-2 weeks", estPrice: 18 },
       { title: "Pinecones and evergreen sprigs along the runner", kind: "DIY", bucket: "Party week", estPrice: 18 },
-      { title: "Fireplace with real crackling wood", kind: "DIY", bucket: "Day of", estPrice: 15 },
+      { title: "Fireplace with real crackling wood", kind: "DIY", bucket: "Day of", estPrice: 0 },
       { title: "Hot cocoa bar with marshmallows and syrups", kind: "DIY", bucket: "Day of", estPrice: 18 },
       { title: "Wool blankets draped over every chair", kind: "Buy", bucket: "1-2 weeks", estPrice: 18 },
       { title: "Lanterns with pillar candles on the porch", kind: "Buy", bucket: "1-2 weeks", estPrice: 22 },
@@ -667,7 +667,7 @@ export const THEMES: Theme[] = [
       { title: "Single-stem dark florals in small vessels", kind: "Buy", bucket: "Party week", estPrice: 16 },
       { title: "Matte black stoneware plates", kind: "Buy", bucket: "3-5 weeks", estPrice: 14 },
       { title: "Linen napkins tied with brass rings", kind: "DIY", bucket: "1-2 weeks", estPrice: 18 },
-      { title: "Dim the overheads to 20%, candles do the work", kind: "DIY", bucket: "Day of", estPrice: 14 },
+      { title: "Dim the overheads to 20%, candles do the work", kind: "DIY", bucket: "Day of", estPrice: 0 },
       { title: "Cocktail menu printed on black card stock", kind: "DIY", bucket: "Party week", estPrice: 15 },
     ],
     stylingTips: [
