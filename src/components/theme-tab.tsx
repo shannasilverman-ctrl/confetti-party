@@ -31,7 +31,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
         name: idea.title,
         category: "Decorations",
         qty: 1,
-        estPrice: 15,
+        estPrice: idea.estPrice,
       }),
     );
     toast.success("Added to shopping list", { description: idea.title });

@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
+import { ConfettiBurst, fireConfetti } from "@/components/confetti-burst";
 import { CheckCircle2, Calendar, Wallet, Sparkles, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -43,11 +45,17 @@ const benefits = [
 ];
 
 function Landing() {
+  const [heroBurst, setHeroBurst] = useState(0);
+  useEffect(() => {
+    // fire the intro burst after the letters have popped in
+    const t = setTimeout(() => setHeroBurst(1), 650);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <BrandLockup />
+        <BrandLockup animated />
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
             <Link to="/app">Sign in</Link>
@@ -61,7 +69,11 @@ function Landing() {
       {/* Hero */}
       <section className="bg-confetti">
         <div className="mx-auto max-w-6xl px-6 pb-24 pt-14 sm:pt-20">
-          <div className="mx-auto max-w-3xl text-center">
+          <div className="relative mx-auto max-w-3xl text-center">
+            {/* one-shot confetti burst behind the hero on first load */}
+            <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2">
+              <ConfettiBurst active={heroBurst > 0} count={28} spread={220} />
+            </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-secondary/15 bg-card/70 px-4 py-1.5 text-xs font-medium text-secondary shadow-card backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               For everyday hosts
