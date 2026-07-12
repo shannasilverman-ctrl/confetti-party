@@ -93,6 +93,9 @@ export function OverviewTab({
                     ? "Today"
                     : `${Math.abs(days)} days ago`}
               </Badge>
+              <div className="ml-auto">
+                <EditDetailsDialog partyId={partyId} />
+              </div>
             </div>
             <h2 className="mt-2 truncate font-display text-2xl font-semibold text-secondary sm:text-3xl">
               {party.name}
@@ -101,6 +104,20 @@ export function OverviewTab({
               {prog}% planned ·{" "}
               {party.tasks.filter((t) => t.done).length}/{party.tasks.length} tasks complete
             </p>
+            {(party.startTime || party.location) && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {party.startTime && (
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" /> {party.startTime}
+                  </span>
+                )}
+                {party.location && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {party.location}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
