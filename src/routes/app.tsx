@@ -408,27 +408,70 @@ function NewPartyWizard({
           </div>
         )}
 
+        {step === "done" && createdParty && (
+          <div className="py-4 text-center">
+            <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
+              <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" aria-hidden />
+              <PartyPopper className="h-10 w-10 animate-scale-in" />
+              <Confetti />
+            </div>
+            <h3 className="mt-5 font-display text-2xl font-semibold text-secondary">
+              {createdParty.name}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Everything's seeded. Open the plan whenever you're ready.
+            </p>
+            <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
+              <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
+              <PlanStat
+                label="Shopping items"
+                value={createdParty.shoppingItems.length}
+              />
+              <PlanStat label="Theme applied" value={createdParty.theme} />
+              <PlanStat label="Budget set" value={`$${createdParty.budget}`} />
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="flex-row justify-between sm:justify-between">
-          <Button
-            variant="ghost"
-            onClick={() => (step === 1 ? onOpenChange(false) : setStep((step - 1) as 1 | 2))}
-          >
-            {step === 1 ? "Cancel" : "Back"}
-          </Button>
-          {step < 3 ? (
-            <Button
-              variant="festive"
-              disabled={
-                (step === 1 && !occasion) || (step === 2 && (!date || !name))
-              }
-              onClick={() => setStep((step + 1) as 2 | 3)}
-            >
-              Continue <ArrowRight />
-            </Button>
+          {step === "done" ? (
+            <>
+              <Button variant="ghost" onClick={() => { onOpenChange(false); reset(); }}>
+                Close
+              </Button>
+              <Button variant="festive" onClick={openPlan}>
+                <Sparkles /> Open your party plan
+              </Button>
+            </>
           ) : (
-            <Button variant="festive" disabled={!theme} onClick={finish}>
-              <PartyPopper /> Create party
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  step === 1
+                    ? onOpenChange(false)
+                    : setStep(((step as number) - 1) as 1 | 2)
+                }
+              >
+                {step === 1 ? "Cancel" : "Back"}
+              </Button>
+              {(step as number) < 3 ? (
+                <Button
+                  variant="festive"
+                  disabled={
+                    (step === 1 && !occasion) ||
+                    (step === 2 && (!date || !name))
+                  }
+                  onClick={() => setStep(((step as number) + 1) as 2 | 3)}
+                >
+                  Continue <ArrowRight />
+                </Button>
+              ) : (
+                <Button variant="festive" disabled={!theme} onClick={finish}>
+                  <PartyPopper /> Create party
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>
