@@ -446,11 +446,18 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
                 </div>
-                <Input
-                  className="max-w-[220px] border-transparent bg-transparent focus-visible:border-input"
-                  value={guest.name}
-                  onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
-                />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Input
+                    className="max-w-[220px] border-transparent bg-transparent focus-visible:border-input"
+                    value={guest.name}
+                    onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
+                  />
+                  {guest.source === "link" && (
+                    <Badge variant="soft" className="hidden shrink-0 text-[10px] sm:inline-flex">
+                      via link
+                    </Badge>
+                  )}
+                </div>
                 <Select
                   value={guest.kind}
                   onValueChange={(v) => updateGuest(guest.id, { kind: v as "adult" | "kid" })}
