@@ -45,11 +45,17 @@ const benefits = [
 ];
 
 function Landing() {
+  const [heroBurst, setHeroBurst] = useState(0);
+  useEffect(() => {
+    // fire the intro burst after the letters have popped in
+    const t = setTimeout(() => setHeroBurst(1), 650);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <BrandLockup />
+        <BrandLockup animated />
         <nav className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
             <Link to="/app">Sign in</Link>
