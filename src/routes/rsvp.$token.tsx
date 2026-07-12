@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Sparkles, Users, PartyPopper } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Sparkles, Users, PartyPopper } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { themeById } from "@/lib/themes";
 import { daysUntil } from "@/lib/party-context";
