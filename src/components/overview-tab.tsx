@@ -150,6 +150,9 @@ export function OverviewTab({
               >
                 <Checkbox
                   checked={t.done}
+                  onClick={(e) => {
+                    if (!t.done) celebrateAtEvent("micro", e);
+                  }}
                   onCheckedChange={() => toggleTask(t.id)}
                   className="h-5 w-5"
                   aria-label={`Complete: ${t.title}`}
