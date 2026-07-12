@@ -165,6 +165,8 @@ function seedMaya(): Party {
     { id: uid(), name: "James Brooks", kind: "adult", rsvp: "invited" },
     { id: uid(), name: "Nina Thompson", kind: "adult", rsvp: "invited" },
   ];
+  const balloonExpId = uid();
+  const tablewareExpId = uid();
   const budgetCategories: BudgetCategory[] = [
     { id: uid(), name: "Venue", planned: 50, expenses: [] },
     {
@@ -187,8 +189,8 @@ function seedMaya(): Party {
       name: "Decorations",
       planned: 100,
       expenses: [
-        { id: uid(), label: "Rainbow balloon arch", amount: 35 },
-        { id: uid(), label: "Unicorn tableware", amount: 20 },
+        { id: balloonExpId, label: "Rainbow balloon arch", amount: 35 },
+        { id: tablewareExpId, label: "Unicorn tableware", amount: 20 },
       ],
     },
     {
@@ -209,6 +211,38 @@ function seedMaya(): Party {
     { id: uid(), time: "4:00 PM", activity: "Present opening" },
     { id: uid(), time: "4:30 PM", activity: "Goodbye favors, party wind-down" },
   ];
+  // Shopping: mostly generated, but two items are already purchased and
+  // link by expense id to the seeded Decorations expenses above so we do
+  // NOT double-count them in totalSpent.
+  const shoppingItems: ShoppingItem[] = [
+    {
+      id: uid(),
+      name: "Rainbow balloon arch kit",
+      category: "Decorations",
+      qty: 1,
+      estPrice: 35,
+      status: "purchased",
+      linkedExpenseId: balloonExpId,
+      actualPrice: 35,
+    },
+    {
+      id: uid(),
+      name: "Unicorn tableware pack",
+      category: "Decorations",
+      qty: 3,
+      estPrice: 7,
+      status: "purchased",
+      linkedExpenseId: tablewareExpId,
+      actualPrice: 20,
+    },
+    { id: uid(), name: "Unicorn party favor kits", category: "Favors", qty: 3, estPrice: 8, status: "needed" },
+    { id: uid(), name: "Iridescent tablecloth", category: "Decorations", qty: 1, estPrice: 15, status: "in-cart" },
+    { id: uid(), name: "Star fairy lights", category: "Decorations", qty: 2, estPrice: 12, status: "needed" },
+    { id: uid(), name: "Rainbow confetti", category: "Decorations", qty: 1, estPrice: 6, status: "in-cart" },
+    { id: uid(), name: "Cotton candy cloud favors", category: "Favors", qty: 3, estPrice: 10, status: "needed" },
+    { id: uid(), name: "Paper plates and cups", category: "Food & Drink", qty: 3, estPrice: 9, status: "needed" },
+    { id: uid(), name: "Birthday candles", category: "Cake & Desserts", qty: 1, estPrice: 4, status: "needed" },
+  ];
   return {
     id: "maya-8th",
     name: "Maya's 8th Birthday",
@@ -222,6 +256,7 @@ function seedMaya(): Party {
     guests,
     budgetCategories,
     timeline,
+    shoppingItems,
   };
 }
 
