@@ -36,8 +36,9 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Baloo 2", "Baloo 2 Variable", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --font-body: "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-body);
 }
 
 :root {
@@ -135,9 +136,9 @@
 }
 
 @keyframes letter-pop {
-  0%   { transform: translateY(14px) scale(0.6); opacity: 0; }
-  60%  { transform: translateY(-2px) scale(1.12); opacity: 1; }
-  100% { transform: translateY(0) scale(1); opacity: 1; }
+  0%   { transform: translateY(14px) scale(0.6) rotate(0deg); opacity: 0; }
+  60%  { transform: translateY(-2px) scale(1.12) rotate(var(--letter-rot, 0deg)); opacity: 1; }
+  100% { transform: translateY(0) scale(1) rotate(var(--letter-rot, 0deg)); opacity: 1; }
 }
 @utility animate-letter-pop {
   animation: letter-pop 0.45s cubic-bezier(.34,1.56,.64,1) both;
@@ -189,15 +190,26 @@
     border-color: var(--color-border);
   }
   html {
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
+    font-size: 16px;
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  /* Display headings and big stat numbers get tabular numerals so budget
+     columns and countdowns align. Wordmark letters are unaffected. */
+  .font-display {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
   }
 }
