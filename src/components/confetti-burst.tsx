@@ -105,6 +105,8 @@ export function ConfettiBurst({
  */
 export function fireConfetti(opts: { origin?: { x: number; y: number }; count?: number; spread?: number } = {}) {
   if (typeof window === "undefined") return;
+  // Respect prefers-reduced-motion: the paired toast still communicates the moment.
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
   const { origin, count = 26, spread = 160 } = opts;
   const host = document.createElement("div");
   host.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;";
