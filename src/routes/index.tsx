@@ -72,7 +72,7 @@ function Landing() {
               <span className="text-gradient-festive">from first idea to final toast.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-              Hostwell keeps your checklist, guest list, budget, and day-of timeline in one warm
+              Confetti keeps your checklist, guest list, budget, and day-of timeline in one warm
               little app. So hosting feels like a party, not a project.
             </p>
 
@@ -97,7 +97,7 @@ function Landing() {
                 <span className="h-2.5 w-2.5 rounded-full bg-accent/70" />
                 <span className="h-2.5 w-2.5 rounded-full bg-secondary/40" />
                 <span className="ml-3 text-xs text-muted-foreground">
-                  hostwell.app / maya's 8th birthday
+                  confetti.app / maya's 8th birthday
                 </span>
               </div>
               <div className="grid gap-4 p-6 sm:grid-cols-3">
@@ -164,7 +164,7 @@ function Landing() {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
           <BrandLockup />
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Hostwell. Made for people who host.
+            © {new Date().getFullYear()} Confetti. Made for people who host.
           </p>
         </div>
       </footer>

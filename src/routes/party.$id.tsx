@@ -63,7 +63,7 @@ export const Route = createFileRoute("/party/$id")({
   component: PartyWorkspace,
   head: ({ params }) => ({
     meta: [
-      { title: "Party workspace · Hostwell" },
+      { title: "Party workspace · Confetti" },
       { name: "description", content: "Plan every detail of your party." },
       { name: "robots", content: "noindex" },
       { property: "og:url", content: `/party/${params.id}` },

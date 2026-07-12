@@ -37,7 +37,7 @@ export const Route = createFileRoute("/app")({
   }),
   head: () => ({
     meta: [
-      { title: "Your parties · Hostwell" },
+      { title: "Your parties · Confetti" },
       { name: "description", content: "See every party you're hosting, in one calm place." },
       { name: "robots", content: "noindex" },
     ],
