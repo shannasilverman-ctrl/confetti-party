@@ -1,6 +1,6 @@
 import type { OccasionType, Bucket } from "./party-context";
 
-export type DecorIdea = { title: string; kind: "DIY" | "Buy"; bucket: Bucket };
+export type DecorIdea = { title: string; kind: "DIY" | "Buy"; bucket: Bucket; estPrice: number };
 
 export type SetupZone = {
   key: "entry" | "food" | "activity" | "photo";
