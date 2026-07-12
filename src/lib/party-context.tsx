@@ -39,7 +39,7 @@ export const BUCKETS: Bucket[] = [
 ];
 
 export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
-export type Guest = { id: string; name: string; kind: "adult" | "kid"; rsvp: RSVP };
+export type Guest = { id: string; name: string; kind: "adult" | "kid"; rsvp: RSVP; source?: "link" };
 export type Expense = { id: string; label: string; amount: number };
 export type BudgetCategory = {
   id: string;
