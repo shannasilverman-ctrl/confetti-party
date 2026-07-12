@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Plus, Sparkles, DoorOpen, Utensils, Gamepad2, Camera, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
+import { celebrateAtEvent } from "@/components/confetti-burst";
 
 
 export function ThemeTab({ partyId }: { partyId: string }) {
