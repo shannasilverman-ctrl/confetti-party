@@ -85,11 +85,13 @@ function PartyWorkspace() {
   const prog = progressPct(party);
 
   const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
+    { key: "theme", label: "Theme", icon: Palette },
     { key: "checklist", label: "Checklist", icon: ListChecks },
     { key: "guests", label: "Guests", icon: Users },
     { key: "budget", label: "Budget", icon: Wallet },
     { key: "timeline", label: "Timeline", icon: Clock },
   ];
+
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
