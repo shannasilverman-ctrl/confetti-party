@@ -46,6 +46,7 @@ import {
   Palette,
   ShoppingCart,
   LayoutDashboard,
+  Mail,
 } from "lucide-react";
 import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
