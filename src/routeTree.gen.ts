@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -29,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RsvpTokenRoute = RsvpTokenRouteImport.update({
+  id: '/rsvp/$token',
+  path: '/rsvp/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartyIdRoute = PartyIdRouteImport.update({
   id: '/party/$id',
   path: '/party/$id',
@@ -40,12 +46,14 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/party/$id': typeof PartyIdRoute
+  '/rsvp/$token': typeof RsvpTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/party/$id': typeof PartyIdRoute
+  '/rsvp/$token': typeof RsvpTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,14 @@ export interface FileRoutesById {
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/party/$id': typeof PartyIdRoute
+  '/rsvp/$token': typeof RsvpTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/auth' | '/party/$id'
+  fullPaths: '/' | '/app' | '/auth' | '/party/$id' | '/rsvp/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/auth' | '/party/$id'
-  id: '__root__' | '/' | '/app' | '/auth' | '/party/$id'
+  to: '/' | '/app' | '/auth' | '/party/$id' | '/rsvp/$token'
+  id: '__root__' | '/' | '/app' | '/auth' | '/party/$id' | '/rsvp/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +76,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
   PartyIdRoute: typeof PartyIdRoute
+  RsvpTokenRoute: typeof RsvpTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -92,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/rsvp/$token': {
+      id: '/rsvp/$token'
+      path: '/rsvp/$token'
+      fullPath: '/rsvp/$token'
+      preLoaderRoute: typeof RsvpTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/party/$id': {
       id: '/party/$id'
       path: '/party/$id'
@@ -107,6 +124,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
   PartyIdRoute: PartyIdRoute,
+  RsvpTokenRoute: RsvpTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

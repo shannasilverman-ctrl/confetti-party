@@ -50,6 +50,7 @@ import {
 import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
 import { OverviewTab } from "@/components/overview-tab";
+import { RsvpShareButton } from "@/components/rsvp-share-button";
 
 export type TabKey =
   | "overview"
@@ -396,14 +397,17 @@ function GuestsTab({ partyId }: { partyId: string }) {
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant="success">{g.yes} yes</Badge>
         <Badge variant="warning">{g.maybe} maybe</Badge>
         <Badge variant="destructive">{g.no} no</Badge>
         <Badge variant="soft">{g.invited} no reply</Badge>
-        <span className="ml-auto text-sm text-muted-foreground">
-          Headcount: <strong className="text-secondary">{g.adults}</strong> adults ·{" "}
-          <strong className="text-secondary">{g.kids}</strong> kids
+        <span className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
+          <span>
+            Headcount: <strong className="text-secondary">{g.adults}</strong> adults ·{" "}
+            <strong className="text-secondary">{g.kids}</strong> kids
+          </span>
+          <RsvpShareButton partyId={partyId} />
         </span>
       </div>
 
@@ -442,11 +446,18 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
                 </div>
-                <Input
-                  className="max-w-[220px] border-transparent bg-transparent focus-visible:border-input"
-                  value={guest.name}
-                  onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
-                />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Input
+                    className="max-w-[220px] border-transparent bg-transparent focus-visible:border-input"
+                    value={guest.name}
+                    onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
+                  />
+                  {guest.source === "link" && (
+                    <Badge variant="soft" className="hidden shrink-0 text-[10px] sm:inline-flex">
+                      via link
+                    </Badge>
+                  )}
+                </div>
                 <Select
                   value={guest.kind}
                   onValueChange={(v) => updateGuest(guest.id, { kind: v as "adult" | "kid" })}

@@ -39,7 +39,7 @@ export const BUCKETS: Bucket[] = [
 ];
 
 export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
-export type Guest = { id: string; name: string; kind: "adult" | "kid"; rsvp: RSVP };
+export type Guest = { id: string; name: string; kind: "adult" | "kid"; rsvp: RSVP; source?: "link" };
 export type Expense = { id: string; label: string; amount: number };
 export type BudgetCategory = {
   id: string;
@@ -58,6 +58,7 @@ export type Party = {
   budget: number;
   theme: string; // display name
   themeId?: string; // links to THEMES catalog
+  rsvpToken?: string;
   tasks: Task[];
   guests: Guest[];
   budgetCategories: BudgetCategory[];
@@ -325,6 +326,7 @@ function rowToParty(r: {
   budget: number;
   theme: string;
   theme_id: string | null;
+  rsvp_token?: string | null;
   tasks: unknown;
   guests: unknown;
   budget_categories: unknown;
@@ -340,6 +342,7 @@ function rowToParty(r: {
     budget: Number(r.budget),
     theme: r.theme,
     themeId: r.theme_id ?? undefined,
+    rsvpToken: r.rsvp_token ?? undefined,
     tasks: (r.tasks as Task[]) ?? [],
     guests: (r.guests as Guest[]) ?? [],
     budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
@@ -403,7 +406,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [parties, setParties] = useState<Party[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadKey, setReloadKey] = useState(0);
-  const savingRef = useRef<Set<string>>(new Set());
+  const savingRef = useRef<Map<string, "in-flight" | Party>>(new Map());
 
   // Load data based on auth state.
   useEffect(() => {
@@ -438,15 +441,44 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const persist = useCallback(
     async (p: Party) => {
       if (!user) return;
-      if (savingRef.current.has(p.id)) return;
-      savingRef.current.add(p.id);
+      const state = savingRef.current.get(p.id);
+      if (state && state !== "in-flight") {
+        // Another save is already in-flight; queue this as the latest pending.
+        savingRef.current.set(p.id, p);
+        return;
+      }
+      if (state === "in-flight") {
+        savingRef.current.set(p.id, p);
+        return;
+      }
+      savingRef.current.set(p.id, "in-flight");
+      let current: Party = p;
       try {
-        const { error } = await supabase
-          .from("parties")
-          .upsert(partyToRow(p, user.id));
-        if (error) {
-          console.error("[parties] save failed", error);
-          toast.error("Couldn't save changes. Check your connection.");
+        while (true) {
+          const { data, error } = await supabase
+            .from("parties")
+            .upsert(partyToRow(current, user.id))
+            .select("rsvp_token")
+            .maybeSingle();
+          if (error) {
+            console.error("[parties] save failed", error);
+            toast.error("Couldn't save changes. Check your connection.");
+            break;
+          }
+          // If server assigned an rsvp_token (new row), reflect it locally.
+          const token = data?.rsvp_token;
+          if (token && !current.rsvpToken) {
+            setParties((prev) =>
+              prev.map((pp) => (pp.id === current.id ? { ...pp, rsvpToken: token } : pp)),
+            );
+          }
+          const pending = savingRef.current.get(current.id);
+          if (pending && pending !== "in-flight") {
+            current = pending;
+            savingRef.current.set(current.id, "in-flight");
+            continue;
+          }
+          break;
         }
       } finally {
         savingRef.current.delete(p.id);

@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { RsvpShareButton } from "@/components/rsvp-share-button";
 import {
   BUCKETS,
   daysUntil,
@@ -171,6 +172,9 @@ export function OverviewTab({
             </p>
           </div>
         )}
+        <div className="mt-4">
+          <RsvpShareButton partyId={partyId} />
+        </div>
       </section>
 
       {/* Budget health */}
