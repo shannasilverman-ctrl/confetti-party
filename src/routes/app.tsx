@@ -14,7 +14,7 @@ import {
 import { themesForOccasion, type Theme } from "@/lib/themes";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
-import { ConfettiBurst } from "@/components/confetti-burst";
+import { ConfettiBurst, celebrateAtEvent } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
