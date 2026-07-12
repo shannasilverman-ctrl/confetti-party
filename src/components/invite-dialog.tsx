@@ -113,6 +113,7 @@ export function InviteDialog({
       link.href = dataUrl;
       link.click();
       toast.success("Invite image saved");
+      celebrate("micro");
     } catch (e) {
       console.error("[invite] download failed", e);
       toast.error("Couldn't create image — try again.");
