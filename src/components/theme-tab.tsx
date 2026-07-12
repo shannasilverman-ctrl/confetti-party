@@ -13,8 +13,10 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   const gallery = themesForOccasion(party.occasion);
   const activeTheme = themeById(party.themeId);
 
-  function selectTheme(t: Theme) {
+  function selectTheme(t: Theme, e?: React.MouseEvent) {
+    if (party.themeId === t.id) return;
     updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
+    if (e) celebrateAtEvent("small", e);
   }
 
   function addDiyToChecklist(idea: DecorIdea) {
