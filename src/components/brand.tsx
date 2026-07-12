@@ -31,21 +31,36 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
 }
 
 /**
- * Split-letter animation for the "Confetti" wordmark. Runs once on mount.
+ * "Confetti" wordmark. Each letter gets a subtle alternating rotation so
+ * the word feels like it just fluttered into place. When `animated`, the
+ * letters also pop in one-by-one. Rotation composes with the pop keyframes
+ * via the --letter-rot custom property and is respected in the final state.
  */
-function AnimatedWordmark({ text, className = "" }: { text: string; className?: string }) {
+function Wordmark({ text, animated = false }: { text: string; animated?: boolean }) {
   return (
-    <span className={className} aria-label={text}>
-      {text.split("").map((ch, i) => (
-        <span
-          key={i}
-          className="inline-block animate-letter-pop motion-reduce-fade"
-          style={{ animationDelay: `${i * 55}ms` }}
-          aria-hidden
-        >
-          {ch}
-        </span>
-      ))}
+    <span aria-label={text}>
+      {text.split("").map((ch, i) => {
+        const rot = (i % 2 === 0 ? -1 : 1) * 1.5;
+        return (
+          <span
+            key={i}
+            className={
+              "inline-block " +
+              (animated ? "animate-letter-pop motion-reduce-fade" : "")
+            }
+            style={{
+              // custom prop is read by the letter-pop keyframes; also acts as
+              // the resting transform when not animated
+              ["--letter-rot" as string]: `${rot}deg`,
+              transform: animated ? undefined : `rotate(${rot}deg)`,
+              animationDelay: animated ? `${i * 55}ms` : undefined,
+            }}
+            aria-hidden
+          >
+            {ch === " " ? "\u00a0" : ch}
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -54,11 +69,11 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
   return (
     <Link to="/" className="flex items-center gap-2">
       <BrandMark className="h-9 w-9" />
-      <span className="font-display text-xl font-semibold tracking-tight text-secondary">
-        {animated ? <AnimatedWordmark text="Confetti" /> : "Confetti"}
+      <span className="font-display text-xl font-bold tracking-tight text-secondary">
+        <Wordmark text="Confetti" animated={animated} />
       </span>
     </Link>
   );
 }
 
-export { AnimatedWordmark };
+export { Wordmark as AnimatedWordmark };
