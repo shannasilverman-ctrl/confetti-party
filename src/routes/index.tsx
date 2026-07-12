@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
+import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliates";
 import { ConfettiBurst, fireConfetti } from "@/components/confetti-burst";
 import { CheckCircle2, Calendar, Wallet, Sparkles, ArrowRight } from "lucide-react";
 
@@ -175,6 +176,13 @@ function Landing() {
             © {new Date().getFullYear()} Confetti. Made for people who host.
           </p>
         </div>
+        {affiliateDisclosureEnabled() && (
+          <div className="border-t border-border">
+            <p className="mx-auto max-w-6xl px-6 py-3 text-center text-[11px] text-muted-foreground">
+              {AFFILIATE_DISCLOSURE}
+            </p>
+          </div>
+        )}
       </footer>
     </div>
   );
