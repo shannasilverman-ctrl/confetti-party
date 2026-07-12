@@ -64,7 +64,7 @@ function PartyWorkspace() {
   const { id } = Route.useParams();
   const { getParty } = useParties();
   const party = getParty(id);
-  const [tab, setTab] = useState<TabKey>("checklist");
+  const [tab, setTab] = useState<TabKey>("theme");
 
   if (!party) {
     return (
