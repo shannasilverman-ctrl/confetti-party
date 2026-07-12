@@ -264,6 +264,8 @@ function seedMaya(): Party {
     name: "Maya's 8th Birthday",
     occasion: "birthday",
     date,
+    startTime: "2:00 PM",
+    location: "Our backyard",
     guestEstimate: 18,
     budget: 600,
     theme: "Unicorn Rainbow",
