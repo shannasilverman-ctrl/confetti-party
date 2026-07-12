@@ -190,15 +190,33 @@
     border-color: var(--color-border);
   }
   html {
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
+    font-size: 16px;
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
+  /* Display headings and big stat numbers get tabular numerals so budget
+     columns and countdowns align. Wordmark letters are unaffected. */
+  .font-display {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+}
+
+@keyframes letter-flutter {
+  from, to { transform: rotate(var(--letter-rot, 0deg)); }
+}
+@utility animate-letter-flutter {
+  animation: letter-flutter 1ms linear forwards;
 }
