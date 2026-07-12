@@ -166,17 +166,6 @@ const OCCASIONS: { value: OccasionType; label: string; emoji: string }[] = [
   { value: "other", label: "Other", emoji: "🎉" },
 ];
 
-const THEMES = [
-  "Elegant & Minimal",
-  "Boho Garden",
-  "Neon Retro",
-  "Unicorn Rainbow",
-  "Tropical Luau",
-  "Cozy Cottagecore",
-  "Backyard Casual",
-  "Black Tie Glam",
-];
-
 function NewPartyWizard({
   open,
   onOpenChange,
@@ -192,7 +181,9 @@ function NewPartyWizard({
   const [date, setDate] = useState("");
   const [guestEstimate, setGuestEstimate] = useState(20);
   const [budget, setBudget] = useState(500);
-  const [theme, setTheme] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme | null>(null);
+
+  const themeOptions = occasion ? themesForOccasion(occasion) : [];
 
   function reset() {
     setStep(1);
@@ -206,17 +197,32 @@ function NewPartyWizard({
 
   function finish() {
     if (!occasion || !date || !theme) return;
+    // Seed a small set of theme decor tasks into the checklist
+    const extraTasks: Task[] = theme.decorIdeas.slice(0, 4).map((idea) => ({
+      id: newId(),
+      title: `${idea.kind === "DIY" ? "DIY: " : ""}${idea.title}`,
+      bucket: idea.bucket,
+      done: false,
+    }));
     const id = createParty({
       name: name || `New ${OCCASION_LABELS[occasion]}`,
       occasion,
       date,
       guestEstimate,
       budget,
-      theme,
+      theme: theme.name,
+      themeId: theme.id,
+      extraTasks,
     });
     onOpenChange(false);
     reset();
     void navigate({ to: "/party/$id", params: { id } });
+  }
+
+  // Reset selected theme when occasion changes so palette matches
+  function selectOccasion(o: OccasionType) {
+    setOccasion(o);
+    setTheme(null);
   }
 
   return (
@@ -227,12 +233,12 @@ function NewPartyWizard({
         if (!v) reset();
       }}
     >
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-secondary">
             {step === 1 && "What are you hosting?"}
             {step === 2 && "The essentials"}
-            {step === 3 && "Pick a vibe"}
+            {step === 3 && "Pick your theme"}
           </DialogTitle>
           <div className="mt-2 flex gap-1.5">
             {[1, 2, 3].map((n) => (
@@ -251,7 +257,7 @@ function NewPartyWizard({
             {OCCASIONS.map((o) => (
               <button
                 key={o.value}
-                onClick={() => setOccasion(o.value)}
+                onClick={() => selectOccasion(o.value)}
                 className={`rounded-2xl border p-5 text-left transition ${
                   occasion === o.value
                     ? "border-primary bg-primary/5 shadow-card"
@@ -313,21 +319,60 @@ function NewPartyWizard({
         )}
 
         {step === 3 && (
-          <div className="grid grid-cols-2 gap-3 py-4">
-            {THEMES.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={`rounded-2xl border p-4 text-left transition ${
-                  theme === t
-                    ? "border-primary bg-primary/5 shadow-card"
-                    : "border-border hover:border-primary/40 hover:bg-muted/40"
-                }`}
-              >
-                <Sparkles className="h-4 w-4 text-primary" />
-                <div className="mt-2 text-sm font-medium text-secondary">{t}</div>
-              </button>
-            ))}
+          <div className="py-4">
+            {themeOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No themes yet for this occasion. You can still create the party and pick one later.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {themeOptions.map((t) => {
+                  const selected = theme?.id === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setTheme(t)}
+                      className={`group overflow-hidden rounded-2xl border text-left transition ${
+                        selected
+                          ? "border-primary shadow-card ring-2 ring-primary/30"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                        <img
+                          src={t.heroImage}
+                          alt={t.name}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition group-hover:scale-105"
+                        />
+                        {selected && (
+                          <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card">
+                            <Check className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <div className="font-display text-base font-semibold text-secondary">
+                          {t.name}
+                        </div>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                          {t.vibe}
+                        </p>
+                        <div className="mt-2 flex gap-1">
+                          {t.palette.map((c, i) => (
+                            <span
+                              key={i}
+                              className="h-4 w-4 rounded-full border border-border"
+                              style={{ backgroundColor: c }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -358,3 +403,4 @@ function NewPartyWizard({
     </Dialog>
   );
 }
+
