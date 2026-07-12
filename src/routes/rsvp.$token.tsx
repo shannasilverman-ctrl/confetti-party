@@ -15,6 +15,8 @@ import { fireConfetti } from "@/components/confetti-burst";
 type PartyView = {
   name: string;
   date: string;
+  start_time: string | null;
+  location: string | null;
   occasion: string;
   theme_id: string | null;
   theme: string | null;
