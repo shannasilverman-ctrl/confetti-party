@@ -57,12 +57,7 @@ function Landing() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <BrandLockup animated />
         <nav className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/app">Sign in</Link>
-          </Button>
-          <Button asChild size="sm" variant="festive">
-            <Link to="/app">Open app</Link>
-          </Button>
+          <AuthNav variant="landing" />
         </nav>
       </header>
 
