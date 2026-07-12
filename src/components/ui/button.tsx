@@ -46,12 +46,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, onClick, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-      if (variant === "festive") {
-        // Lazy import to avoid a client/server module cycle at import time.
-        import("@/components/confetti-burst").then(({ celebrateAtEvent }) =>
-          celebrateAtEvent("micro", e),
-        );
-      }
+      if (variant === "festive") celebrateAtEvent("micro", e);
       onClick?.(e);
     };
     return (
