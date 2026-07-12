@@ -171,6 +171,9 @@ export function OverviewTab({
             </p>
           </div>
         )}
+        <div className="mt-4">
+          <RsvpShareButton partyId={partyId} />
+        </div>
       </section>
 
       {/* Budget health */}
