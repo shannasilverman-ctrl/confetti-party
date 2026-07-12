@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { fireConfetti } from "@/components/confetti-burst";
+import { fireConfetti, celebrate } from "@/components/confetti-burst";
 
 type PartyView = {
   name: string;
