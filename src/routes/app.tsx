@@ -8,7 +8,10 @@ import {
   useParties,
   OCCASION_LABELS,
   type OccasionType,
+  type Task,
+  newId,
 } from "@/lib/party-context";
+import { themesForOccasion, type Theme } from "@/lib/themes";
 import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +25,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Wallet, Plus, ArrowRight, Sparkles, PartyPopper } from "lucide-react";
+import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check } from "lucide-react";
+
 
 export const Route = createFileRoute("/app")({
   component: Dashboard,
