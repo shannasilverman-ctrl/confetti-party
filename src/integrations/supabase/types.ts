@@ -25,6 +25,7 @@ export type Database = {
           id: string
           name: string
           occasion: string
+          rsvp_token: string
           shopping_items: Json
           tasks: Json
           theme: string
@@ -43,6 +44,7 @@ export type Database = {
           id?: string
           name: string
           occasion: string
+          rsvp_token?: string
           shopping_items?: Json
           tasks?: Json
           theme?: string
@@ -61,6 +63,7 @@ export type Database = {
           id?: string
           name?: string
           occasion?: string
+          rsvp_token?: string
           shopping_items?: Json
           tasks?: Json
           theme?: string
@@ -76,7 +79,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_rsvp_party: { Args: { token: string }; Returns: Json }
+      submit_rsvp: {
+        Args: {
+          adults: number
+          guest_name: string
+          kids: number
+          rsvp: string
+          token: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
