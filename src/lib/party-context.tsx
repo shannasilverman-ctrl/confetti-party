@@ -310,6 +310,8 @@ type Ctx = {
     name: string;
     occasion: OccasionType;
     date: string;
+    startTime?: string;
+    location?: string;
     guestEstimate: number;
     budget: number;
     theme: string;
