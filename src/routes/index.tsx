@@ -69,7 +69,11 @@ function Landing() {
       {/* Hero */}
       <section className="bg-confetti">
         <div className="mx-auto max-w-6xl px-6 pb-24 pt-14 sm:pt-20">
-          <div className="mx-auto max-w-3xl text-center">
+          <div className="relative mx-auto max-w-3xl text-center">
+            {/* one-shot confetti burst behind the hero on first load */}
+            <div className="pointer-events-none absolute left-1/2 top-24 -translate-x-1/2">
+              <ConfettiBurst active={heroBurst > 0} count={28} spread={220} />
+            </div>
             <span className="inline-flex items-center gap-2 rounded-full border border-secondary/15 bg-card/70 px-4 py-1.5 text-xs font-medium text-secondary shadow-card backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               For everyday hosts
