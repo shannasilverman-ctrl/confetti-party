@@ -326,6 +326,7 @@ function rowToParty(r: {
   budget: number;
   theme: string;
   theme_id: string | null;
+  rsvp_token?: string | null;
   tasks: unknown;
   guests: unknown;
   budget_categories: unknown;
@@ -341,6 +342,7 @@ function rowToParty(r: {
     budget: Number(r.budget),
     theme: r.theme,
     themeId: r.theme_id ?? undefined,
+    rsvpToken: r.rsvp_token ?? undefined,
     tasks: (r.tasks as Task[]) ?? [],
     guests: (r.guests as Guest[]) ?? [],
     budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
