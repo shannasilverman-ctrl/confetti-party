@@ -38,29 +38,32 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
  */
 function Wordmark({ text, animated = false }: { text: string; animated?: boolean }) {
   return (
-    <span aria-label={text}>
-      {text.split("").map((ch, i) => {
-        const rot = (i % 2 === 0 ? -1 : 1) * 1.5;
-        return (
-          <span
-            key={i}
-            className={
-              "inline-block " +
-              (animated ? "animate-letter-pop motion-reduce-fade" : "")
-            }
-            style={{
-              // custom prop is read by the letter-pop keyframes; also acts as
-              // the resting transform when not animated
-              ["--letter-rot" as string]: `${rot}deg`,
-              transform: `rotate(${rot}deg)`,
-              animationDelay: animated ? `${i * 55}ms` : undefined,
-            }}
-            aria-hidden
-          >
-            {ch === " " ? "\u00a0" : ch}
-          </span>
-        );
-      })}
+    <span>
+      {/* Visually hidden full word for robust screen reader support. */}
+      <span className="sr-only">{text}</span>
+      <span aria-hidden>
+        {text.split("").map((ch, i) => {
+          const rot = (i % 2 === 0 ? -1 : 1) * 1.5;
+          return (
+            <span
+              key={i}
+              className={
+                "inline-block " +
+                (animated ? "animate-letter-pop motion-reduce-fade" : "")
+              }
+              style={{
+                // custom prop is read by the letter-pop keyframes; also acts as
+                // the resting transform when not animated
+                ["--letter-rot" as string]: `${rot}deg`,
+                transform: `rotate(${rot}deg)`,
+                animationDelay: animated ? `${i * 55}ms` : undefined,
+              }}
+            >
+              {ch === " " ? "\u00a0" : ch}
+            </span>
+          );
+        })}
+      </span>
     </span>
   );
 }
