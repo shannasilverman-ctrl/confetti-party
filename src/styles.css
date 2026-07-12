@@ -134,6 +134,56 @@
   animation: confetti-burst 0.7s ease-out forwards;
 }
 
+@keyframes letter-pop {
+  0%   { transform: translateY(14px) scale(0.6); opacity: 0; }
+  60%  { transform: translateY(-2px) scale(1.12); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@utility animate-letter-pop {
+  animation: letter-pop 0.45s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+@keyframes piece-fly {
+  0%   { transform: translate(0,0) rotate(0deg) scale(0.4); opacity: 0; }
+  20%  { opacity: 1; }
+  100% {
+    transform:
+      translate(var(--tx, 0), var(--ty, 0))
+      rotate(var(--tr, 180deg))
+      scale(1);
+    opacity: 0;
+  }
+}
+@utility animate-piece-fly {
+  animation: piece-fly 1s cubic-bezier(.2,.7,.3,1) forwards;
+}
+
+@keyframes logo-shimmer {
+  0%, 100% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  40%      { opacity: 0.55; }
+  60%      { transform: translateX(120%) skewX(-18deg); opacity: 0; }
+}
+@utility animate-logo-shimmer {
+  animation: logo-shimmer 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-letter-pop,
+  .animate-piece-fly,
+  .animate-confetti,
+  .animate-logo-shimmer,
+  .animate-pop {
+    animation: none !important;
+  }
+  .motion-reduce-fade {
+    animation: fade-in 0.3s ease-out both !important;
+  }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
