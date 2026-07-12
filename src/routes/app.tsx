@@ -413,7 +413,7 @@ function NewPartyWizard({
             <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
               <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" aria-hidden />
               <PartyPopper className="h-10 w-10 animate-scale-in" />
-              <Confetti />
+              <ConfettiBurst active count={22} spread={130} />
             </div>
             <h3 className="mt-5 font-display text-2xl font-semibold text-secondary">
               {createdParty.name}
