@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { RsvpShareButton } from "@/components/rsvp-share-button";
 import {
   BUCKETS,
   daysUntil,
