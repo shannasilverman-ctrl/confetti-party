@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
+import { InviteDialog } from "@/components/invite-dialog";
+import { EditDetailsDialog } from "@/components/edit-details-dialog";
 import {
   BUCKETS,
   daysUntil,
@@ -19,7 +22,10 @@ import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
+  Clock,
   ListChecks,
+  MapPin,
+  Mail,
   Sparkles,
   Users,
   Wallet,
