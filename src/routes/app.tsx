@@ -316,13 +316,17 @@ function NewPartyWizard({
 
   function finish() {
     if (!occasion || !date || !theme) return;
-    // Seed a small set of theme decor tasks into the checklist
-    const extraTasks: Task[] = theme.decorIdeas.slice(0, 4).map((idea) => ({
-      id: newId(),
-      title: `${idea.kind === "DIY" ? "DIY: " : ""}${idea.title}`,
-      bucket: idea.bucket,
-      done: false,
-    }));
+    // Seed a small set of theme decor tasks into the checklist.
+    // Skip purely instructional ideas (estPrice 0) so seeded tasks are actionable items.
+    const extraTasks: Task[] = theme.decorIdeas
+      .filter((idea) => idea.estPrice > 0)
+      .slice(0, 4)
+      .map((idea) => ({
+        id: newId(),
+        title: `${idea.kind === "DIY" ? "DIY: " : ""}${idea.title}`,
+        bucket: idea.bucket,
+        done: false,
+      }));
     const id = createParty({
       name: name || `New ${OCCASION_LABELS[occasion]}`,
       occasion,
