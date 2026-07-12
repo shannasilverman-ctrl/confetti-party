@@ -667,7 +667,7 @@ export const THEMES: Theme[] = [
       { title: "Single-stem dark florals in small vessels", kind: "Buy", bucket: "Party week", estPrice: 16 },
       { title: "Matte black stoneware plates", kind: "Buy", bucket: "3-5 weeks", estPrice: 14 },
       { title: "Linen napkins tied with brass rings", kind: "DIY", bucket: "1-2 weeks", estPrice: 18 },
-      { title: "Dim the overheads to 20%, candles do the work", kind: "DIY", bucket: "Day of", estPrice: 14 },
+      { title: "Dim the overheads to 20%, candles do the work", kind: "DIY", bucket: "Day of", estPrice: 0 },
       { title: "Cocktail menu printed on black card stock", kind: "DIY", bucket: "Party week", estPrice: 15 },
     ],
     stylingTips: [
