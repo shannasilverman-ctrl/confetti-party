@@ -94,12 +94,12 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       openPurchase(item);
       return;
     }
-    if (item.status === "purchased" && next !== "purchased") {
-      updateParty(partyId, (p) => unmarkShoppingPurchased(p, item.id));
-      // Then set to next (needed vs in-cart)
-      if (next !== "needed") {
-        updateParty(partyId, (p) => setShoppingStatus(p, item.id, next));
-      }
+    if (item.status === "purchased") {
+      // Strip the linked expense, then set the requested next status.
+      updateParty(partyId, (p) => {
+        const cleaned = unmarkShoppingPurchased(p, item.id);
+        return next === "needed" ? cleaned : setShoppingStatus(cleaned, item.id, next);
+      });
       return;
     }
     updateParty(partyId, (p) => setShoppingStatus(p, item.id, next));
