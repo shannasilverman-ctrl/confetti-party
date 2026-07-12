@@ -494,7 +494,10 @@ function NewPartyWizard({
                   return (
                     <button
                       key={t.id}
-                      onClick={() => setTheme(t)}
+                      onClick={(e) => {
+                        if (theme?.id !== t.id) celebrateAtEvent("small", e);
+                        setTheme(t);
+                      }}
                       className={`group overflow-hidden rounded-2xl border text-left transition ${
                         selected
                           ? "border-primary shadow-card ring-2 ring-primary/30"
