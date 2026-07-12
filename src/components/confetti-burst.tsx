@@ -142,6 +142,48 @@ export function fireConfetti(opts: { origin?: { x: number; y: number }; count?: 
 }
 
 /**
+ * Global throttled celebration helper with three presets. Every burst
+ * flows through fireConfetti (which already skips when the user prefers
+ * reduced motion), and a shared 300ms throttle prevents stacked bursts
+ * from rapid clicking.
+ */
+let __lastCelebrateAt = 0;
+export type CelebrateIntensity = "micro" | "small" | "big";
+export function celebrate(
+  intensity: CelebrateIntensity,
+  origin?: { x: number; y: number },
+) {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (now - __lastCelebrateAt < 300) return;
+  __lastCelebrateAt = now;
+  const presets: Record<CelebrateIntensity, { count: number; spread: number }> = {
+    micro: { count: 7, spread: 50 },
+    small: { count: 14, spread: 100 },
+    big: { count: 32, spread: 180 },
+  };
+  const { count, spread } = presets[intensity];
+  fireConfetti({ origin, count, spread });
+}
+
+/** Fire a burst positioned at a pointer event, falling back to the
+ *  target element's center when clientX/Y aren't meaningful (keyboard
+ *  activation, synthetic events). */
+export function celebrateAtEvent(
+  intensity: CelebrateIntensity,
+  e: { clientX?: number; clientY?: number; currentTarget?: EventTarget | null },
+) {
+  let origin: { x: number; y: number } | undefined;
+  if (typeof e.clientX === "number" && typeof e.clientY === "number" && (e.clientX || e.clientY)) {
+    origin = { x: e.clientX, y: e.clientY };
+  } else if (e.currentTarget && e.currentTarget instanceof Element) {
+    const r = e.currentTarget.getBoundingClientRect();
+    origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+  celebrate(intensity, origin);
+}
+
+/**
  * Client-only portal helper (useful if you want a burst anchored to an element
  * but escaping overflow: hidden ancestors).
  */
