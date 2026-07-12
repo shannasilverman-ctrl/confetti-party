@@ -58,6 +58,7 @@ export type Party = {
   budget: number;
   theme: string; // display name
   themeId?: string; // links to THEMES catalog
+  rsvpToken?: string;
   tasks: Task[];
   guests: Guest[];
   budgetCategories: BudgetCategory[];
