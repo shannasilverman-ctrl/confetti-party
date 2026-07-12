@@ -18,6 +18,8 @@ const badgeVariants = cva(
         success: "border-transparent bg-success/15 text-success",
         warning: "border-transparent bg-warning/20 text-warning-foreground",
         accent: "border-transparent bg-accent/25 text-secondary",
+        onFestive: "border-transparent bg-card/90 text-secondary hover:bg-card",
+
       },
     },
     defaultVariants: {
