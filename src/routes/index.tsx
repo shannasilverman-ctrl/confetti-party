@@ -7,13 +7,13 @@ export const Route = createFileRoute("/")({
   component: Landing,
   head: () => ({
     meta: [
-      { title: "Hostwell — Party planning made easy" },
+      { title: "Confetti | Party Planning Made Easy" },
       {
         name: "description",
         content:
           "Plan any party from first idea to final toast. Checklists, guests, budget, and day-of timeline in one warm little app.",
       },
-      { property: "og:title", content: "Hostwell — Party planning made easy" },
+      { property: "og:title", content: "Confetti | Party Planning Made Easy" },
       {
         property: "og:description",
         content: "From first idea to final toast — everything you need to host well.",
