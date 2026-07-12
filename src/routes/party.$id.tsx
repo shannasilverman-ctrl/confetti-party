@@ -46,11 +46,13 @@ import {
   Palette,
   ShoppingCart,
   LayoutDashboard,
+  Mail,
 } from "lucide-react";
 import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
 import { OverviewTab } from "@/components/overview-tab";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
+import { InviteDialog } from "@/components/invite-dialog";
 
 export type TabKey =
   | "overview"
@@ -375,6 +377,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
   const g = guestCounts(party);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<"adult" | "kid">("adult");
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const add = () => {
     if (!name.trim()) return;
@@ -402,14 +405,18 @@ function GuestsTab({ partyId }: { partyId: string }) {
         <Badge variant="warning">{g.maybe} maybe</Badge>
         <Badge variant="destructive">{g.no} no</Badge>
         <Badge variant="soft">{g.invited} no reply</Badge>
-        <span className="ml-auto flex items-center gap-3 text-sm text-muted-foreground">
+        <span className="ml-auto flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span>
             Headcount: <strong className="text-secondary">{g.adults}</strong> adults ·{" "}
             <strong className="text-secondary">{g.kids}</strong> kids
           </span>
+          <Button variant="festive" size="sm" onClick={() => setInviteOpen(true)}>
+            <Mail /> Create invite
+          </Button>
           <RsvpShareButton partyId={partyId} />
         </span>
       </div>
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} partyId={partyId} />
 
       {/* Add */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card">

@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
+import { InviteDialog } from "@/components/invite-dialog";
+import { EditDetailsDialog } from "@/components/edit-details-dialog";
 import {
   BUCKETS,
   daysUntil,
@@ -19,7 +22,10 @@ import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
+  Clock,
   ListChecks,
+  MapPin,
+  Mail,
   Sparkles,
   Users,
   Wallet,
@@ -44,6 +50,7 @@ export function OverviewTab({
 }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const days = daysUntil(party.date);
   const prog = progressPct(party);
@@ -86,6 +93,9 @@ export function OverviewTab({
                     ? "Today"
                     : `${Math.abs(days)} days ago`}
               </Badge>
+              <div className="ml-auto">
+                <EditDetailsDialog partyId={partyId} />
+              </div>
             </div>
             <h2 className="mt-2 truncate font-display text-2xl font-semibold text-secondary sm:text-3xl">
               {party.name}
@@ -94,6 +104,20 @@ export function OverviewTab({
               {prog}% planned ·{" "}
               {party.tasks.filter((t) => t.done).length}/{party.tasks.length} tasks complete
             </p>
+            {(party.startTime || party.location) && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {party.startTime && (
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" /> {party.startTime}
+                  </span>
+                )}
+                {party.location && (
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {party.location}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -172,10 +196,14 @@ export function OverviewTab({
             </p>
           </div>
         )}
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="festive" size="sm" onClick={() => setInviteOpen(true)}>
+            <Mail /> Create invite
+          </Button>
           <RsvpShareButton partyId={partyId} />
         </div>
       </section>
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} partyId={partyId} />
 
       {/* Budget health */}
       <section

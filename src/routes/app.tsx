@@ -297,6 +297,8 @@ function NewPartyWizard({
   const [occasion, setOccasion] = useState<OccasionType | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [location, setLocation] = useState("");
   const [guestEstimate, setGuestEstimate] = useState(20);
   const [budget, setBudget] = useState(500);
   const [theme, setTheme] = useState<Theme | null>(null);
@@ -309,6 +311,8 @@ function NewPartyWizard({
     setOccasion(null);
     setName("");
     setDate("");
+    setStartTime("");
+    setLocation("");
     setGuestEstimate(20);
     setBudget(500);
     setTheme(null);
@@ -331,6 +335,8 @@ function NewPartyWizard({
       name: name || `New ${OCCASION_LABELS[occasion]}`,
       occasion,
       date,
+      startTime: startTime.trim() || undefined,
+      location: location.trim() || undefined,
       guestEstimate,
       budget,
       theme: theme.name,
@@ -429,6 +435,26 @@ function NewPartyWizard({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="start-time">Start time (optional)</Label>
+                <Input
+                  id="start-time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  placeholder="e.g. 2:00 PM"
+                />
+              </div>
+              <div>
+                <Label htmlFor="location">Location (optional)</Label>
+                <Input
+                  id="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Our backyard"
+                />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
