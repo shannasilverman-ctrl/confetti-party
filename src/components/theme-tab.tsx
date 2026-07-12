@@ -26,6 +26,8 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   }
 
   function addBuyToShopping(idea: DecorIdea) {
+    // Purely instructional ideas carry no price; don't add them as shopping items.
+    if (idea.estPrice <= 0) return;
     updateParty(partyId, (p) =>
       addShoppingItem(p, {
         name: idea.title,
@@ -41,7 +43,9 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   const shoppingNames = new Set(party.shoppingItems.map((i) => i.name));
   const taskTitles = new Set(party.tasks.map((t) => t.title));
   const isAdded = (idea: DecorIdea) =>
-    idea.kind === "Buy" ? shoppingNames.has(idea.title) : taskTitles.has(`DIY: ${idea.title}`);
+    idea.kind === "Buy"
+      ? idea.estPrice <= 0 || shoppingNames.has(idea.title)
+      : taskTitles.has(`DIY: ${idea.title}`);
 
 
   if (gallery.length === 0) {
