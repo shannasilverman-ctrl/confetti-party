@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { fireConfetti } from "@/components/confetti-burst";
+import { fireConfetti, celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import {
   BUCKETS,
   categoryActual,
@@ -329,6 +329,9 @@ function ChecklistTab({ partyId }: { partyId: string }) {
                   <div className={poppedId === t.id ? "animate-pop" : ""}>
                     <Checkbox
                       checked={t.done}
+                      onClick={(e) => {
+                        if (!t.done) celebrateAtEvent("micro", e);
+                      }}
                       onCheckedChange={() => toggle(t.id)}
                       className="h-5 w-5"
                     />
@@ -379,20 +382,25 @@ function GuestsTab({ partyId }: { partyId: string }) {
   const [kind, setKind] = useState<"adult" | "kid">("adult");
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const add = () => {
+  const add = (e?: React.MouseEvent) => {
     if (!name.trim()) return;
     updateParty(partyId, (p) => ({
       ...p,
       guests: [...p.guests, { id: newId(), name: name.trim(), kind, rsvp: "invited" }],
     }));
     setName("");
+    if (e) celebrateAtEvent("micro", e);
+    else celebrate("micro");
   };
 
-  const updateGuest = (id: string, patch: Partial<Guest>) =>
+  const updateGuest = (id: string, patch: Partial<Guest>) => {
+    const prev = party.guests.find((gg) => gg.id === id);
     updateParty(partyId, (p) => ({
       ...p,
       guests: p.guests.map((gg) => (gg.id === id ? { ...gg, ...patch } : gg)),
     }));
+    if (patch.rsvp === "yes" && prev && prev.rsvp !== "yes") celebrate("micro");
+  };
 
   const remove = (id: string) =>
     updateParty(partyId, (p) => ({ ...p, guests: p.guests.filter((gg) => gg.id !== id) }));

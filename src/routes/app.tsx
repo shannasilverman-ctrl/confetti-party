@@ -14,7 +14,7 @@ import {
 import { themesForOccasion, type Theme } from "@/lib/themes";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
-import { ConfettiBurst } from "@/components/confetti-burst";
+import { ConfettiBurst, celebrateAtEvent } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -494,7 +494,10 @@ function NewPartyWizard({
                   return (
                     <button
                       key={t.id}
-                      onClick={() => setTheme(t)}
+                      onClick={(e) => {
+                        if (theme?.id !== t.id) celebrateAtEvent("small", e);
+                        setTheme(t);
+                      }}
                       className={`group overflow-hidden rounded-2xl border text-left transition ${
                         selected
                           ? "border-primary shadow-card ring-2 ring-primary/30"

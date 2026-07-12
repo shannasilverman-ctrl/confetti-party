@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { fireConfetti } from "@/components/confetti-burst";
+import { fireConfetti, celebrate } from "@/components/confetti-burst";
 
 type PartyView = {
   name: string;
@@ -220,7 +220,11 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               <Label>Can you make it?</Label>
               <RadioGroup
                 value={rsvp}
-                onValueChange={(v) => setRsvp(v as RSVPChoice)}
+                onValueChange={(v) => {
+                  const next = v as RSVPChoice;
+                  if (next === "yes" && rsvp !== "yes") celebrate("micro");
+                  setRsvp(next);
+                }}
                 className="grid grid-cols-3 gap-2"
               >
                 {(["yes", "maybe", "no"] as RSVPChoice[]).map((val) => (

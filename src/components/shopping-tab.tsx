@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Plus, ShoppingCart, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { celebrate } from "@/components/confetti-burst";
 
 const CATEGORY_NAMES: ShoppingCategoryName[] = [
   "Venue",
@@ -84,8 +85,20 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       toast.error("Enter a valid price");
       return;
     }
+    const wasOver = projected > party.budget;
     updateParty(partyId, (p) => markShoppingPurchased(p, confirm.item.id, n));
     toast.success("Purchased", { description: `${confirm.item.name} · $${n}` });
+    celebrate("small");
+    // If this purchase brings us back under budget, celebrate that turnaround.
+    // Recompute against the just-updated projection: replacing this item's
+    // estimate (qty * estPrice) with its actual price n.
+    const nextProjected =
+      projected - confirm.item.qty * confirm.item.estPrice + n;
+    if (wasOver && nextProjected <= party.budget) {
+      toast.success("Back under budget!", {
+        description: `Projected $${Math.round(nextProjected)} of $${party.budget}.`,
+      });
+    }
     setConfirm(null);
   }
 

@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useParties, type Party } from "@/lib/party-context";
+import { celebrate } from "@/components/confetti-burst";
 import { themeById } from "@/lib/themes";
 
 function formatDate(dateISO: string) {
@@ -79,6 +80,7 @@ export function InviteDialog({
     try {
       await navigator.clipboard.writeText(url);
       toast.success("RSVP link copied");
+      celebrate("micro");
     } catch {
       toast.error("Couldn't copy link", { description: url });
     }
@@ -91,6 +93,7 @@ export function InviteDialog({
       toast.success("Invite message copied", {
         description: isReal ? "Paste into a text message." : "Preview — sign up for a real link.",
       });
+      celebrate("micro");
     } catch {
       toast.error("Couldn't copy message");
     }
@@ -110,6 +113,7 @@ export function InviteDialog({
       link.href = dataUrl;
       link.click();
       toast.success("Invite image saved");
+      celebrate("micro");
     } catch (e) {
       console.error("[invite] download failed", e);
       toast.error("Couldn't create image — try again.");

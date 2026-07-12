@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import logo from "@/assets/confetti-logo.png";
-import { ConfettiBurst } from "@/components/confetti-burst";
+import { ConfettiBurst, celebrateAtEvent } from "@/components/confetti-burst";
 
 export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
   const [burst, setBurst] = useState(0);
@@ -70,7 +70,7 @@ function Wordmark({ text, animated = false }: { text: string; animated?: boolean
 
 export function BrandLockup({ animated = false }: { animated?: boolean }) {
   return (
-    <Link to="/" className="flex items-center gap-2">
+    <Link to="/" className="flex items-center gap-2" onClick={(e) => celebrateAtEvent("micro", e)}>
       <BrandMark className="h-9 w-9" />
       <span className="font-display text-xl font-bold tracking-tight text-secondary">
         <Wordmark text="Confetti" animated={animated} />

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
+import { celebrateAtEvent } from "@/components/confetti-burst";
 import {
   AlertTriangle,
   ArrowRight,
@@ -149,6 +150,9 @@ export function OverviewTab({
               >
                 <Checkbox
                   checked={t.done}
+                  onClick={(e) => {
+                    if (!t.done) celebrateAtEvent("micro", e);
+                  }}
                   onCheckedChange={() => toggleTask(t.id)}
                   className="h-5 w-5"
                   aria-label={`Complete: ${t.title}`}

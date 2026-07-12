@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Plus, Sparkles, DoorOpen, Utensils, Gamepad2, Camera, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
+import { celebrateAtEvent } from "@/components/confetti-burst";
 
 
 export function ThemeTab({ partyId }: { partyId: string }) {
@@ -12,8 +13,10 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   const gallery = themesForOccasion(party.occasion);
   const activeTheme = themeById(party.themeId);
 
-  function selectTheme(t: Theme) {
+  function selectTheme(t: Theme, e?: React.MouseEvent) {
+    if (party.themeId === t.id) return;
     updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
+    if (e) celebrateAtEvent("small", e);
   }
 
   function addDiyToChecklist(idea: DecorIdea) {
@@ -85,7 +88,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
             return (
               <button
                 key={t.id}
-                onClick={() => selectTheme(t)}
+                onClick={(e) => selectTheme(t, e)}
                 className={`group overflow-hidden rounded-2xl border bg-card text-left shadow-card transition hover:-translate-y-1 hover:shadow-elevated ${
                   selected ? "border-primary ring-2 ring-primary/30" : "border-border"
                 }`}
