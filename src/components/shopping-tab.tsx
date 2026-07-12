@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { Check, Plus, ShoppingCart, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { celebrate } from "@/components/confetti-burst";
 
 const CATEGORY_NAMES: ShoppingCategoryName[] = [
   "Venue",
