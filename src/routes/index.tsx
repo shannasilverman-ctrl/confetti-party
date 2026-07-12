@@ -62,7 +62,7 @@ function Landing() {
       <section className="bg-confetti">
         <div className="mx-auto max-w-6xl px-6 pb-24 pt-14 sm:pt-20">
           <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-secondary/15 bg-white/70 px-4 py-1.5 text-xs font-medium text-secondary shadow-card backdrop-blur">
+            <span className="inline-flex items-center gap-2 rounded-full border border-secondary/15 bg-card/70 px-4 py-1.5 text-xs font-medium text-secondary shadow-card backdrop-blur">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
               For everyday hosts
             </span>
@@ -73,8 +73,9 @@ function Landing() {
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
               Hostwell keeps your checklist, guest list, budget, and day-of timeline in one warm
-              little app — so hosting feels like a party, not a project.
+              little app. So hosting feels like a party, not a project.
             </p>
+
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button asChild size="lg" variant="festive">
                 <Link to="/party/$id" params={{ id: "maya-8th" }}>

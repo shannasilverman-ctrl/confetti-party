@@ -41,9 +41,12 @@ import {
   ArrowUp,
   ArrowDown,
   Sparkles,
+  Palette,
 } from "lucide-react";
+import { ThemeTab } from "@/components/theme-tab";
 
-type TabKey = "checklist" | "guests" | "budget" | "timeline";
+type TabKey = "theme" | "checklist" | "guests" | "budget" | "timeline";
+
 
 export const Route = createFileRoute("/party/$id")({
   component: PartyWorkspace,
@@ -61,7 +64,7 @@ function PartyWorkspace() {
   const { id } = Route.useParams();
   const { getParty } = useParties();
   const party = getParty(id);
-  const [tab, setTab] = useState<TabKey>("checklist");
+  const [tab, setTab] = useState<TabKey>("theme");
 
   if (!party) {
     return (
@@ -82,11 +85,13 @@ function PartyWorkspace() {
   const prog = progressPct(party);
 
   const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
+    { key: "theme", label: "Theme", icon: Palette },
     { key: "checklist", label: "Checklist", icon: ListChecks },
     { key: "guests", label: "Guests", icon: Users },
     { key: "budget", label: "Budget", icon: Wallet },
     { key: "timeline", label: "Timeline", icon: Clock },
   ];
+
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
@@ -153,15 +158,17 @@ function PartyWorkspace() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "checklist" && <ChecklistTab partyId={party.id} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
         {tab === "timeline" && <TimelineTab partyId={party.id} />}
+
       </main>
 
       {/* Mobile bottom tab nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-4">
+        <div className="mx-auto grid max-w-lg grid-cols-5">
           {tabs.map((t) => (
             <button
               key={t.key}
