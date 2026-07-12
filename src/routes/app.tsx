@@ -335,6 +335,8 @@ function NewPartyWizard({
       name: name || `New ${OCCASION_LABELS[occasion]}`,
       occasion,
       date,
+      startTime: startTime.trim() || undefined,
+      location: location.trim() || undefined,
       guestEstimate,
       budget,
       theme: theme.name,
