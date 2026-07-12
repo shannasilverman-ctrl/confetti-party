@@ -1,9 +1,8 @@
-import { useState } from "react";
-import { newId, useParties, type OccasionType } from "@/lib/party-context";
+import { newId, useParties, addShoppingItem, type OccasionType } from "@/lib/party-context";
 import { themeById, themesForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Check, Plus, Sparkles, DoorOpen, Utensils, Gamepad2, Camera } from "lucide-react";
+import { Check, Plus, Sparkles, DoorOpen, Utensils, Gamepad2, Camera, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 
@@ -12,29 +11,38 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   const party = getParty(partyId)!;
   const gallery = themesForOccasion(party.occasion);
   const activeTheme = themeById(party.themeId);
-  const [pendingAdds, setPendingAdds] = useState<Set<string>>(new Set());
 
   function selectTheme(t: Theme) {
     updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
-    setPendingAdds(new Set());
   }
 
-  function addIdeaToChecklist(idea: DecorIdea, key: string) {
+  function addDiyToChecklist(idea: DecorIdea) {
+    const title = `DIY: ${idea.title}`;
     updateParty(partyId, (p) => ({
       ...p,
-      tasks: [
-        ...p.tasks,
-        {
-          id: newId(),
-          title: `${idea.kind === "DIY" ? "DIY: " : ""}${idea.title}`,
-          bucket: idea.bucket,
-          done: false,
-        },
-      ],
+      tasks: [...p.tasks, { id: newId(), title, bucket: idea.bucket, done: false }],
     }));
-    setPendingAdds((s) => new Set(s).add(key));
     toast.success("Added to checklist", { description: idea.title });
   }
+
+  function addBuyToShopping(idea: DecorIdea) {
+    updateParty(partyId, (p) =>
+      addShoppingItem(p, {
+        name: idea.title,
+        category: "Decorations",
+        qty: 1,
+        estPrice: 15,
+      }),
+    );
+    toast.success("Added to shopping list", { description: idea.title });
+  }
+
+  // Derive already-added state from party state so it persists across tab switches.
+  const shoppingNames = new Set(party.shoppingItems.map((i) => i.name));
+  const taskTitles = new Set(party.tasks.map((t) => t.title));
+  const isAdded = (idea: DecorIdea) =>
+    idea.kind === "Buy" ? shoppingNames.has(idea.title) : taskTitles.has(`DIY: ${idea.title}`);
+
 
   if (gallery.length === 0) {
     return (
