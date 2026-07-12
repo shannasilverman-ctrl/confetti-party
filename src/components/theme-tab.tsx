@@ -288,6 +288,3 @@ function occasionLabel(o: OccasionType): string {
   return o.replace("-", " ");
 }
 
-// Used by workspace to know bucket type is exported
-export type { Bucket };
-export { BUCKETS };
