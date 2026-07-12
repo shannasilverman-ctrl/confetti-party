@@ -358,11 +358,11 @@ function partyToRow(p: Party, userId: string) {
     budget: p.budget,
     theme: p.theme,
     theme_id: p.themeId ?? null,
-    tasks: p.tasks as unknown as object,
-    guests: p.guests as unknown as object,
-    budget_categories: p.budgetCategories as unknown as object,
-    shopping_items: p.shoppingItems as unknown as object,
-    timeline: p.timeline as unknown as object,
+    tasks: p.tasks as unknown as Json,
+    guests: p.guests as unknown as Json,
+    budget_categories: p.budgetCategories as unknown as Json,
+    shopping_items: p.shoppingItems as unknown as Json,
+    timeline: p.timeline as unknown as Json,
   };
 }
 
