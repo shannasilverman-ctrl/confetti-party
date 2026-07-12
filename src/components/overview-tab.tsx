@@ -50,6 +50,7 @@ export function OverviewTab({
 }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const days = daysUntil(party.date);
   const prog = progressPct(party);
