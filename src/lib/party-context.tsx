@@ -54,6 +54,8 @@ export type Party = {
   name: string;
   occasion: OccasionType;
   date: string; // ISO date
+  startTime?: string; // e.g. "2:00 PM"
+  location?: string;
   guestEstimate: number;
   budget: number;
   theme: string; // display name
