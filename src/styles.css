@@ -213,10 +213,3 @@
     font-feature-settings: "tnum" 1;
   }
 }
-
-@keyframes letter-flutter {
-  from, to { transform: rotate(var(--letter-rot, 0deg)); }
-}
-@utility animate-letter-flutter {
-  animation: letter-flutter 1ms linear forwards;
-}
