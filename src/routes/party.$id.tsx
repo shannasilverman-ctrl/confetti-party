@@ -75,9 +75,17 @@ export const Route = createFileRoute("/party/$id")({
 
 function PartyWorkspace() {
   const { id } = Route.useParams();
-  const { getParty } = useParties();
+  const { getParty, status } = useParties();
   const party = getParty(id);
   const [tab, setTab] = useState<TabKey>("overview");
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Loading your party…</div>
+      </div>
+    );
+  }
 
   if (!party) {
     return (
@@ -91,6 +99,7 @@ function PartyWorkspace() {
       </div>
     );
   }
+
 
   const days = daysUntil(party.date);
   const g = guestCounts(party);
