@@ -52,7 +52,7 @@ function Wordmark({ text, animated = false }: { text: string; animated?: boolean
               // custom prop is read by the letter-pop keyframes; also acts as
               // the resting transform when not animated
               ["--letter-rot" as string]: `${rot}deg`,
-              transform: animated ? undefined : `rotate(${rot}deg)`,
+              transform: `rotate(${rot}deg)`,
               animationDelay: animated ? `${i * 55}ms` : undefined,
             }}
             aria-hidden
