@@ -93,6 +93,7 @@ export function InviteDialog({
       toast.success("Invite message copied", {
         description: isReal ? "Paste into a text message." : "Preview — sign up for a real link.",
       });
+      celebrate("micro");
     } catch {
       toast.error("Couldn't copy message");
     }
