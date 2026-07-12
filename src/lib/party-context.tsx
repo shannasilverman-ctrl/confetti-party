@@ -442,13 +442,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     async (p: Party) => {
       if (!user) return;
       const state = savingRef.current.get(p.id);
-      if (state && state !== "in-flight") {
-        // Another save is already in-flight; queue this as the latest pending.
-        savingRef.current.set(p.id, p);
-        return;
-      }
-      if (state === "in-flight") {
-        savingRef.current.set(p.id, p);
+      if (state) {
+        // Save already in flight (or queued); record the latest pending state.
+        savingRef.current.set(p.id, state === "in-flight" ? p : p);
         return;
       }
       savingRef.current.set(p.id, "in-flight");
@@ -463,9 +459,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           if (error) {
             console.error("[parties] save failed", error);
             toast.error("Couldn't save changes. Check your connection.");
-            break;
+            // Preserve the latest pending state so a retry or next edit persists it.
+            const pending = savingRef.current.get(current.id);
+            if (!pending || pending === "in-flight") {
+              savingRef.current.set(current.id, current);
+            }
+            return;
           }
-          // If server assigned an rsvp_token (new row), reflect it locally.
           const token = data?.rsvp_token;
           if (token && !current.rsvpToken) {
             setParties((prev) =>
@@ -480,12 +480,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           }
           break;
         }
-      } finally {
         savingRef.current.delete(p.id);
+      } catch (e) {
+        console.error("[parties] save threw", e);
+        const pending = savingRef.current.get(p.id);
+        if (!pending || pending === "in-flight") {
+          savingRef.current.set(p.id, current);
+        }
       }
     },
     [user],
   );
+
 
   const value = useMemo<Ctx>(
     () => ({
