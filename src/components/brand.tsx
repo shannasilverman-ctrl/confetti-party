@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import logo from "@/assets/confetti-logo.png";
-import { ConfettiBurst } from "@/components/confetti-burst";
+import { ConfettiBurst, celebrateAtEvent } from "@/components/confetti-burst";
 
 export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
   const [burst, setBurst] = useState(0);
