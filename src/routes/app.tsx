@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   daysUntil,
   guestCounts,
@@ -25,11 +25,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check } from "lucide-react";
+import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check, Sparkles } from "lucide-react";
 
+
+type AppSearch = { new?: boolean };
 
 export const Route = createFileRoute("/app")({
   component: Dashboard,
+  validateSearch: (s: Record<string, unknown>): AppSearch => ({
+    new: s.new === true || s.new === "true" || s.new === "1" || s.new === 1 ? true : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Your parties · Hostwell" },
@@ -41,7 +46,18 @@ export const Route = createFileRoute("/app")({
 
 function Dashboard() {
   const { parties } = useParties();
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [wizardOpen, setWizardOpen] = useState(!!search.new);
+
+  useEffect(() => {
+    if (search.new) {
+      setWizardOpen(true);
+      // Clear the flag so refresh / back navigation doesn't reopen the wizard.
+      void navigate({ to: "/app", search: {}, replace: true });
+    }
+  }, [search.new, navigate]);
+
 
   return (
     <div className="min-h-screen bg-background">
