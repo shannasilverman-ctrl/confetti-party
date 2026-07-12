@@ -83,7 +83,7 @@ function Landing() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link to="/app">Start planning yours</Link>
+                <Link to="/app" search={{ new: true }}>Start planning yours</Link>
               </Button>
             </div>
           </div>

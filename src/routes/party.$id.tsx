@@ -43,11 +43,20 @@ import {
   Sparkles,
   Palette,
   ShoppingCart,
+  LayoutDashboard,
 } from "lucide-react";
 import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
+import { OverviewTab } from "@/components/overview-tab";
 
-type TabKey = "theme" | "shopping" | "checklist" | "guests" | "budget" | "timeline";
+export type TabKey =
+  | "overview"
+  | "theme"
+  | "shopping"
+  | "checklist"
+  | "guests"
+  | "budget"
+  | "timeline";
 
 
 export const Route = createFileRoute("/party/$id")({
@@ -66,7 +75,7 @@ function PartyWorkspace() {
   const { id } = Route.useParams();
   const { getParty } = useParties();
   const party = getParty(id);
-  const [tab, setTab] = useState<TabKey>("theme");
+  const [tab, setTab] = useState<TabKey>("overview");
 
   if (!party) {
     return (
@@ -87,6 +96,7 @@ function PartyWorkspace() {
   const prog = progressPct(party);
 
   const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
+    { key: "overview", label: "Overview", icon: LayoutDashboard },
     { key: "theme", label: "Theme", icon: Palette },
     { key: "shopping", label: "Shopping", icon: ShoppingCart },
     { key: "checklist", label: "Checklist", icon: ListChecks },
@@ -161,6 +171,7 @@ function PartyWorkspace() {
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
         {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "shopping" && <ShoppingTab partyId={party.id} />}
         {tab === "checklist" && <ChecklistTab partyId={party.id} />}
@@ -170,14 +181,14 @@ function PartyWorkspace() {
 
       </main>
 
-      {/* Mobile bottom tab nav */}
+      {/* Mobile bottom tab nav - horizontally scrollable */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-6">
+        <div className="scrollbar-none flex overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex flex-col items-center gap-1 py-3 text-xs transition ${
+              className={`flex min-w-[68px] flex-1 shrink-0 flex-col items-center gap-1 py-3 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
               }`}
             >

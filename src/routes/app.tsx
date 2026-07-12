@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   daysUntil,
   guestCounts,
@@ -25,11 +25,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check } from "lucide-react";
+import { CalendarDays, Users, Wallet, Plus, ArrowRight, PartyPopper, Check, Sparkles } from "lucide-react";
 
+
+type AppSearch = { new?: boolean };
 
 export const Route = createFileRoute("/app")({
   component: Dashboard,
+  validateSearch: (s: Record<string, unknown>): AppSearch => ({
+    new: s.new === true || s.new === "true" || s.new === "1" || s.new === 1 ? true : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Your parties · Hostwell" },
@@ -41,7 +46,18 @@ export const Route = createFileRoute("/app")({
 
 function Dashboard() {
   const { parties } = useParties();
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [wizardOpen, setWizardOpen] = useState(!!search.new);
+
+  useEffect(() => {
+    if (search.new) {
+      setWizardOpen(true);
+      // Clear the flag so refresh / back navigation doesn't reopen the wizard.
+      void navigate({ to: "/app", search: {}, replace: true });
+    }
+  }, [search.new, navigate]);
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -173,9 +189,10 @@ function NewPartyWizard({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { createParty } = useParties();
+  const { createParty, getParty } = useParties();
   const navigate = Route.useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | "done">(1);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const [occasion, setOccasion] = useState<OccasionType | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -187,6 +204,7 @@ function NewPartyWizard({
 
   function reset() {
     setStep(1);
+    setCreatedId(null);
     setOccasion(null);
     setName("");
     setDate("");
@@ -214,6 +232,13 @@ function NewPartyWizard({
       themeId: theme.id,
       extraTasks,
     });
+    setCreatedId(id);
+    setStep("done");
+  }
+
+  function openPlan() {
+    if (!createdId) return;
+    const id = createdId;
     onOpenChange(false);
     reset();
     void navigate({ to: "/party/$id", params: { id } });
@@ -224,6 +249,9 @@ function NewPartyWizard({
     setOccasion(o);
     setTheme(null);
   }
+
+  const createdParty = createdId ? getParty(createdId) : undefined;
+
 
   return (
     <Dialog
@@ -239,16 +267,20 @@ function NewPartyWizard({
             {step === 1 && "What are you hosting?"}
             {step === 2 && "The essentials"}
             {step === 3 && "Pick your theme"}
+            {step === "done" && "Your plan is ready"}
           </DialogTitle>
           <div className="mt-2 flex gap-1.5">
-            {[1, 2, 3].map((n) => (
-              <div
-                key={n}
-                className={`h-1.5 flex-1 rounded-full transition ${
-                  n <= step ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            ))}
+            {[1, 2, 3].map((n) => {
+              const active = step === "done" ? true : n <= step;
+              return (
+                <div
+                  key={n}
+                  className={`h-1.5 flex-1 rounded-full transition ${
+                    active ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              );
+            })}
           </div>
         </DialogHeader>
 
@@ -376,27 +408,70 @@ function NewPartyWizard({
           </div>
         )}
 
+        {step === "done" && createdParty && (
+          <div className="py-4 text-center">
+            <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
+              <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" aria-hidden />
+              <PartyPopper className="h-10 w-10 animate-scale-in" />
+              <Confetti />
+            </div>
+            <h3 className="mt-5 font-display text-2xl font-semibold text-secondary">
+              {createdParty.name}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Everything's seeded. Open the plan whenever you're ready.
+            </p>
+            <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
+              <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
+              <PlanStat
+                label="Shopping items"
+                value={createdParty.shoppingItems.length}
+              />
+              <PlanStat label="Theme applied" value={createdParty.theme} />
+              <PlanStat label="Budget set" value={`$${createdParty.budget}`} />
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="flex-row justify-between sm:justify-between">
-          <Button
-            variant="ghost"
-            onClick={() => (step === 1 ? onOpenChange(false) : setStep((step - 1) as 1 | 2))}
-          >
-            {step === 1 ? "Cancel" : "Back"}
-          </Button>
-          {step < 3 ? (
-            <Button
-              variant="festive"
-              disabled={
-                (step === 1 && !occasion) || (step === 2 && (!date || !name))
-              }
-              onClick={() => setStep((step + 1) as 2 | 3)}
-            >
-              Continue <ArrowRight />
-            </Button>
+          {step === "done" ? (
+            <>
+              <Button variant="ghost" onClick={() => { onOpenChange(false); reset(); }}>
+                Close
+              </Button>
+              <Button variant="festive" onClick={openPlan}>
+                <Sparkles /> Open your party plan
+              </Button>
+            </>
           ) : (
-            <Button variant="festive" disabled={!theme} onClick={finish}>
-              <PartyPopper /> Create party
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                onClick={() =>
+                  step === 1
+                    ? onOpenChange(false)
+                    : setStep(((step as number) - 1) as 1 | 2)
+                }
+              >
+                {step === 1 ? "Cancel" : "Back"}
+              </Button>
+              {(step as number) < 3 ? (
+                <Button
+                  variant="festive"
+                  disabled={
+                    (step === 1 && !occasion) ||
+                    (step === 2 && (!date || !name))
+                  }
+                  onClick={() => setStep(((step as number) + 1) as 2 | 3)}
+                >
+                  Continue <ArrowRight />
+                </Button>
+              ) : (
+                <Button variant="festive" disabled={!theme} onClick={finish}>
+                  <PartyPopper /> Create party
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>
@@ -404,3 +479,39 @@ function NewPartyWizard({
   );
 }
 
+
+function PlanStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 text-left shadow-card">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-0.5 font-display text-lg font-semibold text-secondary">{value}</div>
+    </div>
+  );
+}
+
+function Confetti() {
+  const dots = [
+    { c: "hsl(var(--primary))", x: "-20%", y: "-10%", d: "0ms" },
+    { c: "hsl(var(--accent))", x: "110%", y: "0%", d: "120ms" },
+    { c: "hsl(var(--secondary))", x: "-30%", y: "60%", d: "240ms" },
+    { c: "hsl(var(--primary))", x: "115%", y: "70%", d: "360ms" },
+    { c: "hsl(var(--accent))", x: "50%", y: "-25%", d: "180ms" },
+    { c: "hsl(var(--secondary))", x: "50%", y: "115%", d: "300ms" },
+  ];
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden>
+      {dots.map((d, i) => (
+        <span
+          key={i}
+          className="absolute h-2 w-2 rounded-full animate-scale-in"
+          style={{
+            left: d.x,
+            top: d.y,
+            backgroundColor: d.c,
+            animationDelay: d.d,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
