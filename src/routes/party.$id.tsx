@@ -50,6 +50,7 @@ import {
 import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
 import { OverviewTab } from "@/components/overview-tab";
+import { RsvpShareButton } from "@/components/rsvp-share-button";
 
 export type TabKey =
   | "overview"
