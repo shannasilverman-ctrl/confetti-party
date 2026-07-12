@@ -436,6 +436,26 @@ function NewPartyWizard({
                 onChange={(e) => setDate(e.target.value)}
               />
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="start-time">Start time (optional)</Label>
+                <Input
+                  id="start-time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  placeholder="e.g. 2:00 PM"
+                />
+              </div>
+              <div>
+                <Label htmlFor="location">Location (optional)</Label>
+                <Input
+                  id="location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Our backyard"
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="guests">Guests (est.)</Label>
