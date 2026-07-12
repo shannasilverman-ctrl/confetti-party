@@ -390,3 +390,97 @@ export const OCCASION_LABELS: Record<OccasionType, string> = {
   "dinner-party": "Dinner Party",
   other: "Other",
 };
+
+// ---- Shopping helpers ----
+
+export type { ShoppingItem, ShoppingCategoryName } from "./shopping";
+export { STATUS_LABEL } from "./shopping";
+
+export function shoppingProjectedRemaining(p: Party): number {
+  return p.shoppingItems
+    .filter((i) => i.status !== "purchased")
+    .reduce((s, i) => s + i.qty * i.estPrice, 0);
+}
+
+export function markShoppingPurchased(
+  p: Party,
+  itemId: string,
+  actualPrice: number,
+): Party {
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  if (!item || item.status === "purchased") return p;
+  const catIndex = p.budgetCategories.findIndex((c) => c.name === item.category);
+  if (catIndex < 0) return p;
+  const expenseId = uid();
+  const budgetCategories = p.budgetCategories.map((c, idx) =>
+    idx === catIndex
+      ? {
+          ...c,
+          expenses: [
+            ...c.expenses,
+            { id: expenseId, label: `${item.name} (shopping)`, amount: actualPrice },
+          ],
+        }
+      : c,
+  );
+  const shoppingItems = p.shoppingItems.map((i) =>
+    i.id === itemId
+      ? { ...i, status: "purchased" as const, linkedExpenseId: expenseId, actualPrice }
+      : i,
+  );
+  return { ...p, budgetCategories, shoppingItems };
+}
+
+export function unmarkShoppingPurchased(p: Party, itemId: string): Party {
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  if (!item || item.status !== "purchased" || !item.linkedExpenseId) return p;
+  const linkedId = item.linkedExpenseId;
+  const budgetCategories = p.budgetCategories.map((c) =>
+    c.name === item.category
+      ? { ...c, expenses: c.expenses.filter((e) => e.id !== linkedId) }
+      : c,
+  );
+  const shoppingItems = p.shoppingItems.map((i) =>
+    i.id === itemId
+      ? { ...i, status: "needed" as const, linkedExpenseId: undefined, actualPrice: undefined }
+      : i,
+  );
+  return { ...p, budgetCategories, shoppingItems };
+}
+
+export function setShoppingStatus(
+  p: Party,
+  itemId: string,
+  status: "needed" | "in-cart",
+): Party {
+  // If currently purchased, unmark first to strip the linked expense.
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  if (!item) return p;
+  const base = item.status === "purchased" ? unmarkShoppingPurchased(p, itemId) : p;
+  return {
+    ...base,
+    shoppingItems: base.shoppingItems.map((i) =>
+      i.id === itemId ? { ...i, status } : i,
+    ),
+  };
+}
+
+export function addShoppingItem(
+  p: Party,
+  item: { name: string; category: ShoppingCategoryName; qty: number; estPrice: number },
+): Party {
+  return {
+    ...p,
+    shoppingItems: [
+      ...p.shoppingItems,
+      { id: uid(), status: "needed", ...item },
+    ],
+  };
+}
+
+export function removeShoppingItem(p: Party, itemId: string): Party {
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  const base = item?.status === "purchased" ? unmarkShoppingPurchased(p, itemId) : p;
+  return { ...base, shoppingItems: base.shoppingItems.filter((i) => i.id !== itemId) };
+}
+
