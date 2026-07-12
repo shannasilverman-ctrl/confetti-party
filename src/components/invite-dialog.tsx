@@ -23,6 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useParties, type Party } from "@/lib/party-context";
+import { celebrate } from "@/components/confetti-burst";
 import { themeById } from "@/lib/themes";
 
 function formatDate(dateISO: string) {
