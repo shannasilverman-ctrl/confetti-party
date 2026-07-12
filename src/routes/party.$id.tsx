@@ -51,6 +51,7 @@ import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
 import { OverviewTab } from "@/components/overview-tab";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
+import { InviteDialog } from "@/components/invite-dialog";
 
 export type TabKey =
   | "overview"
