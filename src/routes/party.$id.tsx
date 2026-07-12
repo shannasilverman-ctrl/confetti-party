@@ -223,6 +223,24 @@ function ChecklistTab({ partyId }: { partyId: string }) {
   const [newBucket, setNewBucket] = useState<Bucket>("1-2 weeks");
   const [poppedId, setPoppedId] = useState<string | null>(null);
 
+  // Celebrate ONLY on the transition to 100% complete (not every render at 100%).
+  const wasComplete = useRef<boolean | null>(null);
+  useEffect(() => {
+    const total = party.tasks.length;
+    const done = party.tasks.filter((t) => t.done).length;
+    const complete = total > 0 && done === total;
+    if (wasComplete.current === null) {
+      wasComplete.current = complete;
+      return;
+    }
+    if (complete && !wasComplete.current) {
+      fireConfetti({ count: 32, spread: 200 });
+      toast.success("All set!", { description: "Every task is checked off." });
+    }
+    wasComplete.current = complete;
+  }, [party.tasks]);
+
+
   const toggle = (id: string) => {
     const t = party.tasks.find((x) => x.id === id);
     if (t && !t.done) {
