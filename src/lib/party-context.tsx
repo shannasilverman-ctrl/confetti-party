@@ -1,4 +1,9 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  generateShoppingItems,
+  type ShoppingItem,
+  type ShoppingCategoryName,
+} from "./shopping";
 
 export type OccasionType =
   | "birthday"
@@ -44,6 +49,7 @@ export type Party = {
   guests: Guest[];
   budgetCategories: BudgetCategory[];
   timeline: TimelineItem[];
+  shoppingItems: ShoppingItem[];
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -159,6 +165,8 @@ function seedMaya(): Party {
     { id: uid(), name: "James Brooks", kind: "adult", rsvp: "invited" },
     { id: uid(), name: "Nina Thompson", kind: "adult", rsvp: "invited" },
   ];
+  const balloonExpId = uid();
+  const tablewareExpId = uid();
   const budgetCategories: BudgetCategory[] = [
     { id: uid(), name: "Venue", planned: 50, expenses: [] },
     {
@@ -181,8 +189,8 @@ function seedMaya(): Party {
       name: "Decorations",
       planned: 100,
       expenses: [
-        { id: uid(), label: "Rainbow balloon arch", amount: 35 },
-        { id: uid(), label: "Unicorn tableware", amount: 20 },
+        { id: balloonExpId, label: "Rainbow balloon arch", amount: 35 },
+        { id: tablewareExpId, label: "Unicorn tableware", amount: 20 },
       ],
     },
     {
@@ -203,6 +211,38 @@ function seedMaya(): Party {
     { id: uid(), time: "4:00 PM", activity: "Present opening" },
     { id: uid(), time: "4:30 PM", activity: "Goodbye favors, party wind-down" },
   ];
+  // Shopping: mostly generated, but two items are already purchased and
+  // link by expense id to the seeded Decorations expenses above so we do
+  // NOT double-count them in totalSpent.
+  const shoppingItems: ShoppingItem[] = [
+    {
+      id: uid(),
+      name: "Rainbow balloon arch kit",
+      category: "Decorations",
+      qty: 1,
+      estPrice: 35,
+      status: "purchased",
+      linkedExpenseId: balloonExpId,
+      actualPrice: 35,
+    },
+    {
+      id: uid(),
+      name: "Unicorn tableware pack",
+      category: "Decorations",
+      qty: 3,
+      estPrice: 7,
+      status: "purchased",
+      linkedExpenseId: tablewareExpId,
+      actualPrice: 20,
+    },
+    { id: uid(), name: "Unicorn party favor kits", category: "Favors", qty: 3, estPrice: 8, status: "needed" },
+    { id: uid(), name: "Iridescent tablecloth", category: "Decorations", qty: 1, estPrice: 15, status: "in-cart" },
+    { id: uid(), name: "Star fairy lights", category: "Decorations", qty: 2, estPrice: 12, status: "needed" },
+    { id: uid(), name: "Rainbow confetti", category: "Decorations", qty: 1, estPrice: 6, status: "in-cart" },
+    { id: uid(), name: "Cotton candy cloud favors", category: "Favors", qty: 3, estPrice: 10, status: "needed" },
+    { id: uid(), name: "Paper plates and cups", category: "Food & Drink", qty: 3, estPrice: 9, status: "needed" },
+    { id: uid(), name: "Birthday candles", category: "Cake & Desserts", qty: 1, estPrice: 4, status: "needed" },
+  ];
   return {
     id: "maya-8th",
     name: "Maya's 8th Birthday",
@@ -216,6 +256,7 @@ function seedMaya(): Party {
     guests,
     budgetCategories,
     timeline,
+    shoppingItems,
   };
 }
 
@@ -235,6 +276,7 @@ function seedGrad(): Party {
     guests: [],
     budgetCategories: DEFAULT_CATEGORIES(),
     timeline: [],
+    shoppingItems: generateShoppingItems("graduation", "backyard-fiesta", 35),
   };
 }
 
@@ -283,6 +325,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           guests: [],
           budgetCategories: DEFAULT_CATEGORIES(),
           timeline: [],
+          shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
         };
         setParties((prev) => [...prev, p]);
         return id;
@@ -347,3 +390,97 @@ export const OCCASION_LABELS: Record<OccasionType, string> = {
   "dinner-party": "Dinner Party",
   other: "Other",
 };
+
+// ---- Shopping helpers ----
+
+export type { ShoppingItem, ShoppingCategoryName } from "./shopping";
+export { STATUS_LABEL } from "./shopping";
+
+export function shoppingProjectedRemaining(p: Party): number {
+  return p.shoppingItems
+    .filter((i) => i.status !== "purchased")
+    .reduce((s, i) => s + i.qty * i.estPrice, 0);
+}
+
+export function markShoppingPurchased(
+  p: Party,
+  itemId: string,
+  actualPrice: number,
+): Party {
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  if (!item || item.status === "purchased") return p;
+  const catIndex = p.budgetCategories.findIndex((c) => c.name === item.category);
+  if (catIndex < 0) return p;
+  const expenseId = uid();
+  const budgetCategories = p.budgetCategories.map((c, idx) =>
+    idx === catIndex
+      ? {
+          ...c,
+          expenses: [
+            ...c.expenses,
+            { id: expenseId, label: `${item.name} (shopping)`, amount: actualPrice },
+          ],
+        }
+      : c,
+  );
+  const shoppingItems = p.shoppingItems.map((i) =>
+    i.id === itemId
+      ? { ...i, status: "purchased" as const, linkedExpenseId: expenseId, actualPrice }
+      : i,
+  );
+  return { ...p, budgetCategories, shoppingItems };
+}
+
+export function unmarkShoppingPurchased(p: Party, itemId: string): Party {
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  if (!item || item.status !== "purchased" || !item.linkedExpenseId) return p;
+  const linkedId = item.linkedExpenseId;
+  const budgetCategories = p.budgetCategories.map((c) =>
+    c.name === item.category
+      ? { ...c, expenses: c.expenses.filter((e) => e.id !== linkedId) }
+      : c,
+  );
+  const shoppingItems = p.shoppingItems.map((i) =>
+    i.id === itemId
+      ? { ...i, status: "needed" as const, linkedExpenseId: undefined, actualPrice: undefined }
+      : i,
+  );
+  return { ...p, budgetCategories, shoppingItems };
+}
+
+export function setShoppingStatus(
+  p: Party,
+  itemId: string,
+  status: "needed" | "in-cart",
+): Party {
+  // If currently purchased, unmark first to strip the linked expense.
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  if (!item) return p;
+  const base = item.status === "purchased" ? unmarkShoppingPurchased(p, itemId) : p;
+  return {
+    ...base,
+    shoppingItems: base.shoppingItems.map((i) =>
+      i.id === itemId ? { ...i, status } : i,
+    ),
+  };
+}
+
+export function addShoppingItem(
+  p: Party,
+  item: { name: string; category: ShoppingCategoryName; qty: number; estPrice: number },
+): Party {
+  return {
+    ...p,
+    shoppingItems: [
+      ...p.shoppingItems,
+      { id: uid(), status: "needed", ...item },
+    ],
+  };
+}
+
+export function removeShoppingItem(p: Party, itemId: string): Party {
+  const item = p.shoppingItems.find((i) => i.id === itemId);
+  const base = item?.status === "purchased" ? unmarkShoppingPurchased(p, itemId) : p;
+  return { ...base, shoppingItems: base.shoppingItems.filter((i) => i.id !== itemId) };
+}
+

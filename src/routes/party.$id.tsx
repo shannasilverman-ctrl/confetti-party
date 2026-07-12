@@ -42,10 +42,12 @@ import {
   ArrowDown,
   Sparkles,
   Palette,
+  ShoppingCart,
 } from "lucide-react";
 import { ThemeTab } from "@/components/theme-tab";
+import { ShoppingTab } from "@/components/shopping-tab";
 
-type TabKey = "theme" | "checklist" | "guests" | "budget" | "timeline";
+type TabKey = "theme" | "shopping" | "checklist" | "guests" | "budget" | "timeline";
 
 
 export const Route = createFileRoute("/party/$id")({
@@ -86,6 +88,7 @@ function PartyWorkspace() {
 
   const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
     { key: "theme", label: "Theme", icon: Palette },
+    { key: "shopping", label: "Shopping", icon: ShoppingCart },
     { key: "checklist", label: "Checklist", icon: ListChecks },
     { key: "guests", label: "Guests", icon: Users },
     { key: "budget", label: "Budget", icon: Wallet },
@@ -159,6 +162,7 @@ function PartyWorkspace() {
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {tab === "theme" && <ThemeTab partyId={party.id} />}
+        {tab === "shopping" && <ShoppingTab partyId={party.id} />}
         {tab === "checklist" && <ChecklistTab partyId={party.id} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
@@ -168,7 +172,7 @@ function PartyWorkspace() {
 
       {/* Mobile bottom tab nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-lg grid-cols-5">
+        <div className="mx-auto grid max-w-lg grid-cols-6">
           {tabs.map((t) => (
             <button
               key={t.key}

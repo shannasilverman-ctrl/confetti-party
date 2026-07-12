@@ -153,14 +153,14 @@ export const THEMES: Theme[] = [
     ],
     stylingTips: [
       "Layer three shades of pink on the table for depth.",
-      "Keep balloons in odd-numbered clusters — 3, 5, 7.",
+      "Keep balloons in odd-numbered clusters, 3, 5, 7.",
       "Hide the boring stuff (drinks cooler, trash) behind a streamer curtain.",
     ],
     setup: zones(
       "Anchor the balloon arch to two chairs framing the front door; tuck a welcome sign at kid-eye level.",
       "Layer the iridescent cloth, then a white runner, then rainbow confetti; cluster desserts on tiered stands at the center.",
       "Set up the face-painting station on a small side table with a mirror and a labeled color chart.",
-      "Hang the pastel streamer backdrop against a blank wall in bright, indirect light — take a test photo before guests arrive.",
+      "Hang the pastel streamer backdrop against a blank wall in bright, indirect light, take a test photo before guests arrive.",
     ),
 
   },
@@ -183,7 +183,7 @@ export const THEMES: Theme[] = [
       { title: "Chalkboard 'Danger: Dino Zone' entry sign", kind: "DIY", bucket: "1-2 weeks" },
     ],
     stylingTips: [
-      "Mix textures — burlap, moss, kraft paper — for a natural feel.",
+      "Mix textures, burlap, moss, kraft paper, for a natural feel.",
       "Skip bright primary greens; stick to sage and olive.",
       "A single big prop (T-rex balloon) beats twenty small ones.",
     ],
@@ -243,7 +243,7 @@ export const THEMES: Theme[] = [
       { title: "Sand-bucket favor holders", kind: "Buy", bucket: "Party week" },
     ],
     stylingTips: [
-      "Combine three blues — pale, teal, deep — for real ocean depth.",
+      "Combine three blues, pale, teal, deep, for real ocean depth.",
       "Iridescent film catches light exactly like water.",
       "A bubble machine does the work of ten decorations.",
     ],
@@ -274,8 +274,8 @@ export const THEMES: Theme[] = [
     ],
     stylingTips: [
       "Odd numbers of flowers per jar feel less staged.",
-      "Mix warm and cool pastels — pure pink alone looks flat.",
-      "Skip plastic — even paper straws break the vintage feel.",
+      "Mix warm and cool pastels, pure pink alone looks flat.",
+      "Skip plastic, even paper straws break the vintage feel.",
     ],
     setup: zones(
       "Line the walkway with mason jar flowers and hang a small welcome wreath on the door.",
@@ -303,7 +303,7 @@ export const THEMES: Theme[] = [
       { title: "Highlighter pens for glow-in-the-dark signatures", kind: "Buy", bucket: "1-2 weeks" },
     ],
     stylingTips: [
-      "Test the blacklights in daylight first — position matters more than count.",
+      "Test the blacklights in daylight first, position matters more than count.",
       "White surfaces glow brighter than any colored one.",
       "Turn off overhead lights entirely; keep only the UV.",
     ],
@@ -335,7 +335,7 @@ export const THEMES: Theme[] = [
       { title: "Handwritten kraft-paper name cards", kind: "DIY", bucket: "Party week" },
     ],
     stylingTips: [
-      "Stay within one warm undertone — no cool greys.",
+      "Stay within one warm undertone, no cool greys.",
       "Natural materials only: wood, rattan, linen, dried florals.",
       "Vary heights of vases dramatically for real drama.",
     ],
@@ -367,7 +367,7 @@ export const THEMES: Theme[] = [
     stylingTips: [
       "Use warm gold, never yellow-gold, against the navy.",
       "Group candles in threes for a soft glow instead of overhead lighting.",
-      "Metallic accents work best in small doses — a rim, a rope, a topper.",
+      "Metallic accents work best in small doses, a rim, a rope, a topper.",
     ],
     setup: zones(
       "Hang the banner across the door and cluster the moon-and-stars balloons on one side.",
@@ -425,7 +425,7 @@ export const THEMES: Theme[] = [
       { title: "White linen napkins with sprig of eucalyptus", kind: "DIY", bucket: "Day of" },
     ],
     stylingTips: [
-      "Anchor with white — pastels alone feel washed out.",
+      "Anchor with white, pastels alone feel washed out.",
       "One statement flower type reads more elegant than a mix.",
       "Fresh petals scattered late in setup won't wilt.",
     ],
@@ -457,7 +457,7 @@ export const THEMES: Theme[] = [
       { title: "LED marquee letters spelling grad's initials", kind: "Buy", bucket: "3-5 weeks" },
     ],
     stylingTips: [
-      "Contrast is everything — pure black next to bright gold pops.",
+      "Contrast is everything, pure black next to bright gold pops.",
       "Real metallic beats matte 'gold' paint every time.",
       "Cluster the flutes as a display, not scattered.",
     ],
@@ -487,7 +487,7 @@ export const THEMES: Theme[] = [
       { title: "Mini piñata favors at each place setting", kind: "Buy", bucket: "1-2 weeks" },
     ],
     stylingTips: [
-      "More is more — layer four colors, not two.",
+      "More is more, layer four colors, not two.",
       "Real cactus and marigold beat any printed motif.",
       "Overhead string lights transform any yard after sunset.",
     ],
@@ -517,7 +517,7 @@ export const THEMES: Theme[] = [
       { title: "Polaroid camera and film for guest snapshots", kind: "Buy", bucket: "3-5 weeks" },
     ],
     stylingTips: [
-      "Keep the palette tight — three colors max or it looks like a garage sale.",
+      "Keep the palette tight, three colors max or it looks like a garage sale.",
       "Real vintage props beat 'retro-styled' new ones.",
       "Hand-lettered signs feel more authentic than printed fonts.",
     ],
@@ -549,7 +549,7 @@ export const THEMES: Theme[] = [
       { title: "White chocolate 'snowball' truffles as favors", kind: "Buy", bucket: "Party week" },
     ],
     stylingTips: [
-      "Stick to cool whites — warm ivories break the icy mood.",
+      "Stick to cool whites, warm ivories break the icy mood.",
       "Silver, not gold, is the only metallic here.",
       "Real branches with lights beat fake trees.",
     ],
@@ -580,7 +580,7 @@ export const THEMES: Theme[] = [
     ],
     stylingTips: [
       "Real evergreen scent trumps any candle.",
-      "Layer three textures per surface — wool, wood, ceramic.",
+      "Layer three textures per surface, wool, wood, ceramic.",
       "Warm dim light only; no overhead bulbs.",
     ],
     setup: zones(
@@ -610,7 +610,7 @@ export const THEMES: Theme[] = [
     ],
     stylingTips: [
       "Disco balls need one direct light source to sparkle properly.",
-      "Blush softens gold — without it the room reads brassy.",
+      "Blush softens gold, without it the room reads brassy.",
       "Group candles in threes at varying heights.",
     ],
     setup: zones(
@@ -641,7 +641,7 @@ export const THEMES: Theme[] = [
       { title: "Beeswax taper candles", kind: "Buy", bucket: "1-2 weeks" },
     ],
     stylingTips: [
-      "Serve family-style on the table — plated feels wrong for this vibe.",
+      "Serve family-style on the table, plated feels wrong for this vibe.",
       "Real olive branches beat every fake alternative.",
       "Warm dim light only; kill the overheads.",
     ],
@@ -671,9 +671,9 @@ export const THEMES: Theme[] = [
       { title: "Cocktail menu printed on black card stock", kind: "DIY", bucket: "Party week" },
     ],
     stylingTips: [
-      "Fewer, better objects — restraint is the whole aesthetic.",
+      "Fewer, better objects, restraint is the whole aesthetic.",
       "Uneven candle heights read intentional; matched ones look catered.",
-      "No overhead light — dim it or turn it off entirely.",
+      "No overhead light, dim it or turn it off entirely.",
     ],
     setup: zones(
       "Light one large brass candle on the entry console and dim the hallway light before guests arrive.",
@@ -701,7 +701,7 @@ export const THEMES: Theme[] = [
       { title: "Fresh potted herbs as centerpieces", kind: "Buy", bucket: "1-2 weeks" },
     ],
     stylingTips: [
-      "White plus green is the whole palette — resist adding a third.",
+      "White plus green is the whole palette, resist adding a third.",
       "Real bread and wine on the table is decor.",
       "String lights hung 8 feet up feel intimate; higher feels like a wedding.",
     ],
@@ -709,7 +709,7 @@ export const THEMES: Theme[] = [
       "Prop the chalkboard menu by the garden gate with a small vase of herbs beside it.",
       "Iron the white cloth, place potted herbs down the center, and set carafes ready to pour.",
       "Line up the café chairs around the table so guests find their spot easily.",
-      "Turn on the string lights just before sunset — golden-hour dinner photos land perfectly.",
+      "Turn on the string lights just before sunset, golden-hour dinner photos land perfectly.",
     ),
   },
 ];
@@ -723,6 +723,3 @@ export function themeById(id: string | undefined | null): Theme | undefined {
   return THEMES.find((t) => t.id === id);
 }
 
-export function themeByName(name: string): Theme | undefined {
-  return THEMES.find((t) => t.name === name);
-}
