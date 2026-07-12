@@ -38,7 +38,8 @@ export type Party = {
   date: string; // ISO date
   guestEstimate: number;
   budget: number;
-  theme: string;
+  theme: string; // display name
+  themeId?: string; // links to THEMES catalog
   tasks: Task[];
   guests: Guest[];
   budgetCategories: BudgetCategory[];
@@ -119,7 +120,6 @@ export function generateTasks(occasion: OccasionType, dateISO: string): Task[] {
     0,
     Math.floor((new Date(dateISO).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 7)),
   );
-  // Filter out buckets that are impossible given the timeline
   const allowedFrom = (b: Bucket): boolean => {
     if (b === "6+ weeks out") return weeks >= 6;
     if (b === "3-5 weeks") return weeks >= 3;
@@ -137,7 +137,6 @@ function seedMaya(): Party {
   const date = "2026-08-15";
   const tasks = generateTasks("birthday", date).map((t, i) => ({
     ...t,
-    // mark a chunk done for demo progress
     done: i < 4,
   }));
   const guests: Guest[] = [
@@ -194,7 +193,6 @@ function seedMaya(): Party {
     },
     { id: uid(), name: "Favors", planned: 50, expenses: [] },
   ];
-  // 120+60+65+35+20+42 = 342 ✓
   const timeline: TimelineItem[] = [
     { id: uid(), time: "10:00 AM", activity: "Pick up cake and balloons" },
     { id: uid(), time: "12:00 PM", activity: "Set up backyard & unicorn arch" },
@@ -213,6 +211,7 @@ function seedMaya(): Party {
     guestEstimate: 18,
     budget: 600,
     theme: "Unicorn Rainbow",
+    themeId: "unicorn-rainbow",
     tasks,
     guests,
     budgetCategories,
@@ -230,7 +229,8 @@ function seedGrad(): Party {
     date,
     guestEstimate: 35,
     budget: 900,
-    theme: "Backyard Casual",
+    theme: "Backyard Fiesta",
+    themeId: "backyard-fiesta",
     tasks,
     guests: [],
     budgetCategories: DEFAULT_CATEGORIES(),
@@ -250,6 +250,8 @@ type Ctx = {
     guestEstimate: number;
     budget: number;
     theme: string;
+    themeId?: string;
+    extraTasks?: Task[];
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
 };
@@ -273,7 +275,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           guestEstimate: input.guestEstimate,
           budget: input.budget,
           theme: input.theme,
-          tasks: generateTasks(input.occasion, input.date),
+          themeId: input.themeId,
+          tasks: [
+            ...generateTasks(input.occasion, input.date),
+            ...(input.extraTasks ?? []),
+          ],
           guests: [],
           budgetCategories: DEFAULT_CATEGORIES(),
           timeline: [],
