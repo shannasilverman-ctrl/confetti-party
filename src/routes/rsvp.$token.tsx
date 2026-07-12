@@ -156,6 +156,18 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               year: "numeric",
             })}
           </div>
+          {party.start_time && (
+            <div className="mt-1 flex items-center justify-center gap-2 text-sm text-white/90">
+              <Clock className="h-4 w-4" />
+              {party.start_time}
+            </div>
+          )}
+          {party.location && (
+            <div className="mt-1 flex items-center justify-center gap-2 text-sm text-white/90">
+              <MapPin className="h-4 w-4" />
+              {party.location}
+            </div>
+          )}
           <div className="mt-4 font-display text-5xl font-semibold text-white tabular-nums">
             {days >= 0 ? days : "—"}
           </div>
