@@ -9,6 +9,7 @@ import {
   useParties,
   type ShoppingCategoryName,
   type ShoppingItem,
+  type Party,
 } from "@/lib/party-context";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +30,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Check, Plus, ShoppingCart, Trash2, AlertTriangle } from "lucide-react";
+import {
+  Check,
+  Plus,
+  ShoppingCart,
+  Trash2,
+  AlertTriangle,
+  ShoppingBag,
+  Copy,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 import { celebrate } from "@/components/confetti-burst";
+import {
+  amazonSearchUrl,
+  targetSearchUrl,
+  walmartSearchUrl,
+  affiliateDisclosureEnabled,
+  AFFILIATE_DISCLOSURE,
+} from "@/lib/affiliates";
 
 const CATEGORY_NAMES: ShoppingCategoryName[] = [
   "Venue",
@@ -42,12 +59,21 @@ const CATEGORY_NAMES: ShoppingCategoryName[] = [
   "Favors",
 ];
 
+function buildQuery(item: ShoppingItem, party: Party): string {
+  const themed =
+    item.category === "Decorations" || item.category === "Favors";
+  const suffix = themed && party.theme ? `${party.theme} party` : "party";
+  const q = `${item.name} ${suffix}`.trim().replace(/\s+/g, " ");
+  return q.length > 80 ? q.slice(0, 80).trim() : q;
+}
+
 export function ShoppingTab({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
   const spent = totalSpent(party);
 
   const [confirm, setConfirm] = useState<{ item: ShoppingItem; price: string } | null>(null);
+  const [shopOpen, setShopOpen] = useState(false);
 
   // Custom add form
   const [name, setName] = useState("");
@@ -74,6 +100,11 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
   const projected = spent + remainingEst;
   const overBudget = projected > party.budget;
 
+  const needed = party.shoppingItems.filter(
+    (i) => i.status === "needed" || i.status === "in-cart",
+  );
+  const showDisclosure = affiliateDisclosureEnabled();
+
   function openPurchase(item: ShoppingItem) {
     setConfirm({ item, price: String(item.qty * item.estPrice) });
   }
@@ -89,9 +120,6 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
     updateParty(partyId, (p) => markShoppingPurchased(p, confirm.item.id, n));
     toast.success("Purchased", { description: `${confirm.item.name} · $${n}` });
     celebrate("small");
-    // If this purchase brings us back under budget, celebrate that turnaround.
-    // Recompute against the just-updated projection: replacing this item's
-    // estimate (qty * estPrice) with its actual price n.
     const nextProjected =
       projected - confirm.item.qty * confirm.item.estPrice + n;
     if (wasOver && nextProjected <= party.budget) {
@@ -108,7 +136,6 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       return;
     }
     if (item.status === "purchased") {
-      // Strip the linked expense, then set the requested next status.
       updateParty(partyId, (p) => {
         const cleaned = unmarkShoppingPurchased(p, item.id);
         return next === "needed" ? cleaned : setShoppingStatus(cleaned, item.id, next);
@@ -138,6 +165,26 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
     updateParty(partyId, (p) => removeShoppingItem(p, id));
   }
 
+  function copyList() {
+    const lines = needed.map(
+      (i) => `- ${i.name} · qty ${i.qty} · ~$${i.qty * i.estPrice}`,
+    );
+    const total = needed.reduce((s, i) => s + i.qty * i.estPrice, 0);
+    const text = [
+      `${party.name} — shopping list`,
+      ...lines,
+      ``,
+      `Estimated total: $${total}`,
+    ].join("\n");
+    navigator.clipboard.writeText(text).then(
+      () => {
+        toast.success("List copied");
+        celebrate("micro");
+      },
+      () => toast.error("Copy failed"),
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Summary */}
@@ -146,16 +193,26 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
           overBudget ? "border-warning bg-warning/10" : "border-border bg-card"
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <ShoppingCart className="h-4 w-4 text-primary" />
           <h2 className="font-display text-lg font-semibold text-secondary">
             Shopping summary
           </h2>
           {overBudget && (
-            <Badge variant="warning" className="ml-auto">
+            <Badge variant="warning">
               <AlertTriangle className="mr-1 h-3 w-3" /> Over budget
             </Badge>
           )}
+          <div className="ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShopOpen(true)}
+              disabled={needed.length === 0}
+            >
+              <ShoppingBag /> Shop needed items
+            </Button>
+          </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SumStat label="Purchased" value={`$${purchasedTotal}`} />
@@ -235,6 +292,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
                   <ShoppingRow
                     key={it.id}
                     item={it}
+                    query={buildQuery(it, party)}
                     onStatus={(s) => cycleStatus(it, s)}
                     onRemove={() => removeItem(it.id)}
                   />
@@ -244,6 +302,12 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
           );
         })}
       </div>
+
+      {showDisclosure && (
+        <p className="text-center text-xs text-muted-foreground">
+          {AFFILIATE_DISCLOSURE}
+        </p>
+      )}
 
       {/* Purchase confirm */}
       <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
@@ -285,6 +349,59 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Shop needed items */}
+      <Dialog open={shopOpen} onOpenChange={setShopOpen}>
+        <DialogContent className="max-h-[85vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Shop needed items</DialogTitle>
+            <DialogDescription>
+              Bought something? Mark it Purchased to track it in your budget.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              {needed.length} item{needed.length === 1 ? "" : "s"} · est $
+              {needed.reduce((s, i) => s + i.qty * i.estPrice, 0)}
+            </span>
+            <Button variant="outline" size="sm" onClick={copyList}>
+              <Copy /> Copy list
+            </Button>
+          </div>
+          <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {needed.map((it) => (
+              <li
+                key={it.id}
+                className="rounded-xl border border-border bg-background/60 p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium text-secondary">
+                      {it.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Qty {it.qty} · ~${it.qty * it.estPrice} · {it.category}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <RetailerButtons query={buildQuery(it, party)} />
+                </div>
+              </li>
+            ))}
+          </ul>
+          {showDisclosure && (
+            <p className="text-center text-[11px] text-muted-foreground">
+              {AFFILIATE_DISCLOSURE}
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShopOpen(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -308,59 +425,103 @@ function SumStat({
   );
 }
 
+function RetailerButtons({ query }: { query: string }) {
+  const links: { label: string; href: string }[] = [
+    { label: "Amazon", href: amazonSearchUrl(query) },
+    { label: "Target", href: targetSearchUrl(query) },
+    { label: "Walmart", href: walmartSearchUrl(query) },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {links.map((l) => (
+        <a
+          key={l.label}
+          href={l.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-secondary transition hover:border-primary hover:text-primary"
+        >
+          {l.label}
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 function ShoppingRow({
   item,
+  query,
   onStatus,
   onRemove,
 }: {
   item: ShoppingItem;
+  query: string;
   onStatus: (s: ShoppingItem["status"]) => void;
   onRemove: () => void;
 }) {
+  const [showShop, setShowShop] = useState(false);
   const est = item.qty * item.estPrice;
   const priceLabel =
     item.status === "purchased" && item.actualPrice != null
       ? `$${item.actualPrice} paid`
       : `~$${est}`;
+  const isPurchased = item.status === "purchased";
 
   return (
-    <li className="group flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-      <div className="flex-1 min-w-[140px]">
-        <div className="text-sm font-medium text-secondary">{item.name}</div>
-        <div className="text-xs text-muted-foreground">
-          Qty {item.qty} · ${item.estPrice} each · {priceLabel}
+    <li className="group rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-[140px]">
+          <div className="text-sm font-medium text-secondary">{item.name}</div>
+          <div className="text-xs text-muted-foreground">
+            Qty {item.qty} · ${item.estPrice} each · {priceLabel}
+          </div>
         </div>
+        <div className="flex items-center gap-1">
+          <StatusChip
+            active={item.status === "needed"}
+            variant="soft"
+            onClick={() => onStatus("needed")}
+          >
+            Needed
+          </StatusChip>
+          <StatusChip
+            active={item.status === "in-cart"}
+            variant="accent"
+            onClick={() => onStatus("in-cart")}
+          >
+            In cart
+          </StatusChip>
+          <StatusChip
+            active={item.status === "purchased"}
+            variant="success"
+            onClick={() => onStatus("purchased")}
+          >
+            Purchased
+          </StatusChip>
+        </div>
+        {!isPurchased && (
+          <button
+            onClick={() => setShowShop((s) => !s)}
+            className="rounded-full px-2 py-1 text-[11px] font-semibold text-muted-foreground transition hover:text-primary"
+            aria-expanded={showShop}
+          >
+            {showShop ? "Hide" : "Shop"}
+          </button>
+        )}
+        <button
+          onClick={onRemove}
+          className="text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100"
+          aria-label="Remove item"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
       </div>
-      <div className="flex items-center gap-1">
-        <StatusChip
-          active={item.status === "needed"}
-          variant="soft"
-          onClick={() => onStatus("needed")}
-        >
-          Needed
-        </StatusChip>
-        <StatusChip
-          active={item.status === "in-cart"}
-          variant="accent"
-          onClick={() => onStatus("in-cart")}
-        >
-          In cart
-        </StatusChip>
-        <StatusChip
-          active={item.status === "purchased"}
-          variant="success"
-          onClick={() => onStatus("purchased")}
-        >
-          Purchased
-        </StatusChip>
-      </div>
-      <button
-        onClick={onRemove}
-        className="text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100"
-        aria-label="Remove item"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {!isPurchased && showShop && (
+        <div className="mt-2">
+          <RetailerButtons query={query} />
+        </div>
+      )}
     </li>
   );
 }
