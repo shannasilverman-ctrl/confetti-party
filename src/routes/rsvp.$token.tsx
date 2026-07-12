@@ -136,7 +136,9 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
     <div className="min-h-screen bg-background">
       <section className="relative overflow-hidden" style={heroStyle}>
         <div className="mx-auto max-w-lg px-6 pt-10 pb-12 text-center">
-          <BrandLockup className="mx-auto justify-center [&_*]:!text-white" />
+          <div className="[&_*]:!text-white flex justify-center">
+            <BrandLockup />
+          </div>
           <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/25 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-white backdrop-blur">
             <Sparkles className="h-3 w-3" /> You're invited
           </div>
