@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
+import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliates";
 import { ConfettiBurst, fireConfetti } from "@/components/confetti-burst";
 import { CheckCircle2, Calendar, Wallet, Sparkles, ArrowRight } from "lucide-react";
 
