@@ -79,20 +79,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Hostwell — Party planning made easy" },
+      { title: "Confetti | Party Planning Made Easy" },
       {
         name: "description",
         content:
-          "Hostwell helps everyday hosts plan a party from first idea to final toast — checklists, guest lists, budgets, and day-of timelines in one warm little app.",
+          "Confetti helps everyday hosts plan a party from first idea to final toast — checklists, guest lists, budgets, and day-of timelines in one warm little app.",
       },
-      { name: "author", content: "Hostwell" },
-      { property: "og:title", content: "Hostwell — Party planning made easy" },
+      { name: "author", content: "Confetti" },
+      { property: "og:title", content: "Confetti | Party Planning Made Easy" },
       {
         property: "og:description",
         content: "From first idea to final toast — everything you need to host well.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:site_name", content: "Hostwell" },
+      { property: "og:site_name", content: "Confetti" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
