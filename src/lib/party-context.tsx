@@ -276,6 +276,7 @@ function seedGrad(): Party {
     guests: [],
     budgetCategories: DEFAULT_CATEGORIES(),
     timeline: [],
+    shoppingItems: generateShoppingItems("graduation", "backyard-fiesta", 35),
   };
 }
 
@@ -324,6 +325,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           guests: [],
           budgetCategories: DEFAULT_CATEGORIES(),
           timeline: [],
+          shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
         };
         setParties((prev) => [...prev, p]);
         return id;
