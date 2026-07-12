@@ -297,6 +297,8 @@ function NewPartyWizard({
   const [occasion, setOccasion] = useState<OccasionType | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [location, setLocation] = useState("");
   const [guestEstimate, setGuestEstimate] = useState(20);
   const [budget, setBudget] = useState(500);
   const [theme, setTheme] = useState<Theme | null>(null);
@@ -309,6 +311,8 @@ function NewPartyWizard({
     setOccasion(null);
     setName("");
     setDate("");
+    setStartTime("");
+    setLocation("");
     setGuestEstimate(20);
     setBudget(500);
     setTheme(null);
