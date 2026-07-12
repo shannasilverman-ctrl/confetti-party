@@ -88,7 +88,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
             return (
               <button
                 key={t.id}
-                onClick={() => selectTheme(t)}
+                onClick={(e) => selectTheme(t, e)}
                 className={`group overflow-hidden rounded-2xl border bg-card text-left shadow-card transition hover:-translate-y-1 hover:shadow-elevated ${
                   selected ? "border-primary ring-2 ring-primary/30" : "border-border"
                 }`}
