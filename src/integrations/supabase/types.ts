@@ -23,10 +23,12 @@ export type Database = {
           guest_estimate: number
           guests: Json
           id: string
+          location: string | null
           name: string
           occasion: string
           rsvp_token: string
           shopping_items: Json
+          start_time: string | null
           tasks: Json
           theme: string
           theme_id: string | null
@@ -42,10 +44,12 @@ export type Database = {
           guest_estimate?: number
           guests?: Json
           id?: string
+          location?: string | null
           name: string
           occasion: string
           rsvp_token?: string
           shopping_items?: Json
+          start_time?: string | null
           tasks?: Json
           theme?: string
           theme_id?: string | null
@@ -61,10 +65,12 @@ export type Database = {
           guest_estimate?: number
           guests?: Json
           id?: string
+          location?: string | null
           name?: string
           occasion?: string
           rsvp_token?: string
           shopping_items?: Json
+          start_time?: string | null
           tasks?: Json
           theme?: string
           theme_id?: string | null
