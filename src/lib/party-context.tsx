@@ -1,4 +1,9 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  generateShoppingItems,
+  type ShoppingItem,
+  type ShoppingCategoryName,
+} from "./shopping";
 
 export type OccasionType =
   | "birthday"
@@ -44,6 +49,7 @@ export type Party = {
   guests: Guest[];
   budgetCategories: BudgetCategory[];
   timeline: TimelineItem[];
+  shoppingItems: ShoppingItem[];
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
