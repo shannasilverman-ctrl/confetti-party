@@ -161,16 +161,8 @@ export const THEMES: Theme[] = [
       "Layer the iridescent cloth, then a white runner, then rainbow confetti; cluster desserts on tiered stands at the center.",
       "Set up the face-painting station on a small side table with a mirror and a labeled color chart.",
       "Hang the pastel streamer backdrop against a blank wall in bright, indirect light — take a test photo before guests arrive.",
-      45,
-    ).map((z, i) =>
-      i === 0
-        ? { ...z, minutesBefore: 45 }
-        : i === 1
-          ? { ...z, minutesBefore: 60 }
-          : i === 2
-            ? { ...z, minutesBefore: 30 }
-            : { ...z, minutesBefore: 90 },
-    ) as Theme["setup"],
+    ),
+
   },
   {
     id: "dinosaur-dig",
