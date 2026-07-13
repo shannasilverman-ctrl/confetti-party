@@ -131,7 +131,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
       return;
     }
     setDone(true);
-    fireConfetti({ count: 32, spread: 180 });
+    celebrate("cannon");
   };
 
   return (
