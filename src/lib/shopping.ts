@@ -10,6 +10,8 @@ export type ShoppingCategoryName =
   | "Entertainment"
   | "Favors";
 
+export type Retailer = "amazon" | "target" | "walmart";
+
 export type ShoppingItem = {
   id: string;
   name: string;
@@ -19,6 +21,7 @@ export type ShoppingItem = {
   status: ShoppingStatus;
   linkedExpenseId?: string; // set when purchased
   actualPrice?: number; // total paid, set when purchased
+  preferredRetailer?: Retailer;
 };
 
 type Seed = {
