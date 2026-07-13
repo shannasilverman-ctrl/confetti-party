@@ -16,7 +16,9 @@ import {
   generateShoppingItems,
   type ShoppingItem,
   type ShoppingCategoryName,
+  type Retailer,
 } from "./shopping";
+import type { Theme } from "./themes";
 
 export type OccasionType =
   | "birthday"
@@ -66,6 +68,7 @@ export type Party = {
   budgetCategories: BudgetCategory[];
   timeline: TimelineItem[];
   shoppingItems: ShoppingItem[];
+  pinnedInspiration: string[]; // e.g. ["unicorn-rainbow:table"]
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
