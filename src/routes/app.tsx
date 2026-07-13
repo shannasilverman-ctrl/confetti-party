@@ -345,6 +345,10 @@ function NewPartyWizard({
     });
     setCreatedId(id);
     setStep("done");
+    // Big physics cannon for the "your plan is ready" moment.
+    if (typeof window !== "undefined") {
+      setTimeout(() => celebrate("cannon"), 60);
+    }
   }
 
   function openPlan() {
