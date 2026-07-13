@@ -218,12 +218,12 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
           )}
           <div className="ml-auto">
             <Button
-              variant="outline"
+              variant="festive"
               size="sm"
               onClick={() => setShopOpen(true)}
               disabled={needed.length === 0}
             >
-              <ShoppingBag /> Shop needed items
+              <ShoppingCart /> Open cart ({needed.length})
             </Button>
           </div>
         </div>
