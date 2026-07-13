@@ -299,6 +299,7 @@ function seedGrad(): Party {
     budgetCategories: DEFAULT_CATEGORIES(),
     timeline: [],
     shoppingItems: generateShoppingItems("graduation", "backyard-fiesta", 35),
+    pinnedInspiration: [],
   };
 }
 
