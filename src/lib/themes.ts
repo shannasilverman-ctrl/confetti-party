@@ -17,6 +17,7 @@ export type Theme = {
   palette: [string, string, string, string]; // 4 HSL swatches
   heroImage: string;
   visionBoard: { table: string; decor: string; dessert: string };
+  inspiration?: { entry: string; activity: string; photoSpot: string };
   decorIdeas: DecorIdea[];
   stylingTips: [string, string, string];
   setup: [SetupZone, SetupZone, SetupZone, SetupZone];
@@ -27,6 +28,9 @@ import unicornHero from "@/assets/themes/unicorn-rainbow.jpg";
 import unicornTable from "@/assets/themes/unicorn-rainbow-table.jpg";
 import unicornDecor from "@/assets/themes/unicorn-rainbow-decor.jpg";
 import unicornDessert from "@/assets/themes/unicorn-rainbow-dessert.jpg";
+import unicornEntry from "@/assets/themes/unicorn-rainbow-entry.jpg";
+import unicornActivity from "@/assets/themes/unicorn-rainbow-activity.jpg";
+import unicornPhoto from "@/assets/themes/unicorn-rainbow-photo.jpg";
 
 import dinoHero from "@/assets/themes/dinosaur-dig.jpg";
 import dinoTable from "@/assets/themes/dinosaur-dig-table.jpg";
@@ -82,6 +86,9 @@ import fiestaHero from "@/assets/themes/backyard-fiesta.jpg";
 import fiestaTable from "@/assets/themes/backyard-fiesta-table.jpg";
 import fiestaDecor from "@/assets/themes/backyard-fiesta-decor.jpg";
 import fiestaDessert from "@/assets/themes/backyard-fiesta-dessert.jpg";
+import fiestaEntry from "@/assets/themes/backyard-fiesta-entry.jpg";
+import fiestaActivity from "@/assets/themes/backyard-fiesta-activity.jpg";
+import fiestaPhoto from "@/assets/themes/backyard-fiesta-photo.jpg";
 
 import retroHero from "@/assets/themes/retro-yearbook.jpg";
 import retroTable from "@/assets/themes/retro-yearbook-table.jpg";
