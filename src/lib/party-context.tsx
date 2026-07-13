@@ -345,6 +345,7 @@ function rowToParty(r: {
   budget_categories: unknown;
   shopping_items: unknown;
   timeline: unknown;
+  pinned_inspiration?: unknown;
 }): Party {
   return {
     id: r.id,
@@ -363,6 +364,7 @@ function rowToParty(r: {
     budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
     shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
     timeline: (r.timeline as TimelineItem[]) ?? [],
+    pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
   };
 }
 
@@ -384,6 +386,7 @@ function partyToRow(p: Party, userId: string) {
     budget_categories: p.budgetCategories as unknown as Json,
     shopping_items: p.shoppingItems as unknown as Json,
     timeline: p.timeline as unknown as Json,
+    pinned_inspiration: p.pinnedInspiration as unknown as Json,
   };
 }
 
