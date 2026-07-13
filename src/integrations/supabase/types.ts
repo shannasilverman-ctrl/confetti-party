@@ -26,6 +26,7 @@ export type Database = {
           location: string | null
           name: string
           occasion: string
+          pinned_inspiration: Json
           rsvp_token: string
           shopping_items: Json
           start_time: string | null
@@ -47,6 +48,7 @@ export type Database = {
           location?: string | null
           name: string
           occasion: string
+          pinned_inspiration?: Json
           rsvp_token?: string
           shopping_items?: Json
           start_time?: string | null
@@ -68,6 +70,7 @@ export type Database = {
           location?: string | null
           name?: string
           occasion?: string
+          pinned_inspiration?: Json
           rsvp_token?: string
           shopping_items?: Json
           start_time?: string | null
