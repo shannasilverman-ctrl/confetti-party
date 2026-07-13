@@ -421,6 +421,7 @@ function makeParty(input: {
     budgetCategories: DEFAULT_CATEGORIES(),
     timeline: [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
+    pinnedInspiration: [],
   };
 }
 
