@@ -211,11 +211,18 @@ function PartyWorkspace() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex min-w-[68px] flex-1 shrink-0 flex-col items-center gap-1 py-3 text-[11px] transition ${
+              className={`relative flex min-w-[68px] flex-1 shrink-0 flex-col items-center gap-1 py-3 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <t.icon className="h-5 w-5" />
+              <span className="relative">
+                <t.icon className="h-5 w-5" />
+                {t.badge != null && t.badge > 0 && (
+                  <span className="absolute -right-2 -top-1 min-w-[16px] rounded-full bg-primary px-1 text-[9px] font-semibold leading-4 text-primary-foreground">
+                    {t.badge}
+                  </span>
+                )}
+              </span>
               {t.label}
             </button>
           ))}
