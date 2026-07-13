@@ -3,10 +3,12 @@ import {
   addShoppingItem,
   markShoppingPurchased,
   removeShoppingItem,
+  setPreferredRetailer,
   setShoppingStatus,
   totalSpent,
   unmarkShoppingPurchased,
   useParties,
+  type Retailer,
   type ShoppingCategoryName,
   type ShoppingItem,
   type Party,
@@ -36,7 +38,6 @@ import {
   ShoppingCart,
   Trash2,
   AlertTriangle,
-  ShoppingBag,
   Copy,
   ExternalLink,
 } from "lucide-react";
@@ -49,6 +50,18 @@ import {
   affiliateDisclosureEnabled,
   AFFILIATE_DISCLOSURE,
 } from "@/lib/affiliates";
+
+const RETAILERS: { key: Retailer; label: string }[] = [
+  { key: "amazon", label: "Amazon" },
+  { key: "target", label: "Target" },
+  { key: "walmart", label: "Walmart" },
+];
+
+function retailerUrl(retailer: Retailer, query: string): string {
+  if (retailer === "target") return targetSearchUrl(query);
+  if (retailer === "walmart") return walmartSearchUrl(query);
+  return amazonSearchUrl(query);
+}
 
 const CATEGORY_NAMES: ShoppingCategoryName[] = [
   "Venue",
