@@ -278,6 +278,7 @@ function seedMaya(): Party {
     budgetCategories,
     timeline,
     shoppingItems,
+    pinnedInspiration: ["unicorn-rainbow:table", "unicorn-rainbow:decor"],
   };
 }
 
