@@ -28,7 +28,7 @@ import {
   Camera,
   ShoppingCart,
   Pin,
-  Pin as PinIcon,
+  // Pin used for both states, color differentiates.
   ExternalLink,
   ShoppingBag,
   ListChecks,
@@ -385,8 +385,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                       }`}
                       aria-label={pinned ? "Unpin" : "Pin"}
                     >
-                      <Pin className={`h-4 w-4 ${pinned ? "" : "opacity-70"}`} />
-                      <PinIcon className="hidden" aria-hidden />
+                      <Pin className="h-4 w-4" />
                     </button>
                     <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-white">
                       {TILE_LABELS[key]}
