@@ -109,10 +109,14 @@ function PartyWorkspace() {
   const spent = totalSpent(party);
   const prog = progressPct(party);
 
-  const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
+  const cartCount = party.shoppingItems.filter(
+    (i) => i.status === "needed" || i.status === "in-cart",
+  ).length;
+
+  const tabs: { key: TabKey; label: string; icon: typeof ListChecks; badge?: number }[] = [
     { key: "overview", label: "Overview", icon: LayoutDashboard },
     { key: "theme", label: "Theme", icon: Palette },
-    { key: "shopping", label: "Shopping", icon: ShoppingCart },
+    { key: "shopping", label: "Shopping", icon: ShoppingCart, badge: cartCount },
     { key: "checklist", label: "Checklist", icon: ListChecks },
     { key: "guests", label: "Guests", icon: Users },
     { key: "budget", label: "Budget", icon: Wallet },
@@ -178,6 +182,11 @@ function PartyWorkspace() {
                 }`}
               >
                 <t.icon className="h-4 w-4" /> {t.label}
+                {t.badge != null && t.badge > 0 && (
+                  <span className="ml-1 min-w-[18px] rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold leading-4 text-primary">
+                    {t.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -202,11 +211,18 @@ function PartyWorkspace() {
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`flex min-w-[68px] flex-1 shrink-0 flex-col items-center gap-1 py-3 text-[11px] transition ${
+              className={`relative flex min-w-[68px] flex-1 shrink-0 flex-col items-center gap-1 py-3 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
               }`}
             >
-              <t.icon className="h-5 w-5" />
+              <span className="relative">
+                <t.icon className="h-5 w-5" />
+                {t.badge != null && t.badge > 0 && (
+                  <span className="absolute -right-2 -top-1 min-w-[16px] rounded-full bg-primary px-1 text-[9px] font-semibold leading-4 text-primary-foreground">
+                    {t.badge}
+                  </span>
+                )}
+              </span>
               {t.label}
             </button>
           ))}

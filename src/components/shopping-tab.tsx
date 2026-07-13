@@ -3,10 +3,12 @@ import {
   addShoppingItem,
   markShoppingPurchased,
   removeShoppingItem,
+  setPreferredRetailer,
   setShoppingStatus,
   totalSpent,
   unmarkShoppingPurchased,
   useParties,
+  type Retailer,
   type ShoppingCategoryName,
   type ShoppingItem,
   type Party,
@@ -36,7 +38,6 @@ import {
   ShoppingCart,
   Trash2,
   AlertTriangle,
-  ShoppingBag,
   Copy,
   ExternalLink,
 } from "lucide-react";
@@ -49,6 +50,18 @@ import {
   affiliateDisclosureEnabled,
   AFFILIATE_DISCLOSURE,
 } from "@/lib/affiliates";
+
+const RETAILERS: { key: Retailer; label: string }[] = [
+  { key: "amazon", label: "Amazon" },
+  { key: "target", label: "Target" },
+  { key: "walmart", label: "Walmart" },
+];
+
+function retailerUrl(retailer: Retailer, query: string): string {
+  if (retailer === "target") return targetSearchUrl(query);
+  if (retailer === "walmart") return walmartSearchUrl(query);
+  return amazonSearchUrl(query);
+}
 
 const CATEGORY_NAMES: ShoppingCategoryName[] = [
   "Venue",
@@ -205,12 +218,12 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
           )}
           <div className="ml-auto">
             <Button
-              variant="outline"
+              variant="festive"
               size="sm"
               onClick={() => setShopOpen(true)}
               disabled={needed.length === 0}
             >
-              <ShoppingBag /> Shop needed items
+              <ShoppingCart /> Open cart ({needed.length})
             </Button>
           </div>
         </div>
@@ -350,59 +363,202 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
         </DialogContent>
       </Dialog>
 
-      {/* Shop needed items */}
-      <Dialog open={shopOpen} onOpenChange={setShopOpen}>
-        <DialogContent className="max-h-[85vh] overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Shop needed items</DialogTitle>
-            <DialogDescription>
-              Bought something? Mark it Purchased to track it in your budget.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">
-              {needed.length} item{needed.length === 1 ? "" : "s"} · est $
-              {needed.reduce((s, i) => s + i.qty * i.estPrice, 0)}
-            </span>
-            <Button variant="outline" size="sm" onClick={copyList}>
-              <Copy /> Copy list
-            </Button>
-          </div>
-          <ul className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-            {needed.map((it) => (
-              <li
-                key={it.id}
-                className="rounded-xl border border-border bg-background/60 p-3"
+      {/* Cart with retailer handoff */}
+      <CartDialog
+        open={shopOpen}
+        onOpenChange={setShopOpen}
+        needed={needed}
+        party={party}
+        onSetRetailer={(id, r) =>
+          updateParty(partyId, (p) => setPreferredRetailer(p, id, r))
+        }
+        onMarkAllInCart={(ids) =>
+          updateParty(partyId, (p) =>
+            ids.reduce((acc, id) => setShoppingStatus(acc, id, "in-cart"), p),
+          )
+        }
+        onCopyList={copyList}
+        showDisclosure={showDisclosure}
+      />
+    </div>
+  );
+}
+
+function CartDialog({
+  open,
+  onOpenChange,
+  needed,
+  party,
+  onSetRetailer,
+  onMarkAllInCart,
+  onCopyList,
+  showDisclosure,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  needed: ShoppingItem[];
+  party: Party;
+  onSetRetailer: (id: string, r: Retailer) => void;
+  onMarkAllInCart: (ids: string[]) => void;
+  onCopyList: () => void;
+  showDisclosure: boolean;
+}) {
+  const grouped = useMemo(() => {
+    const g: Record<Retailer, ShoppingItem[]> = { amazon: [], target: [], walmart: [] };
+    for (const it of needed) g[it.preferredRetailer ?? "amazon"].push(it);
+    return g;
+  }, [needed]);
+
+  async function openGroup(retailer: Retailer) {
+    const items = grouped[retailer];
+    if (items.length === 0) return;
+    // First tab opens immediately from the click (preserves the user gesture).
+    const first = items[0];
+    window.open(retailerUrl(retailer, buildQuery(first, party)), "_blank", "noopener,noreferrer");
+    if (items.length === 1) return;
+    // Stagger the rest so popup blockers don't swallow them.
+    let blocked = false;
+    for (let i = 1; i < items.length; i++) {
+      await new Promise((r) => setTimeout(r, 180));
+      const w = window.open(
+        retailerUrl(retailer, buildQuery(items[i], party)),
+        "_blank",
+        "noopener,noreferrer",
+      );
+      if (!w) {
+        blocked = true;
+        break;
+      }
+    }
+    if (blocked) {
+      toast("Popups were blocked", {
+        description: "Allow popups for Confetti to open every search at once.",
+      });
+    }
+  }
+
+  const totalNeeded = needed.reduce((s, i) => s + i.qty * i.estPrice, 0);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle>Your cart</DialogTitle>
+          <DialogDescription>
+            Open every search on your favorite retailer, then mark items Purchased
+            to track them in your budget.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs text-muted-foreground">
+            {needed.length} item{needed.length === 1 ? "" : "s"} · est ${totalNeeded}
+          </span>
+          <Button variant="outline" size="sm" onClick={onCopyList}>
+            <Copy /> Copy list
+          </Button>
+        </div>
+
+        <div className="max-h-[55vh] space-y-4 overflow-y-auto pr-1">
+          {RETAILERS.map(({ key, label }) => {
+            const items = grouped[key];
+            if (items.length === 0) return null;
+            const groupEst = items.reduce((s, i) => s + i.qty * i.estPrice, 0);
+            return (
+              <section
+                key={key}
+                className="rounded-2xl border border-border bg-background/60 p-3"
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="text-sm font-medium text-secondary">
-                      {it.name}
+                    <div className="font-display text-sm font-semibold text-secondary">
+                      {label}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Qty {it.qty} · ~${it.qty * it.estPrice} · {it.category}
+                    <div className="text-[11px] text-muted-foreground">
+                      {items.length} item{items.length === 1 ? "" : "s"} · est $
+                      {groupEst}
                     </div>
                   </div>
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onMarkAllInCart(items.map((i) => i.id))}
+                    >
+                      Mark all In cart
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="festive"
+                      onClick={() => openGroup(key)}
+                    >
+                      <ExternalLink /> Open {items.length} on {label}
+                    </Button>
+                  </div>
                 </div>
-                <div className="mt-2">
-                  <RetailerButtons query={buildQuery(it, party)} />
-                </div>
-              </li>
-            ))}
-          </ul>
-          {showDisclosure && (
-            <p className="text-center text-[11px] text-muted-foreground">
-              {AFFILIATE_DISCLOSURE}
-            </p>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShopOpen(false)}>
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+                <ul className="mt-3 space-y-2">
+                  {items.map((it) => (
+                    <li
+                      key={it.id}
+                      className="rounded-xl border border-border bg-card p-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-secondary">
+                            {it.name}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Qty {it.qty} · ~${it.qty * it.estPrice} · {it.category}
+                          </div>
+                        </div>
+                        <a
+                          href={retailerUrl(it.preferredRetailer ?? "amazon", buildQuery(it, party))}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-secondary hover:border-primary hover:text-primary"
+                        >
+                          Open
+                        </a>
+                      </div>
+                      <div className="mt-2 flex gap-1">
+                        {RETAILERS.map((r) => {
+                          const active = (it.preferredRetailer ?? "amazon") === r.key;
+                          return (
+                            <button
+                              key={r.key}
+                              type="button"
+                              onClick={() => onSetRetailer(it.id, r.key)}
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${
+                                active
+                                  ? "bg-primary text-primary-foreground"
+                                  : "border border-border bg-background text-muted-foreground hover:text-primary"
+                              }`}
+                            >
+                              {r.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+
+        {showDisclosure && (
+          <p className="text-center text-[11px] text-muted-foreground">
+            {AFFILIATE_DISCLOSURE}
+          </p>
+        )}
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Done
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

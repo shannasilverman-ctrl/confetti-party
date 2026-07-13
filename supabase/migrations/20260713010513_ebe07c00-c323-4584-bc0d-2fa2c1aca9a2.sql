@@ -1,0 +1,1 @@
+ALTER TABLE public.parties ADD COLUMN IF NOT EXISTS pinned_inspiration jsonb NOT NULL DEFAULT '[]'::jsonb;

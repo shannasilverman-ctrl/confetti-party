@@ -16,7 +16,9 @@ import {
   generateShoppingItems,
   type ShoppingItem,
   type ShoppingCategoryName,
+  type Retailer,
 } from "./shopping";
+import type { Theme } from "./themes";
 
 export type OccasionType =
   | "birthday"
@@ -66,6 +68,7 @@ export type Party = {
   budgetCategories: BudgetCategory[];
   timeline: TimelineItem[];
   shoppingItems: ShoppingItem[];
+  pinnedInspiration: string[]; // e.g. ["unicorn-rainbow:table"]
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -275,6 +278,7 @@ function seedMaya(): Party {
     budgetCategories,
     timeline,
     shoppingItems,
+    pinnedInspiration: ["unicorn-rainbow:table", "unicorn-rainbow:decor"],
   };
 }
 
@@ -295,6 +299,7 @@ function seedGrad(): Party {
     budgetCategories: DEFAULT_CATEGORIES(),
     timeline: [],
     shoppingItems: generateShoppingItems("graduation", "backyard-fiesta", 35),
+    pinnedInspiration: [],
   };
 }
 
@@ -340,6 +345,7 @@ function rowToParty(r: {
   budget_categories: unknown;
   shopping_items: unknown;
   timeline: unknown;
+  pinned_inspiration?: unknown;
 }): Party {
   return {
     id: r.id,
@@ -358,6 +364,7 @@ function rowToParty(r: {
     budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
     shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
     timeline: (r.timeline as TimelineItem[]) ?? [],
+    pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
   };
 }
 
@@ -379,6 +386,7 @@ function partyToRow(p: Party, userId: string) {
     budget_categories: p.budgetCategories as unknown as Json,
     shopping_items: p.shoppingItems as unknown as Json,
     timeline: p.timeline as unknown as Json,
+    pinned_inspiration: p.pinnedInspiration as unknown as Json,
   };
 }
 
@@ -413,6 +421,7 @@ function makeParty(input: {
     budgetCategories: DEFAULT_CATEGORIES(),
     timeline: [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
+    pinnedInspiration: [],
   };
 }
 
@@ -599,7 +608,7 @@ export const OCCASION_LABELS: Record<OccasionType, string> = {
 
 // ---- Shopping helpers ----
 
-export type { ShoppingItem, ShoppingCategoryName } from "./shopping";
+export type { ShoppingItem, ShoppingCategoryName, Retailer } from "./shopping";
 export { STATUS_LABEL } from "./shopping";
 
 export function shoppingProjectedRemaining(p: Party): number {
@@ -688,5 +697,60 @@ export function removeShoppingItem(p: Party, itemId: string): Party {
   const item = p.shoppingItems.find((i) => i.id === itemId);
   const base = item?.status === "purchased" ? unmarkShoppingPurchased(p, itemId) : p;
   return { ...base, shoppingItems: base.shoppingItems.filter((i) => i.id !== itemId) };
+}
+
+export function setPreferredRetailer(
+  p: Party,
+  itemId: string,
+  retailer: Retailer,
+): Party {
+  return {
+    ...p,
+    shoppingItems: p.shoppingItems.map((i) =>
+      i.id === itemId ? { ...i, preferredRetailer: retailer } : i,
+    ),
+  };
+}
+
+export function togglePin(p: Party, pinId: string): Party {
+  const has = p.pinnedInspiration.includes(pinId);
+  return {
+    ...p,
+    pinnedInspiration: has
+      ? p.pinnedInspiration.filter((id) => id !== pinId)
+      : [...p.pinnedInspiration, pinId],
+  };
+}
+
+// Bulk-add all Buy-kind decor ideas from a theme that aren't already on the list.
+export function addThemeToShopping(
+  p: Party,
+  theme: Theme,
+): { party: Party; added: number; skipped: number; estTotal: number } {
+  const existing = new Set(p.shoppingItems.map((i) => i.name));
+  const toAdd = theme.decorIdeas.filter(
+    (idea) => idea.kind === "Buy" && idea.estPrice > 0 && !existing.has(idea.title),
+  );
+  const skipped = theme.decorIdeas.filter(
+    (idea) => idea.kind === "Buy" && idea.estPrice > 0 && existing.has(idea.title),
+  ).length;
+  const estTotal = toAdd.reduce((s, i) => s + i.estPrice, 0);
+  const shoppingItems: ShoppingItem[] = [
+    ...p.shoppingItems,
+    ...toAdd.map((idea) => ({
+      id: uid(),
+      name: idea.title,
+      category: "Decorations" as ShoppingCategoryName,
+      qty: 1,
+      estPrice: idea.estPrice,
+      status: "needed" as const,
+    })),
+  ];
+  return {
+    party: { ...p, shoppingItems },
+    added: toAdd.length,
+    skipped,
+    estTotal,
+  };
 }
 
