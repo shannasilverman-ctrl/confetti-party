@@ -147,6 +147,7 @@ export const THEMES: Theme[] = [
     palette: ["hsl(340 85% 75%)", "hsl(200 80% 72%)", "hsl(50 95% 70%)", "hsl(280 60% 78%)"],
     heroImage: unicornHero,
     visionBoard: { table: unicornTable, decor: unicornDecor, dessert: unicornDessert },
+    inspiration: { entry: unicornEntry, activity: unicornActivity, photoSpot: unicornPhoto },
     decorIdeas: [
       { title: "Rainbow balloon arch over the entry", kind: "Buy", bucket: "1-2 weeks", estPrice: 28 },
       { title: "Iridescent tablecloth on the main table", kind: "Buy", bucket: "1-2 weeks", estPrice: 18 },
@@ -483,6 +484,7 @@ export const THEMES: Theme[] = [
     palette: ["hsl(15 75% 55%)", "hsl(340 70% 65%)", "hsl(45 85% 58%)", "hsl(200 55% 55%)"],
     heroImage: fiestaHero,
     visionBoard: { table: fiestaTable, decor: fiestaDecor, dessert: fiestaDessert },
+    inspiration: { entry: fiestaEntry, activity: fiestaActivity, photoSpot: fiestaPhoto },
     decorIdeas: [
       { title: "Papel picado banners strung across the yard", kind: "Buy", bucket: "3-5 weeks", estPrice: 20 },
       { title: "Cactus centerpieces in terracotta pots", kind: "Buy", bucket: "1-2 weeks", estPrice: 16 },
