@@ -109,10 +109,14 @@ function PartyWorkspace() {
   const spent = totalSpent(party);
   const prog = progressPct(party);
 
-  const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
+  const cartCount = party.shoppingItems.filter(
+    (i) => i.status === "needed" || i.status === "in-cart",
+  ).length;
+
+  const tabs: { key: TabKey; label: string; icon: typeof ListChecks; badge?: number }[] = [
     { key: "overview", label: "Overview", icon: LayoutDashboard },
     { key: "theme", label: "Theme", icon: Palette },
-    { key: "shopping", label: "Shopping", icon: ShoppingCart },
+    { key: "shopping", label: "Shopping", icon: ShoppingCart, badge: cartCount },
     { key: "checklist", label: "Checklist", icon: ListChecks },
     { key: "guests", label: "Guests", icon: Users },
     { key: "budget", label: "Budget", icon: Wallet },
@@ -178,6 +182,11 @@ function PartyWorkspace() {
                 }`}
               >
                 <t.icon className="h-4 w-4" /> {t.label}
+                {t.badge != null && t.badge > 0 && (
+                  <span className="ml-1 min-w-[18px] rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold leading-4 text-primary">
+                    {t.badge}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
