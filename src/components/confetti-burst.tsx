@@ -142,13 +142,98 @@ export function fireConfetti(opts: { origin?: { x: number; y: number }; count?: 
 }
 
 /**
- * Global throttled celebration helper with three presets. Every burst
- * flows through fireConfetti (which already skips when the user prefers
- * reduced motion), and a shared 300ms throttle prevents stacked bursts
- * from rapid clicking.
+ * Physics-based confetti cannon. Pieces launch upward from `origin` with
+ * random horizontal velocity, arc under gravity, tumble, and fade. DOM-light
+ * spans self-clean after the animation. Distinct from the radial `fireConfetti`.
+ */
+const CANNON_PALETTE = [
+  "hsl(10 82% 62%)",   // coral (primary)
+  "hsl(268 55% 42%)",  // violet (secondary)
+  "hsl(38 92% 58%)",   // amber (accent)
+  "hsl(340 75% 62%)",  // pink
+  "hsl(210 82% 60%)",  // blue
+];
+
+export function fireCannon(opts: { origin?: { x: number; y: number }; count?: number } = {}) {
+  if (typeof window === "undefined") return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+  const { origin, count = 70 } = opts;
+  const cx = origin?.x ?? window.innerWidth / 2;
+  const cy = origin?.y ?? window.innerHeight / 2;
+
+  const host = document.createElement("div");
+  host.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden;";
+  document.body.appendChild(host);
+
+  const rand = seeded((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) & 0xffffffff);
+  const gravity = 1600; // px/s^2
+  let maxDur = 0;
+
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement("span");
+    const isRect = rand() > 0.45;
+    const w = isRect ? 6 + Math.round(rand() * 6) : 7 + Math.round(rand() * 5);
+    const h = isRect ? 9 + Math.round(rand() * 7) : w;
+    const color = CANNON_PALETTE[Math.floor(rand() * CANNON_PALETTE.length)];
+    el.style.cssText = [
+      "position:absolute",
+      `left:${cx}px`,
+      `top:${cy}px`,
+      `width:${w}px`,
+      `height:${h}px`,
+      `background:${color}`,
+      `border-radius:${isRect ? "1.5px" : "9999px"}`,
+      "transform:translate(-50%,-50%)",
+      "will-change:transform,opacity",
+    ].join(";");
+    host.appendChild(el);
+
+    // Physics: upward kick + random horizontal, then gravity arc.
+    const angle = -Math.PI / 2 + (rand() - 0.5) * (Math.PI * 0.9); // roughly upward, wide cone
+    const speed = 520 + rand() * 480; // px/s
+    const vx = Math.cos(angle) * speed;
+    const vy = Math.sin(angle) * speed;
+    const dur = 1100 + rand() * 800; // ms
+    const t = dur / 1000; // s
+    const rot = (rand() * 1440 - 720);
+
+    // Sample the arc so easing applies to a real trajectory.
+    const steps = 8;
+    const frames: Keyframe[] = [];
+    for (let s = 0; s <= steps; s++) {
+      const p = s / steps;
+      const tt = p * t;
+      const x = vx * tt;
+      const y = vy * tt + 0.5 * gravity * tt * tt;
+      const r = rot * p;
+      // fade out over last 30%
+      const opacity = p < 0.1 ? p / 0.1 : p > 0.7 ? Math.max(0, 1 - (p - 0.7) / 0.3) : 1;
+      frames.push({
+        transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) rotate(${r}deg)`,
+        opacity,
+      });
+    }
+    el.animate(frames, {
+      duration: dur,
+      easing: "cubic-bezier(.18,.7,.3,1)",
+      fill: "forwards",
+      delay: Math.round(rand() * 60),
+    });
+    if (dur > maxDur) maxDur = dur;
+  }
+
+  setTimeout(() => host.remove(), maxDur + 200);
+}
+
+/**
+ * Global throttled celebration helper with presets. Every burst flows
+ * through fireConfetti / fireCannon (which already skip when the user
+ * prefers reduced motion), and a shared 300ms throttle prevents stacked
+ * bursts from rapid clicking.
  */
 let __lastCelebrateAt = 0;
-export type CelebrateIntensity = "micro" | "small" | "big";
+export type CelebrateIntensity = "micro" | "small" | "big" | "cannon";
 export function celebrate(
   intensity: CelebrateIntensity,
   origin?: { x: number; y: number },
@@ -157,7 +242,11 @@ export function celebrate(
   const now = Date.now();
   if (now - __lastCelebrateAt < 300) return;
   __lastCelebrateAt = now;
-  const presets: Record<CelebrateIntensity, { count: number; spread: number }> = {
+  if (intensity === "cannon") {
+    fireCannon({ origin });
+    return;
+  }
+  const presets: Record<Exclude<CelebrateIntensity, "cannon">, { count: number; spread: number }> = {
     micro: { count: 7, spread: 50 },
     small: { count: 14, spread: 100 },
     big: { count: 32, spread: 180 },

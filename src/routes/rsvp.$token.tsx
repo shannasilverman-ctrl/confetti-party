@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { fireConfetti, celebrate } from "@/components/confetti-burst";
+import { celebrate } from "@/components/confetti-burst";
 
 type PartyView = {
   name: string;
@@ -131,7 +131,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
       return;
     }
     setDone(true);
-    fireConfetti({ count: 32, spread: 180 });
+    celebrate("cannon");
   };
 
   return (

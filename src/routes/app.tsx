@@ -14,7 +14,7 @@ import {
 import { themesForOccasion, type Theme } from "@/lib/themes";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
-import { ConfettiBurst, celebrateAtEvent } from "@/components/confetti-burst";
+import { ConfettiBurst, celebrateAtEvent, celebrate } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -345,6 +345,10 @@ function NewPartyWizard({
     });
     setCreatedId(id);
     setStep("done");
+    // Big physics cannon for the "your plan is ready" moment.
+    if (typeof window !== "undefined") {
+      setTimeout(() => celebrate("cannon"), 60);
+    }
   }
 
   function openPlan() {
