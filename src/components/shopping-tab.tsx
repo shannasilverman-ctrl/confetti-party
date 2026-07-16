@@ -539,6 +539,7 @@ function CartDialog({
                           );
                         })}
                       </div>
+                      <ProductTiles query={buildQuery(it, party)} limit={3} />
                     </li>
                   ))}
                 </ul>
