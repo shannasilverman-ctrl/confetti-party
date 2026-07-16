@@ -676,7 +676,8 @@ function ShoppingRow({
         </button>
       </div>
       {!isPurchased && showShop && (
-        <div className="mt-2">
+        <div className="mt-2 space-y-2">
+          <ProductTiles query={query} limit={3} emptyFallback={<RetailerButtons query={query} />} />
           <RetailerButtons query={query} />
         </div>
       )}
