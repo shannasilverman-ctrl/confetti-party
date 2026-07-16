@@ -275,6 +275,53 @@ function Landing() {
   );
 }
 
+function SeasonalBanner() {
+  const moment = getActiveSeasonalMoment();
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (!moment) return;
+    try {
+      if (sessionStorage.getItem(`seasonal-dismissed:${moment.id}`) === "1") {
+        setDismissed(true);
+      }
+    } catch {
+      /* no-op */
+    }
+  }, [moment]);
+  if (!moment || dismissed) return null;
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      sessionStorage.setItem(`seasonal-dismissed:${moment.id}`, "1");
+    } catch {
+      /* no-op */
+    }
+  };
+  return (
+    <div className="border-b border-border bg-primary/5">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-2.5">
+        <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+          {moment.label}
+        </span>
+        <span className="text-sm text-secondary">{moment.headline}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <Button asChild size="sm" variant="festive">
+            <Link to={moment.ctaHref}>{moment.cta}</Link>
+          </Button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={dismiss}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-secondary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* -------------------------- little presentational bits -------------------------- */
 
 function FloatingConfettiField() {
