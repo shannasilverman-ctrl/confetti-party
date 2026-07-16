@@ -500,8 +500,11 @@ function makeParty(input: {
       ...(input.extraTasks ?? []),
     ],
     guests: [],
-    budgetCategories: DEFAULT_CATEGORIES(),
-    timeline: [],
+    budgetCategories: defaultCategoriesFor(input.occasion),
+    timeline:
+      input.occasion === "game-day" && input.startTime
+        ? seedGameDayTimeline(input.startTime)
+        : [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
     pinnedInspiration: [],
   };
