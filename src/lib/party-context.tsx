@@ -132,6 +132,29 @@ const TASK_TEMPLATES: Record<OccasionType, Array<{ title: string; bucket: Bucket
     { title: "Set the table", bucket: "Day of" },
     { title: "Cook", bucket: "Day of" },
   ],
+  "game-day": [
+    { title: "Pick the game and set the time", bucket: "3-5 weeks" },
+    { title: "Invite the crew and share the link", bucket: "3-5 weeks" },
+    { title: "Confirm the stream or channel works", bucket: "1-2 weeks" },
+    { title: "Plan the snack lineup", bucket: "1-2 weeks" },
+    { title: "Order or plan wings, chili, dips", bucket: "Party week" },
+    { title: "Stock drinks and grab extra ice", bucket: "Party week" },
+    { title: "Test the TV, sound, and seating", bucket: "Day of" },
+    { title: "Chill drinks and set out snacks", bucket: "Day of" },
+    { title: "Get halftime food ready", bucket: "Day of" },
+  ],
+  cookout: [
+    { title: "Set the date and guest list", bucket: "3-5 weeks" },
+    { title: "Send the invite", bucket: "3-5 weeks" },
+    { title: "Plan the menu (proteins, sides, dessert)", bucket: "1-2 weeks" },
+    { title: "Clean and check the grill", bucket: "1-2 weeks" },
+    { title: "Propane / charcoal run", bucket: "Party week" },
+    { title: "Grocery run — meat, buns, sides, ice", bucket: "Party week" },
+    { title: "Marinate and prep proteins", bucket: "Party week" },
+    { title: "Set up shade, seating, and drinks cooler", bucket: "Day of" },
+    { title: "Fire up the grill", bucket: "Day of" },
+    { title: "Set out bug spray and sunscreen", bucket: "Day of" },
+  ],
   other: [
     { title: "Confirm date and venue", bucket: "6+ weeks out" },
     { title: "Send invites", bucket: "3-5 weeks" },
@@ -140,6 +163,63 @@ const TASK_TEMPLATES: Record<OccasionType, Array<{ title: string; bucket: Bucket
     { title: "Set up", bucket: "Day of" },
   ],
 };
+
+// Occasion-aware default budget categories.
+function defaultCategoriesFor(occasion: OccasionType): BudgetCategory[] {
+  if (occasion === "game-day") {
+    return [
+      { id: uid(), name: "Food & Snacks", planned: 120, expenses: [] },
+      { id: uid(), name: "Drinks & Bar", planned: 100, expenses: [] },
+      { id: uid(), name: "Paper Goods & Setup", planned: 40, expenses: [] },
+      { id: uid(), name: "Décor", planned: 40, expenses: [] },
+    ];
+  }
+  if (occasion === "cookout") {
+    return [
+      { id: uid(), name: "Grill & Food", planned: 200, expenses: [] },
+      { id: uid(), name: "Drinks & Bar", planned: 100, expenses: [] },
+      { id: uid(), name: "Sides & Dessert", planned: 80, expenses: [] },
+      { id: uid(), name: "Paper Goods & Setup", planned: 50, expenses: [] },
+      { id: uid(), name: "Décor", planned: 40, expenses: [] },
+    ];
+  }
+  return DEFAULT_CATEGORIES();
+}
+
+// Seed-only helper: builds a timeline around a game-day kickoff time
+// (e.g. "4:00 PM"). No persisted anchor — later edits are manual.
+function seedGameDayTimeline(kickoff: string): TimelineItem[] {
+  const match = kickoff.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return [];
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const mer = match[3].toUpperCase();
+  if (isNaN(hour) || isNaN(minute) || hour < 1 || hour > 12 || minute > 59) return [];
+  if (mer === "PM" && hour !== 12) hour += 12;
+  if (mer === "AM" && hour === 12) hour = 0;
+  const baseMin = hour * 60 + minute;
+  const fmt = (totalMin: number) => {
+    const m = ((totalMin % (24 * 60)) + 24 * 60) % (24 * 60);
+    let h = Math.floor(m / 60);
+    const mm = m % 60;
+    const am = h < 12 ? "AM" : "PM";
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${mm.toString().padStart(2, "0")} ${am}`;
+  };
+  const steps: Array<[number, string]> = [
+    [-60, "Doors open, drinks out"],
+    [-30, "Snacks and apps on the table"],
+    [0, "Kickoff — game on"],
+    [60, "Halftime — hot food out"],
+    [120, "Full time — dessert and wind-down"],
+  ];
+  return steps.map(([offset, activity]) => ({
+    id: uid(),
+    time: fmt(baseMin + offset),
+    activity,
+  }));
+}
 
 export function generateTasks(occasion: OccasionType, dateISO: string): Task[] {
   const template = TASK_TEMPLATES[occasion] ?? TASK_TEMPLATES.other;
