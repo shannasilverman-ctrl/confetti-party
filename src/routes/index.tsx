@@ -5,6 +5,8 @@ import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliates";
+import { getActiveSeasonalMoment } from "@/lib/seasonal";
+import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
 import {
   ArrowRight,
