@@ -40,6 +40,7 @@ import {
   targetSearchUrl,
   walmartSearchUrl,
 } from "@/lib/affiliates";
+import { ProductTiles } from "@/components/product-tiles";
 
 type TileKey = "table" | "decor" | "dessert" | "entry" | "activity" | "photoSpot";
 
@@ -627,11 +628,19 @@ function IdeaCard({
           )}
         </div>
         {isBuy && (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <RetailerChip label="Amazon" href={amazonSearchUrl(query)} />
-            <RetailerChip label="Target" href={targetSearchUrl(query)} />
-            <RetailerChip label="Walmart" href={walmartSearchUrl(query)} />
-          </div>
+          <>
+            <ProductTiles
+              query={query}
+              limit={3}
+              emptyFallback={
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <RetailerChip label="Amazon" href={amazonSearchUrl(query)} />
+                  <RetailerChip label="Target" href={targetSearchUrl(query)} />
+                  <RetailerChip label="Walmart" href={walmartSearchUrl(query)} />
+                </div>
+              }
+            />
+          </>
         )}
       </div>
     </article>
