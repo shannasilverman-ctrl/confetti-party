@@ -40,6 +40,7 @@ import {
   targetSearchUrl,
   walmartSearchUrl,
 } from "@/lib/affiliates";
+import { ProductTiles } from "@/components/product-tiles";
 
 type TileKey = "table" | "decor" | "dessert" | "entry" | "activity" | "photoSpot";
 
