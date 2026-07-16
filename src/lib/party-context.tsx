@@ -385,6 +385,32 @@ function seedGrad(): Party {
   };
 }
 
+function seedWorldCup(): Party {
+  const date = "2026-07-19";
+  const startTime = "10:00 AM";
+  const tasks = generateTasks("game-day", date).map((t, i) => ({
+    ...t,
+    done: i < 2,
+  }));
+  return {
+    id: "world-cup-final-watch",
+    name: "World Cup Final Watch Party",
+    occasion: "game-day",
+    date,
+    startTime,
+    location: "Our place",
+    guestEstimate: 12,
+    budget: 250,
+    theme: "",
+    tasks,
+    guests: [],
+    budgetCategories: defaultCategoriesFor("game-day"),
+    timeline: seedGameDayTimeline(startTime),
+    shoppingItems: generateShoppingItems("game-day", undefined, 12),
+    pinnedInspiration: [],
+  };
+}
+
 // ---- Context ----
 
 type Ctx = {
