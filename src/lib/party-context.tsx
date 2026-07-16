@@ -685,6 +685,8 @@ export const OCCASION_LABELS: Record<OccasionType, string> = {
   graduation: "Graduation",
   holiday: "Holiday",
   "dinner-party": "Dinner Party",
+  "game-day": "Game Day / Watch Party",
+  cookout: "BBQ & Cookout",
   other: "Other",
 };
 
