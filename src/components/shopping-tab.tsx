@@ -50,6 +50,7 @@ import {
   affiliateDisclosureEnabled,
   AFFILIATE_DISCLOSURE,
 } from "@/lib/affiliates";
+import { ProductTiles } from "@/components/product-tiles";
 
 const RETAILERS: { key: Retailer; label: string }[] = [
   { key: "amazon", label: "Amazon" },
