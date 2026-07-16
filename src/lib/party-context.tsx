@@ -549,7 +549,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     let cancelled = false;
     if (!user) {
-      setParties([seedMaya(), seedGrad()]);
+      setParties([seedMaya(), seedGrad(), seedWorldCup()]);
       setStatus("ready");
       return;
     }
