@@ -62,6 +62,20 @@ const OCCASION_SEEDS: Record<OccasionType, Seed[]> = {
     { name: "Wine for the table", category: "Food & Drink", estPrice: 22, serves: 4 },
     { name: "Cheese board ingredients", category: "Food & Drink", estPrice: 30 },
   ],
+  "game-day": [
+    { name: "Chips, dips, and pretzels", category: "Food & Drink", estPrice: 20, serves: 8 },
+    { name: "Wings or sliders (order/prep)", category: "Food & Drink", estPrice: 40, serves: 8 },
+    { name: "Beer, soda, and mixers", category: "Food & Drink", estPrice: 30, serves: 8 },
+    { name: "Bag of ice", category: "Food & Drink", estPrice: 5, serves: 10 },
+    { name: "Paper plates and napkins", category: "Food & Drink", estPrice: 8, serves: 10 },
+  ],
+  cookout: [
+    { name: "Burgers and hot dogs", category: "Food & Drink", estPrice: 45, serves: 8 },
+    { name: "Buns and condiments", category: "Food & Drink", estPrice: 15, serves: 10 },
+    { name: "Charcoal or propane", category: "Food & Drink", estPrice: 20 },
+    { name: "Cooler + bag of ice", category: "Food & Drink", estPrice: 10, serves: 10 },
+    { name: "Sturdy paper plates and cups", category: "Food & Drink", estPrice: 12, serves: 10 },
+  ],
   other: [
     { name: "Plates, cups, napkins", category: "Food & Drink", estPrice: 12, serves: 10 },
     { name: "Assorted drinks", category: "Food & Drink", estPrice: 15, serves: 8 },
