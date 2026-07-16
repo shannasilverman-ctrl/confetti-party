@@ -5,6 +5,8 @@ import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliates";
+import { getActiveSeasonalMoment } from "@/lib/seasonal";
+import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
 import {
   ArrowRight,
@@ -62,6 +64,7 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <SeasonalBanner />
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <BrandLockup animated />
@@ -268,6 +271,53 @@ function Landing() {
           </div>
         )}
       </footer>
+    </div>
+  );
+}
+
+function SeasonalBanner() {
+  const moment = getActiveSeasonalMoment();
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    if (!moment) return;
+    try {
+      if (sessionStorage.getItem(`seasonal-dismissed:${moment.id}`) === "1") {
+        setDismissed(true);
+      }
+    } catch {
+      /* no-op */
+    }
+  }, [moment]);
+  if (!moment || dismissed) return null;
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      sessionStorage.setItem(`seasonal-dismissed:${moment.id}`, "1");
+    } catch {
+      /* no-op */
+    }
+  };
+  return (
+    <div className="border-b border-border bg-primary/5">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-2.5">
+        <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+          {moment.label}
+        </span>
+        <span className="text-sm text-secondary">{moment.headline}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <Button asChild size="sm" variant="festive">
+            <a href={moment.ctaHref}>{moment.cta}</a>
+          </Button>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={dismiss}
+            className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-secondary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
