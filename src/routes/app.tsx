@@ -280,6 +280,8 @@ const OCCASIONS: { value: OccasionType; label: string; emoji: string }[] = [
   { value: "graduation", label: "Graduation", emoji: "🎓" },
   { value: "holiday", label: "Holiday", emoji: "🎄" },
   { value: "dinner-party", label: "Dinner Party", emoji: "🍷" },
+  { value: "game-day", label: "Watch Party", emoji: "🏆" },
+  { value: "cookout", label: "BBQ & Cookout", emoji: "🔥" },
   { value: "other", label: "Other", emoji: "🎉" },
 ];
 
