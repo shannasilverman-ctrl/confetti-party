@@ -26,6 +26,8 @@ export type OccasionType =
   | "graduation"
   | "holiday"
   | "dinner-party"
+  | "game-day"
+  | "cookout"
   | "other";
 
 export type RSVP = "invited" | "yes" | "no" | "maybe";
