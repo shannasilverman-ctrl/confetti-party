@@ -306,7 +306,7 @@ function SeasonalBanner() {
         <span className="text-sm text-secondary">{moment.headline}</span>
         <div className="ml-auto flex items-center gap-1">
           <Button asChild size="sm" variant="festive">
-            <Link to={moment.ctaHref}>{moment.cta}</Link>
+            <a href={moment.ctaHref}>{moment.cta}</a>
           </Button>
           <button
             type="button"
