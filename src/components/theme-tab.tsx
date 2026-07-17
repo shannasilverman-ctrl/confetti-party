@@ -301,7 +301,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="accent">
-                      {occasionLabel(party.occasion)}
+                      {OCCASION_LABELS[party.occasion]}
                     </Badge>
                     <Badge variant="soft">{activeTheme.decorIdeas.length} ideas</Badge>
                   </div>
