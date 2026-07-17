@@ -22,6 +22,7 @@ export type Database = {
           date: string
           guest_estimate: number
           guests: Json
+          host_note: string | null
           id: string
           location: string | null
           name: string
@@ -44,6 +45,7 @@ export type Database = {
           date: string
           guest_estimate?: number
           guests?: Json
+          host_note?: string | null
           id?: string
           location?: string | null
           name: string
@@ -66,6 +68,7 @@ export type Database = {
           date?: string
           guest_estimate?: number
           guests?: Json
+          host_note?: string | null
           id?: string
           location?: string | null
           name?: string
