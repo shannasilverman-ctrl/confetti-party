@@ -71,6 +71,7 @@ export type Party = {
   timeline: TimelineItem[];
   shoppingItems: ShoppingItem[];
   pinnedInspiration: string[]; // e.g. ["unicorn-rainbow:table"]
+  hostNote?: string;
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
