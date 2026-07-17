@@ -674,6 +674,3 @@ function zoneIcon(key: "entry" | "food" | "activity" | "photo") {
   }
 }
 
-function occasionLabel(o: OccasionType): string {
-  return o.replace("-", " ");
-}
