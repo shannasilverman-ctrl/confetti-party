@@ -457,6 +457,7 @@ function rowToParty(r: {
   shopping_items: unknown;
   timeline: unknown;
   pinned_inspiration?: unknown;
+  host_note?: string | null;
 }): Party {
   return {
     id: r.id,
@@ -476,6 +477,7 @@ function rowToParty(r: {
     shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
     timeline: (r.timeline as TimelineItem[]) ?? [],
     pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
+    hostNote: r.host_note ?? undefined,
   };
 }
 
