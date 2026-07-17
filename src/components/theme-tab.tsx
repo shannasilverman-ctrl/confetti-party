@@ -207,13 +207,15 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   }
 
   if (gallery.length === 0) {
+    const label = OCCASION_LABELS[party.occasion];
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center">
         <div className="font-display text-lg text-secondary">
-          No themes yet for {party.occasion}
+          Themes for {label} are coming soon
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          More theme collections are on the way.
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          You can keep planning — your checklist, guests, budget, and shopping list all
+          work without a theme. Décor themes for watch parties and cookouts land next.
         </p>
       </div>
     );
