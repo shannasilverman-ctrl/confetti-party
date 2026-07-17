@@ -10,8 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useParties } from "@/lib/party-context";
 import { Pencil } from "lucide-react";
+
+const HOST_NOTE_MAX = 280;
 
 export function EditDetailsDialog({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
@@ -21,6 +24,7 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [location, setLocation] = useState("");
+  const [hostNote, setHostNote] = useState("");
 
   useEffect(() => {
     if (!open || !party) return;
@@ -28,6 +32,7 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
     setDate(party.date);
     setStartTime(party.startTime ?? "");
     setLocation(party.location ?? "");
+    setHostNote(party.hostNote ?? "");
   }, [open, party]);
 
   if (!party) return null;
@@ -40,6 +45,7 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
       date,
       startTime: startTime.trim() || undefined,
       location: location.trim() || undefined,
+      hostNote: hostNote.trim() ? hostNote.trim().slice(0, HOST_NOTE_MAX) : undefined,
     }));
     setOpen(false);
   };
@@ -97,6 +103,21 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
                 />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-host-note">Note to your guests (optional)</Label>
+              <Textarea
+                id="ed-host-note"
+                value={hostNote}
+                onChange={(e) => setHostNote(e.target.value.slice(0, HOST_NOTE_MAX))}
+                maxLength={HOST_NOTE_MAX}
+                rows={3}
+                placeholder="Parking tips, what to bring, the vibe…"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Shown on your RSVP page — parking tips, what to bring, the vibe.</span>
+                <span className="tabular-nums">{hostNote.length}/{HOST_NOTE_MAX}</span>
+              </div>
+            </div>
           </div>
           <DialogFooter className="sm:justify-between">
             <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -111,3 +132,4 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
     </>
   );
 }
+

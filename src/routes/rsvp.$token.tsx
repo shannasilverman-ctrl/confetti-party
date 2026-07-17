@@ -386,6 +386,16 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
       </section>
 
       <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
+        {party.host_note && party.host_note.trim() && (
+          <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              A note from your host
+            </div>
+            <p className="mt-1.5 whitespace-pre-wrap text-[15px] leading-relaxed text-secondary">
+              {party.host_note}
+            </p>
+          </div>
+        )}
         {done ? (
           <div className="space-y-5 rounded-3xl border border-border bg-card p-6 text-center shadow-card sm:p-8">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">

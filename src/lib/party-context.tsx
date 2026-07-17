@@ -71,6 +71,7 @@ export type Party = {
   timeline: TimelineItem[];
   shoppingItems: ShoppingItem[];
   pinnedInspiration: string[]; // e.g. ["unicorn-rainbow:table"]
+  hostNote?: string;
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -361,6 +362,8 @@ function seedMaya(): Party {
     timeline,
     shoppingItems,
     pinnedInspiration: ["unicorn-rainbow:table", "unicorn-rainbow:decor"],
+    hostNote:
+      "So excited to celebrate Maya turning 8! Come hungry — pizza at 2:45. Street parking is easy on Elm.",
   };
 }
 
@@ -454,6 +457,7 @@ function rowToParty(r: {
   shopping_items: unknown;
   timeline: unknown;
   pinned_inspiration?: unknown;
+  host_note?: string | null;
 }): Party {
   return {
     id: r.id,
@@ -473,6 +477,7 @@ function rowToParty(r: {
     shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
     timeline: (r.timeline as TimelineItem[]) ?? [],
     pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
+    hostNote: r.host_note ?? undefined,
   };
 }
 
@@ -495,6 +500,7 @@ function partyToRow(p: Party, userId: string) {
     shopping_items: p.shoppingItems as unknown as Json,
     timeline: p.timeline as unknown as Json,
     pinned_inspiration: p.pinnedInspiration as unknown as Json,
+    host_note: p.hostNote ?? null,
   };
 }
 
