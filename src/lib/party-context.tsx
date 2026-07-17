@@ -362,6 +362,8 @@ function seedMaya(): Party {
     timeline,
     shoppingItems,
     pinnedInspiration: ["unicorn-rainbow:table", "unicorn-rainbow:decor"],
+    hostNote:
+      "So excited to celebrate Maya turning 8! Come hungry — pizza at 2:45. Street parking is easy on Elm.",
   };
 }
 
