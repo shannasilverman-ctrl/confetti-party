@@ -1,6 +1,15 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, Clock, MapPin, Sparkles, Users, PartyPopper } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  Clock,
+  MapPin,
+  Sparkles,
+  Users,
+  PartyPopper,
+  CalendarPlus,
+  Navigation,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { themeById } from "@/lib/themes";
 import { daysUntil } from "@/lib/party-context";
@@ -11,81 +20,275 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
-
-type PartyView = {
-  name: string;
-  date: string;
-  start_time: string | null;
-  location: string | null;
-  occasion: string;
-  theme_id: string | null;
-  theme: string | null;
-  guest_first_names: string[];
-  yes_count: number;
-  maybe_count: number;
-  total_count: number;
-};
+import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 
 type RSVPChoice = "yes" | "maybe" | "no";
 
+function formatDateLong(date: string) {
+  return new Date(date + "T00:00:00").toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function absoluteHeroImage(themeId: string | null | undefined, origin: string): string | null {
+  const theme = themeById(themeId ?? undefined);
+  if (!theme?.heroImage) return null;
+  if (/^https?:\/\//i.test(theme.heroImage)) return theme.heroImage;
+  if (!origin) return null;
+  return `${origin}${theme.heroImage.startsWith("/") ? "" : "/"}${theme.heroImage}`;
+}
+
 export const Route = createFileRoute("/rsvp/$token")({
-  component: PublicRsvpPage,
-  head: () => ({
-    meta: [
-      { title: "You're invited · Confetti" },
-      { name: "description", content: "RSVP to a Confetti party." },
+  loader: ({ params }) => getRsvpLoaderData({ data: { token: params.token } }),
+  head: ({ loaderData }) => {
+    const party = loaderData?.party ?? null;
+    const origin = loaderData?.origin ?? "";
+    if (!party) {
+      return {
+        meta: [
+          { title: "You're invited · Confetti" },
+          { name: "description", content: "RSVP to a Confetti party." },
+          { name: "robots", content: "noindex" },
+        ],
+      };
+    }
+    const dateStr = formatDateLong(party.date);
+    const title = `You're invited to ${party.name} · Confetti`;
+    const description = party.location
+      ? `${dateStr} at ${party.location} — tap to RSVP.`
+      : `${dateStr} — tap to RSVP.`;
+    const ogImage = absoluteHeroImage(party.theme_id, origin);
+    const meta: Array<Record<string, string>> = [
+      { title },
+      { name: "description", content: description },
       { name: "robots", content: "noindex" },
-    ],
-  }),
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
+    ];
+    if (ogImage) {
+      meta.push({ property: "og:image", content: ogImage });
+      meta.push({ name: "twitter:image", content: ogImage });
+    }
+    return { meta };
+  },
+  component: PublicRsvpPage,
+  errorComponent: () => <InvalidInvite />,
+  notFoundComponent: () => <InvalidInvite />,
 });
+
+function InvalidInvite() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
+      <BrandLockup />
+      <h1 className="mt-8 font-display text-2xl font-semibold text-secondary">
+        This invite link doesn't look right
+      </h1>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        Double-check the link with your host, or ask them to resend it.
+      </p>
+      <ConversionFooter />
+    </div>
+  );
+}
 
 function PublicRsvpPage() {
   const { token } = Route.useParams();
-  const [state, setState] = useState<"loading" | "ready" | "invalid">("loading");
-  const [party, setParty] = useState<PartyView | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .rpc("get_rsvp_party", { token })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data) {
-          setState("invalid");
-          return;
-        }
-        setParty(data as unknown as PartyView);
-        setState("ready");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  if (state === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-sm text-muted-foreground">Loading invite…</div>
-      </div>
-    );
-  }
-
-  if (state === "invalid" || !party) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
-        <BrandLockup />
-        <h1 className="mt-8 font-display text-2xl font-semibold text-secondary">
-          This invite link doesn't look right
-        </h1>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          Double-check the link with your host, or ask them to resend it.
-        </p>
-      </div>
-    );
-  }
-
+  const { party } = Route.useLoaderData();
+  if (!party) return <InvalidInvite />;
   return <RsvpForm token={token} party={party} />;
 }
+
+/* ---------- Calendar helpers ---------- */
+
+function parseTimeTo24h(t: string | null): { h: number; m: number } | null {
+  if (!t) return null;
+  const m = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const ap = m[3]?.toUpperCase();
+  if (ap === "PM" && h < 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  if (h > 23 || min > 59) return null;
+  return { h, m: min };
+}
+
+function pad(n: number) {
+  return n.toString().padStart(2, "0");
+}
+
+function toLocalStamp(d: Date) {
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+}
+
+function toAllDayStamp(date: string) {
+  return date.replace(/-/g, "");
+}
+
+function buildCalendarPayload(party: PartyView) {
+  const time = parseTimeTo24h(party.start_time);
+  if (time) {
+    const start = new Date(party.date + "T00:00:00");
+    start.setHours(time.h, time.m, 0, 0);
+    const end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
+    return {
+      allDay: false as const,
+      start,
+      end,
+      googleDates: `${toLocalStamp(start)}/${toLocalStamp(end)}`,
+      icsStart: toLocalStamp(start),
+      icsEnd: toLocalStamp(end),
+      icsAllDay: false,
+    };
+  }
+  const startStamp = toAllDayStamp(party.date);
+  const endDate = new Date(party.date + "T00:00:00");
+  endDate.setDate(endDate.getDate() + 1);
+  const endStamp = `${endDate.getFullYear()}${pad(endDate.getMonth() + 1)}${pad(endDate.getDate())}`;
+  return {
+    allDay: true as const,
+    googleDates: `${startStamp}/${endStamp}`,
+    icsStart: startStamp,
+    icsEnd: endStamp,
+    icsAllDay: true,
+  };
+}
+
+function googleCalUrl(party: PartyView) {
+  const p = buildCalendarPayload(party);
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: party.name,
+    dates: p.googleDates,
+    details: "See you there — sent via Confetti.",
+  });
+  if (party.location) params.set("location", party.location);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function buildIcs(party: PartyView): string {
+  const p = buildCalendarPayload(party);
+  const uid = `${(party.name || "party").replace(/\W+/g, "-")}-${Date.now()}@confetti-party.lovable.app`;
+  const now = toLocalStamp(new Date());
+  const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Confetti//RSVP//EN",
+    "CALSCALE:GREGORIAN",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${now}`,
+    p.icsAllDay
+      ? `DTSTART;VALUE=DATE:${p.icsStart}`
+      : `DTSTART:${p.icsStart}`,
+    p.icsAllDay
+      ? `DTEND;VALUE=DATE:${p.icsEnd}`
+      : `DTEND:${p.icsEnd}`,
+    `SUMMARY:${esc(party.name)}`,
+    party.location ? `LOCATION:${esc(party.location)}` : "",
+    "DESCRIPTION:See you there — sent via Confetti.",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean);
+  return lines.join("\r\n");
+}
+
+function downloadIcs(party: PartyView) {
+  const ics = buildIcs(party);
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${party.name.replace(/[^\w\-]+/g, "_") || "party"}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------- Sub-components ---------- */
+
+function WhosComing({ names, yes }: { names: string[]; yes: number }) {
+  if (!names || names.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-2 text-center text-xs text-muted-foreground">
+        Be the first to RSVP
+      </div>
+    );
+  }
+  const shown = names.slice(0, 3);
+  const extra = Math.max(0, yes - shown.length);
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Who's coming
+      </span>
+      {shown.map((n, i) => (
+        <span
+          key={`${n}-${i}`}
+          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
+        >
+          {n}
+        </span>
+      ))}
+      <span className="text-xs text-muted-foreground">
+        {extra > 0 ? `+${extra} going` : `${yes} going`}
+      </span>
+    </div>
+  );
+}
+
+function CalendarAndDirections({ party }: { party: PartyView }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button asChild variant="outline" size="sm">
+        <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
+          <CalendarPlus /> Google Calendar
+        </a>
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => downloadIcs(party)}>
+        <CalendarPlus /> Apple / .ics
+      </Button>
+      {party.location && (
+        <Button asChild variant="outline" size="sm">
+          <a
+            href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Navigation /> Directions
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ConversionFooter() {
+  return (
+    <footer className="mx-auto mt-10 max-w-lg px-6 pb-10 text-center">
+      <div className="flex flex-col items-center gap-2">
+        <BrandLockup />
+        <p className="text-xs text-muted-foreground">
+          Planning something of your own?{" "}
+          <Link to="/" className="font-medium text-primary underline-offset-2 hover:underline">
+            Start with Confetti — free.
+          </Link>
+        </p>
+      </div>
+    </footer>
+  );
+}
+
+/* ---------- Main form ---------- */
 
 function RsvpForm({ token, party }: { token: string; party: PartyView }) {
   const theme = themeById(party.theme_id ?? undefined);
@@ -106,7 +309,10 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
             backgroundSize: "cover",
             backgroundPosition: "center",
           }
-        : { backgroundImage: "var(--gradient-festive, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))))" },
+        : {
+            backgroundImage:
+              "var(--gradient-festive, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))))",
+          },
     [theme],
   );
 
@@ -134,6 +340,13 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
     celebrate("cannon");
   };
 
+  const displayYes = party.yes_count + (done && rsvp === "yes" ? 1 : 0);
+  const displayNames = useMemo(() => {
+    if (!done || rsvp !== "yes" || !name.trim()) return party.guest_first_names;
+    const first = name.trim().split(/\s+/)[0];
+    return [first, ...party.guest_first_names];
+  }, [done, rsvp, name, party.guest_first_names]);
+
   return (
     <div className="min-h-screen bg-background">
       <section className="relative overflow-hidden" style={heroStyle}>
@@ -149,12 +362,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
           </h1>
           <div className="mt-2 flex items-center justify-center gap-2 text-sm text-white/90">
             <CalendarDays className="h-4 w-4" />
-            {new Date(party.date).toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
+            {formatDateLong(party.date)}
           </div>
           {party.start_time && (
             <div className="mt-1 flex items-center justify-center gap-2 text-sm text-white/90">
@@ -177,21 +385,29 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
         </div>
       </section>
 
-      <main className="mx-auto -mt-6 max-w-lg px-4 pb-16 sm:px-6">
+      <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
         {done ? (
-          <div className="rounded-3xl border border-border bg-card p-8 text-center shadow-card">
+          <div className="space-y-5 rounded-3xl border border-border bg-card p-6 text-center shadow-card sm:p-8">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
               <PartyPopper className="h-7 w-7" />
             </div>
-            <h2 className="mt-4 font-display text-2xl font-semibold text-secondary">
-              You're on the list!
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Thanks {name.trim()} — the host has been updated.
-            </p>
-            <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <Badge variant="success">{party.yes_count + (rsvp === "yes" ? 1 : 0)} yes so far</Badge>
+            <div>
+              <h2 className="font-display text-2xl font-semibold text-secondary">
+                You're on the list!
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Thanks {name.trim()} — we'll see you there. Add it to your calendar so you don't forget.
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Badge variant="success">{displayYes} yes so far</Badge>
               {theme && <Badge variant="accent">{theme.name}</Badge>}
+            </div>
+            <div className="rounded-2xl bg-muted/40 p-3">
+              <WhosComing names={displayNames} yes={displayYes} />
+            </div>
+            <div className="flex justify-center">
+              <CalendarAndDirections party={party} />
             </div>
           </div>
         ) : (
@@ -203,6 +419,8 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               <Users className="h-4 w-4" />
               {party.yes_count} yes · {party.maybe_count} maybe
             </div>
+
+            <WhosComing names={party.guest_first_names} yes={party.yes_count} />
 
             <div className="space-y-2">
               <Label htmlFor="name">Your name</Label>
@@ -253,7 +471,9 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                     min={0}
                     max={20}
                     value={adults}
-                    onChange={(e) => setAdults(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                    onChange={(e) =>
+                      setAdults(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -264,7 +484,9 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                     min={0}
                     max={20}
                     value={kids}
-                    onChange={(e) => setKids(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                    onChange={(e) =>
+                      setKids(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
+                    }
                   />
                 </div>
               </div>
@@ -279,12 +501,24 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
             <Button type="submit" variant="festive" className="w-full" disabled={submitting}>
               {submitting ? "Sending…" : "Send RSVP"}
             </Button>
+
+            <div className="border-t border-border pt-4">
+              <p className="mb-2 text-center text-[11px] uppercase tracking-wide text-muted-foreground">
+                Save the date
+              </p>
+              <div className="flex justify-center">
+                <CalendarAndDirections party={party} />
+              </div>
+            </div>
+
             <p className="text-center text-[11px] text-muted-foreground">
               Sending again with the same name updates your response.
             </p>
           </form>
         )}
       </main>
+
+      <ConversionFooter />
     </div>
   );
 }
