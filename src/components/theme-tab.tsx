@@ -5,7 +5,7 @@ import {
   addShoppingItem,
   addThemeToShopping,
   togglePin,
-  type OccasionType,
+  OCCASION_LABELS,
 } from "@/lib/party-context";
 import { themeById, themesForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
@@ -78,11 +78,26 @@ export function ThemeTab({ partyId }: { partyId: string }) {
 
   const [lightbox, setLightbox] = useState<TileKey | null>(null);
   const [bundleOpen, setBundleOpen] = useState(false);
+  const [pendingSwitch, setPendingSwitch] = useState<{ theme: Theme; origin?: { x: number; y: number } } | null>(null);
 
   function selectTheme(t: Theme, e?: React.MouseEvent) {
     if (party.themeId === t.id) return;
+    const origin = e ? { x: e.clientX, y: e.clientY } : undefined;
+    // First-time selection (no active theme yet): commit immediately.
+    if (!activeTheme) {
+      updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
+      if (e) celebrateAtEvent("small", e);
+      return;
+    }
+    setPendingSwitch({ theme: t, origin });
+  }
+
+  function confirmSwitch() {
+    if (!pendingSwitch) return;
+    const t = pendingSwitch.theme;
     updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
-    if (e) celebrateAtEvent("small", e);
+    celebrate("small", pendingSwitch.origin);
+    setPendingSwitch(null);
   }
 
   function addDiyToChecklist(idea: DecorIdea) {
@@ -192,13 +207,15 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   }
 
   if (gallery.length === 0) {
+    const label = OCCASION_LABELS[party.occasion];
     return (
       <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center">
         <div className="font-display text-lg text-secondary">
-          No themes yet for {party.occasion}
+          Themes for {label} are coming soon
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          More theme collections are on the way.
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          You can keep planning — your checklist, guests, budget, and shopping list all
+          work without a theme. Décor themes for watch parties and cookouts land next.
         </p>
       </div>
     );
@@ -219,7 +236,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               {activeTheme ? "Browse other themes" : "Pick a theme"}
             </h2>
             <p className="text-xs text-muted-foreground">
-              Curated for {occasionLabel(party.occasion)}
+              Curated for {OCCASION_LABELS[party.occasion]}
             </p>
           </div>
         </div>
@@ -284,7 +301,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="accent">
-                      {occasionLabel(party.occasion)}
+                      {OCCASION_LABELS[party.occasion]}
                     </Badge>
                     <Badge variant="soft">{activeTheme.decorIdeas.length} ideas</Badge>
                   </div>
@@ -331,6 +348,55 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               </div>
             </div>
           </section>
+
+          {/* Your pins */}
+          {pinnedForTheme.length > 0 && (
+            <section>
+              <div className="mb-2 flex items-center gap-2">
+                <Pin className="h-3.5 w-3.5 text-primary" />
+                <h3 className="font-display text-sm font-semibold text-secondary">
+                  Your pins
+                </h3>
+              </div>
+              <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+                {pinnedForTheme.map((pinId) => {
+                  const key = pinId.split(":")[1] as TileKey;
+                  if (!TILE_LABELS[key]) return null;
+                  return (
+                    <figure
+                      key={pinId}
+                      className="group relative w-24 shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-card"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setLightbox(key)}
+                        className="block aspect-square w-full overflow-hidden"
+                        aria-label={`View ${TILE_LABELS[key]}`}
+                      >
+                        <img
+                          src={tileImage(activeTheme, key)}
+                          alt={TILE_LABELS[key]}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePinTile(key)}
+                        aria-label={`Unpin ${TILE_LABELS[key]}`}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card/90 text-[10px] font-semibold text-secondary opacity-0 shadow-card transition group-hover:opacity-100 hover:border-primary hover:text-primary focus:opacity-100"
+                      >
+                        ×
+                      </button>
+                      <figcaption className="truncate px-1.5 py-1 text-[10px] font-medium text-secondary">
+                        {TILE_LABELS[key]}
+                      </figcaption>
+                    </figure>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Inspiration board */}
           <section>
@@ -542,6 +608,29 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Switch-theme confirmation */}
+          <Dialog open={pendingSwitch !== null} onOpenChange={(o) => !o && setPendingSwitch(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  Switch to {pendingSwitch?.theme.name}?
+                </DialogTitle>
+                <DialogDescription>
+                  Your guests, budget, checklist, and shopping list stay exactly as they
+                  are. Only the vision board, décor ideas, and theme suggestions update.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setPendingSwitch(null)}>
+                  Cancel
+                </Button>
+                <Button variant="festive" onClick={confirmSwitch}>
+                  Use this theme
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
@@ -674,6 +763,3 @@ function zoneIcon(key: "entry" | "food" | "activity" | "photo") {
   }
 }
 
-function occasionLabel(o: OccasionType): string {
-  return o.replace("-", " ");
-}

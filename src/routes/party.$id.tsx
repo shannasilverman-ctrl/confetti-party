@@ -143,7 +143,7 @@ function PartyWorkspace() {
           <div className="mt-5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="soft">{OCCASION_LABELS[party.occasion]}</Badge>
-              <Badge variant="accent">{party.theme}</Badge>
+              {party.theme.trim() && <Badge variant="accent">{party.theme}</Badge>}
             </div>
             <h1 className="mt-2 font-display text-3xl font-semibold text-secondary sm:text-4xl">
               {party.name}
