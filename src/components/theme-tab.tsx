@@ -236,7 +236,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               {activeTheme ? "Browse other themes" : "Pick a theme"}
             </h2>
             <p className="text-xs text-muted-foreground">
-              Curated for {occasionLabel(party.occasion)}
+              Curated for {OCCASION_LABELS[party.occasion]}
             </p>
           </div>
         </div>
