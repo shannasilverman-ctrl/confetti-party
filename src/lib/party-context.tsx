@@ -500,6 +500,7 @@ function partyToRow(p: Party, userId: string) {
     shopping_items: p.shoppingItems as unknown as Json,
     timeline: p.timeline as unknown as Json,
     pinned_inspiration: p.pinnedInspiration as unknown as Json,
+    host_note: p.hostNote ?? null,
   };
 }
 
