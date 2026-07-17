@@ -78,11 +78,26 @@ export function ThemeTab({ partyId }: { partyId: string }) {
 
   const [lightbox, setLightbox] = useState<TileKey | null>(null);
   const [bundleOpen, setBundleOpen] = useState(false);
+  const [pendingSwitch, setPendingSwitch] = useState<{ theme: Theme; origin?: { x: number; y: number } } | null>(null);
 
   function selectTheme(t: Theme, e?: React.MouseEvent) {
     if (party.themeId === t.id) return;
+    const origin = e ? { x: e.clientX, y: e.clientY } : undefined;
+    // First-time selection (no active theme yet): commit immediately.
+    if (!activeTheme) {
+      updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
+      if (e) celebrateAtEvent("small", e);
+      return;
+    }
+    setPendingSwitch({ theme: t, origin });
+  }
+
+  function confirmSwitch() {
+    if (!pendingSwitch) return;
+    const t = pendingSwitch.theme;
     updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
-    if (e) celebrateAtEvent("small", e);
+    celebrate("small", pendingSwitch.origin);
+    setPendingSwitch(null);
   }
 
   function addDiyToChecklist(idea: DecorIdea) {
