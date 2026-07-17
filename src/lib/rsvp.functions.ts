@@ -11,6 +11,7 @@ export type PartyView = {
   occasion: string;
   theme_id: string | null;
   theme: string | null;
+  host_note: string | null;
   guest_first_names: string[];
   yes_count: number;
   maybe_count: number;
