@@ -5,7 +5,7 @@ import {
   addShoppingItem,
   addThemeToShopping,
   togglePin,
-  type OccasionType,
+  OCCASION_LABELS,
 } from "@/lib/party-context";
 import { themeById, themesForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
