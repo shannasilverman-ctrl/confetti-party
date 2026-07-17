@@ -349,6 +349,55 @@ export function ThemeTab({ partyId }: { partyId: string }) {
             </div>
           </section>
 
+          {/* Your pins */}
+          {pinnedForTheme.length > 0 && (
+            <section>
+              <div className="mb-2 flex items-center gap-2">
+                <Pin className="h-3.5 w-3.5 text-primary" />
+                <h3 className="font-display text-sm font-semibold text-secondary">
+                  Your pins
+                </h3>
+              </div>
+              <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+                {pinnedForTheme.map((pinId) => {
+                  const key = pinId.split(":")[1] as TileKey;
+                  if (!TILE_LABELS[key]) return null;
+                  return (
+                    <figure
+                      key={pinId}
+                      className="group relative w-24 shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-card"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setLightbox(key)}
+                        className="block aspect-square w-full overflow-hidden"
+                        aria-label={`View ${TILE_LABELS[key]}`}
+                      >
+                        <img
+                          src={tileImage(activeTheme, key)}
+                          alt={TILE_LABELS[key]}
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePinTile(key)}
+                        aria-label={`Unpin ${TILE_LABELS[key]}`}
+                        className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card/90 text-[10px] font-semibold text-secondary opacity-0 shadow-card transition group-hover:opacity-100 hover:border-primary hover:text-primary focus:opacity-100"
+                      >
+                        ×
+                      </button>
+                      <figcaption className="truncate px-1.5 py-1 text-[10px] font-medium text-secondary">
+                        {TILE_LABELS[key]}
+                      </figcaption>
+                    </figure>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* Inspiration board */}
           <section>
             <div className="mb-4 flex items-center gap-2">
