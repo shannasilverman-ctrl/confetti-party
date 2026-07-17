@@ -608,6 +608,29 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Switch-theme confirmation */}
+          <Dialog open={pendingSwitch !== null} onOpenChange={(o) => !o && setPendingSwitch(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  Switch to {pendingSwitch?.theme.name}?
+                </DialogTitle>
+                <DialogDescription>
+                  Your guests, budget, checklist, and shopping list stay exactly as they
+                  are. Only the vision board, décor ideas, and theme suggestions update.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setPendingSwitch(null)}>
+                  Cancel
+                </Button>
+                <Button variant="festive" onClick={confirmSwitch}>
+                  Use this theme
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>
