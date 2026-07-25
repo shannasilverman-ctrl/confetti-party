@@ -77,11 +77,13 @@ const SCENARIOS: Scenario[] = [
     route: "/party/ava-liam-wedding/day-of",
     containers: ["main"],
   },
-  { slug: "rsvp-malformed", route: "/rsvp/not-a-uuid", containers: ["main"] },
+  // The RSVP error branches deliberately render a minimal sanitized card
+  // (no <main> landmark). Document-level overflow is the durable check.
+  { slug: "rsvp-malformed", route: "/rsvp/not-a-uuid", containers: [] },
   {
     slug: "rsvp-unknown-uuid",
     route: "/rsvp/00000000-0000-0000-0000-000000000000",
-    containers: ["main"],
+    containers: [],
   },
 ];
 
