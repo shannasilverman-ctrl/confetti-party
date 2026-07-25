@@ -12,6 +12,7 @@ import {
   newId,
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
+import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
 import { partiesSummary } from "@/lib/parties-summary";
 
 import { BrandLockup } from "@/components/brand";
@@ -372,6 +373,7 @@ function NewPartyWizard({
   const [guestEstimate, setGuestEstimate] = useState(20);
   const [budget, setBudget] = useState(500);
   const [theme, setTheme] = useState<Theme | null>(null);
+  const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
 
@@ -386,6 +388,7 @@ function NewPartyWizard({
     setGuestEstimate(20);
     setBudget(500);
     setTheme(null);
+    setHolidayStarter(null);
   }
 
   function finish() {
@@ -412,6 +415,10 @@ function NewPartyWizard({
       theme: theme.name,
       themeId: theme.id,
       extraTasks,
+      holidayPackId:
+        occasion === "holiday" && holidayStarter && holidayStarter !== "generic"
+          ? holidayStarter
+          : undefined,
     });
     setCreatedId(id);
     setStep("done");
@@ -433,6 +440,14 @@ function NewPartyWizard({
   function selectOccasion(o: OccasionType) {
     setOccasion(o);
     setTheme(null);
+    if (o !== "holiday") setHolidayStarter(null);
+  }
+
+  function pickStarter(id: HolidayStarterId) {
+    setHolidayStarter(id);
+    const starter = getStarter(id);
+    // Prefill an editable name only when the field is empty, so we never overwrite the host's input.
+    if (starter && !name.trim()) setName(starter.suggestedName);
   }
 
   const createdParty = createdId ? getParty(createdId) : undefined;
@@ -489,6 +504,45 @@ function NewPartyWizard({
 
         {step === 2 && (
           <div className="grid gap-4 py-4">
+            {occasion === "holiday" && (
+              <fieldset
+                aria-label="Holiday starter"
+                className="rounded-2xl border border-border bg-muted/30 p-3"
+              >
+                <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Starter (optional)
+                </legend>
+                <p className="mb-2 px-1 text-xs text-muted-foreground">
+                  Pre-fills a name, checklist, and bring board. Everything stays editable.
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label="Holiday starter choices"
+                  className="flex flex-wrap gap-2"
+                >
+                  {HOLIDAY_STARTERS.map((s) => {
+                    const active = holidayStarter === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => pickStarter(s.id)}
+                        className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition ${
+                          active
+                            ? "border-primary bg-primary/10 text-secondary shadow-sm"
+                            : "border-border bg-background text-secondary hover:border-primary/40"
+                        }`}
+                      >
+                        <span aria-hidden>{s.emoji}</span>
+                        <span>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
             <div>
               <Label htmlFor="name">Party name</Label>
               <Input

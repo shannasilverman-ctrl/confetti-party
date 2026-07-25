@@ -61,7 +61,7 @@
      surfaces (measured ~5.1:1 vs cream, ~5.5:1 vs white). We keep the
      vibrant 62% coral exposed as `--brand-coral` for decorative gradients
      and the logo, so hero art still pops. */
-  --primary: hsl(10 78% 45%);
+  --primary: hsl(10 78% 38%);
   --primary-foreground: hsl(36 44% 98%);
 
   /* Deep violet */
@@ -84,7 +84,7 @@
   /* Mint — same dual-surface constraint as `--primary`. 24% was safe but
      flat; 32% keeps `text-success` on cream at ~4.9:1 while feeling closer
      to the vibrant `--brand-mint` used decoratively. */
-  --success: hsl(150 55% 32%);
+  --success: hsl(150 55% 26%);
   --success-foreground: hsl(36 44% 98%);
 
   --border: hsl(30 25% 88%);

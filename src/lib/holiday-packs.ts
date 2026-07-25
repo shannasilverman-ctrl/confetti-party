@@ -9,6 +9,7 @@ export type PackId =
   | "shabbat"
   | "hanukkah"
   | "christmas"
+  | "new-years"
   | "passover"
   | "easter"
   | "diwali"
@@ -256,6 +257,30 @@ export const PACKS: Record<PackId, HolidayPack> = {
       { label: "Holiday roast", role: "main" },
       { label: "Roast potatoes", role: "side" },
       { label: "Pie or pudding", role: "dessert" },
+    ],
+  ),
+  "new-years": pack(
+    "new-years",
+    "New Year's Eve",
+    "🥂",
+    "Count down together. Bubbles, snacks, one last toast to the year.",
+    "festive",
+    [
+      { category: "Drinks", label: "Champagne or sparkling wine", qty: 3, unit: "bottles" },
+      { category: "Drinks", label: "Non-alcoholic sparkling", qty: 2, unit: "bottles" },
+      { category: "Sides", label: "Cheese and charcuterie board", qty: 1, unit: "large board" },
+      { category: "Sides", label: "Finger foods / small bites", qty: 3, unit: "trays" },
+      { category: "Dessert", label: "Midnight dessert bites", qty: 1, unit: "platter" },
+      { category: "Décor", label: "Noise-makers & party hats", qty: 1, unit: "set" },
+    ],
+    [
+      { label: "Sparkling wine", role: "drink" },
+      { label: "Charcuterie board", role: "side" },
+      { label: "Midnight bites", role: "dessert" },
+    ],
+    [
+      { title: "Chill the champagne", bucket: "Day of" },
+      { title: "Queue the countdown stream / playlist", bucket: "Day of" },
     ],
   ),
   passover: pack(
@@ -506,4 +531,76 @@ export function packBringBoard(pack: HolidayPack, mkId: () => string) {
 export function packOccasion(pack: HolidayPack): OccasionType {
   // All packs currently map to the generic "holiday" occasion.
   return "holiday";
+}
+
+/**
+ * Curated Holiday starter list surfaced in the New Party wizard.
+ * "generic" carries no pack (empty holidayPackId) so nothing is prescribed.
+ * All other entries reference an existing PackId, so no data model fork.
+ */
+export type HolidayStarterId = "generic" | PackId;
+
+export type HolidayStarter = {
+  id: HolidayStarterId;
+  label: string;
+  emoji: string;
+  blurb: string;
+  /** Suggested (editable) party name when the starter is picked. */
+  suggestedName: string;
+};
+
+export const HOLIDAY_STARTERS: HolidayStarter[] = [
+  {
+    id: "generic",
+    label: "Generic Holiday",
+    emoji: "🎄",
+    blurb: "Blank canvas — no traditions assumed.",
+    suggestedName: "Holiday Gathering",
+  },
+  {
+    id: "thanksgiving",
+    label: "Thanksgiving",
+    emoji: "🍁",
+    blurb: "The classic gather-and-feed.",
+    suggestedName: "Thanksgiving Dinner",
+  },
+  {
+    id: "hanukkah",
+    label: "Hanukkah",
+    emoji: "🕎",
+    blurb: "Latkes, sufganiyot, candles.",
+    suggestedName: "Hanukkah Night",
+  },
+  {
+    id: "christmas",
+    label: "Christmas",
+    emoji: "🎄",
+    blurb: "Feed the family, protect the calm.",
+    suggestedName: "Christmas Dinner",
+  },
+  {
+    id: "new-years",
+    label: "New Year's",
+    emoji: "🥂",
+    blurb: "Countdown, bubbles, one last toast.",
+    suggestedName: "New Year's Eve",
+  },
+  {
+    id: "shabbat",
+    label: "Shabbat / Holiday Dinner",
+    emoji: "🕯️",
+    blurb: "A weekly pause. Light candles, break bread.",
+    suggestedName: "Shabbat Dinner",
+  },
+];
+
+export function getStarter(id: string | undefined | null): HolidayStarter | undefined {
+  if (!id) return undefined;
+  return HOLIDAY_STARTERS.find((s) => s.id === id);
+}
+
+/** Map a starter selection to its holiday pack (or undefined for "generic"). */
+export function starterPack(id: HolidayStarterId | undefined | null): HolidayPack | undefined {
+  if (!id || id === "generic") return undefined;
+  return PACKS[id as PackId];
 }

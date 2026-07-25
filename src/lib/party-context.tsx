@@ -19,6 +19,7 @@ import {
   type Retailer,
 } from "./shopping";
 import type { Theme } from "./themes";
+import { starterPack, packTasks, packBringBoard } from "./holiday-packs";
 
 export type OccasionType =
   | "birthday"
@@ -570,6 +571,7 @@ type Ctx = {
     theme: string;
     themeId?: string;
     extraTasks?: Task[];
+    holidayPackId?: string;
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
@@ -675,9 +677,14 @@ function makeParty(
     theme: string;
     themeId?: string;
     extraTasks?: Task[];
+    holidayPackId?: string;
   },
   id: string,
 ): Party {
+  // starterPack("generic") returns undefined by design; unknown ids are ignored.
+  const pack = starterPack(input.holidayPackId as never);
+  const packTaskEntries = pack ? packTasks(pack, () => newId()) : [];
+  const packBring = pack ? packBringBoard(pack, () => newId()) : [];
   return {
     id,
     name: input.name,
@@ -689,13 +696,19 @@ function makeParty(
     budget: input.budget,
     theme: input.theme,
     themeId: input.themeId,
-    tasks: [...generateTasks(input.occasion, input.date), ...(input.extraTasks ?? [])],
+    holidayPackId: pack?.id,
+    tasks: [
+      ...packTaskEntries,
+      ...generateTasks(input.occasion, input.date),
+      ...(input.extraTasks ?? []),
+    ],
     guests: [],
     budgetCategories: defaultCategoriesFor(input.occasion),
     timeline:
       input.occasion === "game-day" && input.startTime ? seedGameDayTimeline(input.startTime) : [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
     pinnedInspiration: [],
+    bringBoard: packBring,
   };
 }
 

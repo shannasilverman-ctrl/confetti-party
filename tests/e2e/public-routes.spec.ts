@@ -49,8 +49,11 @@ test("RSVP page renders a sanitized not-found state for an unknown token", async
   // Deliberate deterministic status: TanStack renders the InvalidInvite UI at 200.
   expect(resp?.status()).toBe(200);
   const body = (await page.textContent("body")) ?? "";
-  // Human-readable copy from InvalidInvite — no raw RPC / server error strings.
-  expect(body).toMatch(/This invite link doesn.?t look right/i);
+  // Human-readable copy from either sanitized status (not-found or temporarily-unavailable)
+  // — never raw RPC / server error strings.
+  expect(body).toMatch(
+    /This invite link doesn.?t look right|This invite is temporarily unavailable/i,
+  );
   expect(body).not.toMatch(/JWT|PostgREST|SQLSTATE|stack|TypeError|500|internal server/i);
 });
 

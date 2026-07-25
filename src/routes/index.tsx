@@ -97,7 +97,10 @@ function Landing() {
             src={heroImage.url}
             alt=""
             aria-hidden
+            width={1280}
+            height={714}
             fetchPriority="high"
+            decoding="async"
             className="h-full w-full object-cover"
           />
           {/* Plum veil for AA contrast on display type */}
