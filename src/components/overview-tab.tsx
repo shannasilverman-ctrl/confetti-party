@@ -21,6 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import {
+import { formatDateOnly } from "@/lib/date-only";
   AlertTriangle,
   ArrowRight,
   CalendarClock,
