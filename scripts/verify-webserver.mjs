@@ -81,11 +81,18 @@ try {
 } finally {
   if (earlyExitCode === null) {
     child.kill("SIGTERM");
-    const killDeadline = Date.now() + 5_000;
-    while (earlyExitCode === null && Date.now() < killDeadline) {
+    const softDeadline = Date.now() + 5_000;
+    while (earlyExitCode === null && Date.now() < softDeadline) {
       await delay(100);
     }
     if (earlyExitCode === null) child.kill("SIGKILL");
+    // Await confirmed process exit so the port is released before the
+    // caller (the E2E suite) tries to bind it. Without this, SIGKILL
+    // returns immediately and the follow-up Playwright webServer racy.
+    const hardDeadline = Date.now() + 10_000;
+    while (earlyExitCode === null && Date.now() < hardDeadline) {
+      await delay(100);
+    }
   }
 }
 
