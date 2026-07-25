@@ -252,6 +252,7 @@ function PartyWorkspace() {
           {tabs.map((t) => (
             <button
               key={t.key}
+              data-testid={`party-tab-mobile-${t.key}`}
               onClick={() => setTab(t.key)}
               className={`relative flex min-h-[56px] min-w-[68px] flex-1 shrink-0 flex-col items-center justify-center gap-1 py-2 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
