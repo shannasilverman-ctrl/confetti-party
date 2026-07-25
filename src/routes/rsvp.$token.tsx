@@ -426,7 +426,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               {party.yes_count} yes · {party.maybe_count} maybe
             </div>
 
-            <WhosComing names={party.guest_first_names} yes={party.yes_count} />
+            <WhosComing yes={party.yes_count} maybe={party.maybe_count} />
 
             <div className="space-y-2">
               <Label htmlFor="name">Your name</Label>
