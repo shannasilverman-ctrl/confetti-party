@@ -33,10 +33,8 @@ function PrivacyPage() {
       <main className="mx-auto max-w-3xl px-6 py-6 pb-24">
         <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">Privacy</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated{" "}
-          {new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" })}. This is
-          plain-language product information about how Confetti (currently in beta) handles data. It
-          is not legal advice or a compliance certification.
+          Last updated November 2025. This is plain-language product information about how Confetti
+          (currently in beta) handles data. It is not legal advice or a compliance certification.
         </p>
 
         <section className="prose prose-slate mt-8 max-w-none text-secondary">
