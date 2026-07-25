@@ -43,7 +43,11 @@ test.describe("Party route identity", () => {
   });
 
   test("unknown party id → branded not-found on all three modes", async ({ page }) => {
-    for (const path of ["/party/does-not-exist", "/party/does-not-exist/reveal", "/party/does-not-exist/day-of"]) {
+    for (const path of [
+      "/party/does-not-exist",
+      "/party/does-not-exist/reveal",
+      "/party/does-not-exist/day-of",
+    ]) {
       await page.goto(path, { waitUntil: "domcontentloaded" });
       const body = (await page.textContent("body")) ?? "";
       // No stack traces / raw error text leaks
