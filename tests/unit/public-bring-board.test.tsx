@@ -157,13 +157,11 @@ describe("PublicBringBoard semantics", () => {
   });
 
   it("awaits the parent's canonical refresh before releasing busyId", async () => {
-    let resolveRefresh: (() => void) | null = null;
-    const onChanged = vi.fn().mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveRefresh = resolve;
-        }),
-    );
+    let resolveRefresh: () => void = () => {};
+    const refreshPromise = new Promise<void>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const onChanged = vi.fn().mockReturnValue(refreshPromise);
     rpc.mockResolvedValueOnce({
       data: { ok: true, claimSecret: "33333333-3333-3333-3333-333333333333" },
       error: null,
@@ -177,7 +175,7 @@ describe("PublicBringBoard semantics", () => {
     // until the parent's refresh resolves.
     const release = await screen.findByRole("button", { name: /^release$/i });
     expect(release).toBeDisabled();
-    resolveRefresh?.();
+    resolveRefresh();
     await waitFor(() => expect(release).not.toBeDisabled());
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
