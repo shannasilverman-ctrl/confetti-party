@@ -63,9 +63,10 @@ export function sanitizeReturnTo(input: unknown): string | null {
   const pathnameEnd = input.search(/[?#]/);
   const pathname = pathnameEnd === -1 ? input : input.slice(0, pathnameEnd);
 
-  const matched = ALLOWED_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + "/") || pathname === p.replace(/\/$/, ""),
-  );
+  const matched = ALLOWED_PREFIXES.some((p) => {
+    const base = p.endsWith("/") ? p.slice(0, -1) : p;
+    return pathname === base || pathname.startsWith(base + "/");
+  });
   if (!matched) return null;
 
   return input;
