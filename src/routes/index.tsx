@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,12 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
+import { daysUntilLocal } from "@/lib/date-only";
+import { VOCAB } from "@/lib/vocab";
 const heroImage = { url: "/brand/confetti-hero.jpg" };
+// Mock party date used in the "chaos → calm" card. Countdown is derived
+// live via daysUntilLocal so the number stays truthful vs. the shown date.
+const SAMPLE_CARD_DATE = "2026-08-15";
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
