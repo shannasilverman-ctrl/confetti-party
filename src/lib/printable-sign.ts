@@ -7,6 +7,8 @@ type SignInput = {
   title: string;
   note?: string;
   url: string;
+  /** Trusted SVG generated locally by qrcode.react. */
+  qrSvg: string;
 };
 
 function escapeHtml(s: string): string {
@@ -18,21 +20,22 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function qrImageUrl(url: string): string {
-  // Uses api.qrserver.com — image is generated client-side by the browser
-  // fetching a public QR image. Falls back gracefully if offline (users can
-  // scan the printed URL text). For a fully offline path, PhotoDropCard
-  // already renders an SVG QR in-app.
-  const q = encodeURIComponent(url);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=1&data=${q}`;
+function isTrustedQrSvg(svg: string): boolean {
+  const normalized = svg.trim();
+  return (
+    normalized.startsWith("<svg") &&
+    normalized.endsWith("</svg>") &&
+    !/<(?:script|foreignObject|iframe|object|embed)\b/i.test(normalized) &&
+    !/\bon\w+\s*=/i.test(normalized) &&
+    !/\b(?:href|src)\s*=\s*["'](?:https?:|\/\/|data:)/i.test(normalized)
+  );
 }
 
-export function openPrintableSign(input: SignInput) {
-  if (typeof window === "undefined") return;
-  const { partyName, title, note, url } = input;
-  const w = window.open("", "_blank", "noopener,noreferrer,width=720,height=900");
-  if (!w) return;
-  const html = `<!doctype html>
+export function buildPrintableSignHtml(input: SignInput): string | null {
+  const { partyName, title, note, url, qrSvg } = input;
+  if (!isTrustedQrSvg(qrSvg)) return null;
+
+  return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -63,7 +66,7 @@ export function openPrintableSign(input: SignInput) {
   h1 { font-size: 40px; margin: 8px 0 4px; font-weight: 800; letter-spacing: -0.01em; }
   h2 { font-size: 22px; margin: 0 0 24px; color: #6B7089; font-weight: 500; }
   .qr { margin: 24px auto; width: 320px; height: 320px; background: #fff; border-radius: 16px; padding: 12px; border: 2px solid #F1EEE6; }
-  .qr img { width: 100%; height: 100%; display: block; }
+  .qr svg { width: 100%; height: 100%; display: block; }
   .note { font-size: 16px; color: #1F2544; margin: 16px auto 8px; max-width: 480px; line-height: 1.4; }
   .url { font-size: 12px; color: #6B7089; word-break: break-all; margin-top: 8px; }
   .footer { margin-top: 28px; font-size: 11px; color: #6B7089; }
@@ -86,14 +89,23 @@ export function openPrintableSign(input: SignInput) {
   <div class="kicker">${escapeHtml(partyName)}</div>
   <h1>${escapeHtml(title)}</h1>
   <h2>Scan with your phone camera</h2>
-  <div class="qr"><img alt="QR code" src="${escapeHtml(qrImageUrl(url))}" /></div>
+  <div class="qr">${qrSvg}</div>
   ${note ? `<p class="note">${escapeHtml(note)}</p>` : ""}
   <p class="url">${escapeHtml(url)}</p>
   <p class="footer">Made with <span class="brand">Confetti</span></p>
 </div>
 </body>
 </html>`;
+}
+
+export function openPrintableSign(input: SignInput): boolean {
+  if (typeof window === "undefined") return false;
+  const html = buildPrintableSignHtml(input);
+  if (!html) return false;
+  const w = window.open("", "_blank", "noopener,noreferrer,width=720,height=900");
+  if (!w) return false;
   w.document.open();
   w.document.write(html);
   w.document.close();
+  return true;
 }

@@ -2,7 +2,7 @@
 // We NEVER host photos. Store only provider + external HTTPS upload URL.
 // Guests upload directly to the host's account on the chosen provider.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, Copy, Printer, Share2, ExternalLink } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
   const [label, setLabel] = useState(existing?.label ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
   const [error, setError] = useState<string | null>(null);
+  const printableQrRef = useRef<HTMLDivElement | null>(null);
 
   function save(evt?: React.MouseEvent) {
     const v = validatePhotoDropUrl(provider, url);
@@ -181,7 +182,10 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
       {existing && (
         <div className="rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="mx-auto rounded-xl border border-border bg-white p-3">
+            <div
+              ref={printableQrRef}
+              className="mx-auto rounded-xl border border-border bg-white p-3"
+            >
               <QRCodeSVG value={existing.url} size={140} />
             </div>
             <div className="flex-1 min-w-0">
@@ -210,14 +214,21 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() =>
-                    openPrintableSign({
-                      partyName: party.name,
-                      title: existing.label || "Photo Drop",
-                      note: existing.note || "Scan to share your pics with the host.",
-                      url: existing.url,
-                    })
-                  }
+                  onClick={() => {
+                    const qrSvg = printableQrRef.current?.querySelector("svg")?.outerHTML;
+                    if (
+                      !qrSvg ||
+                      !openPrintableSign({
+                        partyName: party.name,
+                        title: existing.label || "Photo Drop",
+                        note: existing.note || "Scan to share your pics with the host.",
+                        url: existing.url,
+                        qrSvg,
+                      })
+                    ) {
+                      toast.error("Couldn’t prepare the printable sign. Try again.");
+                    }
+                  }}
                 >
                   <Printer className="h-4 w-4" /> Printable sign
                 </Button>
