@@ -398,7 +398,25 @@ function TalkRoute() {
                     >
                       <Send className="h-4 w-4" />
                     </Button>
+                    {speechSupported && (
+                      <Button
+                        type="button"
+                        onClick={dictating ? stopDictation : startDictation}
+                        size="icon"
+                        variant={dictating ? "festive" : "outline"}
+                        aria-label={dictating ? "Stop dictation" : "Start dictation"}
+                        title={dictating ? "Stop dictation" : "Dictate (browser voice input)"}
+                        disabled={!draftId || thinking}
+                      >
+                        {dictating ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                      </Button>
+                    )}
                   </div>
+                  {dictating && (
+                    <div className="mt-2 text-[11px] text-muted-foreground">
+                      Listening… speak, then tap the mic again to stop.
+                    </div>
+                  )}
                 </div>
               </Card>
               <p className="mt-2 text-xs text-muted-foreground">
