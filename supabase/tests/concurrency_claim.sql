@@ -12,8 +12,13 @@
 --   return ok=false / reason='unavailable'.
 --   Terminal 3 (cleanup): psql "$LOCAL_DB_URL" -f teardown.sql
 --
--- The scripts/db-concurrency-test.sh helper wraps this using two psql
--- background processes against $LOCAL_DB_URL and asserts the outcome.
+-- NOTE: there is intentionally NO scripts/db-concurrency-test.sh. A true
+-- two-session race must be driven by two independent psql clients against
+-- an isolated local or staging database and is currently run manually.
+-- Do not simulate concurrency with a second sequential claim in the same
+-- session — sequential loser behavior is covered inside rpc_harness.sql,
+-- but that does NOT prove FOR UPDATE serializes contending backends.
+
 
 -- setup.sql equivalent (run once):
 -- \set owner_id '<uuid of a test auth.users row you control>'
