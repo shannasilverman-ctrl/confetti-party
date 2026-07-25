@@ -284,7 +284,13 @@ export type ReviewSummary = {
 export function materializeDraft(
   merged: DraftPatch,
   options: MaterializeOptions = {},
-): { party: MaterializedParty; assumptions: string[]; openQuestions: string[] } {
+): {
+  party: MaterializedParty;
+  assumptions: string[];
+  openQuestions: string[];
+  blockingUnknowns: Array<{ field: string; label: string; placeholder?: string }>;
+  optionalUnknowns: Array<{ field: string; label: string }>;
+} {
   const mkId =
     options.mkId ??
     (() =>
