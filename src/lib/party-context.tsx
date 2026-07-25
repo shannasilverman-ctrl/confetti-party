@@ -920,7 +920,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          // eslint-disable-next-line no-console
           console.warn("[parties] load failed", {
             code: (error as { code?: string }).code,
             messagePreview: (error.message ?? "").slice(0, 80),
@@ -1052,7 +1051,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if (!user) return { error: null };
         const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
-          // eslint-disable-next-line no-console
           console.warn("[parties] delete failed", {
             code: (error as { code?: string }).code,
             messagePreview: (error.message ?? "").slice(0, 80),

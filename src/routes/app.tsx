@@ -113,8 +113,6 @@ function Dashboard() {
 
       <AppSaveStatus />
 
-
-
       {showBanner && (
         <div className="border-b border-border bg-primary/5">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-6 py-3">

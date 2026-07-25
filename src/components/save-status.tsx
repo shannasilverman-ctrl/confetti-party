@@ -12,8 +12,15 @@ import { Button } from "@/components/ui/button";
 import { Loader2, CloudOff, AlertTriangle, Check, Wifi } from "lucide-react";
 
 export function SaveStatus({ partyId }: { partyId: string }) {
-  const { isDemo, saveStates, conflicts, insertRejected, retrySave, resolveConflict, discardLocalDraft } =
-    useParties();
+  const {
+    isDemo,
+    saveStates,
+    conflicts,
+    insertRejected,
+    retrySave,
+    resolveConflict,
+    discardLocalDraft,
+  } = useParties();
 
   // Never render in signed-out / demo mode.
   const state = saveStates[partyId] ?? "idle";
@@ -123,12 +130,10 @@ export function SaveStatus({ partyId }: { partyId: string }) {
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-secondary">
-                This party changed elsewhere
-              </p>
+              <p className="text-sm font-medium text-secondary">This party changed elsewhere</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                A concurrent edit touched: {conflict.columns.map(labelFor).join(", ")}. Choose
-                which version to keep.
+                A concurrent edit touched: {conflict.columns.map(labelFor).join(", ")}. Choose which
+                version to keep.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button

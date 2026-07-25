@@ -407,9 +407,9 @@ describe("PartyStore — conflict resolution", () => {
     expect(store.getState("p1").state).toBe("saved");
     expect(store.getState("p1").conflict).toBeNull();
     // A server-row event was emitted with the local value merged in.
-    const lastServerRow = events
-      .filter((e) => e.type === "server-row")
-      .at(-1) as Extract<StoreEvent, { type: "server-row" }> | undefined;
+    const lastServerRow = events.filter((e) => e.type === "server-row").at(-1) as
+      | Extract<StoreEvent, { type: "server-row" }>
+      | undefined;
     expect(lastServerRow?.party.name).toBe("Local Name");
   });
 
@@ -521,7 +521,10 @@ describe("PartyStore — conflict resolution", () => {
     fake.seed(partyToColumns(mkParty(), "u"));
     // Push enough errors to exhaust retries.
     for (let i = 0; i < 5; i++)
-      fake.errors.push({ message: "duplicate key value violates unique constraint xyz", kind: "unknown" });
+      fake.errors.push({
+        message: "duplicate key value violates unique constraint xyz",
+        kind: "unknown",
+      });
     const { store, events } = mkStore(fake);
     const party = rowToParty(fake.rows.get("p1")!);
     store.seedBaseline(party, "u");

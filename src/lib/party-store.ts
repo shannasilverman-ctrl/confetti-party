@@ -82,7 +82,6 @@ export class PartyStore {
       logError:
         opts.logError ??
         ((event, meta) => {
-          // eslint-disable-next-line no-console
           console.warn(`[party-store] ${event}`, meta);
         }),
     };
