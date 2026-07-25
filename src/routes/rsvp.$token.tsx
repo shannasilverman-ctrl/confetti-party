@@ -181,7 +181,6 @@ function PublicRsvpPage() {
 
 /* ---------- Calendar helpers ---------- */
 
-
 function calendarInput(token: string, party: PartyView) {
   return {
     date: party.date,
@@ -269,8 +268,8 @@ function CalendarAndDirections({ token, party }: { token: string; party: PartyVi
       </div>
       {timed && (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Times are shown as your host entered them and are added to your calendar as
-          floating local time — your calendar app won't convert between time zones.
+          Times are shown as your host entered them and are added to your calendar as floating local
+          time — your calendar app won't convert between time zones.
         </p>
       )}
     </div>

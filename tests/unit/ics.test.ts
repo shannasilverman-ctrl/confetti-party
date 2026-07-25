@@ -72,8 +72,9 @@ describe("foldIcsLine", () => {
   it("does not split inside a UTF-8 codepoint", () => {
     const line = "X:" + "😀".repeat(30);
     for (const p of foldIcsLine(line).split("\r\n")) {
-      expect(() => new TextDecoder("utf-8", { fatal: true }).decode(new TextEncoder().encode(p)))
-        .not.toThrow();
+      expect(() =>
+        new TextDecoder("utf-8", { fatal: true }).decode(new TextEncoder().encode(p)),
+      ).not.toThrow();
     }
   });
 });
@@ -110,7 +111,10 @@ describe("buildIcsDocument", () => {
 
   it("uses a stable UID across repeat renders", () => {
     const a = buildIcsDocument({ ...base, startTime: null }, FIXED_NOW);
-    const b = buildIcsDocument({ ...base, startTime: null }, new Date(FIXED_NOW.getTime() + 60_000));
+    const b = buildIcsDocument(
+      { ...base, startTime: null },
+      new Date(FIXED_NOW.getTime() + 60_000),
+    );
     const uidA = a.split("\r\n").find((l) => l.startsWith("UID:"));
     const uidB = b.split("\r\n").find((l) => l.startsWith("UID:"));
     expect(uidA).toBeDefined();
