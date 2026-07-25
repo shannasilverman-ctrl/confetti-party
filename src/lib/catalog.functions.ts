@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { safeExternalHref } from "./safe-url";
 
-
 // Shopify Global Catalog MCP (UCP) — keyless tier.
 // Docs: https://shopify.dev/docs/agents/catalog/global-catalog
 const CATALOG_ENDPOINT = "https://catalog.shopify.com/api/ucp/mcp";
