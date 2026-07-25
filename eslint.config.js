@@ -44,6 +44,7 @@ export default tseslint.config(
       "src/lib/party-context.tsx",
       "src/lib/auth.tsx",
       "src/components/ui/**/*.tsx",
+      "src/components/confetti-burst.tsx",
     ],
     rules: {
       "react-refresh/only-export-components": "off",
