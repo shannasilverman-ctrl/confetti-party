@@ -132,7 +132,7 @@ function Landing() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-16 text-center sm:pb-32 sm:pt-24">
-            <span className="inline-flex items-center gap-2 rounded-full border border-secondary/10 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[hsl(39_42%_44%)] shadow-soft backdrop-blur">
+            <span className="inline-flex items-center gap-2 rounded-full border border-secondary/10 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[hsl(39_48%_30%)] shadow-soft backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" /> Your calm co-host
             </span>
             <h1 className="mt-6 font-display text-[3rem] font-medium leading-[1.01] tracking-[-0.035em] text-foreground sm:text-7xl md:text-[5.4rem]">
