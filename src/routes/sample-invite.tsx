@@ -245,6 +245,15 @@ function SampleInvitePage() {
       </section>
 
       <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
+        {loadNotice && (
+          <div
+            className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-50 p-3 text-sm text-amber-900"
+            role="status"
+            aria-live="polite"
+          >
+            {loadNotice}
+          </div>
+        )}
         {saveError && (
           <div
             className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
