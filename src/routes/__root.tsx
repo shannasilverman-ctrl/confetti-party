@@ -80,14 +80,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Confetti | Party Planning Made Easy" },
+      { title: "Confetti — Plan unforgettable gatherings" },
       {
         name: "description",
         content:
-          "Confetti helps everyday hosts plan a party from first idea to final toast — checklists, guest lists, budgets, and day-of timelines in one warm little app.",
+          "Confetti is your calm co-host for any gathering — from the first idea through the final toast. Guests, checklist, budget, day-of, and memories in one warm little app.",
       },
       { name: "author", content: "Confetti" },
-      { property: "og:title", content: "Confetti | Party Planning Made Easy" },
+      { property: "og:title", content: "Confetti — Plan unforgettable gatherings" },
       {
         property: "og:description",
         content: "From first idea to final toast — everything you need to host well.",
@@ -98,12 +98,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;500;600;700&display=swap",
       },
     ],
   }),
