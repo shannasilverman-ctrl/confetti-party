@@ -1,4 +1,3 @@
-import type { PartyView } from "@/lib/rsvp.functions";
 import {
   allDayStampPlusDays,
   combineDateAndTime,
@@ -9,7 +8,14 @@ import {
   toUtcCalendarStamp,
 } from "@/lib/date-only";
 
-function buildCalendarPayload(party: PartyView) {
+export type CalendarParty = {
+  name: string;
+  date: string;
+  start_time?: string | null;
+  location?: string | null;
+};
+
+function buildCalendarPayload(party: CalendarParty) {
   // Until the host's time zone is captured, event times remain floating wall
   // times. Adding three to the hour (instead of elapsed milliseconds) keeps a
   // three-hour party a three-hour wall-clock event across DST transitions.
@@ -37,7 +43,7 @@ function buildCalendarPayload(party: PartyView) {
   };
 }
 
-export function googleCalUrl(party: PartyView): string {
+export function googleCalUrl(party: CalendarParty): string {
   const payload = buildCalendarPayload(party);
   const params = new URLSearchParams({
     action: "TEMPLATE",
@@ -78,7 +84,7 @@ export function foldIcsLine(line: string): string[] {
   return output;
 }
 
-function stableUid(party: PartyView): string {
+function stableUid(party: CalendarParty): string {
   const source = [party.name, party.date, party.start_time ?? "", party.location ?? ""].join(
     "\u001f",
   );
@@ -90,7 +96,7 @@ function stableUid(party: PartyView): string {
   return `confetti-${(hash >>> 0).toString(16).padStart(8, "0")}@confetti-party.lovable.app`;
 }
 
-export function buildIcs(party: PartyView, generatedAt: Date = new Date()): string {
+export function buildIcs(party: CalendarParty, generatedAt: Date = new Date()): string {
   const payload = buildCalendarPayload(party);
   const logicalLines = [
     "BEGIN:VCALENDAR",

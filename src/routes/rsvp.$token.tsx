@@ -7,8 +7,6 @@ import {
   Sparkles,
   Users,
   PartyPopper,
-  CalendarPlus,
-  Navigation,
   RefreshCw,
   HeartHandshake,
   HandHeart,
@@ -29,10 +27,10 @@ import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
 import { formatDateOnly } from "@/lib/date-only";
-import { buildIcs, googleCalUrl } from "@/lib/calendar-export";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
+import { CalendarActions } from "@/components/calendar-actions";
 
 type RSVPChoice = "yes" | "maybe" | "no";
 
@@ -180,19 +178,6 @@ function PublicRsvpPage() {
   return <RsvpForm token={token} party={party} />;
 }
 
-function downloadIcs(party: PartyView) {
-  const ics = buildIcs(party);
-  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${party.name.replace(/[^\w-]+/g, "_") || "party"}.ics`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 /* ---------- Sub-components ---------- */
 
 function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
@@ -215,39 +200,6 @@ function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
         <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
           {maybe} maybe
         </span>
-      )}
-    </div>
-  );
-}
-
-function CalendarAndDirections({ party }: { party: PartyView }) {
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap justify-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
-            <CalendarPlus /> Google Calendar
-          </a>
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => downloadIcs(party)}>
-          <CalendarPlus /> Apple / .ics
-        </Button>
-        {party.location && (
-          <Button asChild variant="outline" size="sm">
-            <a
-              href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Navigation /> Directions
-            </a>
-          </Button>
-        )}
-      </div>
-      {party.start_time && (
-        <p className="text-center text-[11px] text-muted-foreground">
-          Calendar times use the host-entered local time shown above.
-        </p>
       )}
     </div>
   );
@@ -735,7 +687,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                 Save the date
               </p>
               <div className="flex justify-center">
-                <CalendarAndDirections party={party} />
+                <CalendarActions party={party} />
               </div>
             </div>
 
@@ -843,7 +795,7 @@ function SuccessCard({
       </div>
       {choice !== "no" && (
         <div className="flex justify-center">
-          <CalendarAndDirections party={party} />
+          <CalendarActions party={party} />
         </div>
       )}
       <div className="pt-1">

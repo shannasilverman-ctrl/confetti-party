@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
+import { CalendarActions } from "@/components/calendar-actions";
 import { formatDateOnly, daysUntilLocal } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 import {
@@ -52,6 +53,13 @@ const SAMPLE = {
   location: "Tenuta di Fiore, Tuscany",
   hostNote:
     "We can't wait to celebrate with you in Tuscany. Dinner is at the long table under the vines — bring a light layer for after sunset.",
+} as const;
+
+const SAMPLE_CALENDAR_PARTY = {
+  name: SAMPLE.name,
+  date: SAMPLE.date,
+  start_time: SAMPLE.startTime,
+  location: SAMPLE.location,
 } as const;
 
 const DIETARY_OPTIONS = [
@@ -333,11 +341,14 @@ function RsvpForm({
   onSubmit: (entry: NonNullable<SampleState["rsvp"]>) => void;
 }) {
   const [name, setName] = useState("");
+  const [household, setHousehold] = useState("");
   const [choice, setChoice] = useState<SampleRSVP>("yes");
   const [adults, setAdults] = useState(1);
   const [kids, setKids] = useState(0);
   const [dietary, setDietary] = useState<string[]>([]);
+  const [dietaryOther, setDietaryOther] = useState("");
   const [allergens, setAllergens] = useState<string[]>([]);
+  const [allergensOther, setAllergensOther] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (v: string) =>
@@ -355,13 +366,22 @@ function RsvpForm({
       return;
     }
     setError(null);
+    const dietaryOut = [
+      ...dietary,
+      ...(dietaryOther.trim() ? [dietaryOther.trim().slice(0, 60)] : []),
+    ];
+    const allergensOut = [
+      ...allergens,
+      ...(allergensOther.trim() ? [allergensOther.trim().slice(0, 60)] : []),
+    ];
     onSubmit({
       name: trimmed,
+      household: household.trim() ? household.trim().slice(0, 80) : undefined,
       choice,
       adults: choice === "yes" ? adults : 0,
       kids: choice === "yes" ? kids : 0,
-      dietary,
-      allergens,
+      dietary: dietaryOut,
+      allergens: allergensOut,
       at: new Date().toISOString(),
     });
   }
@@ -375,6 +395,21 @@ function RsvpForm({
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Users className="h-4 w-4" />
         {counts.yes} yes · {counts.maybe} maybe
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="sample-household">Group name (optional)</Label>
+        <Input
+          id="sample-household"
+          value={household}
+          onChange={(e) => setHousehold(e.target.value)}
+          placeholder="e.g. The Rivera family"
+          maxLength={80}
+          className="min-h-11"
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Helps the host see everyone in your group together.
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -459,12 +494,38 @@ function RsvpForm({
             selected={dietary}
             onToggle={toggle(setDietary)}
           />
+          <div className="space-y-1.5">
+            <Label htmlFor="sample-dietary-other" className="text-xs">
+              Other dietary needs
+            </Label>
+            <Input
+              id="sample-dietary-other"
+              value={dietaryOther}
+              onChange={(e) => setDietaryOther(e.target.value)}
+              placeholder="e.g. low sodium"
+              maxLength={60}
+              className="min-h-11"
+            />
+          </div>
           <ChipGroup
             legend="Allergens to avoid"
             options={ALLERGEN_OPTIONS}
             selected={allergens}
             onToggle={toggle(setAllergens)}
           />
+          <div className="space-y-1.5">
+            <Label htmlFor="sample-allergens-other" className="text-xs">
+              Other allergens
+            </Label>
+            <Input
+              id="sample-allergens-other"
+              value={allergensOther}
+              onChange={(e) => setAllergensOther(e.target.value)}
+              placeholder="e.g. mustard"
+              maxLength={60}
+              className="min-h-11"
+            />
+          </div>
         </div>
       )}
 
@@ -477,6 +538,13 @@ function RsvpForm({
       <Button type="submit" variant="festive" className="min-h-11 w-full">
         Send RSVP
       </Button>
+
+      <div className="border-t border-border pt-4">
+        <p className="mb-2 text-center text-[11px] uppercase tracking-wide text-muted-foreground">
+          Save the date
+        </p>
+        <CalendarActions party={SAMPLE_CALENDAR_PARTY} />
+      </div>
 
       <p className="text-center text-[11px] text-muted-foreground">
         This is a sample. Nothing leaves your browser.
@@ -537,7 +605,7 @@ function SuccessCard({
   const copy: Record<SampleRSVP, { headline: string; body: string; icon: React.ReactNode }> = {
     yes: {
       headline: "You're on the list!",
-      body: `Thanks ${entry.name} — in a real invite, we'd help you save the date and get directions.`,
+      body: `Thanks ${entry.name} — save the date now so the celebration stays easy.`,
       icon: <PartyPopper className="h-7 w-7" />,
     },
     maybe: {
@@ -568,6 +636,7 @@ function SuccessCard({
         {entry.choice === "yes" && <Badge variant="success">{counts.yes} yes so far</Badge>}
         {entry.choice === "maybe" && <Badge variant="warning">Maybe saved</Badge>}
       </div>
+      {entry.choice !== "no" && <CalendarActions party={SAMPLE_CALENDAR_PARTY} />}
       <div className="pt-1">
         <Button type="button" variant="outline" onClick={onChange} className="min-h-11">
           Change my response

@@ -36,6 +36,7 @@ const SafeIdSchema = z
 const SampleRsvpSchema = z
   .object({
     name: ShortText,
+    household: ShortText.optional(),
     choice: ChoiceSchema,
     adults: z.number().int().min(0).max(20),
     kids: z.number().int().min(0).max(20),
