@@ -86,6 +86,15 @@ function Dashboard() {
 
   const showBanner = isDemo && !bannerDismissed;
   const isEmptyLoggedIn = !isDemo && status === "ready" && parties.length === 0;
+  const featuredParty =
+    status === "ready"
+      ? [...parties]
+          .filter((party) => !planningDetailIsOpen(party, "date") && daysUntil(party.date) >= 0)
+          .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0]
+      : undefined;
+  const featuredPartyImage =
+    featuredParty?.heroImageUrl ??
+    (featuredParty?.themeId ? themeById(featuredParty.themeId)?.heroImage : undefined);
 
   return (
     <div className="min-h-screen bg-brand-wash">
@@ -118,20 +127,23 @@ function Dashboard() {
 
       {showBanner && (
         <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-primary/10 bg-white/75 px-4 py-3 shadow-soft backdrop-blur">
-            <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-            <p className="flex-1 text-sm text-secondary">
-              You're in demo mode. Sign up free to save your parties.
-            </p>
-            <Button asChild size="sm" variant="festive">
+          <div className="relative rounded-2xl border border-primary/10 bg-white/75 p-4 pr-14 shadow-soft backdrop-blur sm:flex sm:items-center sm:gap-3 sm:py-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary sm:mt-0" />
+              <p className="text-sm leading-5 text-secondary">
+                Saved on this device. Sign up to keep your parties across devices and create
+                shareable guest links.
+              </p>
+            </div>
+            <Button asChild size="sm" variant="festive" className="mt-3 w-full sm:mt-0 sm:w-auto">
               <Link to="/auth" search={{ mode: "signup" }}>
-                Sign up free
+                Keep them everywhere
               </Link>
             </Button>
             <button
               type="button"
               aria-label="Dismiss"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+              className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:static"
               onClick={() => setBannerDismissed(true)}
             >
               <X className="h-4 w-4" />
@@ -141,73 +153,114 @@ function Dashboard() {
       )}
 
       <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10">
-        <InstallAppPrompt hidden={showBanner} />
-        <section className="relative mb-8 overflow-hidden rounded-[2rem] bg-secondary p-6 text-white shadow-lift sm:p-9">
+        <InstallAppPrompt />
+        <section className="relative mb-12 grid gap-6 overflow-hidden rounded-[2rem] border border-white/80 bg-white/72 p-5 shadow-lift backdrop-blur-xl sm:p-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,1.1fr)] lg:items-stretch lg:p-3 lg:pl-10">
+          <div className="absolute inset-0 bg-confetti opacity-45" aria-hidden />
           <div
-            className="absolute inset-0 bg-confetti opacity-[0.12] mix-blend-screen"
+            className="absolute -left-24 -top-32 h-80 w-80 rounded-full bg-[hsl(215_70%_92%/0.72)] blur-3xl"
             aria-hidden
           />
           <div
-            className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-accent/50 blur-3xl"
+            className="absolute -bottom-36 left-1/3 h-72 w-72 rounded-full bg-[hsl(347_70%_94%/0.8)] blur-3xl"
             aria-hidden
           />
-          <div
-            className="absolute -bottom-36 right-20 h-72 w-72 rounded-full bg-[hsl(161_46%_45%/0.45)] blur-3xl"
-            aria-hidden
-          />
-          <div className="relative grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <div className="min-w-0">
-              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 backdrop-blur">
-                <Sparkles className="h-3 w-3" /> Your calm co-host
-              </div>
-              <h1 className="font-display text-4xl font-medium tracking-[-0.025em] text-white sm:text-5xl">
-                Your parties
-              </h1>
-              <p className="mt-2 max-w-xl text-sm font-medium text-white/75 sm:text-base">
-                {status === "loading"
-                  ? "Loading your parties…"
-                  : status === "error"
-                    ? "We couldn't load your parties."
-                    : parties.length === 0
-                      ? isDemo
-                        ? "Explore a sample or start your own."
-                        : "Nothing here yet — plan your first party."
-                      : partiesSummary(parties).copy}
-              </p>
+          <div className="relative flex min-w-0 flex-col justify-center py-4 lg:py-10">
+            <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-gold)]">
+              The joyful way to host
             </div>
-            {status === "ready" &&
-              parties.length > 0 &&
-              (() => {
-                const upcoming = [...parties]
-                  .filter((p) => !planningDetailIsOpen(p, "date") && daysUntil(p.date) >= 0)
-                  .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
-                if (!upcoming) return null;
-                const d = daysUntil(upcoming.date);
-                return (
-                  <Link
-                    to="/party/$id"
-                    params={{ id: upcoming.id }}
-                    className="group flex items-center gap-4 rounded-2xl border border-white/20 bg-white/12 px-4 py-3 text-white shadow-card backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/18 hover:shadow-elevated"
-                  >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
-                      <CalendarDays className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-white/65">
-                        Next up
-                      </div>
-                      <div className="truncate font-body text-base font-bold text-white">
-                        {upcoming.name}
-                      </div>
-                      <div className="text-xs text-white/70">
-                        {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
-                      </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-white opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
-                  </Link>
-                );
-              })()}
+            <h1 className="font-display text-[3.25rem] font-medium leading-[0.94] tracking-[-0.045em] text-foreground sm:text-6xl lg:text-[4.7rem]">
+              Your parties
+            </h1>
+            <p className="mt-1 font-display text-3xl font-medium italic tracking-[-0.035em] text-secondary sm:text-4xl">
+              beautifully in hand.
+            </p>
+            <p className="mt-5 max-w-md text-sm leading-6 text-muted-foreground sm:text-base">
+              {status === "loading"
+                ? "Gathering every lovely detail…"
+                : status === "error"
+                  ? "We couldn't load your parties."
+                  : parties.length === 0
+                    ? isDemo
+                      ? "Explore a sample or start with the one idea already in your head."
+                      : "Start with one idea. Confetti will help with the rest."
+                    : partiesSummary(parties).copy}
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-3">
+              <Button variant="festive" onClick={() => setWizardOpen(true)}>
+                <Plus className="h-4 w-4" /> Start a party
+              </Button>
+              <Button asChild variant="ghost" className="text-secondary">
+                <Link to="/talk">
+                  Talk it out <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
           </div>
+
+          {featuredParty ? (
+            <Link
+              to="/party/$id"
+              params={{ id: featuredParty.id }}
+              className="group relative min-h-72 overflow-hidden rounded-[1.65rem] bg-secondary shadow-card outline-none transition duration-500 hover:-translate-y-1 hover:shadow-elevated focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:min-h-[29rem]"
+            >
+              {featuredPartyImage ? (
+                <img
+                  src={featuredPartyImage}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
+                />
+              ) : (
+                <div className="absolute inset-0 bg-festive" aria-hidden />
+              )}
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-[hsl(270_49%_19%/0.94)] via-[hsl(270_49%_24%/0.18)] to-transparent"
+                aria-hidden
+              />
+              <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-7">
+                <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/75">
+                  <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1 backdrop-blur">
+                    Next up
+                  </span>
+                  {daysUntil(featuredParty.date) === 0
+                    ? "Today"
+                    : daysUntil(featuredParty.date) === 1
+                      ? "Tomorrow"
+                      : `${daysUntil(featuredParty.date)} days out`}
+                </div>
+                <div className="font-display text-3xl font-medium leading-tight tracking-[-0.025em] sm:text-4xl">
+                  {featuredParty.name}
+                </div>
+                <div className="mt-2 flex items-center gap-2 text-sm text-white/78">
+                  <CalendarDays className="h-4 w-4" />
+                  {formatDateOnly(featuredParty.date, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </div>
+                <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold">
+                  Continue planning
+                  <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                </div>
+              </div>
+            </Link>
+          ) : (
+            <div className="relative min-h-64 overflow-hidden rounded-[1.65rem] bg-secondary p-7 text-white shadow-card lg:min-h-[29rem]">
+              <div
+                className="absolute inset-0 bg-confetti opacity-15 mix-blend-screen"
+                aria-hidden
+              />
+              <div className="relative flex h-full flex-col justify-end">
+                <PartyPopper className="mb-5 h-9 w-9 text-accent" />
+                <div className="font-display text-3xl leading-tight">
+                  One idea is enough to begin.
+                </div>
+                <p className="mt-3 max-w-sm text-sm leading-6 text-white/70">
+                  The date, guest count, budget, and theme can all stay flexible.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {status === "loading" ? (
@@ -259,159 +312,182 @@ function Dashboard() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {parties.map((p) => {
-              const days = daysUntil(p.date);
-              const dateTbd = planningDetailIsOpen(p, "date");
-              const guestsTbd = planningDetailIsOpen(p, "guests");
-              const budgetTbd = planningDetailIsOpen(p, "budget");
-              const g = guestCounts(p);
-              const hasGuestList = g.total > 0;
-              const spent = totalSpent(p);
-              const prog = progressPct(p);
-              const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
-              return (
-                <article
-                  key={p.id}
-                  aria-labelledby={`party-${p.id}-title`}
-                  className="group relative flex flex-col overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/94 shadow-card backdrop-blur-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-elevated focus-within:-translate-y-1 focus-within:shadow-elevated"
-                >
-                  <div
-                    className={`relative h-32 overflow-hidden p-5 ${
-                      cardImage ? "bg-secondary" : "bg-festive"
+          <>
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
+                  The plans in motion
+                </div>
+                <h2 className="mt-1 font-display text-3xl font-medium tracking-[-0.025em] text-secondary">
+                  Every celebration, one calm place
+                </h2>
+              </div>
+              <div className="hidden text-sm text-muted-foreground sm:block">
+                {parties.length} {parties.length === 1 ? "gathering" : "gatherings"}
+              </div>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {parties.map((p, index) => {
+                const days = daysUntil(p.date);
+                const dateTbd = planningDetailIsOpen(p, "date");
+                const guestsTbd = planningDetailIsOpen(p, "guests");
+                const budgetTbd = planningDetailIsOpen(p, "budget");
+                const g = guestCounts(p);
+                const hasGuestList = g.total > 0;
+                const spent = totalSpent(p);
+                const prog = progressPct(p);
+                const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
+                const isFeatureCard = index === 0;
+                return (
+                  <article
+                    key={p.id}
+                    aria-labelledby={`party-${p.id}-title`}
+                    className={`group relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/94 shadow-card backdrop-blur-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-elevated focus-within:-translate-y-1 focus-within:shadow-elevated ${
+                      isFeatureCard
+                        ? "flex flex-col sm:col-span-2 lg:grid lg:grid-cols-[1.08fr_0.92fr]"
+                        : "flex flex-col"
                     }`}
                   >
-                    {cardImage && (
-                      <img
-                        src={cardImage}
-                        alt=""
-                        loading="lazy"
-                        decoding="async"
-                        className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                      />
-                    )}
                     <div
-                      className={`absolute inset-0 ${
-                        cardImage
-                          ? "bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
-                          : "bg-confetti opacity-40 mix-blend-overlay"
-                      }`}
-                      aria-hidden
-                    />
-                    <Badge variant="onFestive" className="relative">
-                      {OCCASION_LABELS[p.occasion]}
-                    </Badge>
-                    <div className="relative mt-2 text-primary-foreground/90 text-sm">
-                      {p.theme}
-                    </div>
-                  </div>
-                  <div className="flex-1 p-5">
-                    <h3
-                      id={`party-${p.id}-title`}
-                      className="font-display text-[1.35rem] font-medium tracking-[-0.015em] text-foreground"
+                      className={`relative overflow-hidden p-5 ${
+                        isFeatureCard ? "h-56 sm:h-72 lg:h-full lg:min-h-[27rem]" : "h-36"
+                      } ${cardImage ? "bg-secondary" : "bg-festive"}`}
                     >
-                      <Link
-                        to="/party/$id"
-                        params={{ id: p.id }}
-                        className="rounded-sm outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                      >
-                        {p.name}
-                      </Link>
-                    </h3>
-                    <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {dateTbd ? (
-                        <span className="font-medium text-primary">Date to decide</span>
-                      ) : (
-                        <>
-                          {formatDateOnly(p.date, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                          <span className="mx-1">·</span>
-                          <span className="font-medium text-primary">
-                            {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-xl bg-muted/60 p-3">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Users className="h-3.5 w-3.5" />{" "}
-                          {hasGuestList ? "Guest list" : "Guest goal"}
-                        </div>
-                        <div className="mt-0.5 font-bold text-foreground">
-                          {hasGuestList ? g.total : !guestsTbd ? p.guestEstimate : "To decide"}
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-muted/60 p-3">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Wallet className="h-3.5 w-3.5" /> Budget
-                        </div>
-                        <div className="mt-0.5 font-bold text-foreground">
-                          {budgetTbd ? (
-                            "To decide"
-                          ) : (
-                            <>
-                              ${spent} <span className="text-muted-foreground">/ ${p.budget}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-5">
-                      <div className="mb-1.5 flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Planning progress</span>
-                        <span className="font-semibold text-secondary">{prog}%</span>
-                      </div>
-                      <Progress value={prog} aria-label="Checklist progress" />
-                    </div>
-
-                    <div className="mt-5 flex items-center justify-between gap-2 text-sm font-medium">
-                      <span className="text-primary opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                        Open workspace <ArrowRight className="ml-1 inline h-4 w-4" />
-                      </span>
-                      {/* Sibling actions — lifted above the title link's ::after overlay */}
-                      <div className="relative z-10 flex items-center gap-1">
-                        <button
-                          type="button"
-                          aria-label={`Duplicate ${p.name}`}
-                          onClick={() => {
-                            const id = cloneParty(p.id);
-                            if (id) toast.success("Party duplicated.");
-                          }}
-                          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold text-secondary hover:bg-muted"
-                        >
-                          <Copy className="h-3.5 w-3.5" /> Duplicate
-                        </button>
-                        <DeletePartyButton
-                          partyId={p.id}
-                          partyName={p.name}
-                          variant="ghost"
-                          size="icon"
+                      {cardImage && (
+                        <img
+                          src={cardImage}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
                         />
+                      )}
+                      <div
+                        className={`absolute inset-0 ${
+                          cardImage
+                            ? "bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
+                            : "bg-confetti opacity-40 mix-blend-overlay"
+                        }`}
+                        aria-hidden
+                      />
+                      <Badge variant="onFestive" className="relative">
+                        {OCCASION_LABELS[p.occasion]}
+                      </Badge>
+                      <div className="relative mt-2 text-primary-foreground/90 text-sm">
+                        {p.theme}
                       </div>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
+                    <div className={`flex flex-1 flex-col ${isFeatureCard ? "p-6 sm:p-8" : "p-5"}`}>
+                      <h3
+                        id={`party-${p.id}-title`}
+                        className={`font-display font-medium tracking-[-0.02em] text-foreground ${
+                          isFeatureCard ? "text-3xl sm:text-4xl" : "text-[1.35rem]"
+                        }`}
+                      >
+                        <Link
+                          to="/party/$id"
+                          params={{ id: p.id }}
+                          className="rounded-sm outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        >
+                          {p.name}
+                        </Link>
+                      </h3>
+                      <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {dateTbd ? (
+                          <span className="font-medium text-primary">Date to decide</span>
+                        ) : (
+                          <>
+                            {formatDateOnly(p.date, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                            <span className="mx-1">·</span>
+                            <span className="font-medium text-primary">
+                              {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
+                            </span>
+                          </>
+                        )}
+                      </div>
 
-            <button
-              onClick={() => setWizardOpen(true)}
-              className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-2 border-dashed border-secondary/20 bg-white/35 p-6 text-muted-foreground backdrop-blur-sm transition hover:-translate-y-1 hover:border-secondary/45 hover:bg-white/80 hover:text-secondary hover:shadow-card"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Plus className="h-6 w-6" />
-              </div>
-              <div className="font-display text-lg text-secondary">Start a new party</div>
-              <div className="text-xs">3 quick steps</div>
-            </button>
-          </div>
+                      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-xl bg-muted/60 p-3">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Users className="h-3.5 w-3.5" />{" "}
+                            {hasGuestList ? "Guest list" : "Guest goal"}
+                          </div>
+                          <div className="mt-0.5 font-bold text-foreground">
+                            {hasGuestList ? g.total : !guestsTbd ? p.guestEstimate : "To decide"}
+                          </div>
+                        </div>
+                        <div className="rounded-xl bg-muted/60 p-3">
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Wallet className="h-3.5 w-3.5" /> Budget
+                          </div>
+                          <div className="mt-0.5 font-bold text-foreground">
+                            {budgetTbd ? (
+                              "To decide"
+                            ) : (
+                              <>
+                                ${spent}{" "}
+                                <span className="text-muted-foreground">/ ${p.budget}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5">
+                        <div className="mb-1.5 flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">Planning progress</span>
+                          <span className="font-semibold text-secondary">{prog}%</span>
+                        </div>
+                        <Progress value={prog} aria-label="Checklist progress" />
+                      </div>
+
+                      <div className="mt-auto flex items-center justify-between gap-2 pt-5 text-sm font-medium">
+                        <span className="text-primary opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                          Open workspace <ArrowRight className="ml-1 inline h-4 w-4" />
+                        </span>
+                        {/* Sibling actions — lifted above the title link's ::after overlay */}
+                        <div className="relative z-10 flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label={`Duplicate ${p.name}`}
+                            onClick={() => {
+                              const id = cloneParty(p.id);
+                              if (id) toast.success("Party duplicated.");
+                            }}
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold text-secondary hover:bg-muted"
+                          >
+                            <Copy className="h-3.5 w-3.5" /> Duplicate
+                          </button>
+                          <DeletePartyButton
+                            partyId={p.id}
+                            partyName={p.name}
+                            variant="ghost"
+                            size="icon"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+
+              <button
+                onClick={() => setWizardOpen(true)}
+                className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-2 border-dashed border-secondary/20 bg-white/35 p-6 text-muted-foreground backdrop-blur-sm transition hover:-translate-y-1 hover:border-secondary/45 hover:bg-white/80 hover:text-secondary hover:shadow-card"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Plus className="h-6 w-6" />
+                </div>
+                <div className="font-display text-lg text-secondary">Start a new party</div>
+                <div className="text-xs">3 quick steps</div>
+              </button>
+            </div>
+          </>
         )}
       </main>
 

@@ -4,7 +4,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, Circle, Info, Megaphone, UserCheck } from "lucide-react";
-import { useParties, newId } from "@/lib/party-context";
+import { useParties, newId, isSeededDemoPartyId, planningDetailForTask } from "@/lib/party-context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -34,7 +34,8 @@ function DayOfPage() {
   // Compute derived state before any early return so hook order is stable
   // across renders where the party may briefly disappear (e.g. delete).
   const nextThree = useMemo(
-    () => (party?.tasks ?? []).filter((t) => !t.done).slice(0, 3),
+    () =>
+      (party?.tasks ?? []).filter((task) => !task.done && !planningDetailForTask(task)).slice(0, 3),
     [party?.tasks],
   );
 
@@ -68,11 +69,15 @@ function DayOfPage() {
   const timeline = party.timeline ?? [];
   const yesGuests = party.guests.filter((g) => g.rsvp === "yes");
   const checkins = party.checkins ?? {};
+  const isSeededSample = isDemo && isSeededDemoPartyId(party.id);
+  const isLocalParty = isDemo && !isSeededSample;
 
   function toggleTask(taskId: string, evt?: React.MouseEvent) {
     updateParty(party!.id, (p) => ({
       ...p,
-      tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)),
+      tasks: p.tasks.map((task) =>
+        task.id === taskId && !planningDetailForTask(task) ? { ...task, done: !task.done } : task,
+      ),
     }));
     if (evt) celebrate("micro", { x: evt.clientX, y: evt.clientY });
   }
@@ -99,9 +104,11 @@ function DayOfPage() {
       ].slice(0, 20),
     }));
     setNote("");
-    const message = isDemo
+    const message = isSeededSample
       ? "Sample update added here. No guests were notified."
-      : "Update posted to the guest page.";
+      : isLocalParty
+        ? "Update saved on this device only. No guests were notified."
+        : "Update posted to the guest page.";
     setPostStatus(message);
   }
 
@@ -129,10 +136,17 @@ function DayOfPage() {
             role="note"
           >
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span>
-              <strong>Sample Day-of Mode.</strong> Try tasks, check-ins, and updates safely—nothing
-              here notifies real guests.
-            </span>
+            {isSeededSample ? (
+              <span>
+                <strong>Sample Day-of Mode.</strong> Try tasks, check-ins, and updates
+                safely—nothing here notifies real guests.
+              </span>
+            ) : (
+              <span>
+                <strong>Saved on this device.</strong> Day-of changes stay in this browser. Sign up
+                before inviting guests or using a shared guest page.
+              </span>
+            )}
           </div>
         )}
 
@@ -170,7 +184,11 @@ function DayOfPage() {
         <Card className="mt-4 p-5">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
             <Megaphone className="h-4 w-4 text-primary" />{" "}
-            {isDemo ? "Try a sample guest update" : "Post an update to guests"}
+            {isSeededSample
+              ? "Try a sample guest update"
+              : isLocalParty
+                ? "Add a local guest-page update"
+                : "Post an update to the guest page"}
           </div>
           <Textarea
             value={note}
@@ -181,7 +199,11 @@ function DayOfPage() {
           />
           <div className="mt-2 flex justify-end">
             <Button size="sm" variant="festive" onClick={postUpdate} disabled={!note.trim()}>
-              {isDemo ? "Add sample update" : "Post update"}
+              {isSeededSample
+                ? "Add sample update"
+                : isLocalParty
+                  ? "Save local update"
+                  : "Post update"}
             </Button>
           </div>
           {postStatus && (

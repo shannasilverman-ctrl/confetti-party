@@ -38,7 +38,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                      |
 | ESLint                | Passed                                                                 |
 | TypeScript            | Passed with `tsc --noEmit`                                             |
-| Vitest                | 45 files, 332 tests passed                                             |
+| Vitest                | 45 files, 333 tests passed                                             |
 | Production build      | Passed                                                                 |
 | Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                      |
 | Playwright            | Desktop and mobile projects passed; project-specific skips intentional |
@@ -51,6 +51,12 @@ primary targets, asset availability, semantic route identity, malformed
 invite recovery, sample-vs-real action truthfulness, and serious/critical
 axe checks. Mobile-only matrix cases and desktop-only axe cases are skipped
 in the other Playwright project by design.
+
+The host dashboard also preserves the original Confetti visual contract:
+Outfit for product copy, Fraunces for expressive display type, warm editorial
+composition, asymmetric party imagery, and a calm mobile-first hierarchy.
+Its local-storage and sample-party labels are tested so visual polish never
+comes at the expense of product truth.
 
 GitHub Actions independently replays formatting, lint, typecheck, coverage,
 build, bundle enforcement, a clean Worker startup, and Playwright before
