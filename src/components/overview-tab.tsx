@@ -12,9 +12,9 @@ import {
   shoppingProjectedRemaining,
   totalSpent,
   useParties,
-  openPlanningDetails,
   planningDetailForTask,
   planningDetailIsOpen,
+  type PlanningDetail,
   type Task,
 } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
@@ -74,13 +74,13 @@ export function OverviewTab({
   const projected = spent + remainingEst;
   const overBudget = !budgetTbd && projected > party.budget;
   const theme = themeById(party.themeId);
-  const openDetails = openPlanningDetails(party);
-
   const bucketIdx = (b: Task["bucket"]) => BUCKETS.indexOf(b);
-  const upNext = [...party.tasks]
-    .filter((t) => !t.done && !planningDetailForTask(t))
-    .sort((a, b) => bucketIdx(a.bucket) - bucketIdx(b.bucket))
-    .slice(0, 3);
+  const sortedIncomplete = [...party.tasks]
+    .filter((t) => !t.done)
+    .sort((a, b) => bucketIdx(a.bucket) - bucketIdx(b.bucket));
+  const planningMoves = sortedIncomplete.filter((task) => planningDetailForTask(task));
+  const hasPlanningMoves = planningMoves.length > 0;
+  const upNext = hasPlanningMoves ? planningMoves : sortedIncomplete.slice(0, 3);
 
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
   const partyWeek = !dateTbd && days <= 7 && days >= 0;
@@ -198,53 +198,16 @@ export function OverviewTab({
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
 
-      {openDetails.length > 0 && (
-        <section
-          aria-label="Details to decide"
-          className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-card"
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <CalendarClock className="h-5 w-5" aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-display text-lg font-semibold text-secondary">Still flexible</h3>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Nothing was guessed. Add these whenever you know them.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {openDetails.map((detail) => (
-                  <Badge key={detail} variant="soft">
-                    {detail === "date"
-                      ? "Date"
-                      : detail === "guests"
-                        ? "Guest count"
-                        : detail === "budget"
-                          ? "Budget"
-                          : "Look & feel"}
-                  </Badge>
-                ))}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {openDetails.some((detail) => detail !== "theme") && (
-                  <EditDetailsDialog partyId={partyId} />
-                )}
-                {openDetails.includes("theme") && (
-                  <Button variant="outline" size="sm" onClick={() => onNavigate("theme")}>
-                    <Sparkles /> Pick a look
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Up next */}
-      <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
+      {/* Next-best actions: unresolved inputs become actions, never checkboxes. */}
+      <section
+        aria-label={hasPlanningMoves ? "Your next moves" : "Up next tasks"}
+        className="rounded-2xl border border-border bg-card p-5 shadow-card"
+      >
         <div className="flex items-center gap-2">
           <ListChecks className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-lg font-semibold text-secondary">Up next</h3>
+          <h3 className="font-display text-lg font-semibold text-secondary">
+            {hasPlanningMoves ? "Your next moves" : "Up next"}
+          </h3>
           <Button
             variant="ghost"
             size="sm"
@@ -254,32 +217,78 @@ export function OverviewTab({
             All tasks <ArrowRight />
           </Button>
         </div>
+        {hasPlanningMoves && (
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Pick whichever feels easiest. One answer is enough—the rest can wait.
+          </p>
+        )}
         {upNext.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
             You're caught up. Nothing left on the checklist.
           </p>
         ) : (
           <ul className="mt-3 space-y-2">
-            {upNext.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2"
-              >
-                <Checkbox
-                  checked={t.done}
-                  onClick={(e) => {
-                    if (!t.done) celebrateAtEvent("micro", e);
-                  }}
-                  onCheckedChange={() => toggleTask(t.id)}
-                  className="h-5 w-5"
-                  aria-label={`Complete: ${t.title}`}
-                />
-                <span className="flex-1 min-w-0 truncate text-sm text-secondary">{t.title}</span>
-                <span className="hidden text-[11px] text-muted-foreground sm:inline">
-                  {t.bucket}
-                </span>
-              </li>
-            ))}
+            {upNext.map((task) => {
+              const planningDetail = planningDetailForTask(task);
+              return (
+                <li
+                  key={task.id}
+                  data-testid={planningDetail ? `next-move-${planningDetail}` : undefined}
+                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2"
+                >
+                  {planningDetail ? (
+                    <>
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+                        aria-hidden
+                      >
+                        <PlanningMoveIcon detail={planningDetail} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-secondary">{task.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {planningMoveCopy(planningDetail).hint}
+                        </div>
+                      </div>
+                      {planningDetail === "theme" ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="min-h-11 shrink-0"
+                          onClick={() => onNavigate("theme")}
+                        >
+                          {planningMoveCopy(planningDetail).action}
+                        </Button>
+                      ) : (
+                        <EditDetailsDialog
+                          partyId={partyId}
+                          initialField={planningDetail}
+                          triggerLabel={planningMoveCopy(planningDetail).action}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Checkbox
+                        checked={task.done}
+                        onClick={(event) => {
+                          if (!task.done) celebrateAtEvent("micro", event);
+                        }}
+                        onCheckedChange={() => toggleTask(task.id)}
+                        className="h-5 w-5"
+                        aria-label={`Complete: ${task.title}`}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm text-secondary">
+                        {task.title}
+                      </span>
+                      <span className="hidden text-[11px] text-muted-foreground sm:inline">
+                        {task.bucket}
+                      </span>
+                    </>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
@@ -401,6 +410,32 @@ export function OverviewTab({
       )}
     </div>
   );
+}
+
+function planningMoveCopy(detail: PlanningDetail): { action: string; hint: string } {
+  switch (detail) {
+    case "date":
+      return { action: "Choose date", hint: "Unlocks invite sharing and a real countdown." };
+    case "guests":
+      return { action: "Estimate guests", hint: "A rough number is plenty for now." };
+    case "budget":
+      return { action: "Set budget", hint: "Choose a comfortable ceiling—or decide later." };
+    case "theme":
+      return { action: "Explore looks", hint: "Find a direction without locking it in." };
+  }
+}
+
+function PlanningMoveIcon({ detail }: { detail: PlanningDetail }) {
+  switch (detail) {
+    case "date":
+      return <CalendarClock className="h-4 w-4" />;
+    case "guests":
+      return <Users className="h-4 w-4" />;
+    case "budget":
+      return <Wallet className="h-4 w-4" />;
+    case "theme":
+      return <Sparkles className="h-4 w-4" />;
+  }
 }
 
 function MiniStat({
