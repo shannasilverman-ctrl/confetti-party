@@ -9,11 +9,7 @@ export type PublicBringItem = {
   label: string;
   qty: number;
   unit?: string | null;
-  dietaryTags?: string[];
   status: "open" | "claimed" | "done";
-  assigneeName?: string | null;
-  assigneeHousehold?: string | null;
-  notes?: string | null;
 };
 
 export type PublicPhotoDrop = {
@@ -38,11 +34,11 @@ export type PartyView = {
   host_updates: HostUpdateView[];
   bring_board: PublicBringItem[];
   photo_drop: PublicPhotoDrop;
-  guest_first_names: string[];
   yes_count: number;
   maybe_count: number;
   total_count: number;
 };
+
 
 export type RsvpLoaderData = {
   party: PartyView | null;
