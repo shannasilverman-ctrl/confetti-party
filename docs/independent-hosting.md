@@ -47,3 +47,29 @@ values.
 
 The domain move is intentionally separate from code deployment because DNS and
 custom-domain changes affect the existing public site.
+
+## Deterministic rollback
+
+A rollback changes Worker traffic immediately, so the repository command is a
+dry run unless `--execute` is explicitly present. It also requires both the
+Cloudflare version UUID and the full Git release SHA; aliases such as `latest`
+are rejected.
+
+1. Freeze further deploys and capture the failing SHA from `/release.json`.
+2. Run `bun run deployments:list` and select a previously verified version.
+   New deployments include `Confetti release <full-sha>` in their Cloudflare
+   version message so version-to-code identity is reviewable.
+3. Preview the operation without changing Cloudflare:
+
+   ```sh
+   bun run rollback:preview -- --version <version-uuid> --release <full-git-sha>
+   ```
+
+4. After incident approval, repeat the exact command with `--execute`.
+5. The command rolls traffic back and then runs the same live exact-SHA,
+   route, PWA, MIME, HTTPS, and security-header verification used after a
+   normal deploy. A mismatch or unhealthy edge exits non-zero.
+
+Worker rollback does not revert Supabase schema or data. If an incident
+includes a database migration, use that migration's reviewed recovery plan;
+never infer a database rollback from the Worker version alone.
