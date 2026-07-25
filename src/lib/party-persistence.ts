@@ -105,6 +105,7 @@ export function partyToColumns(p: Party, userId: string): PartyRow {
     occasion: p.occasion,
     date: p.date,
     start_time: p.startTime ?? null,
+    time_zone: p.timeZone ?? null,
     location: p.location ?? null,
     guest_estimate: p.guestEstimate,
     budget: p.budget,
