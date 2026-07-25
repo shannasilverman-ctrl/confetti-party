@@ -22,6 +22,9 @@ import {
   Wallet,
   AlertTriangle,
   Sparkles,
+  Camera,
+  Download,
+  LockKeyhole,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -135,130 +138,144 @@ function Landing() {
             <span className="inline-flex items-center gap-2 rounded-full border border-secondary/10 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[hsl(39_48%_30%)] shadow-soft backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" /> Your calm co-host
             </span>
-            <h1 className="mt-6 font-display text-[3rem] font-medium leading-[1.01] tracking-[-0.035em] text-foreground sm:text-7xl md:text-[5.4rem]">
-              Throw the party
+            <h1 className="mt-6 font-display text-[3rem] font-medium leading-[0.98] tracking-[-0.045em] text-foreground sm:text-7xl md:text-[5.4rem]">
+              Make the plan.
               <br />
-              everyone <span className="italic text-secondary">remembers.</span>
+              <span className="italic text-secondary">Be at the party.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-xl">
-              From the first idea to the final toast — guests, checklist, budget, day-of, and the
-              memories after. Confetti gets you there, calmly.
+              Tell us what you’re celebrating. Confetti turns every loose idea into one living plan
+              for the food, people, timing, and tiny details.
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button size="lg" variant="festive" onClick={startPlanning}>
-                Start planning <ArrowRight />
+                Plan my party <ArrowRight />
               </Button>
-              <Button asChild size="lg" variant="secondary">
-                <Link to="/talk">Talk it out</Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="border-white/90 bg-white/70 text-foreground shadow-soft backdrop-blur hover:bg-white"
+              <Link
+                to="/talk"
+                className="inline-flex min-h-11 items-center gap-1.5 px-3 text-sm font-semibold text-secondary underline decoration-secondary/25 underline-offset-4 transition hover:decoration-secondary"
               >
-                <Link to="/sample-invite">Open a sample invite</Link>
-              </Button>
+                Or talk it out <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
             <p className="mt-4 text-xs font-medium text-muted-foreground">
-              Free. No sign-up needed to look around.
+              Start messy. Leave blanks. Confetti helps you fill the gaps.
             </p>
           </div>
         </section>
 
         {/* Chaos → Calm */}
-        <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-          <div className="grid items-center gap-10 md:grid-cols-[1fr_auto_1fr]">
-            {/* Chaos: message bubbles */}
-            <div className="relative mx-auto w-full max-w-sm">
-              <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                The group chat
-              </div>
-              <div className="flex flex-col gap-3">
-                <Bubble rot={-2}>wait who's bringing the cake??</Bubble>
-                <Bubble rot={1.5} align="right">
-                  did anyone invite the Nguyens?
-                </Bubble>
-                <Bubble rot={-1}>is it BYOB or…?</Bubble>
-                <Bubble rot={2} align="right" strike>
-                  scroll up someone said 3pm
-                </Bubble>
-              </div>
+        <section className="px-4 py-12 sm:px-6 sm:py-20">
+          <div className="mx-auto max-w-6xl rounded-[2.5rem] border border-white/80 bg-white/55 px-5 py-10 shadow-card backdrop-blur sm:px-10 sm:py-14">
+            <div className="mx-auto mb-10 max-w-2xl text-center">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                The relief is the product
+              </span>
+              <h2 className="mt-3 font-display text-3xl font-semibold tracking-[-0.035em] text-secondary sm:text-4xl">
+                From fourteen “maybes” to one clear plan.
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                Confetti notices what is missing, keeps everyone moving, and only shows you what
+                matters next.
+              </p>
             </div>
-
-            {/* Arrow */}
-            <div className="hidden items-center justify-center md:flex">
-              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
-                <ArrowRightIcon className="h-6 w-6" />
-              </div>
-            </div>
-            <div className="flex items-center justify-center md:hidden">
-              <div className="rotate-90 flex h-12 w-12 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-card">
-                <ArrowRightIcon className="h-5 w-5" />
-              </div>
-            </div>
-
-            {/* Calm: app card */}
-            <div className="relative mx-auto w-full max-w-sm">
-              <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-primary">
-                With Confetti
-              </div>
-              <div className="rotate-[1.5deg] rounded-3xl border border-border bg-card p-5 shadow-elevated">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-display text-lg font-semibold text-secondary">
-                      Maya's 8th Birthday
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      {sampleCardDateLabel} · 2:00 PM
-                    </div>
-                  </div>
-                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                    {sampleCountdown}
-                  </span>
+            <div className="grid items-center gap-10 md:grid-cols-[1fr_auto_1fr]">
+              {/* Chaos: message bubbles */}
+              <div className="relative mx-auto w-full max-w-sm">
+                <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  The group chat
                 </div>
-
-                <div className="mt-4 flex items-center gap-2 text-sm">
-                  <Users className="h-4 w-4 text-secondary/70" />
-                  <span className="font-medium text-secondary">12 yes</span>
-                  <span className="text-muted-foreground">· 3 maybe</span>
+                <div className="flex flex-col gap-3">
+                  <Bubble rot={-2}>wait who's bringing the cake??</Bubble>
+                  <Bubble rot={1.5} align="right">
+                    did anyone invite the Nguyens?
+                  </Bubble>
+                  <Bubble rot={-1}>is it BYOB or…?</Bubble>
+                  <Bubble rot={2} align="right" strike>
+                    scroll up someone said 3pm
+                  </Bubble>
                 </div>
+              </div>
 
-                <div className="mt-4">
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Wallet className="h-3.5 w-3.5" /> Budget
+              {/* Arrow */}
+              <div className="hidden items-center justify-center md:flex">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
+                  <ArrowRightIcon className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="flex items-center justify-center md:hidden">
+                <div className="rotate-90 flex h-12 w-12 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-card">
+                  <ArrowRightIcon className="h-5 w-5" />
+                </div>
+              </div>
+
+              {/* Calm: app card */}
+              <div className="relative mx-auto w-full max-w-sm">
+                <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-primary">
+                  With Confetti
+                </div>
+                <div className="rotate-[1.5deg] rounded-3xl border border-border bg-card p-5 shadow-elevated">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-display text-lg font-semibold text-secondary">
+                        Maya's 8th Birthday
+                      </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        {sampleCardDateLabel} · 2:00 PM
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                      {sampleCountdown}
                     </span>
-                    <span className="font-semibold text-secondary tabular-nums">$342 / $600</span>
                   </div>
-                  <Progress value={57} aria-label="Budget used" />
-                </div>
 
-                <div className="mt-4 space-y-2">
-                  <ChecklistRow done>Book the venue</ChecklistRow>
-                  <ChecklistRow>Send invites</ChecklistRow>
+                  <div className="mt-4 flex items-center gap-2 text-sm">
+                    <Users className="h-4 w-4 text-secondary/70" />
+                    <span className="font-medium text-secondary">12 yes</span>
+                    <span className="text-muted-foreground">· 3 maybe</span>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Wallet className="h-3.5 w-3.5" /> Budget
+                      </span>
+                      <span className="font-semibold text-secondary tabular-nums">$342 / $600</span>
+                    </div>
+                    <Progress value={57} aria-label="Budget used" />
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <ChecklistRow done>Book the venue</ChecklistRow>
+                    <ChecklistRow>Send invites</ChecklistRow>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Product story — six chapters, in the order a host actually lives them */}
-        <section className="bg-muted/30 py-20 sm:py-28">
+        {/* The real product, shown as one authored journey rather than a feature checklist. */}
+        <section className="relative overflow-hidden bg-brand-wash py-20 sm:py-28">
+          <FloatingConfettiField />
           <div className="mx-auto max-w-6xl px-6">
-            <div className="mx-auto max-w-2xl text-center">
-              <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
-                One gathering, first idea to next-year notes.
+            <div className="relative mx-auto max-w-3xl text-center">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                One gathering · one living plan
+              </span>
+              <h2 className="mt-3 font-display text-3xl font-semibold tracking-[-0.035em] text-secondary sm:text-5xl">
+                Everything a great host is quietly keeping in their head.
               </h2>
-              <p className="mt-3 text-muted-foreground">
-                Every screen below is a real Confetti surface, in the order you'll meet them.
+              <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
+                Start with a voice note. End with guests fed, details handled, and a photo that
+                feels made for the night.
               </p>
             </div>
 
-            <div className="mt-16 space-y-20">
+            <div className="relative mt-14 grid gap-6 lg:grid-cols-2">
               <StoryRow
-                chapter="Chapter 01"
+                chapter="01 · Start however it comes out"
                 title="Talk it out."
                 body="Brain-dump the gathering — the vibe, the humans, the constraints. Confetti listens, asks the right questions, and turns the noise into a plan you can edit."
                 cta={{ label: "Try Talk it out", to: "/talk" }}
@@ -266,7 +283,7 @@ function Landing() {
                 art={<TalkMini />}
               />
               <StoryRow
-                chapter="Chapter 02"
+                chapter="02 · See the whole gathering"
                 title="The Reveal."
                 body="A single calm page: what you're hosting, when, for whom, with the risks flagged. No dashboards to decode, no ten tabs of setup."
                 cta={{
@@ -279,7 +296,7 @@ function Landing() {
                 art={<RevealMini />}
               />
               <StoryRow
-                chapter="Chapter 03"
+                chapter="03 · Know what matters now"
                 title="Your next three things."
                 body="Not a wall of tasks. Just the three moves that matter this week, in the right order, with the right timing bucket."
                 cta={{ label: "Peek at Maya's list", to: "/party/$id", params: { id: "maya-8th" } }}
@@ -287,7 +304,7 @@ function Landing() {
                 art={<ChecklistMini />}
               />
               <StoryRow
-                chapter="Chapter 04"
+                chapter="04 · Let guests help"
                 title={`${VOCAB.guestInvite}, with a ${VOCAB.bringBoard}.`}
                 body="One link for every guest. They RSVP, claim what to bring, and see host updates. You watch it fill in — no more group-chat archaeology."
                 cta={{ label: "Open a sample invite", to: "/sample-invite" }}
@@ -296,7 +313,7 @@ function Landing() {
                 art={<GuestWorldMini />}
               />
               <StoryRow
-                chapter="Chapter 05"
+                chapter="05 · Stay present"
                 title="Day-of Mode."
                 body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
                 cta={{
@@ -308,7 +325,7 @@ function Landing() {
                 art={<TimelineMini />}
               />
               <StoryRow
-                chapter="Chapter 06"
+                chapter="06 · Make the next one easier"
                 title="Memories, so next time is easier."
                 body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Duplicate the plan later and those notes stay attached for reference."
                 cta={{
@@ -321,6 +338,8 @@ function Landing() {
                 art={<MemoriesMini />}
               />
             </div>
+
+            <PartyBoothStory />
           </div>
         </section>
 
@@ -329,11 +348,11 @@ function Landing() {
           <FloatingConfettiField />
           <div className="relative mx-auto max-w-2xl px-6 text-center">
             <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
-              Your next party starts with a name and a date.
+              Your next party can start half-formed.
             </h2>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Button size="lg" variant="festive" onClick={startPlanning}>
-                Start planning <ArrowRight />
+                Plan my party <ArrowRight />
               </Button>
               <Button asChild size="lg" variant="outline">
                 <Link to="/sample-invite">Open a sample invite</Link>
@@ -533,12 +552,12 @@ function StoryRow({
 }) {
   const styles = TONE_STYLES[tone];
   return (
-    <div
-      className={`grid items-center gap-10 md:grid-cols-2 ${
-        flip ? "md:[&>*:first-child]:order-2" : ""
+    <article
+      className={`grid overflow-hidden rounded-[2rem] border border-white/80 bg-white/70 shadow-card backdrop-blur ${
+        flip ? "lg:[&>*:first-child]:order-2" : ""
       }`}
     >
-      <div>
+      <div className="p-6 sm:p-8">
         <div
           className={`mb-3 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${styles.chip}`}
         >
@@ -564,10 +583,90 @@ function StoryRow({
           </div>
         )}
       </div>
-      <div className={`mx-auto w-full max-w-sm rounded-3xl p-4 sm:p-6 ${styles.artFrame}`}>
-        {art}
+      <div className={`flex min-h-[20rem] items-center p-5 sm:p-7 ${styles.artFrame}`}>
+        <div className="mx-auto w-full max-w-sm">{art}</div>
       </div>
-    </div>
+    </article>
+  );
+}
+
+function PartyBoothStory() {
+  return (
+    <article className="relative mt-6 overflow-hidden rounded-[2.25rem] border border-white/80 bg-secondary text-secondary-foreground shadow-lift">
+      <div className="grid lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="flex flex-col justify-center p-7 sm:p-10 lg:p-12">
+          <span className="inline-flex w-fit items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
+            <Camera className="h-3.5 w-3.5" aria-hidden /> 07 · The signature moment
+          </span>
+          <h3 className="mt-5 max-w-md font-display text-3xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">
+            A photo booth made for this party.
+          </h3>
+          <p className="mt-4 max-w-md leading-relaxed text-white/75">
+            Guests scan the host’s QR, take or choose a photo, add the event’s personalized frame,
+            and save it straight to their phone.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/80">
+            <span className="inline-flex items-center gap-1.5">
+              <LockKeyhole className="h-4 w-4" aria-hidden /> No upload
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Download className="h-4 w-4" aria-hidden /> Saves privately
+            </span>
+          </div>
+          <Button
+            asChild
+            variant="outline"
+            className="mt-7 w-fit border-white/30 bg-white text-secondary hover:bg-white/90"
+          >
+            <a href="/sample-invite#party-booth">
+              Try the Party Booth <ArrowRight className="h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+
+        <div className="relative min-h-[28rem] overflow-hidden bg-[linear-gradient(135deg,hsl(347_56%_58%),hsl(270_49%_35%))] p-6 sm:p-10">
+          <div className="absolute inset-0 opacity-30 [background-image:var(--pattern-confetti)] [background-size:220px_220px]" />
+          <div className="relative mx-auto max-w-sm rotate-[1.5deg] overflow-hidden rounded-[2rem] border border-white/25 bg-card text-card-foreground shadow-lift">
+            <div
+              className="relative aspect-[4/3] bg-cover bg-center"
+              style={{
+                backgroundImage:
+                  "linear-gradient(180deg,transparent 30%,hsl(265 28% 14% / 0.72)),url(/brand/confetti-hero.jpg)",
+              }}
+            >
+              <div className="absolute inset-4 rounded-2xl border-2 border-white/90">
+                <div className="absolute right-4 top-4 flex gap-2" aria-hidden>
+                  <span className="h-1.5 w-7 rotate-[34deg] rounded-full bg-white" />
+                  <span className="h-1.5 w-4 -rotate-[34deg] rounded-full bg-white" />
+                </div>
+                <div className="absolute bottom-4 left-4 font-display text-2xl font-semibold leading-none text-white">
+                  Shanna’s birthday
+                  <span className="mt-1 block font-body text-xs font-medium uppercase tracking-[0.15em] text-white/80">
+                    Miami · 2026
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="p-5">
+              <div className="font-display text-xl font-semibold text-secondary">
+                Your party, framed.
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                One tap to take a photo. One tap to keep it.
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl bg-primary/10 text-sm font-semibold text-primary">
+                  <Camera className="h-5 w-5" aria-hidden /> Take a photo
+                </div>
+                <div className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl bg-muted text-sm font-semibold text-secondary">
+                  <Download className="h-5 w-5" aria-hidden /> Choose one
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
 
