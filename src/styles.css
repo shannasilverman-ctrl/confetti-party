@@ -84,7 +84,7 @@
   /* Mint — same dual-surface constraint as `--primary`. 24% was safe but
      flat; 32% keeps `text-success` on cream at ~4.9:1 while feeling closer
      to the vibrant `--brand-mint` used decoratively. */
-  --success: hsl(150 55% 32%);
+  --success: hsl(150 55% 26%);
   --success-foreground: hsl(36 44% 98%);
 
   --border: hsl(30 25% 88%);
