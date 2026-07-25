@@ -463,7 +463,19 @@ function NewPartyWizard({
         if (!v) reset();
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        onCloseAutoFocus={(event) => {
+          // Trigger is a plain <Button>, not <DialogTrigger asChild>, so
+          // Radix cannot auto-restore focus. Manually return focus to the
+          // "New party" trigger to satisfy the dialog contract.
+          const trigger = document.querySelector<HTMLElement>('[data-testid="new-party-trigger"]');
+          if (trigger) {
+            event.preventDefault();
+            trigger.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-secondary">
             {step === 1 && "What are you hosting?"}
@@ -487,12 +499,14 @@ function NewPartyWizard({
         </DialogHeader>
 
         {step === 1 && (
-          <div className="grid grid-cols-2 gap-3 py-4">
+          <div className="grid grid-cols-2 gap-3 py-4" data-testid="wizard-step-1">
             {OCCASIONS.map((o) => (
               <button
                 key={o.value}
+                type="button"
+                data-testid={`wizard-occasion-${o.value}`}
                 onClick={() => selectOccasion(o.value)}
-                className={`rounded-2xl border p-5 text-left transition ${
+                className={`min-h-11 rounded-2xl border p-5 text-left transition ${
                   occasion === o.value
                     ? "border-primary bg-primary/5 shadow-card"
                     : "border-border hover:border-primary/40 hover:bg-muted/40"
@@ -506,7 +520,7 @@ function NewPartyWizard({
         )}
 
         {step === 2 && (
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4" data-testid="wizard-step-2">
             {occasion === "holiday" && (
               <fieldset
                 aria-label="Holiday starter"
@@ -531,8 +545,9 @@ function NewPartyWizard({
                         type="button"
                         role="radio"
                         aria-checked={active}
+                        data-testid={`wizard-starter-${s.id}`}
                         onClick={() => pickStarter(s.id)}
-                        className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition ${
+                        className={`inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition ${
                           active
                             ? "border-primary bg-primary/10 text-secondary shadow-sm"
                             : "border-border bg-background text-secondary hover:border-primary/40"
@@ -607,7 +622,7 @@ function NewPartyWizard({
         )}
 
         {step === 3 && (
-          <div className="py-4">
+          <div className="py-4" data-testid="wizard-step-3">
             {themeOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No themes yet for this occasion. You can still create the party and pick one later.
@@ -619,11 +634,13 @@ function NewPartyWizard({
                   return (
                     <button
                       key={t.id}
+                      type="button"
+                      data-testid={`wizard-theme-${t.id}`}
                       onClick={(e) => {
                         if (theme?.id !== t.id) celebrateAtEvent("small", e);
                         setTheme(t);
                       }}
-                      className={`group overflow-hidden rounded-2xl border text-left transition ${
+                      className={`group min-h-11 overflow-hidden rounded-2xl border text-left transition ${
                         selected
                           ? "border-primary shadow-card ring-2 ring-primary/30"
                           : "border-border hover:border-primary/40"
@@ -697,6 +714,7 @@ function NewPartyWizard({
             <>
               <Button
                 variant="ghost"
+                data-testid="wizard-close"
                 onClick={() => {
                   onOpenChange(false);
                   reset();
@@ -704,7 +722,7 @@ function NewPartyWizard({
               >
                 Close
               </Button>
-              <Button variant="festive" onClick={openPlan}>
+              <Button variant="festive" data-testid="wizard-open-plan" onClick={openPlan}>
                 <Sparkles /> Open your party plan
               </Button>
             </>
@@ -712,6 +730,7 @@ function NewPartyWizard({
             <>
               <Button
                 variant="ghost"
+                data-testid="wizard-back"
                 onClick={() =>
                   step === 1 ? onOpenChange(false) : setStep(((step as number) - 1) as 1 | 2)
                 }
@@ -721,13 +740,19 @@ function NewPartyWizard({
               {(step as number) < 3 ? (
                 <Button
                   variant="festive"
+                  data-testid="wizard-continue"
                   disabled={(step === 1 && !occasion) || (step === 2 && (!date || !name))}
                   onClick={() => setStep(((step as number) + 1) as 2 | 3)}
                 >
                   Continue <ArrowRight />
                 </Button>
               ) : (
-                <Button variant="festive" disabled={!theme} onClick={finish}>
+                <Button
+                  variant="festive"
+                  data-testid="wizard-create"
+                  disabled={!theme}
+                  onClick={finish}
+                >
                   <PartyPopper /> Create party
                 </Button>
               )}

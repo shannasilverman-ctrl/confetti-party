@@ -581,7 +581,39 @@ export function packOccasion(pack: HolidayPack): OccasionType {
  * starter is a true blank; the neutral GENERIC_HOLIDAY pack is the
  * tradition-free default.
  */
-export type HolidayStarterId = PackId;
+/**
+ * Curated Holiday starter IDs.
+ *
+ * The wizard exposes exactly these six choices. `HolidayStarterId` is
+ * the literal union derived from this tuple so that non-curated PackIds
+ * (`friendsgiving`, `passover`, `easter`, `diwali`, `eid`,
+ * `lunar-new-year`) are *not* assignable as starter IDs at compile time.
+ * The `satisfies` clause guarantees every literal listed here is also a
+ * valid `PackId`, so `STARTER_TO_PACK` can map into `PACKS` safely.
+ */
+export const HOLIDAY_STARTER_IDS = [
+  "generic",
+  "thanksgiving",
+  "hanukkah",
+  "christmas",
+  "new-years",
+  "shabbat",
+] as const satisfies readonly PackId[];
+
+export type HolidayStarterId = (typeof HOLIDAY_STARTER_IDS)[number];
+
+/**
+ * Every curated starter maps 1:1 to a compatible PackId. Explicit map,
+ * not a cast, so TypeScript enforces that new starters get a pack.
+ */
+export const STARTER_TO_PACK: Record<HolidayStarterId, PackId> = {
+  generic: "generic",
+  thanksgiving: "thanksgiving",
+  hanukkah: "hanukkah",
+  christmas: "christmas",
+  "new-years": "new-years",
+  shabbat: "shabbat",
+};
 
 export type HolidayStarter = {
   id: HolidayStarterId;
@@ -592,7 +624,7 @@ export type HolidayStarter = {
   suggestedName: string;
 };
 
-export const HOLIDAY_STARTERS: HolidayStarter[] = [
+export const HOLIDAY_STARTERS: readonly HolidayStarter[] = [
   {
     id: "generic",
     label: "Generic Holiday",
@@ -637,13 +669,11 @@ export const HOLIDAY_STARTERS: HolidayStarter[] = [
   },
 ];
 
-const HOLIDAY_STARTER_IDS: ReadonlySet<HolidayStarterId> = new Set(
-  HOLIDAY_STARTERS.map((s) => s.id),
-);
+const HOLIDAY_STARTER_ID_SET: ReadonlySet<string> = new Set(HOLIDAY_STARTER_IDS);
 
 /** Runtime-safe narrowing: unknown values become undefined instead of crashing. */
 export function toHolidayStarterId(id: unknown): HolidayStarterId | undefined {
-  return typeof id === "string" && HOLIDAY_STARTER_IDS.has(id as HolidayStarterId)
+  return typeof id === "string" && HOLIDAY_STARTER_ID_SET.has(id)
     ? (id as HolidayStarterId)
     : undefined;
 }
@@ -654,10 +684,11 @@ export function getStarter(id: string | undefined | null): HolidayStarter | unde
 }
 
 /**
- * Map a starter selection to its holiday pack. Every listed starter has a
- * pack, so an unknown/absent id returns undefined and no seeding happens.
+ * Map a starter selection to its holiday pack via the explicit
+ * `STARTER_TO_PACK` mapping. Unknown/absent ids return undefined and no
+ * seeding happens.
  */
 export function starterPack(id: HolidayStarterId | undefined | null): HolidayPack | undefined {
   if (!id) return undefined;
-  return PACKS[id];
+  return PACKS[STARTER_TO_PACK[id]];
 }

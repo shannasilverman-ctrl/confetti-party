@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * Dialog keyboard + focus + tap-target contract for the New Party wizard.
@@ -7,9 +7,50 @@ import { test, expect } from "@playwright/test";
  *  - Tab stays within the modal (focus trap)
  *  - form fields have accessible labels
  *  - Escape closes and focus returns to the exact trigger
- *  - Primary dialog actions render ≥44×44 CSS px on mobile
+ *  - Every visible primary action across ALL wizard steps renders ≥44×44 CSS px
  * Signed-out demo mode is used (no auth flow required).
  */
+
+const WIDTHS = [320, 375, 390, 430] as const;
+
+async function measureTargets(scope: Locator, selector: string, width: number, stepLabel: string) {
+  const items = scope.locator(selector);
+  const n = await items.count();
+  let measured = 0;
+  for (let i = 0; i < n; i++) {
+    const el = items.nth(i);
+    if (!(await el.isVisible())) continue;
+    const box = await el.boundingBox();
+    if (!box) continue;
+    const label =
+      (await el.getAttribute("aria-label")) ||
+      ((await el.textContent()) ?? "").trim().slice(0, 60) ||
+      (await el.getAttribute("data-testid")) ||
+      selector;
+    expect(
+      box.width,
+      `[@${width}/${stepLabel}] "${label}" width ${box.width.toFixed(1)} <44`,
+    ).toBeGreaterThanOrEqual(44);
+    expect(
+      box.height,
+      `[@${width}/${stepLabel}] "${label}" height ${box.height.toFixed(1)} <44`,
+    ).toBeGreaterThanOrEqual(44);
+    measured++;
+  }
+  return measured;
+}
+
+async function openWizard(page: Page) {
+  await page.goto("/app");
+  await page.waitForLoadState("networkidle");
+  const trigger = page.getByTestId("new-party-trigger");
+  await expect(trigger).toBeVisible();
+  await trigger.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
 test.describe("New Party dialog — keyboard + focus contract", () => {
   test("focus trap, labels, Escape returns focus to the exact trigger", async ({ page }) => {
     await page.goto("/app");
@@ -25,7 +66,6 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
-    // Initial focus must land *inside* the dialog after open.
     const focusInsideDialog = await page.evaluate(() => {
       const d = document.querySelector('[role="dialog"]');
       const a = document.activeElement;
@@ -33,14 +73,10 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     });
     expect(focusInsideDialog).toBe(true);
 
-    // Pick an occasion so step 2 renders with form fields to tab through.
-    await dialog
-      .getByRole("button", { name: /holiday/i })
-      .first()
-      .click();
-    await dialog.getByRole("button", { name: /continue|next/i }).click();
+    // Pick Holiday so step 2 renders inputs to tab through.
+    await dialog.getByTestId("wizard-occasion-holiday").click();
+    await dialog.getByTestId("wizard-continue").click();
 
-    // Every visible input in the dialog must have an accessible name.
     const dialogInputs = dialog.locator("input");
     const count = await dialogInputs.count();
     expect(count).toBeGreaterThan(0);
@@ -60,7 +96,6 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
       expect(name.length, "input has an accessible name").toBeGreaterThan(0);
     }
 
-    // Focus-trap probe: Tab 20 times, active element must stay inside dialog.
     for (let i = 0; i < 20; i++) {
       await page.keyboard.press("Tab");
       const trapped = await page.evaluate(() => {
@@ -71,127 +106,140 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
       expect(trapped, `Tab ${i} stayed inside dialog`).toBe(true);
     }
 
-    // Escape closes and focus returns to the *exact same DOM node* by probe id.
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    const returnedProbe = await page.evaluate(
-      () => document.activeElement?.getAttribute("data-focus-probe") ?? null,
-    );
+    // Radix restores focus asynchronously — wait for the trigger to be focused
+    // before reading the probe attribute rather than racing document.activeElement.
+    await expect(trigger).toBeFocused();
+    const returnedProbe = await trigger.getAttribute("data-focus-probe");
     expect(returnedProbe).toBe("trigger-a");
   });
 
-  test("every visible primary tap target inside the wizard is ≥44×44 CSS px", async ({ page }) => {
-    for (const width of [320, 375, 390, 430]) {
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto("/app");
-      await page.waitForLoadState("networkidle");
-      await page.getByTestId("new-party-trigger").click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible();
+  test("every visible primary tap target across ALL wizard steps is ≥44×44 CSS px", async ({
+    page,
+  }) => {
+    for (const width of WIDTHS) {
+      await page.setViewportSize({ width, height: 900 });
+      const dialog = await openWizard(page);
 
-      // Measure every visible role=button inside the dialog on step 1.
-      const buttons = dialog.getByRole("button");
-      const btnCount = await buttons.count();
-      let measured = 0;
-      for (let i = 0; i < btnCount; i++) {
-        const b = buttons.nth(i);
-        if (!(await b.isVisible())) continue;
-        const label = (await b.textContent())?.trim() ?? "";
-        // Escape closes the dialog, so the "Cancel" affordance is a
-        // secondary keyboard-equivalent action, not a primary tap target.
-        if (/^cancel$/i.test(label)) continue;
-        const box = await b.boundingBox();
-        if (!box) continue;
-        const shortLabel = label.slice(0, 40) || `button[${i}]`;
-        expect(
-          box.width,
-          `[@${width}] "${shortLabel}" width ${box.width.toFixed(1)} <44`,
-        ).toBeGreaterThanOrEqual(44);
-        expect(
-          box.height,
-          `[@${width}] "${shortLabel}" height ${box.height.toFixed(1)} <44`,
-        ).toBeGreaterThanOrEqual(44);
-        measured++;
+      // -------- STEP 1: occasion picker + footer Cancel/Continue --------
+      let m = await measureTargets(dialog, '[data-testid^="wizard-occasion-"]', width, "step1");
+      expect(m, `step 1 measured ≥1 occasion @${width}`).toBeGreaterThan(0);
+      // Footer buttons at step 1: Cancel + Continue (Continue is disabled but visible).
+      await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step1-cancel");
+      await measureTargets(dialog, '[data-testid="wizard-continue"]', width, "step1-continue");
+
+      // Select Holiday to enter step 2 with starter chips.
+      await dialog.getByTestId("wizard-occasion-holiday").click();
+      await dialog.getByTestId("wizard-continue").click();
+      await expect(dialog.getByTestId("wizard-step-2")).toBeVisible();
+
+      // -------- STEP 2: starter chips + inputs + Back/Continue --------
+      m = await measureTargets(dialog, '[data-testid^="wizard-starter-"]', width, "step2-starter");
+      expect(m, `step 2 measured ≥1 starter chip @${width}`).toBeGreaterThan(0);
+      // Inputs (name/date/time/location) must also meet 44px.
+      await measureTargets(dialog, "input", width, "step2-inputs");
+      await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step2-back");
+      await measureTargets(dialog, '[data-testid="wizard-continue"]', width, "step2-continue");
+
+      // Pick a starter so name is prefilled, then fill date and advance.
+      await dialog.getByTestId("wizard-starter-thanksgiving").click();
+      const future = new Date(Date.now() + 21 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      await dialog.getByLabel(/date/i).fill(future);
+      await dialog.getByTestId("wizard-continue").click();
+      await expect(dialog.getByTestId("wizard-step-3")).toBeVisible();
+
+      // -------- STEP 3: theme cards + Back/Create --------
+      m = await measureTargets(dialog, '[data-testid^="wizard-theme-"]', width, "step3-theme");
+      // Some occasions may have no themes; treat 0 as acceptable but log.
+      if (m === 0) {
+        // No themes for this pack — footer Create is still measurable.
       }
-      expect(measured, `measured ≥1 tap target @${width}`).toBeGreaterThan(0);
+      await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step3-back");
+      await measureTargets(dialog, '[data-testid="wizard-create"]', width, "step3-create");
 
-      await page.keyboard.press("Escape");
+      // Complete the wizard if a theme is available.
+      const themes = dialog.locator('[data-testid^="wizard-theme-"]');
+      if ((await themes.count()) > 0) {
+        await themes.first().click();
+        await dialog.getByTestId("wizard-create").click();
+
+        // -------- COMPLETION: Close + Open plan --------
+        await expect(dialog.getByTestId("wizard-close")).toBeVisible();
+        await measureTargets(dialog, '[data-testid="wizard-close"]', width, "done-close");
+        await measureTargets(dialog, '[data-testid="wizard-open-plan"]', width, "done-open");
+        await dialog.getByTestId("wizard-close").click();
+      } else {
+        await page.keyboard.press("Escape");
+      }
+      await expect(dialog).toBeHidden();
     }
   });
 });
 
 test.describe("Holiday starter → editable workspace", () => {
-  test("picking a starter prefills a name and produces an editable workspace", async ({ page }) => {
-    await page.goto("/app");
-    await page.waitForLoadState("networkidle");
-    const trigger = page.getByTestId("new-party-trigger");
-    await expect(trigger).toBeVisible();
-    await trigger.focus();
-    await trigger.press("Enter");
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await dialog
-      .getByRole("button", { name: /holiday/i })
-      .first()
-      .click();
-    await dialog.getByRole("button", { name: /continue|next/i }).click();
+  test("picking a starter prefills name, seeds checklist + bring board, persists edits", async ({
+    page,
+  }) => {
+    const dialog = await openWizard(page);
+    await dialog.getByTestId("wizard-occasion-holiday").click();
+    await dialog.getByTestId("wizard-continue").click();
 
-    // Starter radiogroup exists and picks Thanksgiving.
-    const starterGroup = dialog.getByRole("radiogroup", { name: /holiday starter/i });
-    await expect(starterGroup).toBeVisible();
-    await starterGroup.getByRole("radio", { name: /thanksgiving/i }).click();
+    await dialog.getByTestId("wizard-starter-thanksgiving").click();
 
-    // Name field must be prefilled from the starter (and stay editable).
     const nameInput = dialog.getByLabel(/party name/i);
     await expect(nameInput).toHaveValue(/thanksgiving/i);
     await nameInput.fill("Friendsgiving @ Sam's");
 
-    // Fill required date + advance to theme step, pick first theme, finish.
     const future = new Date(Date.now() + 21 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     await dialog.getByLabel(/date/i).fill(future);
-    await dialog.getByRole("button", { name: /continue|next/i }).click();
+    await dialog.getByTestId("wizard-continue").click();
 
-    // Theme cards use the theme name as accessible name; pick the first holiday theme.
-    await dialog
-      .getByRole("button", { name: /winter wonderland|cozy cabin|sparkle and shine/i })
-      .first()
-      .click();
-    await dialog
-      .getByRole("button", { name: /create party/i })
-      .first()
-      .click();
+    const themes = dialog.locator('[data-testid^="wizard-theme-"]');
+    await expect(themes.first()).toBeVisible();
+    await themes.first().click();
+    await dialog.getByTestId("wizard-create").click();
 
-    // Party card renders with the chosen name (dialog may still be closing;
-    // scope to the workspace list with .first()).
-    await expect(page.getByText("Friendsgiving @ Sam's", { exact: false }).first()).toBeVisible({
-      timeout: 15_000,
-    });
-
-    // Prove editability: open the party, then use Edit details to rename it,
-    // and assert the new name appears everywhere it should.
-    await page.getByText("Friendsgiving @ Sam's", { exact: false }).first().click();
+    // Enter workspace via the completion CTA (stable, no text search).
+    await dialog.getByTestId("wizard-open-plan").click();
     await page.waitForLoadState("networkidle");
 
-    const editBtn = page.getByRole("button", { name: /edit details/i }).first();
+    // Rename via Edit details and assert persistence.
+    const editBtn = page.getByTestId("edit-details-trigger").first();
     await expect(editBtn).toBeVisible();
     await editBtn.click();
     const editDialog = page.getByRole("dialog");
     await expect(editDialog).toBeVisible();
-    const editNameField = editDialog.getByLabel(/party name/i);
-    await editNameField.fill("Sam's Table 2026");
+    await editDialog.getByLabel(/party name/i).fill("Sam's Table 2026");
     await editDialog.getByRole("button", { name: /save changes/i }).click();
     await expect(editDialog).toBeHidden();
-
-    // The renamed workspace persists in the header/hero.
     await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible({
       timeout: 10_000,
     });
 
-    // At least one seeded Thanksgiving-flavored task is visible in the checklist.
-    const checklistTab = page.getByRole("tab", { name: /checklist|tasks/i }).first();
-    if (await checklistTab.count()) {
-      await checklistTab.click();
-      await expect(page.locator("body")).toContainText(/turkey|guest|invite/i);
-    }
+    // Required: seeded checklist. Use a resilient locator that matches either
+    // the desktop tab (`party-tab-*`) or the mobile bottom-nav twin
+    // (`party-tab-mobile-*`) and pick whichever is currently visible.
+    const tab = async (key: string) => {
+      const desk = page.getByTestId(`party-tab-${key}`);
+      const mob = page.getByTestId(`party-tab-mobile-${key}`);
+      const visible = (await desk.isVisible()) ? desk : mob;
+      await expect(visible).toBeVisible();
+      await visible.click();
+    };
+
+    await tab("checklist");
+    await expect(page.locator("main")).toContainText(/turkey|guest|invite|rsvp/i);
+
+    await tab("bring");
+    await expect(page.getByTestId("bring-item").first()).toBeVisible({ timeout: 10_000 });
+    const seededCount = await page.getByTestId("bring-item").count();
+    expect(seededCount, "Thanksgiving starter seeds ≥1 bring item").toBeGreaterThan(0);
+
+    // Prove edits persist across in-session tab navigation. (Demo mode
+    // deliberately does not write to localStorage / server — a full reload
+    // resets seed data, so persistence is scoped to the live session.)
+    await tab("overview");
+    await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible();
   });
 });

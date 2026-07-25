@@ -22,10 +22,12 @@ const buttonVariants = cva(
         onFestive: "bg-card text-secondary shadow-card hover:bg-card/95",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
+        // Baseline meets the 44×44 CSS px WCAG 2.5.5 (AAA) / Apple HIG tap target.
+        // Older shadcn defaults (h-9 = 36px) fail the wizard tap-target contract.
+        default: "h-11 px-4 py-2",
+        sm: "h-9 rounded-md px-3 text-xs",
+        lg: "h-12 rounded-md px-8",
+        icon: "h-11 w-11",
       },
     },
     defaultVariants: {
