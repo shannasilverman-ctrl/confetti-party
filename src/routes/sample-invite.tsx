@@ -101,6 +101,7 @@ export const Route = createFileRoute("/sample-invite")({
 function SampleInvitePage() {
   const [state, setState] = useState<SampleState>(() => defaultSampleState());
   const [hydrated, setHydrated] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Client-only load — never call localStorage during SSR.
   useEffect(() => {
@@ -110,7 +111,12 @@ function SampleInvitePage() {
 
   useEffect(() => {
     if (!hydrated) return;
-    saveSampleState(state);
+    const result = saveSampleState(state);
+    setSaveError(
+      result.ok
+        ? null
+        : "This browser couldn't save the sample. You can keep exploring, but it may reset when you leave.",
+    );
   }, [state, hydrated]);
 
   const counts = derivedCounts(state);
@@ -120,6 +126,7 @@ function SampleInvitePage() {
   function resetAll() {
     resetSampleState();
     setState(defaultSampleState());
+    setSaveError(null);
   }
 
   function onSubmit(entry: NonNullable<SampleState["rsvp"]>) {
@@ -132,10 +139,13 @@ function SampleInvitePage() {
   }
 
   function claim(itemId: string, guestName: string) {
+    if (!guestName.trim()) return;
     setState((prev) => ({
       ...prev,
       bring: prev.bring.map((b) =>
-        b.id === itemId ? { ...b, status: "claimed" as const, claimedByMe: true } : b,
+        b.id === itemId && b.status === "open"
+          ? { ...b, status: "claimed" as const, claimedByMe: true }
+          : b,
       ),
     }));
     celebrate("micro");
@@ -145,7 +155,9 @@ function SampleInvitePage() {
     setState((prev) => ({
       ...prev,
       bring: prev.bring.map((b) =>
-        b.id === itemId ? { ...b, status: "open" as const, claimedByMe: false } : b,
+        b.id === itemId && b.status === "claimed" && b.claimedByMe
+          ? { ...b, status: "open" as const, claimedByMe: false }
+          : b,
       ),
     }));
   }
@@ -199,6 +211,14 @@ function SampleInvitePage() {
       </section>
 
       <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
+        {saveError && (
+          <div
+            className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+            role="alert"
+          >
+            {saveError}
+          </div>
+        )}
         <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             A note from your host
