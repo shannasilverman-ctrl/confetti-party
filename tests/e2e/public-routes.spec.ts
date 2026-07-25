@@ -109,6 +109,18 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
+test("/app distinguishes a real guest list from a planning goal", async ({ page }) => {
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
+
+  const listedParty = page.getByRole("article", { name: "Ava & Liam" });
+  await expect(listedParty.getByText("Guest list")).toBeVisible();
+  await expect(listedParty.getByText("7", { exact: true })).toBeVisible();
+
+  const goalOnlyParty = page.getByRole("article", { name: "World Cup Final Watch Party" });
+  await expect(goalOnlyParty.getByText("Guest goal")).toBeVisible();
+  await expect(goalOnlyParty.getByText("12", { exact: true })).toBeVisible();
+});
+
 test("retrospective reveal can start the next gathering without setup friction", async ({
   page,
 }) => {

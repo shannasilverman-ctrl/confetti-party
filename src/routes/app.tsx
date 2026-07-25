@@ -252,6 +252,7 @@ function Dashboard() {
               const guestsTbd = planningDetailIsOpen(p, "guests");
               const budgetTbd = planningDetailIsOpen(p, "budget");
               const g = guestCounts(p);
+              const hasGuestList = g.total > 0;
               const spent = totalSpent(p);
               const prog = progressPct(p);
               const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
@@ -325,10 +326,11 @@ function Dashboard() {
                     <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                       <div className="rounded-xl bg-muted/60 p-3">
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Users className="h-3.5 w-3.5" /> Guests
+                          <Users className="h-3.5 w-3.5" />{" "}
+                          {hasGuestList ? "Guest list" : "Guest goal"}
                         </div>
                         <div className="mt-0.5 font-semibold text-secondary">
-                          {g.total || (!guestsTbd ? p.guestEstimate : "To decide")}
+                          {hasGuestList ? g.total : !guestsTbd ? p.guestEstimate : "To decide"}
                         </div>
                       </div>
                       <div className="rounded-xl bg-muted/60 p-3">
