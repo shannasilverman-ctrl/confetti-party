@@ -114,11 +114,21 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
               <Camera className="h-5 w-5" /> Photo Drop
             </h2>
             <p className="text-sm text-muted-foreground">
-              Guests upload straight to your account. Confetti never sees the photos.
+              Guests upload straight to your account on the provider. Confetti stores the link for
+              your invite until you remove it — the provider, not Confetti, receives the photos.
             </p>
           </div>
           {existing && <Badge variant="secondary">Live</Badge>}
         </div>
+        {storedDrop && !safeExisting && (
+          <div
+            className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+            role="alert"
+          >
+            The saved Photo Drop link failed our safety check and won't be shared with guests.
+            Re-enter a fresh https:// URL below and save again.
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3">
           <div>
