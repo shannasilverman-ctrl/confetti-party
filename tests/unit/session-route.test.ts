@@ -76,7 +76,10 @@ function makeFakeSupabase(state: FakeSupabaseState) {
           //   .update().eq("id",X).eq("user_id",Y).is("ended_at", null)     (performEndSession)
           const chain: {
             eq: (c: string, v: string) => typeof chain;
-            is: (c: string, v: null) => Promise<{ data: null; error: null }> & {
+            is: (
+              c: string,
+              v: null,
+            ) => Promise<{ data: null; error: null }> & {
               select: (cols: string) => Promise<{ data: unknown[]; error: null }>;
             };
           } = {
@@ -109,7 +112,6 @@ function makeFakeSupabase(state: FakeSupabaseState) {
           };
           return chain;
         },
-
       };
       return api;
     },
@@ -341,7 +343,10 @@ describe("POST /api/realtime/session", () => {
     );
     const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(502);
-    expect(await res.json()).toEqual({ error: "upstream_error", message: "Voice service refused." });
+    expect(await res.json()).toEqual({
+      error: "upstream_error",
+      message: "Voice service refused.",
+    });
     expect(state.updates.some((u) => u.patch.disconnect_reason === "mint_non_2xx")).toBe(true);
   });
 

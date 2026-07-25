@@ -124,16 +124,19 @@ describe("performEndSession", () => {
 
   it("DB failure throws sanitized error and logs correlation-only (no ids)", async () => {
     const supabase = makeSupabase([{ id: "s1", user_id: "u1", ended_at: null }]);
-    supabase._forceError = { message: "detailed pg message with user u1 and session s1", code: "PGRST123" };
+    supabase._forceError = {
+      message: "detailed pg message with user u1 and session s1",
+      code: "PGRST123",
+    };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const sink: string[] = [];
     errorSpy.mockImplementation((...args: unknown[]) => {
       sink.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" "));
     });
     try {
-      await expect(
-        performEndSession(supabase as never, "u1", { sessionId: "s1" }),
-      ).rejects.toThrow(/end_session_failed/);
+      await expect(performEndSession(supabase as never, "u1", { sessionId: "s1" })).rejects.toThrow(
+        /end_session_failed/,
+      );
       const joined = sink.join("\n");
       // Log has category + safe code only. NOT the raw pg message, NOT ids.
       expect(joined).toMatch(/end_session_failed/);
