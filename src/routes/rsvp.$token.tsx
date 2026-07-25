@@ -242,27 +242,36 @@ function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
   );
 }
 
-function CalendarAndDirections({ party }: { party: PartyView }) {
+function CalendarAndDirections({ token, party }: { token: string; party: PartyView }) {
+  const timed = hasTimedInvite(party);
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button asChild variant="outline" size="sm">
-        <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
-          <CalendarPlus /> Google Calendar
-        </a>
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => downloadIcs(party)}>
-        <CalendarPlus /> Apple / .ics
-      </Button>
-      {party.location && (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline" size="sm">
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Navigation /> Directions
+          <a href={googleCalUrl(token, party)} target="_blank" rel="noopener noreferrer">
+            <CalendarPlus /> Google Calendar
           </a>
         </Button>
+        <Button variant="outline" size="sm" onClick={() => downloadIcs(token, party)}>
+          <CalendarPlus /> Apple / .ics
+        </Button>
+        {party.location && (
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Navigation /> Directions
+            </a>
+          </Button>
+        )}
+      </div>
+      {timed && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Times are shown as your host entered them and are added to your calendar as
+          floating local time — your calendar app won't convert between time zones.
+        </p>
       )}
     </div>
   );
