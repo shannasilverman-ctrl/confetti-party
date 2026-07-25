@@ -670,7 +670,10 @@ function SampleBringBoard({
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() => onRelease(it.id)}
+                          onClick={() => {
+                            const result = onRelease(it.id);
+                            setError(result.ok ? null : result.error);
+                          }}
                           className="min-h-11"
                         >
                           Release
@@ -683,10 +686,9 @@ function SampleBringBoard({
                         type="button"
                         size="sm"
                         onClick={() => {
-                          if (!name.trim()) return;
-                          onClaim(it.id, name.trim());
+                          const result = onClaim(it.id, name);
+                          setError(result.ok ? null : result.error);
                         }}
-                        disabled={!name.trim()}
                         className="min-h-11"
                       >
                         I'll bring it
