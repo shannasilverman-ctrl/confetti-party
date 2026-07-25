@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { EditDetailsDialog } from "@/components/edit-details-dialog";
@@ -18,16 +19,21 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
-import { celebrateAtEvent } from "@/components/confetti-burst";
+import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
+  Camera,
   Clock,
+  Copy,
+  Gift,
   ListChecks,
   MapPin,
   Mail,
+  Sparkle,
   Sparkles,
+  Timer,
   Users,
   Wallet,
   ShoppingCart,
@@ -79,7 +85,49 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6">
-      {/* Header card */}
+      {/* Cinematic hero banner (only when a curated hero image is present) */}
+      {party.heroImageUrl && (
+        <section className="relative overflow-hidden rounded-3xl shadow-elevated">
+          <img
+            src={party.heroImageUrl}
+            alt={`${party.name} — event banner`}
+            className="h-56 w-full object-cover sm:h-72 md:h-80"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg, hsl(268 55% 10% / 0.15) 0%, hsl(268 55% 10% / 0.15) 50%, hsl(268 55% 10% / 0.75) 100%)",
+            }}
+            aria-hidden
+          />
+          <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-5 sm:p-7">
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
+                {new Date(party.date).toLocaleDateString(undefined, {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+                {party.startTime ? ` · ${party.startTime}` : ""}
+              </div>
+              <h2 className="mt-1 truncate font-display text-3xl font-semibold text-white sm:text-5xl">
+                {party.name}
+              </h2>
+              {party.location && (
+                <div className="mt-1 flex items-center gap-1.5 text-sm text-white/85">
+                  <MapPin className="h-3.5 w-3.5" /> {party.location}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0">
+              <EditDetailsDialog partyId={partyId} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Header card (skips redundant title when a hero banner is shown) */}
       <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-card sm:p-7">
         <div className="absolute inset-0 bg-confetti opacity-25" aria-hidden />
         <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-5">
@@ -94,18 +142,22 @@ export function OverviewTab({
                     ? "Today"
                     : `${Math.abs(days)} days ago`}
               </Badge>
-              <div className="ml-auto">
-                <EditDetailsDialog partyId={partyId} />
-              </div>
+              {!party.heroImageUrl && (
+                <div className="ml-auto">
+                  <EditDetailsDialog partyId={partyId} />
+                </div>
+              )}
             </div>
-            <h2 className="mt-2 truncate font-display text-2xl font-semibold text-secondary sm:text-3xl">
-              {party.name}
-            </h2>
+            {!party.heroImageUrl && (
+              <h2 className="mt-2 truncate font-display text-2xl font-semibold text-secondary sm:text-3xl">
+                {party.name}
+              </h2>
+            )}
             <p className="mt-1 text-sm text-muted-foreground">
               {prog}% planned ·{" "}
               {party.tasks.filter((t) => t.done).length}/{party.tasks.length} tasks complete
             </p>
-            {(party.startTime || party.location) && (
+            {!party.heroImageUrl && (party.startTime || party.location) && (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 {party.startTime && (
                   <span className="inline-flex items-center gap-1">
@@ -122,6 +174,16 @@ export function OverviewTab({
           </div>
         </div>
       </section>
+
+      {/* Journey actions — always show working links to the pages that exist for this party */}
+      <PartyJourneyActions
+        partyId={partyId}
+        hasBring={(party.bringBoard ?? []).length > 0}
+        hasPhotoDrop={!!party.photoDrop}
+        rsvpToken={party.rsvpToken}
+        onOpenInvite={() => setInviteOpen(true)}
+      />
+
 
       {/* Up next */}
       <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
