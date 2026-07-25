@@ -483,14 +483,21 @@ function TalkRoute() {
                           sendMessage();
                         }
                       }}
-                      placeholder="Tell Confetti the brain dump…"
+                      placeholder={
+                        demoLimitReached
+                          ? "Demo turns used — sign up free to keep going."
+                          : "Tell Confetti the brain dump…"
+                      }
                       rows={2}
                       className="min-h-[52px] resize-none"
-                      disabled={!draftId || thinking}
+                      aria-label="Message Confetti"
+                      disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
                     />
                     <Button
                       onClick={sendMessage}
-                      disabled={!draftId || thinking || !typed.trim()}
+                      disabled={
+                        (!isDemo && !draftId) || thinking || !typed.trim() || demoLimitReached
+                      }
                       size="icon"
                       variant="secondary"
                       aria-label="Send message"
@@ -505,7 +512,7 @@ function TalkRoute() {
                         variant={dictating ? "festive" : "outline"}
                         aria-label={dictating ? "Stop dictation" : "Start dictation"}
                         title={dictating ? "Stop dictation" : "Dictate (browser voice input)"}
-                        disabled={!draftId || thinking}
+                        disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
                       >
                         {dictating ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                       </Button>
@@ -522,6 +529,7 @@ function TalkRoute() {
                 Nothing is sent, purchased, or booked without your confirmation.
               </p>
             </section>
+
 
             <aside className="space-y-3">
               <Card className="p-4">
