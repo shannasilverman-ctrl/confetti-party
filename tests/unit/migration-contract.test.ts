@@ -15,9 +15,7 @@ const allSql = readdirSync(MIG_DIR)
 
 describe("migration contract: DB hardening batch", () => {
   test("bump_ai_turn has server-fixed cap and window (1-arg signature)", () => {
-    expect(allSql).toMatch(
-      /CREATE OR REPLACE FUNCTION public\.bump_ai_turn\(_draft_id uuid\)/,
-    );
+    expect(allSql).toMatch(/CREATE OR REPLACE FUNCTION public\.bump_ai_turn\(_draft_id uuid\)/);
     expect(allSql).toMatch(/cap_const constant integer := 40/);
     expect(allSql).toMatch(/window_ms_const constant integer := 3600000/);
     // Old 3-arg overload must be explicitly dropped.
@@ -39,12 +37,8 @@ describe("migration contract: DB hardening batch", () => {
 
   test("per-party abuse budget table is not exposed to anon/authenticated", () => {
     expect(allSql).toMatch(/CREATE TABLE IF NOT EXISTS public\.rsvp_action_budget/);
-    expect(allSql).toMatch(
-      /GRANT ALL ON public\.rsvp_action_budget TO service_role/,
-    );
-    expect(allSql).toMatch(
-      /ALTER TABLE public\.rsvp_action_budget ENABLE ROW LEVEL SECURITY/,
-    );
+    expect(allSql).toMatch(/GRANT ALL ON public\.rsvp_action_budget TO service_role/);
+    expect(allSql).toMatch(/ALTER TABLE public\.rsvp_action_budget ENABLE ROW LEVEL SECURITY/);
     // Must not grant anon/authenticated on the budget table.
     expect(allSql).not.toMatch(
       /GRANT[^;]+ON public\.rsvp_action_budget[^;]+TO (anon|authenticated)/,
