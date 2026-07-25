@@ -856,6 +856,31 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             else delete next[ev.id];
             return next;
           });
+          // Persist a minimal recoverable draft when insert permanently rejects,
+          // and clear it once the row is successfully persisted or removed.
+          const uid = user?.id;
+          if (uid) {
+            const rejected = storeRef.current!.getState(ev.id).insertRejected;
+            const target = partiesRef.current.find((p) => p.id === ev.id);
+            if (rejected && target) {
+              void saveRejectedDraft(uid, {
+                id: target.id,
+                name: target.name,
+                occasion: target.occasion,
+                date: target.date,
+                startTime: target.startTime,
+                location: target.location,
+                guestEstimate: target.guestEstimate,
+                budget: target.budget,
+                themeId: target.themeId,
+                holidayPackId: target.holidayPackId,
+                hostNote: target.hostNote,
+                timeZone: target.timeZone,
+              });
+            } else if (!rejected && ev.state === "saved") {
+              void clearRejectedDraft(uid);
+            }
+          }
         } else if (ev.type === "server-row") {
           applyPartiesUpdate((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
         } else if (ev.type === "toast") {
