@@ -22,8 +22,8 @@ export default defineConfig({
         "src/lib/realtime-session.ts",
         "src/lib/shopping.ts",
         "src/lib/talk-demo.ts",
-        "src/lib/talk-client.ts",
         "src/components/logo.tsx",
+
       ],
       thresholds: {
         lines: 80,
