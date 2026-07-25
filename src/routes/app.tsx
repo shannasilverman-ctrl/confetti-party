@@ -299,7 +299,7 @@ function Dashboard() {
                         <span className="text-muted-foreground">Planning progress</span>
                         <span className="font-semibold text-secondary">{prog}%</span>
                       </div>
-                      <Progress value={prog} />
+                      <Progress value={prog} aria-label="Checklist progress" />
                     </div>
 
                     <div className="mt-5 flex items-center justify-between text-sm font-medium">
