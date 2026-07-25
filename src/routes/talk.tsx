@@ -160,13 +160,11 @@ function TalkRoute() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const authReady = !loading;
+  const isDemo = authReady && !user;
+  const [demoTurn, setDemoTurn] = useState(0);
+  const demoLimitReached = isDemo && demoTurn >= DEMO_MAX_TURNS;
 
-  useEffect(() => {
-    if (!authReady) return;
-    if (!user) navigate({ to: "/auth" });
-  }, [authReady, user, navigate]);
-
-  // Create a draft on first mount for signed-in users.
+  // Create a draft on first mount for signed-in users only.
   useEffect(() => {
     if (!authReady || !user || draftId) return;
     createDraft()
@@ -181,25 +179,38 @@ function TalkRoute() {
 
   const sendMessage = useCallback(async () => {
     const text = typed.trim();
-    if (!text || thinking || !draftId) return;
+    if (!text || thinking) return;
+    if (isDemo && demoLimitReached) return;
+    if (!isDemo && !draftId) return;
     const next: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setTyped("");
     setThinking(true);
     try {
-      const res = await sendTurn({ data: { draftId, messages: next } });
-      setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
-      setOpenQs(res.openQuestions ?? []);
-      setAssumptions(res.assumptions ?? []);
-      // Heuristic: assistant offering to confirm the plan.
-      if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
+      if (isDemo) {
+        // Bounded local demo — no network, no persistence.
+        await new Promise((r) => setTimeout(r, 500));
+        const d = demoReply(demoTurn);
+        setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
+        setOpenQs(d.openQuestions);
+        setAssumptions(d.assumptions);
+        setDemoTurn((n) => n + 1);
+        if (d.complete) setReadyToConfirm(true);
+      } else {
+        const res = await sendTurn({ data: { draftId: draftId!, messages: next } });
+        setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
+        setOpenQs(res.openQuestions ?? []);
+        setAssumptions(res.assumptions ?? []);
+        if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       toast.error(msg);
     } finally {
       setThinking(false);
     }
-  }, [typed, thinking, draftId, messages]);
+  }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
+
 
   const confirmAndCreate = useCallback(async () => {
     if (!draftId) return;
