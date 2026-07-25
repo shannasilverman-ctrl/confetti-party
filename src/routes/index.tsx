@@ -201,7 +201,9 @@ function Landing() {
                   <div className="font-display text-lg font-semibold text-secondary">
                     Maya's 8th Birthday
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Sat, Aug 15 · 2:00 PM</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {formatDateOnly(SAMPLE_CARD_DATE, { weekday: "short", month: "short", day: "numeric" })} · 2:00 PM
+                  </div>
                 </div>
                 <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
                   {sampleCountdown}
