@@ -22,6 +22,7 @@ import { TalkClient, type TalkEvent, type TalkState } from "@/lib/talk-client";
 import { endSession, createDraft } from "@/lib/talk.functions";
 import { sendTurn, confirmDraft } from "@/lib/talk-brain.functions";
 import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
+import { createTalkLifecycle } from "@/lib/talk-lifecycle";
 import { celebrate } from "@/components/confetti-burst";
 
 export const Route = createFileRoute("/talk")({
