@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Clock,
@@ -9,8 +9,12 @@ import {
   PartyPopper,
   CalendarPlus,
   Navigation,
+  RefreshCw,
+  HeartHandshake,
+  HandHeart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { themeById } from "@/lib/themes";
 import { daysUntil } from "@/lib/party-context";
 import { BrandLockup } from "@/components/brand";
@@ -23,11 +27,34 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
+import { refetchRsvpParty } from "@/lib/rsvp-refetch";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
 
 type RSVPChoice = "yes" | "maybe" | "no";
+
+const DIETARY_OPTIONS = [
+  "Vegetarian",
+  "Vegan",
+  "Gluten-free",
+  "Dairy-free",
+  "Kosher",
+  "Halal",
+  "Pescatarian",
+] as const;
+
+const ALLERGEN_OPTIONS = [
+  "Peanuts",
+  "Tree nuts",
+  "Dairy",
+  "Eggs",
+  "Soy",
+  "Wheat",
+  "Shellfish",
+  "Fish",
+  "Sesame",
+] as const;
 
 function formatDateLong(date: string) {
   return new Date(date + "T00:00:00").toLocaleDateString(undefined, {
@@ -328,18 +355,77 @@ function ConversionFooter() {
   );
 }
 
+/* ---------- Chip picker ---------- */
+
+function ChipGroup({
+  legend,
+  options,
+  selected,
+  onToggle,
+  hint,
+}: {
+  legend: string;
+  options: readonly string[];
+  selected: string[];
+  onToggle: (v: string) => void;
+  hint?: string;
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium text-secondary">{legend}</legend>
+      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      <div className="flex flex-wrap gap-2">
+        {options.map((opt) => {
+          const on = selected.includes(opt);
+          return (
+            <button
+              key={opt}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onToggle(opt)}
+              className={`min-h-11 rounded-full border px-3 py-1.5 text-sm transition ${
+                on
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-background text-secondary hover:bg-muted/60"
+              }`}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 /* ---------- Main form ---------- */
 
-function RsvpForm({ token, party }: { token: string; party: PartyView }) {
+function RsvpForm({ token, party: initialParty }: { token: string; party: PartyView }) {
+  const [party, setParty] = useState<PartyView>(initialParty);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number>(() => Date.now());
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
   const theme = themeById(party.theme_id ?? undefined);
   const days = daysUntil(party.date);
+
+  // Form state — preserved across submit failures and change-response cycles.
   const [name, setName] = useState("");
+  const [household, setHousehold] = useState("");
   const [rsvp, setRsvp] = useState<RSVPChoice>("yes");
   const [adults, setAdults] = useState(1);
   const [kids, setKids] = useState(0);
+  const [dietary, setDietary] = useState<string[]>([]);
+  const [dietaryOther, setDietaryOther] = useState("");
+  const [allergens, setAllergens] = useState<string[]>([]);
+  const [allergensOther, setAllergensOther] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [submittedChoice, setSubmittedChoice] = useState<RSVPChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (v: string) =>
+    setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
 
   const heroStyle = useMemo<React.CSSProperties>(
     () =>
@@ -356,31 +442,95 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
     [theme],
   );
 
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    const res = await refetchRsvpParty(token);
+    setRefreshing(false);
+    if (!res.ok) {
+      setRefreshError(res.error);
+      return;
+    }
+    setRefreshError(null);
+    if (res.party) {
+      setParty(res.party);
+      setLastUpdatedAt(Date.now());
+    }
+  }, [token]);
+
+  // Focus/visibility refresh — no realtime dependency, quiet cadence.
+  const lastAutoRef = useRef(0);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const maybeRefresh = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastAutoRef.current < 20_000) return;
+      lastAutoRef.current = now;
+      void refresh();
+    };
+    document.addEventListener("visibilitychange", maybeRefresh);
+    window.addEventListener("focus", maybeRefresh);
+    return () => {
+      document.removeEventListener("visibilitychange", maybeRefresh);
+      window.removeEventListener("focus", maybeRefresh);
+    };
+  }, [refresh]);
+
+  const totalAttendees = adults + kids;
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
       setError("Please add your name.");
+      return;
+    }
+    if (rsvp === "yes" && totalAttendees < 1) {
+      setError("For a yes, please include at least one attendee.");
       return;
     }
     setError(null);
     setSubmitting(true);
-    const { error } = await supabase.rpc("submit_rsvp", {
+
+    const dietaryOut = [
+      ...dietary,
+      ...(dietaryOther.trim() ? [dietaryOther.trim().slice(0, 60)] : []),
+    ];
+    const allergensOut = [
+      ...allergens,
+      ...(allergensOther.trim() ? [allergensOther.trim().slice(0, 60)] : []),
+    ];
+
+    const { error: rpcError } = await supabase.rpc("submit_rsvp", {
       token,
-      guest_name: name.trim(),
+      guest_name: trimmedName,
       rsvp,
       adults: rsvp === "yes" ? adults : 0,
       kids: rsvp === "yes" ? kids : 0,
+      household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
+      dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
+      allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
     });
     setSubmitting(false);
-    if (error) {
+    if (rpcError) {
       setError("Something went wrong. Please try again.");
       return;
     }
+    setSubmittedChoice(rsvp);
     setDone(true);
-    celebrate("cannon");
+    if (rsvp === "yes") celebrate("cannon");
+    // Canonical refresh — never rely on hand-calculated optimistic counts.
+    void refresh();
   };
 
-  const displayYes = party.yes_count + (done && rsvp === "yes" ? 1 : 0);
+  const relLabel = (() => {
+    const s = Math.max(0, Math.floor((Date.now() - lastUpdatedAt) / 1000));
+    if (s < 5) return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m} min ago`;
+    return `${Math.floor(m / 60)}h ago`;
+  })();
 
   return (
     <div className="min-h-screen bg-background">
@@ -432,40 +582,56 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
           </div>
         )}
         <HostUpdatesFeed updates={party.host_updates ?? []} />
+
         {done ? (
-          <div className="space-y-5 rounded-3xl border border-border bg-card p-6 text-center shadow-card sm:p-8">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
-              <PartyPopper className="h-7 w-7" />
-            </div>
-            <div>
-              <h2 className="font-display text-2xl font-semibold text-secondary">
-                You're on the list!
-              </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Thanks {name.trim()} — we'll see you there. Add it to your calendar so you don't
-                forget.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Badge variant="success">{displayYes} yes so far</Badge>
-              {theme && <Badge variant="accent">{theme.name}</Badge>}
-            </div>
-            <div className="rounded-2xl bg-muted/40 p-3">
-              <WhosComing yes={displayYes} maybe={party.maybe_count} />
-            </div>
-            <div className="flex justify-center">
-              <CalendarAndDirections party={party} />
-            </div>
-          </div>
+          <SuccessCard
+            party={party}
+            choice={submittedChoice ?? "yes"}
+            name={name.trim()}
+            theme={theme}
+            onChange={() => {
+              setDone(false);
+              setSubmittedChoice(null);
+            }}
+            onRefresh={refresh}
+            refreshing={refreshing}
+            relLabel={relLabel}
+          />
         ) : (
           <form
             onSubmit={submit}
             className="space-y-5 rounded-3xl border border-border bg-card p-6 shadow-card"
           >
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users className="h-4 w-4" />
-              {party.yes_count} yes · {party.maybe_count} maybe
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="h-4 w-4" />
+                {party.yes_count} yes · {party.maybe_count} maybe
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground" aria-live="polite">
+                  Updated {relLabel}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => void refresh()}
+                  disabled={refreshing}
+                  className="min-h-11 min-w-11"
+                  aria-label="Refresh counts"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                    aria-hidden
+                  />
+                </Button>
+              </div>
             </div>
+            {refreshError && (
+              <p className="text-[12px] text-destructive" role="alert">
+                {refreshError}
+              </p>
+            )}
 
             <WhosComing yes={party.yes_count} maybe={party.maybe_count} />
 
@@ -477,8 +643,25 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="First and last"
                 maxLength={80}
+                autoComplete="name"
+                className="min-h-11"
                 required
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="household">Group name (optional)</Label>
+              <Input
+                id="household"
+                value={household}
+                onChange={(e) => setHousehold(e.target.value)}
+                placeholder="e.g. The Rivera family"
+                maxLength={80}
+                className="min-h-11"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Helps the host see you as one group.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -495,7 +678,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                 {(["yes", "maybe", "no"] as RSVPChoice[]).map((val) => (
                   <label
                     key={val}
-                    className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm capitalize transition ${
+                    className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm capitalize transition ${
                       rsvp === val
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border bg-background hover:bg-muted/60"
@@ -521,6 +704,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                     onChange={(e) =>
                       setAdults(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
                     }
+                    className="min-h-11"
                   />
                 </div>
                 <div className="space-y-2">
@@ -534,6 +718,57 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                     onChange={(e) =>
                       setKids(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
                     }
+                    className="min-h-11"
+                  />
+                </div>
+              </div>
+            )}
+
+            {rsvp !== "no" && (
+              <div className="space-y-4 rounded-2xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center gap-2 text-secondary">
+                  <HandHeart className="h-4 w-4" aria-hidden />
+                  <span className="text-sm font-semibold">Anything to know?</span>
+                </div>
+                <p className="-mt-2 text-[11px] text-muted-foreground">
+                  Shared only with the host to help them plan food. Never public.
+                </p>
+                <ChipGroup
+                  legend="Dietary needs"
+                  options={DIETARY_OPTIONS}
+                  selected={dietary}
+                  onToggle={toggle(setDietary)}
+                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="dietary-other" className="text-xs">
+                    Other dietary needs
+                  </Label>
+                  <Input
+                    id="dietary-other"
+                    value={dietaryOther}
+                    onChange={(e) => setDietaryOther(e.target.value)}
+                    placeholder="e.g. low sodium"
+                    maxLength={60}
+                    className="min-h-11"
+                  />
+                </div>
+                <ChipGroup
+                  legend="Allergens to avoid"
+                  options={ALLERGEN_OPTIONS}
+                  selected={allergens}
+                  onToggle={toggle(setAllergens)}
+                />
+                <div className="space-y-1.5">
+                  <Label htmlFor="allergens-other" className="text-xs">
+                    Other allergens
+                  </Label>
+                  <Input
+                    id="allergens-other"
+                    value={allergensOther}
+                    onChange={(e) => setAllergensOther(e.target.value)}
+                    placeholder="e.g. mustard"
+                    maxLength={60}
+                    className="min-h-11"
                   />
                 </div>
               </div>
@@ -545,7 +780,12 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               </p>
             )}
 
-            <Button type="submit" variant="festive" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              variant="festive"
+              className="min-h-11 w-full"
+              disabled={submitting}
+            >
               {submitting ? "Sending…" : "Send RSVP"}
             </Button>
 
@@ -563,11 +803,112 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
             </p>
           </form>
         )}
-        <PublicBringBoard token={token} items={party.bring_board ?? []} defaultName={name} />
+        <PublicBringBoard
+          token={token}
+          items={party.bring_board ?? []}
+          defaultName={name}
+          onChanged={() => void refresh()}
+          onRequestRefresh={refresh}
+          refreshing={refreshing}
+          lastUpdatedAt={lastUpdatedAt}
+        />
         <PhotoDropCard drop={party.photo_drop ?? null} />
       </main>
 
       <ConversionFooter />
+    </div>
+  );
+}
+
+/* ---------- Success card ---------- */
+
+function SuccessCard({
+  party,
+  choice,
+  name,
+  theme,
+  onChange,
+  onRefresh,
+  refreshing,
+  relLabel,
+}: {
+  party: PartyView;
+  choice: RSVPChoice;
+  name: string;
+  theme: ReturnType<typeof themeById>;
+  onChange: () => void;
+  onRefresh: () => void | Promise<void>;
+  refreshing: boolean;
+  relLabel: string;
+}) {
+  const copy: Record<
+    RSVPChoice,
+    { headline: string; body: string; icon: React.ReactNode; badge: React.ReactNode | null }
+  > = {
+    yes: {
+      headline: "You're on the list!",
+      body: `Thanks ${name || "and see you soon"} — add it to your calendar so you don't forget.`,
+      icon: <PartyPopper className="h-7 w-7" />,
+      badge: <Badge variant="success">{party.yes_count} yes so far</Badge>,
+    },
+    maybe: {
+      headline: "We saved your maybe",
+      body: "Thanks for the heads-up. Change your response anytime before the day.",
+      icon: <HeartHandshake className="h-7 w-7" />,
+      badge: null,
+    },
+    no: {
+      headline: "Thanks for letting the host know",
+      body: "Wishing you were there. You can change your response if plans open up.",
+      icon: <HandHeart className="h-7 w-7" />,
+      badge: null,
+    },
+  };
+  const c = copy[choice];
+  return (
+    <div className="space-y-5 rounded-3xl border border-border bg-card p-6 text-center shadow-card sm:p-8">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
+        {c.icon}
+      </div>
+      <div>
+        <h2 className="font-display text-2xl font-semibold text-secondary">{c.headline}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{c.body}</p>
+      </div>
+      {(c.badge || theme) && (
+        <div className="flex flex-wrap justify-center gap-2">
+          {c.badge}
+          {theme && <Badge variant="accent">{theme.name}</Badge>}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <span className="text-[11px] text-muted-foreground" aria-live="polite">
+          Updated {relLabel}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => void onRefresh()}
+          disabled={refreshing}
+          aria-label="Refresh counts"
+          className="min-h-11 min-w-11"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
+        </Button>
+      </div>
+      <div className="rounded-2xl bg-muted/40 p-3">
+        <WhosComing yes={party.yes_count} maybe={party.maybe_count} />
+      </div>
+      {choice !== "no" && (
+        <div className="flex justify-center">
+          <CalendarAndDirections party={party} />
+        </div>
+      )}
+      <div className="pt-1">
+        <Button type="button" variant="outline" onClick={onChange} className="min-h-11">
+          Change my response
+        </Button>
+      </div>
     </div>
   );
 }

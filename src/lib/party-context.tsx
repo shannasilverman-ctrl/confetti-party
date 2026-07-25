@@ -727,6 +727,32 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("online", onOnline);
   }, [store]);
 
+  // Host focus/visibility refetch — keeps counts/claims fresh when a host
+  // returns from the guest link, but never overwrites in-flight edits.
+  const lastFocusRefetchRef = useRef(0);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!user) return;
+    const maybeRefresh = () => {
+      if (document.visibilityState !== "visible") return;
+      // Skip while any party save is in a non-idle state.
+      const dirty = Object.values(saveStates).some(
+        (s) => s === "saving" || s === "conflict" || s === "offline" || s === "error",
+      );
+      if (dirty) return;
+      const now = Date.now();
+      if (now - lastFocusRefetchRef.current < 30_000) return;
+      lastFocusRefetchRef.current = now;
+      setReloadKey((k) => k + 1);
+    };
+    document.addEventListener("visibilitychange", maybeRefresh);
+    window.addEventListener("focus", maybeRefresh);
+    return () => {
+      document.removeEventListener("visibilitychange", maybeRefresh);
+      window.removeEventListener("focus", maybeRefresh);
+    };
+  }, [user, saveStates]);
+
   // Load data based on auth state.
   useEffect(() => {
     if (authLoading) return;
