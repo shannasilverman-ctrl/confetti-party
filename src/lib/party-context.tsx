@@ -897,8 +897,33 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     };
   }, [user, saveStates]);
 
+  // Auth identity lifecycle: the PartyStore instance is constructed once and
+  // survives sign-in/out. On identity change we MUST drop the entire queue,
+  // clear derived UI state (save pills, conflicts, "not saved" cards,
+  // tombstones, one-time warnings), and re-seed only rows loaded for the new
+  // owner. Without this, an offline write from account A can flush into
+  // account B, or A's party names/toasts can leak into B's UI.
+  const prevIdentityRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (authLoading) return;
+    const nextIdentity = user?.id ?? null;
+    const prev = prevIdentityRef.current;
+    const identityChanged = prev !== nextIdentity;
+    if (identityChanged) {
+      // Cancel in-flight retries and drop queued writes for the prior user.
+      // Timers inside PartyStore.sleep() resolve into a cleared queue and
+      // become no-ops via the epoch guard in runOne/handleConflict.
+      store.reset(nextIdentity);
+      partiesRef.current = [];
+      setParties([]);
+      setSaveStates({});
+      setConflicts({});
+      setInsertRejected({});
+      tombstonesRef.current = new Set();
+      warnedRef.current = new Set();
+      setDemoWarning(null);
+      prevIdentityRef.current = nextIdentity;
+    }
     let cancelled = false;
     if (!user) {
       const seeds = baseSeeds();
@@ -919,6 +944,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       .order("created_at", { ascending: true })
       .then(({ data, error }) => {
         if (cancelled) return;
+        // Guard against identity flipping again mid-fetch.
+        if ((user?.id ?? null) !== prevIdentityRef.current) return;
         if (error) {
           console.warn("[parties] load failed", {
             code: (error as { code?: string }).code,
@@ -940,6 +967,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [user, authLoading, reloadKey, store]);
+
 
   useEffect(() => {
     if (authLoading || user) return;
