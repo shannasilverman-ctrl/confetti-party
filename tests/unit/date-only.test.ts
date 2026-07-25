@@ -161,6 +161,23 @@ describe("time helpers", () => {
     expect(parseWallClockTime("garbage")).toBeNull();
     expect(parseWallClockTime(null)).toBeNull();
   });
+  it("parseWallClockTime rejects hybrid 12/24h inputs and boundaries", () => {
+    // Hybrid: hour outside 1..12 with AM/PM suffix is invalid.
+    expect(parseWallClockTime("13:00 PM")).toBeNull();
+    expect(parseWallClockTime("00:30 PM")).toBeNull();
+    expect(parseWallClockTime("00:00 AM")).toBeNull();
+    // 24-hour form: 24:00 and 23:60 are invalid.
+    expect(parseWallClockTime("24:00")).toBeNull();
+    expect(parseWallClockTime("23:60")).toBeNull();
+    // Boundaries.
+    expect(parseWallClockTime("00:00")).toEqual({ h: 0, m: 0 });
+    expect(parseWallClockTime("23:59")).toEqual({ h: 23, m: 59 });
+    expect(parseWallClockTime("1:00 AM")).toEqual({ h: 1, m: 0 });
+    expect(parseWallClockTime("12:59 PM")).toEqual({ h: 12, m: 59 });
+    // Malformed whitespace inside the value is rejected.
+    expect(parseWallClockTime("6 :30 PM")).toBeNull();
+    expect(parseWallClockTime("6:3 0")).toBeNull();
+  });
   it("combineDateAndTime produces the intended wall clock", () => {
     const d = combineDateAndTime("2027-05-22", { h: 18, m: 30 });
     expect(d.getFullYear()).toBe(2027);
@@ -172,5 +189,33 @@ describe("time helpers", () => {
   it("toLocalCalendarStamp encodes local wall clock", () => {
     const d = combineDateAndTime("2027-05-22", { h: 18, m: 30 });
     expect(toLocalCalendarStamp(d)).toBe("20270522T183000");
+  });
+});
+
+describe("input validation", () => {
+  it("parseDateOnly rejects years outside 1000..9999", () => {
+    expect(parseDateOnly("0999-01-01")).toBeNull();
+    expect(parseDateOnly("1000-01-01")).not.toBeNull();
+    expect(parseDateOnly("9999-12-31")).not.toBeNull();
+    // Regex requires exactly 4 digits, so 5-digit years are already
+    // rejected at the shape level.
+    expect(parseDateOnly("10000-01-01")).toBeNull();
+  });
+  it("localDateToDateOnly rejects Invalid Date and non-Date input", () => {
+    expect(() => localDateToDateOnly(new Date("nope"))).toThrow();
+    // @ts-expect-error intentionally invalid input
+    expect(() => localDateToDateOnly("2027-05-22")).toThrow();
+  });
+  it("addDaysDateOnly requires a finite integer offset", () => {
+    expect(() => addDaysDateOnly("2027-05-22", 1.5)).toThrow();
+    expect(() => addDaysDateOnly("2027-05-22", Number.NaN)).toThrow();
+    expect(() => addDaysDateOnly("2027-05-22", Number.POSITIVE_INFINITY)).toThrow();
+  });
+  it("civil-date ordinal is exact across DST and historical offsets", () => {
+    // 100 years of days.
+    expect(calendarDaysBetween("1925-01-01", "2025-01-01")).toBe(36524);
+    // Around the 1883 US standard-time adoption era (still within
+    // supported year range) — pure civil-date math ignores offset history.
+    expect(calendarDaysBetween("1883-11-17", "1883-11-19")).toBe(2);
   });
 });
