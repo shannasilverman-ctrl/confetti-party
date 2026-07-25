@@ -551,6 +551,25 @@ function seedAvaLiam(): Party {
       { id: uid(), time: "9:30 PM", activity: "Toasts, cake, first dance" },
     ],
     shoppingItems: [],
+    bringBoard: [
+      {
+        id: uid(),
+        category: "Sides",
+        label: "Antipasti board",
+        qty: 2,
+        status: "open",
+        source: "host",
+      },
+      { id: uid(), category: "Dessert", label: "Tiramisu", qty: 1, status: "open", source: "host" },
+      {
+        id: uid(),
+        category: "Drinks",
+        label: "Chianti bottles",
+        qty: 6,
+        status: "open",
+        source: "host",
+      },
+    ],
     pinnedInspiration: [],
     hostNote:
       "We can't wait to celebrate with you in Tuscany. Dinner is at the long table under the vines — bring a light layer for after sunset.",
