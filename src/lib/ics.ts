@@ -190,9 +190,7 @@ export function buildIcsDocument(input: CalendarInput, now: Date = new Date()): 
     p.allDay ? ["DTEND;VALUE=DATE", p.dtEnd] : ["DTEND", p.dtEnd],
     ["SUMMARY", escapeIcsText(input.title)],
     input.location ? ["LOCATION", escapeIcsText(input.location)] : ["LOCATION", null],
-    input.description
-      ? ["DESCRIPTION", escapeIcsText(input.description)]
-      : ["DESCRIPTION", null],
+    input.description ? ["DESCRIPTION", escapeIcsText(input.description)] : ["DESCRIPTION", null],
   ];
 
   const lines = [

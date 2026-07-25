@@ -83,14 +83,13 @@ function PrivacyPage() {
             you can also download a JSON export of everything we store for your account, or
             permanently delete your account. Deleting your account cascades: every party, guest
             RSVP, bring-board item, host update, draft, and voice-session record tied to your
-            account is removed from our primary database. Short-lived operational backups may
-            retain copies for up to 30 days before rolling off.
+            account is removed from our primary database. Short-lived operational backups may retain
+            copies for up to 30 days before rolling off.
           </p>
           <p className="mt-3 text-sm">
-            Confetti also stores a small amount of sample/demo state in this browser's local
-            storage so signed-out visitors can preview the product. That state lives only on this
-            device and can be wiped at any time from the Account page or by clearing site data in
-            your browser.
+            Confetti also stores a small amount of sample/demo state in this browser's local storage
+            so signed-out visitors can preview the product. That state lives only on this device and
+            can be wiped at any time from the Account page or by clearing site data in your browser.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Guest data</h2>

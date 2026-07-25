@@ -30,7 +30,10 @@ export const Route = createFileRoute("/account")({
   head: () => ({
     meta: [
       { title: "Account · Confetti" },
-      { name: "description", content: "Manage your Confetti account, export your data, or delete." },
+      {
+        name: "description",
+        content: "Manage your Confetti account, export your data, or delete.",
+      },
       { property: "og:title", content: "Account · Confetti" },
       {
         property: "og:description",
@@ -198,9 +201,7 @@ function AccountPage() {
 
             {/* Export */}
             <Card className="p-4 sm:p-5">
-              <h2 className="font-display text-lg font-semibold text-secondary">
-                Export my data
-              </h2>
+              <h2 className="font-display text-lg font-semibold text-secondary">Export my data</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Download a JSON file with every party, guest, dietary/allergen tag, bring-board
                 item, host update, and voice-session metadata Confetti stores for your account.
@@ -243,10 +244,7 @@ function AccountPage() {
             {/* Delete */}
             <Card className="border-destructive/40 bg-destructive/5 p-4 sm:p-5">
               <div className="flex items-start gap-3">
-                <ShieldAlert
-                  className="mt-0.5 h-5 w-5 shrink-0 text-destructive"
-                  aria-hidden
-                />
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
                 <div className="flex-1">
                   <h2 className="font-display text-lg font-semibold text-secondary">
                     Delete my account
@@ -257,11 +255,7 @@ function AccountPage() {
                     will stop working. This can't be undone. Export first if you want a copy.
                   </p>
                   <div className="mt-4">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setDeleteOpen(true)}
-                    >
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
                       <Trash2 className="mr-1.5 h-4 w-4" /> Delete account…
                     </Button>
                   </div>
@@ -320,11 +314,7 @@ function AccountPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setDeleteOpen(false)}
-              disabled={deleting}
-            >
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} disabled={deleting}>
               Cancel
             </Button>
             <Button
