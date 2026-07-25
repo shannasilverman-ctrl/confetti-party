@@ -16,6 +16,7 @@ import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holid
 import { partiesSummary } from "@/lib/parties-summary";
 
 import { BrandLockup } from "@/components/brand";
+import { DeletePartyButton } from "@/components/delete-party-button";
 import { AuthNav } from "@/components/auth-nav";
 import { ConfettiBurst, celebrateAtEvent, celebrate } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
