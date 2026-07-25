@@ -8,12 +8,17 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import { daysUntilLocal } from "@/lib/date-only";
+import { daysUntilLocal, formatDateOnly, toDateOnlyLocal } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 const heroImage = { url: "/brand/confetti-hero.jpg" };
-// Mock party date used in the "chaos → calm" card. Countdown is derived
-// live via daysUntilLocal so the number stays truthful vs. the shown date.
-const SAMPLE_CARD_DATE = "2026-08-15";
+// Rolling illustrative party date: the Saturday at least 21 days out from
+// today. Recomputed per mount so the card never contradicts the calendar.
+function nextIllustrativeSaturday(now: Date = new Date()): string {
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 21);
+  const daysToSat = (6 - base.getDay() + 7) % 7;
+  base.setDate(base.getDate() + daysToSat);
+  return toDateOnlyLocal(base);
+}
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
