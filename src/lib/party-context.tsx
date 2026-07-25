@@ -706,19 +706,13 @@ type Ctx = {
   isDemo: boolean;
   refetch: () => void;
   getParty: (id: string) => Party | undefined;
-  createParty: (input: {
-    name: string;
-    occasion: OccasionType;
-    date: string;
-    startTime?: string;
-    location?: string;
-    guestEstimate: number;
-    budget: number;
-    theme: string;
-    themeId?: string;
-    extraTasks?: Task[];
-    holidayPackId?: HolidayStarterId;
-  }) => string;
+  createParty: (input: CreatePartyInput) => string;
+  /**
+   * Async create: for signed-in users, resolves after the initial insert
+   * settles. Signed-out demo resolves immediately. On persistent failure
+   * the party remains as a recoverable local draft (insertRejected[id]).
+   */
+  createPartyAsync: (input: CreatePartyInput) => Promise<{ id: string; error: string | null }>;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
   deleteParty: (id: string) => Promise<{ error: string | null }>;
