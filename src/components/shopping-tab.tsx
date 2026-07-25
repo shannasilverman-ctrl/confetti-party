@@ -263,6 +263,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       {/* Groups */}
       {party.shoppingItems.length === 0 ? (
         <EmptyState
+          icon={ShoppingCart}
           title="Nothing on the list yet"
           body="Add a first item above — decorations, favors, drinks. We'll group by category and track spend against your budget."
         />
