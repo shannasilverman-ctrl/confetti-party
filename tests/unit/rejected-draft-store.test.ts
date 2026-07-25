@@ -56,16 +56,14 @@ describe("rejected-draft-store", () => {
     expect(got).toBeNull();
   });
 
-  it("rejects a payload above the per-user byte cap", async () => {
-    const bigNote = "x".repeat(500);
-    const oversized = { ...baseDraft, hostNote: bigNote, location: bigNote };
-    // Serialized length still comfortably < 4KB but demonstrate the guard runs;
-    // force over the cap by inflating name to 120 + long location.
+  it("accepts payloads under the per-user byte cap", async () => {
+    const oversized = {
+      ...baseDraft,
+      hostNote: "x".repeat(500),
+      location: "y".repeat(200),
+    };
     const res1 = await saveRejectedDraft("user-A", oversized);
     expect(res1.ok).toBe(true);
-
-    // Now truly oversized: make it fail schema max-length rather than byte cap
-    // so we test both guards. Byte-cap test:
     const encoded = JSON.stringify(await loadRejectedDraft("user-A"));
     expect(encoded.length).toBeLessThan(REJECTED_DRAFT_MAX_BYTES);
   });
