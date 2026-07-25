@@ -181,9 +181,17 @@ function TalkRoute() {
   const [voiceLines, setVoiceLines] = useState<Line[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const startedAtRef = useRef<number | null>(null);
   const clientRef = useRef<TalkClient | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Idempotent lifecycle controller: guarantees exactly-one end() per
+  // owned reservation regardless of which signal fires (user stop,
+  // connect failure, pagehide, SPA route unmount, duplicate events).
+  const lifecycleRef = useRef<ReturnType<typeof createTalkLifecycle> | null>(null);
+  if (!lifecycleRef.current) {
+    lifecycleRef.current = createTalkLifecycle({
+      endSession: (input) => endSession({ data: input }),
+    });
+  }
 
   const authReady = !loading;
   const isDemo = authReady && !user;
