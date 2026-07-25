@@ -1276,6 +1276,32 @@ export function themesForOccasion(o: OccasionType): Theme[] {
   return THEMES.filter((t) => t.occasion === o);
 }
 
+const FLEXIBLE_THEME_IDS: Record<"game-day" | "cookout" | "other", string[]> = {
+  "game-day": ["neon-glow", "backyard-fiesta", "gold-and-glory"],
+  cookout: ["backyard-fiesta", "garden-bistro", "tuscan-table"],
+  other: ["modern-candlelight", "garden-bistro", "neon-glow"],
+};
+
+/**
+ * Never strand a valid party type at a "coming soon" wall. When its bespoke
+ * collection is not ready, return three transparent, versatile starting
+ * points that still drive the full vision-board and shopping workflow.
+ */
+export function themeGalleryForOccasion(o: OccasionType): {
+  themes: Theme[];
+  isFlexibleFallback: boolean;
+} {
+  const exact = themesForOccasion(o);
+  if (exact.length > 0) return { themes: exact, isFlexibleFallback: false };
+  const ids =
+    o in FLEXIBLE_THEME_IDS ? FLEXIBLE_THEME_IDS[o as keyof typeof FLEXIBLE_THEME_IDS] : [];
+  const themes = ids.flatMap((id) => {
+    const theme = THEMES.find((candidate) => candidate.id === id);
+    return theme ? [theme] : [];
+  });
+  return { themes, isFlexibleFallback: true };
+}
+
 export function themeById(id: string | undefined | null): Theme | undefined {
   if (!id) return undefined;
   return THEMES.find((t) => t.id === id);

@@ -7,7 +7,7 @@ import {
   togglePin,
   OCCASION_LABELS,
 } from "@/lib/party-context";
-import { themeById, themesForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
+import { themeById, themeGalleryForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,7 +70,8 @@ function ideaThumb(theme: Theme, idea: DecorIdea): string {
 export function ThemeTab({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
-  const gallery = themesForOccasion(party.occasion);
+  const galleryResult = themeGalleryForOccasion(party.occasion);
+  const gallery = galleryResult.themes;
   const activeTheme = themeById(party.themeId);
 
   const [lightbox, setLightbox] = useState<TileKey | null>(null);
@@ -201,21 +202,6 @@ export function ThemeTab({ partyId }: { partyId: string }) {
     toast.success(`Added ${diyStats.toAdd.length} DIY tasks to checklist`);
   }
 
-  if (gallery.length === 0) {
-    const label = OCCASION_LABELS[party.occasion];
-    return (
-      <div className="rounded-2xl border border-dashed border-border bg-card/50 p-8 text-center">
-        <div className="font-display text-lg text-secondary">
-          Themes for {label} are coming soon
-        </div>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          You can keep planning — your checklist, guests, budget, and shopping list all work without
-          a theme. Décor themes for watch parties and cookouts land next.
-        </p>
-      </div>
-    );
-  }
-
   const tiles: TileKey[] = ["table", "decor", "dessert", "entry", "activity", "photoSpot"];
   const pinnedForTheme = activeTheme
     ? party.pinnedInspiration.filter((id) => id.startsWith(`${activeTheme.id}:`))
@@ -231,7 +217,9 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               {activeTheme ? "Browse other themes" : "Pick a theme"}
             </h2>
             <p className="text-xs text-muted-foreground">
-              Curated for {OCCASION_LABELS[party.occasion]}
+              {galleryResult.isFlexibleFallback
+                ? `Versatile starting points for ${OCCASION_LABELS[party.occasion]}`
+                : `Curated for ${OCCASION_LABELS[party.occasion]}`}
             </p>
           </div>
         </div>
