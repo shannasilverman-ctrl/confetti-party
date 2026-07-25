@@ -47,10 +47,16 @@ export type SaveDraftResult =
   | { ok: true; draft: RejectedDraft }
   | { ok: false; reason: "too_large" | "unavailable" | "invalid" };
 
-// Tiny prototype-pollution guard for the outer JSON parse.
+// Tiny prototype-pollution guard for the outer JSON parse. `Object.hasOwn`
+// avoids false positives from Object.prototype accessors that would fire
+// for every parsed JSON object under the `in` operator.
 function safeParse(raw: string): unknown {
   const value = JSON.parse(raw);
-  if (value && typeof value === "object" && ("__proto__" in value || "constructor" in value)) {
+  if (
+    value &&
+    typeof value === "object" &&
+    (Object.hasOwn(value, "__proto__") || Object.hasOwn(value, "constructor"))
+  ) {
     return null;
   }
   return value;
