@@ -39,9 +39,9 @@ export const Route = createFileRoute("/")({
         property: "og:description",
         content: "The calm co-host for any gathering. From first idea to final toast.",
       },
-      { property: "og:url", content: "https://confetti-party.lovable.app/" },
+      { property: "og:url", content: "https://www.confettiapp.ai/" },
     ],
-    links: [{ rel: "canonical", href: "https://confetti-party.lovable.app/" }],
+    links: [{ rel: "canonical", href: "https://www.confettiapp.ai/" }],
   }),
 });
 

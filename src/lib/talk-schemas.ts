@@ -2,7 +2,7 @@
 //
 // TypeScript types are erased at compile time, so we cannot rely on the
 // DraftPatch/openQuestions/assumptions type annotations to reject garbage
-// JSON that the Lovable AI Gateway returns. These Zod schemas enforce
+// JSON that the text-planning model returns. These Zod schemas enforce
 // per-field caps and reject/drop unknown or oversized values BEFORE they
 // reach persistence or the materializer.
 //

@@ -9,54 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as TalkRouteImport } from './routes/talk'
-import { Route as SampleInviteRouteImport } from './routes/sample-invite'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AppRouteImport } from './routes/app'
-import { Route as AccountRouteImport } from './routes/account'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
+import { Route as AccountRouteImport } from './routes/account'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SampleInviteRouteImport } from './routes/sample-invite'
+import { Route as TalkRouteImport } from './routes/talk'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
-import { Route as PartyIdRevealRouteImport } from './routes/party.$id_.reveal'
-import { Route as PartyIdDayOfRouteImport } from './routes/party.$id_.day-of'
+import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
+import { Route as PartyIdDayOfRouteImport } from './routes/party.$id_.day-of'
+import { Route as PartyIdRevealRouteImport } from './routes/party.$id_.reveal'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TalkRoute = TalkRouteImport.update({
-  id: '/talk',
-  path: '/talk',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SampleInviteRoute = SampleInviteRouteImport.update({
-  id: '/sample-invite',
-  path: '/sample-invite',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppRoute = AppRouteImport.update({
-  id: '/app',
-  path: '/app',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AccountRoute = AccountRouteImport.update({
@@ -64,14 +34,39 @@ const AccountRoute = AccountRouteImport.update({
   path: '/account',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RsvpTokenRoute = RsvpTokenRouteImport.update({
-  id: '/rsvp/$token',
-  path: '/rsvp/$token',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SampleInviteRoute = SampleInviteRouteImport.update({
+  id: '/sample-invite',
+  path: '/sample-invite',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TalkRoute = TalkRouteImport.update({
+  id: '/talk',
+  path: '/talk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartyIdRoute = PartyIdRouteImport.update({
@@ -79,9 +74,14 @@ const PartyIdRoute = PartyIdRouteImport.update({
   path: '/party/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PartyIdRevealRoute = PartyIdRevealRouteImport.update({
-  id: '/party/$id_/reveal',
-  path: '/party/$id/reveal',
+const RsvpTokenRoute = RsvpTokenRouteImport.update({
+  id: '/rsvp/$token',
+  path: '/rsvp/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
+  id: '/api/realtime/session',
+  path: '/api/realtime/session',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartyIdDayOfRoute = PartyIdDayOfRouteImport.update({
@@ -89,9 +89,9 @@ const PartyIdDayOfRoute = PartyIdDayOfRouteImport.update({
   path: '/party/$id/day-of',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
-  id: '/api/realtime/session',
-  path: '/api/realtime/session',
+const PartyIdRevealRoute = PartyIdRevealRouteImport.update({
+  id: '/party/$id_/reveal',
+  path: '/party/$id/reveal',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -214,53 +214,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/talk': {
-      id: '/talk'
-      path: '/talk'
-      fullPath: '/talk'
-      preLoaderRoute: typeof TalkRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sample-invite': {
-      id: '/sample-invite'
-      path: '/sample-invite'
-      fullPath: '/sample-invite'
-      preLoaderRoute: typeof SampleInviteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/account': {
@@ -270,18 +228,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/rsvp/$token': {
-      id: '/rsvp/$token'
-      path: '/rsvp/$token'
-      fullPath: '/rsvp/$token'
-      preLoaderRoute: typeof RsvpTokenRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sample-invite': {
+      id: '/sample-invite'
+      path: '/sample-invite'
+      fullPath: '/sample-invite'
+      preLoaderRoute: typeof SampleInviteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/talk': {
+      id: '/talk'
+      path: '/talk'
+      fullPath: '/talk'
+      preLoaderRoute: typeof TalkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/party/$id': {
@@ -291,11 +284,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartyIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/party/$id_/reveal': {
-      id: '/party/$id_/reveal'
-      path: '/party/$id/reveal'
-      fullPath: '/party/$id/reveal'
-      preLoaderRoute: typeof PartyIdRevealRouteImport
+    '/rsvp/$token': {
+      id: '/rsvp/$token'
+      path: '/rsvp/$token'
+      fullPath: '/rsvp/$token'
+      preLoaderRoute: typeof RsvpTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/realtime/session': {
+      id: '/api/realtime/session'
+      path: '/api/realtime/session'
+      fullPath: '/api/realtime/session'
+      preLoaderRoute: typeof ApiRealtimeSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/party/$id_/day-of': {
@@ -305,11 +305,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartyIdDayOfRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/realtime/session': {
-      id: '/api/realtime/session'
-      path: '/api/realtime/session'
-      fullPath: '/api/realtime/session'
-      preLoaderRoute: typeof ApiRealtimeSessionRouteImport
+    '/party/$id_/reveal': {
+      id: '/party/$id_/reveal'
+      path: '/party/$id/reveal'
+      fullPath: '/party/$id/reveal'
+      preLoaderRoute: typeof PartyIdRevealRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

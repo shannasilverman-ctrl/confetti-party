@@ -20,14 +20,14 @@ const URL = `http://127.0.0.1:${PORT}/`;
 const START_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 500;
 
-// Resolve the current build's wrangler.json — .output/ on GitHub, dist/ in
-// the Lovable sandbox. Fails loudly (non-zero) if the build has not been
-// produced yet, which is the actual CI failure this smoke exists to catch.
+// Resolve the current build's wrangler.json. Fails loudly (non-zero) if the
+// build has not been produced yet, which is the actual CI failure this smoke
+// exists to catch.
 const CONFIG = resolveWranglerConfigPath();
 
 // The command below MUST stay in sync with playwright.config.ts webServer.command.
-const CMD = "bunx";
-const ARGS = ["wrangler", "dev", "--config", CONFIG, "--port", String(PORT), "--ip", "127.0.0.1"];
+const CMD = "./node_modules/.bin/wrangler";
+const ARGS = ["dev", "--config", CONFIG, "--port", String(PORT), "--ip", "127.0.0.1"];
 
 console.log(`[verify-webserver] spawning: ${CMD} ${ARGS.join(" ")}`);
 const child = spawn(CMD, ARGS, {

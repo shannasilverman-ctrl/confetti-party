@@ -13,15 +13,17 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
+  // Two workers keeps the local Cloudflare runtime stable under the same
+  // constrained Linux runners used by CI while preserving parallel coverage.
+  workers: process.env.CI ? 2 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",
-    // Allow overriding the browser binary (used locally on the Lovable sandbox
-    // where a Nix chromium is provided). CI installs system deps via
-    // `playwright install --with-deps` and uses the bundled binary.
+    // Allow overriding the browser binary for constrained local environments.
+    // CI installs system deps and uses the bundled binary.
     launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
       ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
       : undefined,
@@ -36,11 +38,10 @@ export default defineConfig({
   webServer: {
     // Serve the production build via the Cloudflare Worker preview
     // (nodejs_compat) so E2E hits the same runtime as the deployed site.
-    // Invoke wrangler directly (no `bun run … --` layer) and drop the
-    // wrangler v4 no-op `--local` flag so a clean GitHub runner sees the
-    // exact same command locally. Keep this in lockstep with
+    // Invoke the project-pinned Wrangler binary directly so the harness works
+    // with either Bun or npm. Keep this in lockstep with
     // scripts/verify-webserver.mjs so the CI-contract smoke covers it.
-    command: `bunx wrangler dev --config ${WRANGLER_CONFIG} --port ${PORT} --ip 127.0.0.1`,
+    command: `./node_modules/.bin/wrangler dev --config ${WRANGLER_CONFIG} --port ${PORT} --ip 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

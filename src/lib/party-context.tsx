@@ -125,6 +125,28 @@ export type Party = {
   updatedAt?: string;
 };
 
+export type PlanningDetail = "date" | "guests" | "budget" | "theme";
+
+export const PLANNING_TASK_TITLES: Record<PlanningDetail, string> = {
+  date: "Choose the party date",
+  guests: "Estimate the guest count",
+  budget: "Set a comfortable budget",
+  theme: "Choose the look and feel",
+};
+
+export function planningDetailIsOpen(party: Party, detail: PlanningDetail): boolean {
+  const title = PLANNING_TASK_TITLES[detail];
+  return party.tasks.some((task) => task.title === title && !task.done);
+}
+
+export function resolvePlanningDetails(party: Party, details: PlanningDetail[]): Party {
+  const titles = new Set(details.map((detail) => PLANNING_TASK_TITLES[detail]));
+  return {
+    ...party,
+    tasks: party.tasks.map((task) => (titles.has(task.title) ? { ...task, done: true } : task)),
+  };
+}
+
 export type PartyRetrospective = {
   updatedAt: string;
   worked?: string;

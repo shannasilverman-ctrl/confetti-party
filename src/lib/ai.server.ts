@@ -1,13 +1,13 @@
-// Server-only Lovable AI Gateway wrapper. Do NOT import from client code.
-// If LOVABLE_API_KEY is absent the brain falls back to a deterministic demo.
+// Server-only, first-party OpenAI wrapper. Do NOT import from client code.
+// If OPENAI_API_KEY is absent the brain falls back to a deterministic demo.
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+const DEFAULT_MODEL = "gpt-5.6-terra";
 
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
 export function hasAiKey(): boolean {
-  return !!process.env.LOVABLE_API_KEY;
+  return !!process.env.OPENAI_API_KEY;
 }
 
 export async function chatJSON<T = unknown>(opts: {
@@ -17,12 +17,12 @@ export async function chatJSON<T = unknown>(opts: {
   model?: string;
   temperature?: number;
 }): Promise<{ replyText: string; parsed: T | null; raw: string }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY not set");
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY not set");
+  const model = opts.model ?? process.env.OPENAI_TEXT_MODEL ?? DEFAULT_MODEL;
 
   const body = {
-    model: opts.model ?? DEFAULT_MODEL,
-    temperature: opts.temperature ?? 0.6,
+    model,
     response_format: { type: "json_object" as const },
     messages: [
       {
@@ -33,7 +33,7 @@ export async function chatJSON<T = unknown>(opts: {
     ],
   };
 
-  const res = await fetch(GATEWAY_URL, {
+  const res = await fetch(OPENAI_CHAT_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${key}`,
@@ -43,7 +43,7 @@ export async function chatJSON<T = unknown>(opts: {
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
-    throw new Error(`AI Gateway ${res.status}: ${t.slice(0, 200)}`);
+    throw new Error(`OpenAI ${res.status}: ${t.slice(0, 200)}`);
   }
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
