@@ -120,6 +120,8 @@ export type Party = {
   retrospective?: PartyRetrospective | null;
   /** Optional cinematic banner image URL, seeded on curated samples only. */
   heroImageUrl?: string;
+  /** Server-known optimistic concurrency token (updated_at). Not user-visible. */
+  updatedAt?: string;
 };
 
 export type PartyRetrospective = {
