@@ -407,10 +407,18 @@ $phaseB$;
 SELECT 'pre_rollback_marker' AS check,
        current_setting('confetti.fixture_marker') AS marker;
 
-SELECT 'pre_rollback_auth_users' AS check,
-       count(*) AS rows
-FROM auth.users
-WHERE email = current_setting('confetti.fixture_marker') || '@rpc-harness.invalid';
+-- Reading auth.users may itself be denied on shared DBs. Do it via a
+-- guarded DO block so a permission error becomes a NOTICE, not a stop.
+DO $prechk$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM auth.users
+   WHERE email = current_setting('confetti.fixture_marker') || '@rpc-harness.invalid';
+  RAISE NOTICE 'pre_rollback_auth_users: %', n;
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'pre_rollback_auth_users: <no SELECT privilege on auth.users>';
+END;
+$prechk$;
 
 SELECT 'pre_rollback_parties' AS check,
        count(*) AS rows
@@ -422,10 +430,23 @@ ROLLBACK;
 -- Post-rollback: prove zero fixture rows leaked. Matches the run-unique
 -- marker prefix in BOTH tables. The shell runner also performs an
 -- independent leak check after this file exits.
-SELECT 'post_rollback_auth_users' AS check,
+DO $postchk$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM auth.users
+   WHERE email LIKE 'rpc_harness_fixture_%@rpc-harness.invalid';
+  IF n <> 0 THEN
+    RAISE EXCEPTION 'FAIL: % marker rows persisted in auth.users after ROLLBACK', n;
+  END IF;
+  RAISE NOTICE 'post_rollback_auth_users: 0';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'post_rollback_auth_users: <no SELECT privilege on auth.users> (shell runner still checks)';
+END;
+$postchk$;
+
+SELECT 'post_rollback_parties' AS check,
        count(*) AS rows
-FROM auth.users
-WHERE email LIKE 'rpc_harness_fixture_%@rpc-harness.invalid';
+
 
 SELECT 'post_rollback_parties' AS check,
        count(*) AS rows
