@@ -478,9 +478,14 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
             {formatDateLong(party.date)}
           </div>
           {party.start_time && (
-            <div className="mt-1 flex items-center justify-center gap-2 text-sm text-white/90">
-              <Clock className="h-4 w-4" />
-              {party.start_time}
+            <div className="mt-1 flex flex-col items-center gap-0.5 text-sm text-white/90">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                {party.start_time}
+              </div>
+              <div className="text-[10px] uppercase tracking-wide text-white/70">
+                {party.time_zone ? `Times shown in ${party.time_zone}` : "Local time"}
+              </div>
             </div>
           )}
           {party.location && (
