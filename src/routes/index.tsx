@@ -457,18 +457,46 @@ function ChecklistRow({ done, children }: { done?: boolean; children: React.Reac
 
 /* ------------- story row + minis ------------- */
 
+type StoryCta = { label: string; to: string; params?: Record<string, string> };
+type StoryTone = "cream" | "mint" | "coral" | "gold";
+
+const TONE_STYLES: Record<StoryTone, { chip: string; artFrame: string }> = {
+  cream: {
+    chip: "bg-primary/10 text-primary",
+    artFrame: "bg-gradient-to-br from-muted/40 to-background",
+  },
+  mint: {
+    chip: "bg-success/15 text-success",
+    artFrame: "bg-gradient-to-br from-[hsl(150_45%_92%)] to-background",
+  },
+  coral: {
+    chip: "bg-primary/15 text-primary",
+    artFrame: "bg-gradient-to-br from-[hsl(10_82%_94%)] to-background",
+  },
+  gold: {
+    chip: "bg-accent/25 text-secondary",
+    artFrame: "bg-gradient-to-br from-[hsl(38_92%_92%)] to-background",
+  },
+};
+
 function StoryRow({
-  index,
+  chapter,
   title,
   body,
+  cta,
   art,
+  tone = "cream",
+  flip = false,
 }: {
-  index: number;
+  chapter: string;
   title: string;
   body: string;
+  cta?: StoryCta;
   art: React.ReactNode;
+  tone?: StoryTone;
+  flip?: boolean;
 }) {
-  const flip = index % 2 === 1;
+  const styles = TONE_STYLES[tone];
   return (
     <div
       className={`grid items-center gap-10 md:grid-cols-2 ${
@@ -476,16 +504,38 @@ function StoryRow({
       }`}
     >
       <div>
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-primary">
-          Step {index + 1}
+        <div
+          className={`mb-3 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider ${styles.chip}`}
+        >
+          {chapter}
         </div>
         <h3 className="font-display text-2xl font-semibold text-secondary sm:text-3xl">{title}</h3>
         <p className="mt-3 max-w-md text-muted-foreground">{body}</p>
+        {cta && (
+          <div className="mt-5">
+            <Button asChild variant="outline" size="sm" className="min-h-11">
+              {cta.params ? (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                <Link to={cta.to as any} params={cta.params as any}>
+                  {cta.label} <ArrowRight className="h-4 w-4" />
+                </Link>
+              ) : (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                <Link to={cta.to as any}>
+                  {cta.label} <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
-      <div className="mx-auto w-full max-w-sm">{art}</div>
+      <div className={`mx-auto w-full max-w-sm rounded-3xl p-4 sm:p-6 ${styles.artFrame}`}>
+        {art}
+      </div>
     </div>
   );
 }
+
 
 function InviteMini() {
   return (
