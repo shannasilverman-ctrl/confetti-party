@@ -133,7 +133,7 @@ describe("mergeGuests", () => {
       { id: "g1", name: "Alice", kind: "adult" as const, rsvp: "yes" as const },
       { id: "g2", name: "Bob", kind: "adult" as const, rsvp: "invited" as const },
     ];
-    const merged = mergeGuests(baseline, local, server);
+    const merged = mergeGuests(baseline, local, server).items;
     expect(merged.find((g) => g.id === "g1")?.rsvp).toBe("yes");
     expect(merged.find((g) => g.id === "g2")?.name).toBe("Robert");
   });
