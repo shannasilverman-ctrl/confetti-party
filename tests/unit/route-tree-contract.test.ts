@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 
 const TREE = readFileSync("src/routeTree.gen.ts", "utf8");
 const WORKSPACE = readFileSync("src/routes/party.$id.tsx", "utf8");
+const REVEAL = readFileSync("src/routes/party.$id_.reveal.tsx", "utf8");
+const DAY_OF = readFileSync("src/routes/party.$id_.day-of.tsx", "utf8");
 
 describe("route tree contract", () => {
   it("mounts the party workspace at /party/$id", () => {
@@ -43,6 +45,22 @@ describe("route tree contract", () => {
     } else {
       expect(revealNested).toBe(false);
       expect(dayOfNested).toBe(false);
+    }
+  });
+
+  it("standalone modes wait for PartyProvider hydration before deciding not-found", () => {
+    for (const source of [REVEAL, DAY_OF]) {
+      const loadingGuard = source.indexOf('status === "loading"');
+      const notFoundDecision = source.indexOf("throw notFound()");
+      expect(loadingGuard, "route must have an explicit provider loading guard").toBeGreaterThan(
+        -1,
+      );
+      expect(
+        notFoundDecision,
+        "route must retain a terminal not-found decision for unknown ids",
+      ).toBeGreaterThan(loadingGuard);
+      expect(source).toContain('status === "error"');
+      expect(source).toContain("onClick={refetch}");
     }
   });
 });

@@ -39,8 +39,39 @@ export const Route = createFileRoute("/party/$id_/reveal")({
 
 function RevealPage() {
   const { id } = Route.useParams();
-  const { parties } = useParties();
+  const { parties, status, refetch } = useParties();
   const party = parties.find((p) => p.id === id);
+
+  // PartyProvider hydrates asynchronously for signed-in hosts. Treating
+  // the empty pre-hydration array as authoritative turns a valid deep link
+  // into a false 404 and can poison the SSR response. Only decide that the
+  // party is missing after the provider has reached a terminal state.
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div role="status" className="text-sm text-muted-foreground">
+          Loading your party…
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="max-w-sm text-center">
+          <h1 className="font-display text-2xl text-secondary">We couldn’t load your party</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Check your connection and try again. Your plan is still safe.
+          </p>
+          <Button className="mt-4" variant="festive" onClick={refetch}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!party) throw notFound();
 
   const theme = themeById(party.themeId);
