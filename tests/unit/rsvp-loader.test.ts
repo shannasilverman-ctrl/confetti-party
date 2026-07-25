@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveRsvpLoaderData } from "@/lib/rsvp.functions";
 
 const cfg = { origin: "https://x", supabaseUrl: "https://u", supabaseKey: "sb_publishable_x" };
+const T = "00000000-0000-0000-0000-000000000001";
 
 describe("resolveRsvpLoaderData", () => {
   it("returns not_found for missing token", async () => {
@@ -11,7 +12,7 @@ describe("resolveRsvpLoaderData", () => {
   });
 
   it("returns temporarily_unavailable when server config is missing", async () => {
-    const r = await resolveRsvpLoaderData("t", {
+    const r = await resolveRsvpLoaderData(T, {
       ...cfg,
       supabaseUrl: undefined,
       supabaseKey: undefined,
@@ -20,7 +21,7 @@ describe("resolveRsvpLoaderData", () => {
   });
 
   it("returns temporarily_unavailable on RPC error", async () => {
-    const r = await resolveRsvpLoaderData("t", {
+    const r = await resolveRsvpLoaderData(T, {
       ...cfg,
       rpc: async () => ({ data: null, error: { message: "boom" } }),
     });
@@ -28,7 +29,7 @@ describe("resolveRsvpLoaderData", () => {
   });
 
   it("returns temporarily_unavailable on thrown network error", async () => {
-    const r = await resolveRsvpLoaderData("t", {
+    const r = await resolveRsvpLoaderData(T, {
       ...cfg,
       rpc: async () => {
         throw new Error("net");
@@ -38,7 +39,7 @@ describe("resolveRsvpLoaderData", () => {
   });
 
   it("returns not_found when RPC succeeds with no party", async () => {
-    const r = await resolveRsvpLoaderData("t", {
+    const r = await resolveRsvpLoaderData(T, {
       ...cfg,
       rpc: async () => ({ data: null, error: null }),
     });
@@ -48,7 +49,7 @@ describe("resolveRsvpLoaderData", () => {
 
   it("returns ok with the party payload", async () => {
     const payload = { name: "Ava & Liam", date: "2026-08-01" };
-    const r = await resolveRsvpLoaderData("t", {
+    const r = await resolveRsvpLoaderData(T, {
       ...cfg,
       rpc: async () => ({ data: payload, error: null }),
     });

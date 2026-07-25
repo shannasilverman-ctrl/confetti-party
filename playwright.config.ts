@@ -31,11 +31,16 @@ export default defineConfig({
   webServer: {
     // Serve the production build via the Cloudflare Worker preview
     // (nodejs_compat) so E2E hits the same runtime as the deployed site.
-    command: `bun run e2e:server -- --port ${PORT} --local --ip 127.0.0.1`,
+    // Invoke wrangler directly (no `bun run … --` layer) and drop the
+    // wrangler v4 no-op `--local` flag so a clean GitHub runner sees the
+    // exact same command locally. Keep this in lockstep with
+    // scripts/verify-webserver.mjs so the CI-contract smoke covers it.
+    command: `bunx wrangler dev --config dist/server/wrangler.json --port ${PORT} --ip 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
+    env: { WRANGLER_SEND_METRICS: "false" },
   },
 });

@@ -80,7 +80,13 @@ export async function resolveRsvpLoaderData(
   const { origin, supabaseUrl, supabaseKey } = deps;
 
   // A malformed / missing token is a client-side "not found", not an outage.
-  if (!token) return { party: null, status: "not_found", origin };
+  // Guard obviously-malformed tokens *before* checking server config so the
+  // "invite link doesn't look right" copy stays deterministic even when the
+  // Worker has no Supabase secrets (e.g. CI without env). Tokens are UUIDs.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!token || !UUID_RE.test(token)) {
+    return { party: null, status: "not_found", origin };
+  }
 
   // Missing server configuration is an outage, not a bad link.
   if (!supabaseUrl || !supabaseKey) {
