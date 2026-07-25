@@ -259,6 +259,30 @@ export const PACKS: Record<PackId, HolidayPack> = {
       { label: "Pie or pudding", role: "dessert" },
     ],
   ),
+  "new-years": pack(
+    "new-years",
+    "New Year's Eve",
+    "🥂",
+    "Count down together. Bubbles, snacks, one last toast to the year.",
+    "festive",
+    [
+      { category: "Drinks", label: "Champagne or sparkling wine", qty: 3, unit: "bottles" },
+      { category: "Drinks", label: "Non-alcoholic sparkling", qty: 2, unit: "bottles" },
+      { category: "Sides", label: "Cheese and charcuterie board", qty: 1, unit: "large board" },
+      { category: "Sides", label: "Finger foods / small bites", qty: 3, unit: "trays" },
+      { category: "Dessert", label: "Midnight dessert bites", qty: 1, unit: "platter" },
+      { category: "Décor", label: "Noise-makers & party hats", qty: 1, unit: "set" },
+    ],
+    [
+      { label: "Sparkling wine", role: "drink" },
+      { label: "Charcuterie board", role: "side" },
+      { label: "Midnight bites", role: "dessert" },
+    ],
+    [
+      { title: "Chill the champagne", bucket: "Day of" },
+      { title: "Queue the countdown stream / playlist", bucket: "Day of" },
+    ],
+  ),
   passover: pack(
     "passover",
     "Passover Seder",
