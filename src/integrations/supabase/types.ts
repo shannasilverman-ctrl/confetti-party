@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      gathering_drafts: {
+        Row: {
+          assumptions: Json
+          confirmed_party_id: string | null
+          created_at: string
+          draft: Json
+          id: string
+          open_questions: Json
+          status: string
+          transcript_retention: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assumptions?: Json
+          confirmed_party_id?: string | null
+          created_at?: string
+          draft?: Json
+          id?: string
+          open_questions?: Json
+          status?: string
+          transcript_retention?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assumptions?: Json
+          confirmed_party_id?: string | null
+          created_at?: string
+          draft?: Json
+          id?: string
+          open_questions?: Json
+          status?: string
+          transcript_retention?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       parties: {
         Row: {
           budget: number
@@ -85,6 +124,104 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      talk_sessions: {
+        Row: {
+          audio_seconds_in: number | null
+          audio_seconds_out: number | null
+          cost_cents: number | null
+          created_at: string
+          disconnect_reason: string | null
+          draft_id: string | null
+          duration_s: number | null
+          ended_at: string | null
+          id: string
+          model: string | null
+          started_at: string
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string
+        }
+        Insert: {
+          audio_seconds_in?: number | null
+          audio_seconds_out?: number | null
+          cost_cents?: number | null
+          created_at?: string
+          disconnect_reason?: string | null
+          draft_id?: string | null
+          duration_s?: number | null
+          ended_at?: string | null
+          id?: string
+          model?: string | null
+          started_at?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id: string
+        }
+        Update: {
+          audio_seconds_in?: number | null
+          audio_seconds_out?: number | null
+          cost_cents?: number | null
+          created_at?: string
+          disconnect_reason?: string | null
+          draft_id?: string | null
+          duration_s?: number | null
+          ended_at?: string | null
+          id?: string
+          model?: string | null
+          started_at?: string
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talk_sessions_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "gathering_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      talk_transcripts: {
+        Row: {
+          created_at: string
+          draft_id: string | null
+          session_id: string
+          transcript: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          draft_id?: string | null
+          session_id: string
+          transcript?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          draft_id?: string | null
+          session_id?: string
+          transcript?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talk_transcripts_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "gathering_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "talk_transcripts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "talk_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
