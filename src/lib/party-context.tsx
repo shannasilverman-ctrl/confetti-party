@@ -570,6 +570,7 @@ type Ctx = {
     theme: string;
     themeId?: string;
     extraTasks?: Task[];
+    holidayPackId?: string;
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
