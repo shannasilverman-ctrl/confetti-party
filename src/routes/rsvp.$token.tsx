@@ -82,31 +82,73 @@ export const Route = createFileRoute("/rsvp/$token")({
     return { meta };
   },
   component: PublicRsvpPage,
-  errorComponent: () => <InvalidInvite />,
+  errorComponent: () => <UnavailableInvite />,
   notFoundComponent: () => <InvalidInvite />,
 });
 
-function InvalidInvite() {
+function InviteShell({
+  title,
+  body,
+  showRetry,
+}: {
+  title: string;
+  body: string;
+  showRetry: boolean;
+}) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
       <BrandLockup />
-      <h1 className="mt-8 font-display text-2xl font-semibold text-secondary">
-        This invite link doesn't look right
-      </h1>
-      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-        Double-check the link with your host, or ask them to resend it.
-      </p>
+      <h1 className="mt-8 font-display text-2xl font-semibold text-secondary">{title}</h1>
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">{body}</p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+        {showRetry && (
+          <Button
+            variant="outline"
+            className="min-h-11"
+            onClick={() => {
+              if (typeof window !== "undefined") window.location.reload();
+            }}
+          >
+            Try again
+          </Button>
+        )}
+        <Button asChild variant="ghost" className="min-h-11">
+          <Link to="/">Go home</Link>
+        </Button>
+      </div>
       <ConversionFooter />
     </div>
   );
 }
 
+function InvalidInvite() {
+  return (
+    <InviteShell
+      title="This invite link doesn't look right"
+      body="Double-check the link with your host, or ask them to resend it."
+      showRetry={false}
+    />
+  );
+}
+
+function UnavailableInvite() {
+  return (
+    <InviteShell
+      title="This invite is temporarily unavailable"
+      body="We couldn't reach the invite service just now. Please try again in a moment."
+      showRetry={true}
+    />
+  );
+}
+
 function PublicRsvpPage() {
   const { token } = Route.useParams();
-  const { party } = Route.useLoaderData();
+  const { party, status } = Route.useLoaderData();
+  if (status === "temporarily_unavailable") return <UnavailableInvite />;
   if (!party) return <InvalidInvite />;
   return <RsvpForm token={token} party={party} />;
 }
+
 
 /* ---------- Calendar helpers ---------- */
 
