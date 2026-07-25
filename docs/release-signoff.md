@@ -28,16 +28,16 @@ The release candidate completes these representative journeys:
 The exact application candidate passed locally against the production
 Cloudflare Worker build:
 
-| Gate                  | Result                                                                        |
-| --------------------- | ----------------------------------------------------------------------------- |
-| Prettier              | All files matched                                                             |
-| ESLint                | Passed                                                                        |
-| TypeScript            | Passed with `tsc --noEmit`                                                    |
-| Vitest + coverage     | 39 files, 298 tests passed                                                    |
-| Coverage              | 81.64% statements, 76.22% branches, 81.81% functions, 85.07% lines            |
-| Production build      | Passed                                                                        |
-| Initial client bundle | 566,293 raw bytes; 163,755 gzip bytes; within enforced budget                 |
-| Playwright            | 99 applicable tests passed; 51 intentional project-specific skips; 0 failures |
+| Gate                  | Result                                                                         |
+| --------------------- | ------------------------------------------------------------------------------ |
+| Prettier              | All files matched                                                              |
+| ESLint                | Passed                                                                         |
+| TypeScript            | Passed with `tsc --noEmit`                                                     |
+| Vitest + coverage     | 39 files, 298 tests passed                                                     |
+| Coverage              | 81.64% statements, 76.22% branches, 81.81% functions, 85.07% lines             |
+| Production build      | Passed                                                                         |
+| Initial client bundle | 566,293 raw bytes; 163,755 gzip bytes; within enforced budget                  |
+| Playwright            | 101 applicable tests passed; 51 intentional project-specific skips; 0 failures |
 
 The Playwright run covers desktop and Pixel-class mobile layouts, a
 320/375/390/430 px route matrix, keyboard/focus behavior, minimum 44 px

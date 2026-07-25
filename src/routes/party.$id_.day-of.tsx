@@ -13,6 +13,16 @@ import { celebrate } from "@/components/confetti-burst";
 
 export const Route = createFileRoute("/party/$id_/day-of")({
   component: DayOfPage,
+  head: () => ({
+    meta: [
+      { title: "Day-of Mode · Confetti" },
+      {
+        name: "description",
+        content: "Run the gathering with next actions, arrivals, timeline, and guest-page updates.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
 });
 
 function DayOfPage() {

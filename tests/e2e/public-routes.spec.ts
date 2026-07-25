@@ -48,6 +48,16 @@ test("home exposes the primary CTA", async ({ page }) => {
   await expect(cta).toBeVisible();
 });
 
+test("focused host modes expose distinct, private browser metadata", async ({ page }) => {
+  await page.goto("/party/ava-liam-wedding/reveal");
+  await expect(page).toHaveTitle("Party reveal · Confetti");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+
+  await page.goto("/party/ava-liam-wedding/day-of");
+  await expect(page).toHaveTitle("Day-of Mode · Confetti");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+});
+
 test("RSVP page: malformed token → deterministic not-found copy at 200", async ({ page }) => {
   const resp = await page.goto("/rsvp/not-a-uuid", { waitUntil: "domcontentloaded" });
   // Sanitized UI is intentional: return 200 so shared invite links don't

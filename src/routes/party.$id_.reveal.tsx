@@ -36,6 +36,16 @@ import { formatDateOnly } from "@/lib/date-only";
 
 export const Route = createFileRoute("/party/$id_/reveal")({
   component: RevealPage,
+  head: () => ({
+    meta: [
+      { title: "Party reveal · Confetti" },
+      {
+        name: "description",
+        content: "Review the gathering, next actions, budget, guest response, and open risks.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
 });
 
 function RevealPage() {
