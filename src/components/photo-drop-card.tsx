@@ -16,11 +16,11 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
   const providerLabel = useMemo(() => {
     if (!drop) return "";
     switch (drop.provider) {
-      case "dropbox": return "Dropbox File Request";
-      case "google-photos": return "Google Photos album";
+      case "dropbox_request": return "Dropbox File Request";
+      case "google_photos": return "Google Photos album";
       case "kululu": return "Kululu event";
       case "guestpix": return "GuestPix gallery";
-      default: return "External link";
+      default: return "external upload link";
     }
   }, [drop]);
 
