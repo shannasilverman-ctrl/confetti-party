@@ -1062,11 +1062,25 @@ function ReviewDialog({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "warn";
+}) {
   return (
     <div className="flex items-baseline justify-between gap-2 border-b border-border/60 py-1 sm:border-b-0 sm:py-0">
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium text-foreground">{value}</dd>
+      <dd
+        className={`text-right text-sm font-medium ${
+          tone === "warn" ? "text-amber-700" : "text-foreground"
+        }`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
