@@ -59,6 +59,9 @@ export function AuthNav({ variant = "landing" }: { variant?: "landing" | "app" }
             <Link to="/app">Your parties</Link>
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem asChild>
+          <Link to="/account">Account & privacy</Link>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={async () => {
             await signOut();

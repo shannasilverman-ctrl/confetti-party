@@ -33,10 +33,8 @@ function PrivacyPage() {
       <main className="mx-auto max-w-3xl px-6 py-6 pb-24">
         <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">Privacy</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated{" "}
-          {new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" })}. This is
-          plain-language product information about how Confetti (currently in beta) handles data. It
-          is not legal advice or a compliance certification.
+          Last updated November 2025. This is plain-language product information about how Confetti
+          (currently in beta) handles data. It is not legal advice or a compliance certification.
         </p>
 
         <section className="prose prose-slate mt-8 max-w-none text-secondary">
@@ -77,10 +75,22 @@ function PrivacyPage() {
           <h2 className="mt-8 font-display text-xl font-semibold">Retention and deletion</h2>
           <p className="mt-3 text-sm">
             You can delete an individual party from your dashboard or from that party's workspace;
-            the delete action removes it from our database. Confetti does not currently expose a
-            self-serve control to delete your entire account or export all your data. If you need
-            either, reach out to the operator of this deployment through whatever contact channel
-            they have provided you.
+            the delete action removes it from our database and stops the guest RSVP link from
+            working. From the{" "}
+            <Link to="/account" className="underline underline-offset-2">
+              Account page
+            </Link>{" "}
+            you can also download a JSON export of everything we store for your account, or
+            permanently delete your account. Deleting your account cascades: every party, guest
+            RSVP, bring-board item, host update, draft, and voice-session record tied to your
+            account is removed from our primary database. Short-lived operational backups may
+            retain copies for up to 30 days before rolling off.
+          </p>
+          <p className="mt-3 text-sm">
+            Confetti also stores a small amount of sample/demo state in this browser's local
+            storage so signed-out visitors can preview the product. That state lives only on this
+            device and can be wiped at any time from the Account page or by clearing site data in
+            your browser.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Guest data</h2>
