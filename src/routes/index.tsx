@@ -221,46 +221,74 @@ function Landing() {
         </div>
       </section>
 
-      {/* Story section */}
+      {/* Product story — six chapters, in the order a host actually lives them */}
       <section className="bg-muted/30 py-20 sm:py-28">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
-              One party, first idea to final toast.
+              One gathering, first idea to next-year notes.
             </h2>
             <p className="mt-3 text-muted-foreground">
-              Follow Maya's 8th birthday through Confetti, step by step.
+              Every screen below is a real Confetti surface, in the order you'll meet them.
             </p>
           </div>
 
           <div className="mt-16 space-y-20">
             <StoryRow
-              index={0}
-              title="Name it, date it, share it."
-              body="Give your party a name and a date. Confetti spins up a shareable RSVP link and starts tracking who's in."
-              art={<InviteMini />}
+              chapter="Chapter 01"
+              title="Talk it out."
+              body="Brain-dump the gathering — the vibe, the humans, the constraints. Confetti listens, asks the right questions, and turns the noise into a plan you can edit."
+              cta={{ label: "Try Talk it out", to: "/talk" }}
+              tone="cream"
+              art={<TalkMini />}
             />
             <StoryRow
-              index={1}
-              title="A checklist that knows what's next."
-              body="Confetti seeds the tasks that matter and surfaces the right ones at the right time — no more staring at a blank list."
+              chapter="Chapter 02"
+              title="The Reveal."
+              body="A single calm page: what you're hosting, when, for whom, with the risks flagged. No dashboards to decode, no ten tabs of setup."
+              cta={{ label: "See a sample reveal", to: "/party/$id/reveal", params: { id: "ava-liam-wedding" } }}
+              tone="mint"
+              flip
+              art={<RevealMini />}
+            />
+            <StoryRow
+              chapter="Chapter 03"
+              title="Your next three things."
+              body="Not a wall of tasks. Just the three moves that matter this week, in the right order, with the right timing bucket."
+              cta={{ label: "Peek at Maya's list", to: "/party/$id", params: { id: "maya-8th" } }}
+              tone="cream"
               art={<ChecklistMini />}
             />
             <StoryRow
-              index={2}
-              title="Champagne taste, tracked."
-              body="Log expenses as you go. Category bars glow gently when they creep toward the edge — heads up, not a lecture."
-              art={<BudgetMini />}
+              chapter="Chapter 04"
+              title="Guest World, with a Bring Board."
+              body="One link for every guest. They RSVP, claim what to bring, and see host updates. You watch it fill in — no more group-chat archaeology."
+              cta={{ label: "Open a sample invite", to: "/party/$id", params: { id: "maya-8th" } }}
+              tone="coral"
+              flip
+              art={<GuestWorldMini />}
             />
             <StoryRow
-              index={3}
-              title="The morning-of, minute by minute."
-              body="A calm timeline for the day itself, so you can be present instead of glued to a spreadsheet."
+              chapter="Chapter 05"
+              title="Day-of Mode."
+              body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
+              cta={{ label: "Open Day-of Mode", to: "/party/$id/day-of", params: { id: "maya-8th" } }}
+              tone="cream"
               art={<TimelineMini />}
+            />
+            <StoryRow
+              chapter="Chapter 06"
+              title="Memories, so next time is easier."
+              body="A five-minute retrospective after the toast: what worked, what ran out, what to change. It carries into the next gathering as suggestions — not a blank page."
+              cta={{ label: "Read Ava & Liam's retro", to: "/party/$id/reveal", params: { id: "ava-liam-wedding" } }}
+              tone="gold"
+              flip
+              art={<MemoriesMini />}
             />
           </div>
         </div>
       </section>
+
 
       {/* Closing band */}
       <section className="relative overflow-hidden bg-confetti py-20 sm:py-24">
