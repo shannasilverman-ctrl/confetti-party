@@ -469,9 +469,7 @@ function NewPartyWizard({
           // Trigger is a plain <Button>, not <DialogTrigger asChild>, so
           // Radix cannot auto-restore focus. Manually return focus to the
           // "New party" trigger to satisfy the dialog contract.
-          const trigger = document.querySelector<HTMLElement>(
-            '[data-testid="new-party-trigger"]',
-          );
+          const trigger = document.querySelector<HTMLElement>('[data-testid="new-party-trigger"]');
           if (trigger) {
             event.preventDefault();
             trigger.focus();
