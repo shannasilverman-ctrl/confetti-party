@@ -31,7 +31,7 @@ export default defineConfig({
   webServer: {
     // Serve the production build via the Cloudflare Worker preview
     // (nodejs_compat) so E2E hits the same runtime as the deployed site.
-    command: `bunx wrangler dev --config dist/server/wrangler.json --port ${PORT} --local --ip 127.0.0.1`,
+    command: `bun run e2e:server -- --port ${PORT} --local --ip 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

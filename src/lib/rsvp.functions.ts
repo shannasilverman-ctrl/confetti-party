@@ -51,40 +51,57 @@ function isNewSupabaseApiKey(value: string): boolean {
 export const getRsvpLoaderData = createServerFn({ method: "GET" })
   .inputValidator((data: { token: string }) => data)
   .handler(async ({ data }): Promise<RsvpLoaderData> => {
-    const req = getRequest();
-    const proto = req.headers.get("x-forwarded-proto") ?? "https";
-    const host = req.headers.get("host") ?? "";
-    const origin = host ? `${proto}://${host}` : "";
+    // Never let this handler throw — the RSVP route renders a sanitized
+    // "invite not found" UI at HTTP 200 for missing tokens, upstream errors,
+    // or missing server config. Raw errors must not reach the client.
+    let origin = "";
+    try {
+      const req = getRequest();
+      const proto = req.headers.get("x-forwarded-proto") ?? "https";
+      const host = req.headers.get("host") ?? "";
+      origin = host ? `${proto}://${host}` : "";
+    } catch {
+      /* getRequest() is only available during server render */
+    }
 
-    const SUPABASE_URL = process.env.SUPABASE_URL!;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY!;
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+    if (!data?.token || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+      return { party: null, origin };
+    }
 
-    const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-      global: {
-        fetch: (input, init) => {
-          const headers = new Headers(
-            typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
-          );
-          if (init?.headers) {
-            new Headers(init.headers).forEach((v, k) => headers.set(k, v));
-          }
-          if (
-            isNewSupabaseApiKey(SUPABASE_PUBLISHABLE_KEY) &&
-            headers.get("Authorization") === `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
-          ) {
-            headers.delete("Authorization");
-          }
-          headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
-          return fetch(input, { ...init, headers });
+    try {
+      const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+        global: {
+          fetch: (input, init) => {
+            const headers = new Headers(
+              typeof Request !== "undefined" && input instanceof Request
+                ? input.headers
+                : undefined,
+            );
+            if (init?.headers) {
+              new Headers(init.headers).forEach((v, k) => headers.set(k, v));
+            }
+            if (
+              isNewSupabaseApiKey(SUPABASE_PUBLISHABLE_KEY) &&
+              headers.get("Authorization") === `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+            ) {
+              headers.delete("Authorization");
+            }
+            headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
+            return fetch(input, { ...init, headers });
+          },
         },
-      },
-    });
+      });
 
-    // token param name matches the RPC signature
-    const { data: partyData, error } = await supabase.rpc("get_rsvp_party", {
-      token: data.token,
-    });
-    if (error || !partyData) return { party: null, origin };
-    return { party: partyData as unknown as PartyView, origin };
+      const { data: partyData, error } = await supabase.rpc("get_rsvp_party", {
+        token: data.token,
+      });
+      if (error || !partyData) return { party: null, origin };
+      return { party: partyData as unknown as PartyView, origin };
+    } catch {
+      return { party: null, origin };
+    }
   });
+

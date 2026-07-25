@@ -13,8 +13,23 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: ["src/lib/**/*.{ts,tsx}", "src/components/logo.tsx"],
-      exclude: ["src/lib/**/*.functions.ts", "src/lib/**/*.server.ts"],
+      // Only modules with a focused unit suite. This is a regression floor
+      // for tested logic, not a project-wide coverage target.
+      include: [
+        "src/lib/affiliates.ts",
+        "src/lib/holiday-packs.ts",
+        "src/lib/parties-summary.ts",
+        "src/lib/realtime-session.ts",
+        "src/lib/shopping.ts",
+        "src/lib/talk-demo.ts",
+        "src/components/logo.tsx",
+      ],
+      thresholds: {
+        lines: 80,
+        statements: 80,
+        functions: 85,
+        branches: 75,
+      },
     },
   },
 });
