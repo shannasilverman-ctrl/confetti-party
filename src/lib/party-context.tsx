@@ -942,6 +942,23 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if (user) void persist(copy);
         return newId;
       },
+      deleteParty: async (id) => {
+        const prev = parties;
+        const target = prev.find((p) => p.id === id);
+        if (!target) return { error: null };
+        // Optimistic remove.
+        setParties((list) => list.filter((p) => p.id !== id));
+        savingRef.current.delete(id);
+        if (!user) return { error: null };
+        const { error } = await supabase.from("parties").delete().eq("id", id);
+        if (error) {
+          console.error("[parties] delete failed", error);
+          // Rollback local removal so the user is not silently lied to.
+          setParties(prev);
+          return { error: error.message };
+        }
+        return { error: null };
+      },
     }),
     [parties, status, isDemo, user, persist],
   );
