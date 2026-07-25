@@ -10,6 +10,7 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "deploy:preview": "npm run build && wrangler deploy --config .output/server/wrangler.json --name confetti-independent-preview && npm run verify:deployment",
+    "audit:prod": "bun audit --prod --audit-level=high",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -64,6 +64,7 @@ bodies only.
 
 | Command                     | What it runs                                                   |
 | --------------------------- | -------------------------------------------------------------- |
+| `bun run audit:prod`        | High/critical production dependency advisory gate              |
 | `bun run format:check`      | Prettier drift gate                                            |
 | `bun run lint`              | ESLint (0 warnings tolerated in CI)                            |
 | `bun run typecheck`         | `tsc --noEmit`                                                 |
