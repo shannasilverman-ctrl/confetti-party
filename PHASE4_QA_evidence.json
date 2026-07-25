@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-07-25T05:19:28.876Z",
+  "generatedAt": "2026-07-25T05:21:33.865Z",
   "measurements": [
     {
-      "route": "/talk",
-      "width": 390,
-      "scrollWidth": 390,
-      "clientWidth": 390,
+      "route": "/rsvp/00000000-0000-0000-0000-000000000000",
+      "width": 320,
+      "scrollWidth": 320,
+      "clientWidth": 320,
       "overflowsBy": 0
     }
   ]
