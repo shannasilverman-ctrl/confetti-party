@@ -12,6 +12,7 @@ import { resolve } from "node:path";
  */
 
 const REQUIRED_PUBLIC_FILES = ["public/brand/confetti-hero.jpg", "public/brand/ava-liam.jpg"];
+const MANIFEST_PATH = "public/manifest.webmanifest";
 
 // Performance contract: enforce upper-bound sizes on branded imagery so
 // we do not silently regress LCP. Values are generous ceilings above the
@@ -35,6 +36,67 @@ test.describe("first-party image asset contract", () => {
         ).toBeLessThanOrEqual(cap);
       }
     }
+  });
+
+  test("installable app manifest has stable branded launch metadata", async ({ request }) => {
+    test.skip(test.info().project.name !== "desktop", "manifest contract runs once");
+
+    const manifestFile = statSync(resolve(process.cwd(), MANIFEST_PATH));
+    expect(manifestFile.isFile(), `${MANIFEST_PATH} must exist as a file`).toBe(true);
+
+    const response = await request.get("/manifest.webmanifest");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/manifest+json");
+
+    const manifest = (await response.json()) as {
+      name?: string;
+      short_name?: string;
+      start_url?: string;
+      scope?: string;
+      display?: string;
+      theme_color?: string;
+      icons?: Array<{ src?: string; sizes?: string; purpose?: string }>;
+      shortcuts?: Array<{ url?: string }>;
+    };
+
+    expect(manifest.name).toContain("Confetti");
+    expect(manifest.short_name).toBe("Confetti");
+    expect(manifest.start_url).toBe("/app");
+    expect(manifest.scope).toBe("/");
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.theme_color).toBe("#3B1E5E");
+    expect(manifest.icons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          src: "/favicon.svg",
+          sizes: "any",
+          purpose: expect.stringContaining("maskable"),
+        }),
+      ]),
+    );
+    expect(manifest.shortcuts?.map((shortcut) => shortcut.url)).toEqual(
+      expect.arrayContaining(["/app", "/talk"]),
+    );
+  });
+
+  test("document advertises the manifest and mobile app identity", async ({ page }) => {
+    test.skip(test.info().project.name !== "desktop", "head contract runs once");
+
+    await page.goto("/");
+
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+      "href",
+      "/manifest.webmanifest",
+    );
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#3B1E5E");
+    await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute(
+      "content",
+      "yes",
+    );
+    await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute(
+      "content",
+      "Confetti",
+    );
   });
 
   test("landing + sample workspace image URLs return 2xx and no /__l5e/ refs", async ({
