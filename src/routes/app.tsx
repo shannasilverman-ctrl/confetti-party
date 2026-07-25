@@ -504,6 +504,45 @@ function NewPartyWizard({
 
         {step === 2 && (
           <div className="grid gap-4 py-4">
+            {occasion === "holiday" && (
+              <fieldset
+                aria-label="Holiday starter"
+                className="rounded-2xl border border-border bg-muted/30 p-3"
+              >
+                <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Starter (optional)
+                </legend>
+                <p className="mb-2 px-1 text-xs text-muted-foreground">
+                  Pre-fills a name, checklist, and bring board. Everything stays editable.
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label="Holiday starter choices"
+                  className="flex flex-wrap gap-2"
+                >
+                  {HOLIDAY_STARTERS.map((s) => {
+                    const active = holidayStarter === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => pickStarter(s.id)}
+                        className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition ${
+                          active
+                            ? "border-primary bg-primary/10 text-secondary shadow-sm"
+                            : "border-border bg-background text-secondary hover:border-primary/40"
+                        }`}
+                      >
+                        <span aria-hidden>{s.emoji}</span>
+                        <span>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
             <div>
               <Label htmlFor="name">Party name</Label>
               <Input
