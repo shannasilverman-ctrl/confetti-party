@@ -6,6 +6,8 @@ import {
   addThemeToShopping,
   togglePin,
   OCCASION_LABELS,
+  planningDetailIsOpen,
+  resolvePlanningDetails,
 } from "@/lib/party-context";
 import { themeById, themeGalleryForOccasion, type DecorIdea, type Theme } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
@@ -81,12 +83,24 @@ export function ThemeTab({ partyId }: { partyId: string }) {
     origin?: { x: number; y: number };
   } | null>(null);
 
+  function applyTheme(t: Theme) {
+    updateParty(partyId, (p) =>
+      resolvePlanningDetails({ ...p, themeId: t.id, theme: t.name }, ["theme"]),
+    );
+  }
+
   function selectTheme(t: Theme, e?: React.MouseEvent) {
-    if (party.themeId === t.id) return;
+    if (party.themeId === t.id) {
+      if (!planningDetailIsOpen(party, "theme")) return;
+      applyTheme(t);
+      if (e) celebrateAtEvent("small", e);
+      toast.success("Look confirmed", { description: t.name });
+      return;
+    }
     const origin = e ? { x: e.clientX, y: e.clientY } : undefined;
     // First-time selection (no active theme yet): commit immediately.
     if (!activeTheme) {
-      updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
+      applyTheme(t);
       if (e) celebrateAtEvent("small", e);
       return;
     }
@@ -96,7 +110,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   function confirmSwitch() {
     if (!pendingSwitch) return;
     const t = pendingSwitch.theme;
-    updateParty(partyId, (p) => ({ ...p, themeId: t.id, theme: t.name }));
+    applyTheme(t);
     celebrate("small", pendingSwitch.origin);
     setPendingSwitch(null);
   }

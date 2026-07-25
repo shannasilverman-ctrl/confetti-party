@@ -38,7 +38,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                      |
 | ESLint                | Passed                                                                 |
 | TypeScript            | Passed with `tsc --noEmit`                                             |
-| Vitest                | 44 files, 330 tests passed                                             |
+| Vitest                | 45 files, 332 tests passed                                             |
 | Production build      | Passed                                                                 |
 | Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                      |
 | Playwright            | Desktop and mobile projects passed; project-specific skips intentional |
@@ -70,6 +70,10 @@ green.
   content, and raw provider bodies.
 - Photo Drop stores only a validated HTTPS destination. Photos go directly
   to the host's selected provider; outbound links suppress referrers.
+- Skipped date, guest-count, budget, and look decisions remain explicitly
+  open across quick start, workspace, checklist, invitation, and Reveal
+  surfaces. A placeholder date cannot be shared, checked off, or deleted into
+  becoming a guest-visible fact.
 - Account export strips bring-item claim secrets. Account and party deletion
   have explicit confirmation and failure recovery.
 

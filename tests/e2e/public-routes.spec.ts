@@ -172,9 +172,11 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
   await page.getByTestId("wizard-open-plan").click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Neighborhood potluck" })).toBeVisible();
+  await expect(page.locator("header").getByText("Date to decide", { exact: true })).toBeVisible();
+  await expect(page.getByText("Keep planning—nothing has been guessed.")).toBeVisible();
   await page
     .getByLabel("Party quick actions")
-    .getByRole("button", { name: "Create invite" })
+    .getByRole("button", { name: "Finish invite details" })
     .click();
 
   const dateRequired = page.getByTestId("invite-date-required");
@@ -187,6 +189,23 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
   await page.getByRole("dialog").getByRole("button", { name: "Close" }).first().click();
   await page.getByRole("button", { name: "Copy RSVP link" }).click();
   await expect(page.getByRole("heading", { name: "Pick the date before sharing" })).toBeVisible();
+  await page.getByRole("button", { name: "Keep planning" }).click();
+
+  await page.getByRole("button", { name: "Checklist", exact: true }).click();
+  const dateTask = page.getByTestId("planning-task-date");
+  await expect(dateTask).toBeVisible();
+  await expect(dateTask.getByRole("checkbox")).toHaveCount(0);
+  await expect(dateTask.getByRole("button", { name: "Delete task" })).toHaveCount(0);
+  await expect(dateTask.getByRole("button", { name: "Add details" })).toBeVisible();
+
+  await dateTask.getByRole("button", { name: "Add details" }).click();
+  await expect(page.getByRole("heading", { name: "Edit party details" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Overview", exact: true }).click();
+  await page.getByLabel("Party quick actions").getByRole("link", { name: "Reveal" }).click();
+  await expect(page).toHaveURL(/\/reveal$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Neighborhood potluck" })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Date to decide", { exact: true })).toBeVisible();
 });
 
 test("retrospective reveal can start the next gathering without setup friction", async ({

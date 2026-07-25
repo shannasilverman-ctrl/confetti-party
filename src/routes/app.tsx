@@ -10,6 +10,7 @@ import {
   type OccasionType,
   type Task,
   newId,
+  openPlanningDetails,
   planningDetailIsOpen,
   PLANNING_TASK_TITLES,
 } from "@/lib/party-context";
@@ -793,13 +794,16 @@ function NewPartyWizard({
               {createdParty.name}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Everything's seeded. Open the plan whenever you're ready.
+              Your starting plan is ready. Anything you skipped is waiting—not guessed.
             </p>
             <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
               <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
               <PlanStat label="Shopping items" value={createdParty.shoppingItems.length} />
-              <PlanStat label="Theme applied" value={createdParty.theme} />
-              <PlanStat label="Budget set" value={`$${createdParty.budget}`} />
+              <PlanStat label="Suggested look" value={createdParty.theme} />
+              <PlanStat
+                label="Open decisions"
+                value={openPlanningDetails(createdParty).length || "None"}
+              />
             </div>
           </div>
         )}
