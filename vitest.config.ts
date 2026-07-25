@@ -41,7 +41,6 @@ export default defineConfig({
         functions: 80,
         branches: 70,
       },
-
     },
   },
 });
