@@ -695,12 +695,41 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [parties, setParties] = useState<Party[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadKey, setReloadKey] = useState(0);
-  const savingRef = useRef<Map<string, "in-flight" | Party>>(new Map());
+  const [saveStates, setSaveStates] = useState<Record<string, SaveStateSnapshot>>({});
   // Ids that have been deleted this session; blocks in-flight saves from
   // resurrecting a row after deleteParty() completed.
   const tombstonesRef = useRef<Set<string>>(new Set());
   const [demoWarning, setDemoWarning] = useState<null | "corrupt" | "quota" | "oversized">(null);
   const warnedRef = useRef<Set<string>>(new Set());
+
+  // Persistence store — deterministic queue with column-diffed writes,
+  // optimistic concurrency, 3-way merges, and bounded retry.
+  const storeRef = useRef<PartyStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = new PartyStore({
+      client: makeSupabaseClient(),
+      isTombstoned: (id) => tombstonesRef.current.has(id),
+      onEvent: (ev: StoreEvent) => {
+        if (ev.type === "state") {
+          setSaveStates((prev) => ({ ...prev, [ev.id]: ev.state }));
+        } else if (ev.type === "server-row") {
+          setParties((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
+        } else if (ev.type === "toast") {
+          if (ev.kind === "error") toast.error(ev.message);
+          else toast.message(ev.message);
+        }
+      },
+    });
+  }
+  const store = storeRef.current;
+
+  // Online-recovery: flush queued saves when the browser regains network.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOnline = () => store.flushAll();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [store]);
 
   // Load data based on auth state.
   useEffect(() => {
@@ -730,7 +759,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           setStatus("error");
           return;
         }
-        setParties((data ?? []).map(rowToParty));
+        const loaded = (data ?? []).map((r) => rowToParty(r));
+        setParties(loaded);
+        // Seed baselines so subsequent updates diff against real server state.
+        for (const p of loaded) store.seedBaseline(p, user.id);
         setStatus("ready");
         // Signed in: demo storage is no longer authoritative.
         _clearDemoState();
@@ -738,7 +770,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, reloadKey]);
+  }, [user, authLoading, reloadKey, store]);
 
   // Persist demo parties to localStorage whenever they change (signed-out only).
   useEffect(() => {
@@ -764,67 +796,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     setDemoWarning(null);
   }, [demoWarning]);
 
-  const persist = useCallback(
-    async (p: Party) => {
-      if (!user) return;
-      // Guard: if this row was deleted this session, never resurrect it.
-      if (tombstonesRef.current.has(p.id)) {
-        savingRef.current.delete(p.id);
-        return;
-      }
-      const state = savingRef.current.get(p.id);
-      if (state) {
-        // Save already in flight (or queued); record the latest pending state.
-        savingRef.current.set(p.id, p);
-        return;
-      }
-      savingRef.current.set(p.id, "in-flight");
-      let current: Party = p;
-      try {
-        while (true) {
-          if (tombstonesRef.current.has(current.id)) {
-            savingRef.current.delete(current.id);
-            return;
-          }
-          const { data, error } = await supabase
-            .from("parties")
-            .upsert(partyToRow(current, user.id))
-            .select("rsvp_token")
-            .maybeSingle();
-          if (error) {
-            console.error("[parties] save failed", error);
-            toast.error("Couldn't save changes. Check your connection.");
-            const pending = savingRef.current.get(current.id);
-            if (!pending || pending === "in-flight") {
-              savingRef.current.set(current.id, current);
-            }
-            return;
-          }
-          const token = data?.rsvp_token;
-          if (token && !current.rsvpToken) {
-            setParties((prev) =>
-              prev.map((pp) => (pp.id === current.id ? { ...pp, rsvpToken: token } : pp)),
-            );
-          }
-          const pending = savingRef.current.get(current.id);
-          if (pending && pending !== "in-flight") {
-            current = pending;
-            savingRef.current.set(current.id, "in-flight");
-            continue;
-          }
-          break;
-        }
-        savingRef.current.delete(p.id);
-      } catch (e) {
-        console.error("[parties] save threw", e);
-        const pending = savingRef.current.get(p.id);
-        if (!pending || pending === "in-flight") {
-          savingRef.current.set(p.id, current);
-        }
-      }
-    },
-    [user],
-  );
 
   const value = useMemo<Ctx>(
     () => ({
