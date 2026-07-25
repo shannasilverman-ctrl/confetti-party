@@ -11,18 +11,21 @@ import { test, expect } from "@playwright/test";
  * Signed-out demo mode is used (no auth flow required).
  */
 test.describe("New Party dialog — keyboard + focus contract", () => {
-  test("focus trap, labels, Escape returns focus", async ({ page }) => {
+  test("focus trap, labels, Escape returns focus to the exact trigger", async ({ page }) => {
     await page.goto("/app");
     await page.waitForLoadState("networkidle");
-    const trigger = page.getByRole("button", { name: /new party/i }).first();
+    const trigger = page.getByTestId("new-party-trigger");
     await expect(trigger).toBeVisible();
+    // Stamp the DOM node with a probe id so the post-close focus check can
+    // compare *stable node identity*, not user-facing text.
+    await trigger.evaluate((el) => el.setAttribute("data-focus-probe", "trigger-a"));
     await trigger.focus();
     await trigger.press("Enter");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
-    // Initial focus must be inside the dialog after open.
+    // Initial focus must land *inside* the dialog after open.
     const focusInsideDialog = await page.evaluate(() => {
       const d = document.querySelector('[role="dialog"]');
       const a = document.activeElement;
@@ -31,11 +34,11 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     expect(focusInsideDialog).toBe(true);
 
     // Pick an occasion so step 2 renders with form fields to tab through.
-    await page
+    await dialog
       .getByRole("button", { name: /holiday/i })
       .first()
       .click();
-    await page.getByRole("button", { name: /continue|next/i }).click();
+    await dialog.getByRole("button", { name: /continue|next/i }).click();
 
     // Every visible input in the dialog must have an accessible name.
     const dialogInputs = dialog.locator("input");
@@ -68,35 +71,45 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
       expect(trapped, `Tab ${i} stayed inside dialog`).toBe(true);
     }
 
-    // Escape closes and focus returns to the exact trigger button.
+    // Escape closes and focus returns to the *exact same DOM node* by probe id.
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    const focusReturned = await page.evaluate(
-      (label) =>
-        document.activeElement?.textContent?.toLowerCase().includes(label.toLowerCase()) ?? false,
-      "new party",
+    const returnedProbe = await page.evaluate(
+      () => document.activeElement?.getAttribute("data-focus-probe") ?? null,
     );
-    expect(focusReturned).toBe(true);
+    expect(returnedProbe).toBe("trigger-a");
   });
 
-  test("primary dialog actions are ≥44×44 CSS px on mobile widths", async ({ page }) => {
+  test("every visible primary tap target inside the wizard is ≥44×44 CSS px", async ({ page }) => {
     for (const width of [320, 375, 390, 430]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/app");
       await page.waitForLoadState("networkidle");
-      await page
-        .getByRole("button", { name: /new party/i })
-        .first()
-        .click();
+      await page.getByTestId("new-party-trigger").click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
 
-      // Occasion cards are the primary tap targets on step 1.
-      const occasion = dialog.getByRole("button", { name: /holiday/i }).first();
-      const box = await occasion.boundingBox();
-      expect(box, `occasion tap target measurable @${width}`).not.toBeNull();
-      expect(box!.width, `width ≥44 @${width}`).toBeGreaterThanOrEqual(44);
-      expect(box!.height, `height ≥44 @${width}`).toBeGreaterThanOrEqual(44);
+      // Measure every visible role=button inside the dialog on step 1.
+      const buttons = dialog.getByRole("button");
+      const btnCount = await buttons.count();
+      let measured = 0;
+      for (let i = 0; i < btnCount; i++) {
+        const b = buttons.nth(i);
+        if (!(await b.isVisible())) continue;
+        const box = await b.boundingBox();
+        if (!box) continue;
+        const label = (await b.textContent())?.trim().slice(0, 40) || `button[${i}]`;
+        expect(
+          box.width,
+          `[@${width}] "${label}" width ${box.width.toFixed(1)} <44`,
+        ).toBeGreaterThanOrEqual(44);
+        expect(
+          box.height,
+          `[@${width}] "${label}" height ${box.height.toFixed(1)} <44`,
+        ).toBeGreaterThanOrEqual(44);
+        measured++;
+      }
+      expect(measured, `measured ≥1 tap target @${width}`).toBeGreaterThan(0);
 
       await page.keyboard.press("Escape");
     }
