@@ -793,7 +793,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     let cancelled = false;
     if (!user) {
-      setParties([seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()]);
+      const stored = loadDemoParties();
+      setParties(
+        stored && stored.length > 0
+          ? stored
+          : [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()],
+      );
       setStatus("ready");
       return;
     }
@@ -812,11 +817,20 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         }
         setParties((data ?? []).map(rowToParty));
         setStatus("ready");
+        // Signed in: demo storage is no longer authoritative.
+        clearDemoParties();
       });
     return () => {
       cancelled = true;
     };
   }, [user, authLoading, reloadKey]);
+
+  // Persist demo parties to localStorage whenever they change (signed-out only).
+  useEffect(() => {
+    if (authLoading || user) return;
+    if (status !== "ready") return;
+    saveDemoParties(parties);
+  }, [parties, user, authLoading, status]);
 
   const persist = useCallback(
     async (p: Party) => {
