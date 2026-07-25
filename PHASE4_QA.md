@@ -21,22 +21,30 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 | Build     | `bun run build` (`vite build`)                                                                                                                                                                                                |
 | E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, webServer via `scripts/wrangler-config-path.mjs` → `.output/server/wrangler.json` on CI / `dist/server/wrangler.json` in the Lovable sandbox; no `reuseExistingServer` in CI) |
 
-Latest local execution on Turn 2 branch (baseline SHA `f665f94` + Turn 2
-edits; SHA finalised on push):
+Latest local execution after the clean-CI review follow-up (pending SHA
+finalised on push; canonical CI-facing path now enforced strictly — see §5):
 
-| Gate                            | Result                                   |
-| ------------------------------- | ---------------------------------------- |
-| `bun install --frozen-lockfile` | ok                                       |
-| `bun run format:check`          | Prettier — all files clean               |
-| `bun run lint`                  | ESLint — 0 problems                      |
-| `bun run typecheck`             | `tsc --noEmit` — 0 errors                |
-| `bun run test`                  | Vitest — 117 passed / 17 files           |
-| `bun run build`                 | Vite + Nitro — built in ~0.7s            |
-| `CI=1 … playwright test`        | 76 passed, 48 skipped, 0 failed (exit 0) |
+| Gate                            | Result                                                       |
+| ------------------------------- | ------------------------------------------------------------ |
+| `bun install --frozen-lockfile` | ok                                                           |
+| `bun run format:check`          | Prettier — all files clean                                   |
+| `bun run lint`                  | ESLint — 0 problems                                          |
+| `bun run typecheck`             | `tsc --noEmit` — 0 errors                                    |
+| `bun run test` (BEFORE build)   | Vitest — **127 passed / 18 files** (no repo-state deps)      |
+| `bun run build`                 | Vite + Nitro — ok; sandbox emits `dist/server/wrangler.json` |
+| `PW_PORT=4271 verify:webserver` | 200 OK, exit 0                                               |
+| `CI=1 … playwright test`        | **75 passed, 48 skipped, 0 failed, 1 flaky** (exit 0)        |
 
-No release PR exists yet; when the branch is pushed the GitHub Actions
-run URL should be appended here. The `48 skipped` count is the
-mobile-only project skipping desktop tests (and vice-versa) — expected.
+The one flaky test (`focus trap, labels, Escape returns focus to the exact
+trigger @ desktop`) passed on retry (retries=1 in CI).
+
+GitHub Actions run URL: **pending observation of the new run after push**.
+Prior run #19 (SHA `2de1303`) was red at the Unit step because the
+`wrangler-config-path` unit test depended on repo-state build output that
+does not exist before the Build step. That contract is now proved with
+isolated tmp fixtures (see §5); no unit assertion touches the real repo
+build directory. The `48 skipped` count is the mobile-only project skipping
+desktop tests (and vice-versa) — expected.
 
 ## 2. Bundle byte counts (this commit)
 
@@ -223,7 +231,7 @@ bun install --frozen-lockfile
 bun run format:check
 bun run lint
 bun run typecheck
-bun run test
+bun run test          # runs BEFORE build; uses isolated tmp fixtures
 bun run test:coverage
 bun run build
 CI=1 bunx playwright install --with-deps chromium
@@ -232,3 +240,33 @@ CI=1 bun run test:e2e
 
 Report exact `SHA`, exit codes, and Playwright pass/fail/skip counts on
 the branch after running. Do not publish or touch domains/data/secrets.
+
+## 10. Wrangler config path — CI contract (clean-CI review fix)
+
+Previous GitHub run #19 (SHA `2de1303`) failed at the Unit step because
+`tests/unit/wrangler-config-path.test.ts` called `resolveWranglerConfigPath()`
+against the real repo and expected build output that cannot exist yet —
+Unit runs BEFORE Build in CI on purpose. That test is now rewritten to
+use isolated `mkdtempSync` fixtures and asserts deterministic path
+semantics with no dependency on the repo's build directory.
+
+Canonical-only mode (GitHub Actions / any env with `WRANGLER_STRICT_OUTPUT=1`)
+accepts EXACTLY `.output/server/wrangler.json`. A pre-existing `dist/`
+never satisfies the contract in that mode — proved by a fixture test
+that seeds `dist/server/wrangler.json` only and asserts the resolver
+throws. This kills the stale-dir masking failure mode.
+
+Local sandbox mode (no `GITHUB_ACTIONS`, no `WRANGLER_STRICT_OUTPUT`)
+prefers `.output/` when present and falls back to `dist/` only when
+`.output/` is absent — never a silent dist-first pick. Generic `CI=1`
+alone does NOT force canonical-only: the sandbox smoke run sets `CI=1`
+only to force Playwright's no-reuse webServer mode; canonical
+strictness is opt-in via `GITHUB_ACTIONS=true` or
+`WRANGLER_STRICT_OUTPUT=1`.
+
+The nine `tests/unit/wrangler-config-path.test.ts` cases cover: pinned
+constants, canonical-only in GitHub Actions and via opt-in, generic
+`CI=1` behavior, stale-dist rejection, fresh `.output/` resolution,
+sandbox `.output/`-first preference when both exist, dist-only
+fallback, missing-both throws with a build hint, and
+`requireExists:false` for path derivation.
