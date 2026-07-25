@@ -119,12 +119,15 @@ function PartyWorkspace() {
     (i) => i.status === "needed" || i.status === "in-cart",
   ).length;
 
+  const bringOpen = (party.bringBoard ?? []).filter((b) => b.status === "open").length;
+
   const tabs: { key: TabKey; label: string; icon: typeof ListChecks; badge?: number }[] = [
     { key: "overview", label: "Overview", icon: LayoutDashboard },
     { key: "theme", label: "Theme", icon: Palette },
     { key: "shopping", label: "Shopping", icon: ShoppingCart, badge: cartCount },
     { key: "checklist", label: "Checklist", icon: ListChecks },
     { key: "guests", label: "Guests", icon: Users },
+    { key: "bring", label: "Bring & Photos", icon: Gift, badge: bringOpen },
     { key: "budget", label: "Budget", icon: Wallet },
     { key: "timeline", label: "Timeline", icon: Clock },
   ];
@@ -143,6 +146,18 @@ function PartyWorkspace() {
                 </Link>
               </Button>
               <BrandLockup />
+            </div>
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button asChild size="sm" variant="outline">
+                <Link to="/party/$id/reveal" params={{ id: party.id }}>
+                  <Sparkle className="h-4 w-4" /> Reveal
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/party/$id/day-of" params={{ id: party.id }}>
+                  <Timer className="h-4 w-4" /> Day-of
+                </Link>
+              </Button>
             </div>
           </div>
 
