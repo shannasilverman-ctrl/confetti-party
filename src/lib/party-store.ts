@@ -58,7 +58,8 @@ export class PartyStore {
   constructor(opts: PartyStoreOptions) {
     this.opts = {
       sleep: opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
-      isOnline: opts.isOnline ?? (() => (typeof navigator === "undefined" ? true : navigator.onLine)),
+      isOnline:
+        opts.isOnline ?? (() => (typeof navigator === "undefined" ? true : navigator.onLine)),
       onEvent: opts.onEvent,
       client: opts.client,
       isTombstoned: opts.isTombstoned,
@@ -248,12 +249,20 @@ export class PartyStore {
     e.attempts += 1;
     if (error.kind === "network" && !this.opts.isOnline()) {
       this.setState(id, "offline");
-      this.emit({ type: "toast", kind: "error", message: "You're offline. We'll retry when you're back." });
+      this.emit({
+        type: "toast",
+        kind: "error",
+        message: "You're offline. We'll retry when you're back.",
+      });
       return true;
     }
     if (e.attempts >= MAX_ATTEMPTS) {
       this.setState(id, "error");
-      this.emit({ type: "toast", kind: "error", message: `Couldn't save changes: ${error.message}. Tap retry.` });
+      this.emit({
+        type: "toast",
+        kind: "error",
+        message: `Couldn't save changes: ${error.message}. Tap retry.`,
+      });
       return true;
     }
     await this.opts.sleep(nextBackoff(e.attempts));
@@ -270,7 +279,10 @@ export class PartyStore {
     if (!e || !e.baseline) return false;
     const { data: fresh, error } = await this.opts.client.fetch(id);
     if (error || !fresh) {
-      const done = await this.handleError(id, error ?? { message: "Row vanished", kind: "unknown" });
+      const done = await this.handleError(
+        id,
+        error ?? { message: "Row vanished", kind: "unknown" },
+      );
       return !done ? true : false;
     }
     const contended = contendedColumns(e.baseline, nextRow, fresh).filter((c) =>

@@ -625,11 +625,7 @@ const PartyContext = createContext<Ctx | null>(null);
 
 // rowToParty and partyToRow now live in party-persistence.ts so tests can
 // share them. Re-export the shapes used elsewhere in this module.
-import {
-  rowToParty as _rowToParty,
-  partyToColumns,
-  type PartyRow,
-} from "./party-persistence";
+import { rowToParty as _rowToParty, partyToColumns, type PartyRow } from "./party-persistence";
 import { PartyStore, type StoreEvent } from "./party-store";
 import { makeSupabaseClient } from "./party-supabase-client";
 
@@ -796,7 +792,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     setDemoWarning(null);
   }, [demoWarning]);
 
-
   const value = useMemo<Ctx>(
     () => ({
       parties,
@@ -879,7 +874,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }),
     [parties, status, isDemo, user, store, saveStates],
   );
-
 
   return <PartyContext.Provider value={value}>{children}</PartyContext.Provider>;
 }
