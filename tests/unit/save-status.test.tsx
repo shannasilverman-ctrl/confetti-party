@@ -45,9 +45,7 @@ describe("SaveStatus", () => {
     const alert = screen.getByTestId("save-status-alert");
     expect(alert.getAttribute("role")).toBe("alert");
     expect(alert.getAttribute("aria-live")).toBe("assertive");
-    expect(screen.getByTestId("save-status-use-mine").textContent).toMatch(
-      /replace someone else/i,
-    );
+    expect(screen.getByTestId("save-status-use-mine").textContent).toMatch(/replace someone else/i);
     expect(screen.getByTestId("save-status-keep-theirs").textContent).toMatch(
       /drops my guest\/claim edits/i,
     );

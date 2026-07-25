@@ -59,9 +59,7 @@ export function SaveStatus({ partyId }: { partyId: string }) {
   const theirsLabel = guestConflict
     ? "Use latest from cloud (drops my guest/claim edits)"
     : "Use latest from cloud";
-  const safeMergedCount = conflict
-    ? Object.keys(conflict.safeMergedValues ?? {}).length
-    : 0;
+  const safeMergedCount = conflict ? Object.keys(conflict.safeMergedValues ?? {}).length : 0;
 
   return (
     <div className="flex w-full flex-wrap items-center gap-2" data-testid="save-status">
@@ -128,8 +126,8 @@ export function SaveStatus({ partyId }: { partyId: string }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-secondary">Not saved to the cloud</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Kept in this browser for now. Details are saved locally for one recovery
-                    attempt — retrying is the safest option.
+                    Kept in this browser for now. Details are saved locally for one recovery attempt
+                    — retrying is the safest option.
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button
@@ -161,9 +159,7 @@ export function SaveStatus({ partyId }: { partyId: string }) {
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-secondary">
-                    This party changed elsewhere
-                  </p>
+                  <p className="text-sm font-medium text-secondary">This party changed elsewhere</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     A concurrent edit touched: {conflict.columns.map(labelFor).join(", ")}.
                     {safeMergedCount > 0 &&

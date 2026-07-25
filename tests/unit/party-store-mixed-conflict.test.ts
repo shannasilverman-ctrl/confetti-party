@@ -54,7 +54,10 @@ class FakeDb {
   }
   client(): PartyClient {
     return {
-      insert: async () => ({ data: null, error: { kind: "network", retryable: true, message: "boom" } }),
+      insert: async () => ({
+        data: null,
+        error: { kind: "network", retryable: true, message: "boom" },
+      }),
       updateWithConcurrency: async (id, patch, expected) => {
         const cur = this.rows.get(id);
         if (!cur) return { data: null, error: null, conflict: true };
