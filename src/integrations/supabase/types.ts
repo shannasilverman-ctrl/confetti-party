@@ -152,6 +152,27 @@ export type Database = {
         }
         Relationships: []
       }
+      rsvp_action_budget: {
+        Row: {
+          action: string
+          bucket_start: string
+          count: number
+          party_id: string
+        }
+        Insert: {
+          action: string
+          bucket_start: string
+          count?: number
+          party_id: string
+        }
+        Update: {
+          action?: string
+          bucket_start?: string
+          count?: number
+          party_id?: string
+        }
+        Relationships: []
+      }
       talk_sessions: {
         Row: {
           audio_seconds_in: number | null
@@ -255,10 +276,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      bump_ai_turn: {
-        Args: { _cap?: number; _draft_id: string; _window_ms?: number }
-        Returns: Json
+      _bump_rsvp_budget: {
+        Args: {
+          _action: string
+          _bucket_seconds: number
+          _limit: number
+          _party_id: string
+        }
+        Returns: boolean
       }
+      _validate_confirm_collection: {
+        Args: { _max_bytes: number; _max_items: number; _val: Json }
+        Returns: undefined
+      }
+      bump_ai_turn: { Args: { _draft_id: string }; Returns: Json }
       claim_bring_item: {
         Args: {
           guest_name: string
