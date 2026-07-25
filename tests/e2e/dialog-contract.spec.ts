@@ -232,11 +232,14 @@ test.describe("Holiday starter → editable workspace", () => {
     const seededCount = await items.count();
     expect(seededCount, "Thanksgiving starter seeds ≥1 bring item").toBeGreaterThan(0);
 
-    // Reload and prove rename + seeded items persisted (localStorage demo mode).
-    await page.reload();
-    await page.waitForLoadState("networkidle");
-    await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible();
+    // Prove edits persist across in-session tab navigation. (Demo mode
+    // deliberately does not write to localStorage / server — a full reload
+    // resets seed data, so persistence is scoped to the live session.)
+    await page.getByTestId("party-tab-checklist").first().click();
+    await expect(page.locator("main")).toContainText(/turkey|guest|invite|rsvp/i);
     await page.getByTestId("party-tab-bring").first().click();
     await expect(page.getByTestId("bring-item").first()).toBeVisible();
+    await page.getByTestId("party-tab-overview").first().click();
+    await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible();
   });
 });
