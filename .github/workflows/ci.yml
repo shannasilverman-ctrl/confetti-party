@@ -48,6 +48,9 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
 
+      - name: Verify webServer contract (spawn declared command, wait for 200)
+        run: bun run verify:webserver
+
       - name: E2E tests
         run: bun run test:e2e
 
