@@ -39,8 +39,16 @@ export type PartyView = {
   total_count: number;
 };
 
+/**
+ * Discriminated result so the route can render the right sanitized UI:
+ *   - "ok"                     → party found
+ *   - "not_found"              → RPC succeeded, no party for that token
+ *   - "temporarily_unavailable" → missing server config, upstream/RPC/network error
+ * Both non-ok branches carry no raw error details.
+ */
 export type RsvpLoaderData = {
   party: PartyView | null;
+  status: "ok" | "not_found" | "temporarily_unavailable";
   origin: string;
 };
 
@@ -48,30 +56,41 @@ function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
 
-export const getRsvpLoaderData = createServerFn({ method: "GET" })
-  .inputValidator((data: { token: string }) => data)
-  .handler(async ({ data }): Promise<RsvpLoaderData> => {
-    // Never let this handler throw — the RSVP route renders a sanitized
-    // "invite not found" UI at HTTP 200 for missing tokens, upstream errors,
-    // or missing server config. Raw errors must not reach the client.
-    let origin = "";
-    try {
-      const req = getRequest();
-      const proto = req.headers.get("x-forwarded-proto") ?? "https";
-      const host = req.headers.get("host") ?? "";
-      origin = host ? `${proto}://${host}` : "";
-    } catch {
-      /* getRequest() is only available during server render */
-    }
+function readOrigin(): string {
+  try {
+    const req = getRequest();
+    const proto = req.headers.get("x-forwarded-proto") ?? "https";
+    const host = req.headers.get("host") ?? "";
+    return host ? `${proto}://${host}` : "";
+  } catch {
+    return "";
+  }
+}
 
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-    if (!data?.token || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      return { party: null, origin };
-    }
+/** Pure helper — extracted so it can be unit-tested with an injected supabase client. */
+export async function resolveRsvpLoaderData(
+  token: string | undefined,
+  deps: {
+    origin: string;
+    supabaseUrl: string | undefined;
+    supabaseKey: string | undefined;
+    rpc?: (t: string) => Promise<{ data: unknown; error: unknown }>;
+  },
+): Promise<RsvpLoaderData> {
+  const { origin, supabaseUrl, supabaseKey } = deps;
 
-    try {
-      const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  // A malformed / missing token is a client-side "not found", not an outage.
+  if (!token) return { party: null, status: "not_found", origin };
+
+  // Missing server configuration is an outage, not a bad link.
+  if (!supabaseUrl || !supabaseKey) {
+    return { party: null, status: "temporarily_unavailable", origin };
+  }
+
+  const rpc =
+    deps.rpc ??
+    (async (t: string) => {
+      const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
         auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
         global: {
           fetch: (input, init) => {
@@ -84,23 +103,44 @@ export const getRsvpLoaderData = createServerFn({ method: "GET" })
               new Headers(init.headers).forEach((v, k) => headers.set(k, v));
             }
             if (
-              isNewSupabaseApiKey(SUPABASE_PUBLISHABLE_KEY) &&
-              headers.get("Authorization") === `Bearer ${SUPABASE_PUBLISHABLE_KEY}`
+              isNewSupabaseApiKey(supabaseKey) &&
+              headers.get("Authorization") === `Bearer ${supabaseKey}`
             ) {
               headers.delete("Authorization");
             }
-            headers.set("apikey", SUPABASE_PUBLISHABLE_KEY);
+            headers.set("apikey", supabaseKey);
             return fetch(input, { ...init, headers });
           },
         },
       });
+      return await supabase.rpc("get_rsvp_party", { token: t });
+    });
 
-      const { data: partyData, error } = await supabase.rpc("get_rsvp_party", {
-        token: data.token,
-      });
-      if (error || !partyData) return { party: null, origin };
-      return { party: partyData as unknown as PartyView, origin };
-    } catch {
-      return { party: null, origin };
+  try {
+    const { data: partyData, error } = await rpc(token);
+    if (error) {
+      // RPC returned a transport/permission error — treat as outage.
+      return { party: null, status: "temporarily_unavailable", origin };
     }
+    if (!partyData) {
+      // RPC succeeded with no party — genuine not-found.
+      return { party: null, status: "not_found", origin };
+    }
+    return { party: partyData as unknown as PartyView, status: "ok", origin };
+  } catch {
+    // Network / thrown error — outage, never a bad link.
+    return { party: null, status: "temporarily_unavailable", origin };
+  }
+}
+
+export const getRsvpLoaderData = createServerFn({ method: "GET" })
+  .inputValidator((data: { token: string }) => data)
+  .handler(async ({ data }): Promise<RsvpLoaderData> => {
+    // Never let this handler throw — the RSVP route renders a sanitized
+    // UI at HTTP 200 for any non-ok state. Raw errors must not reach the client.
+    return resolveRsvpLoaderData(data?.token, {
+      origin: readOrigin(),
+      supabaseUrl: process.env.SUPABASE_URL,
+      supabaseKey: process.env.SUPABASE_PUBLISHABLE_KEY,
+    });
   });

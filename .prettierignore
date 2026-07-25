@@ -10,4 +10,5 @@ coverage
 test-results
 playwright-report
 .workspace
-.github
+
+src/integrations/supabase/types.ts
