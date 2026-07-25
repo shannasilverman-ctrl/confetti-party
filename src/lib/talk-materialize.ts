@@ -248,6 +248,11 @@ export type ReviewSummary = {
     budget: number;
     hostReadyTarget: string | null;
     foodApproach: string | null;
+    effortLevel: string | null;
+    tone: string | null;
+    palette: string[];
+    budgetStance: string | null;
+    contributionMode: string | null;
   };
   counts: {
     tasks: number;
@@ -258,6 +263,18 @@ export type ReviewSummary = {
   };
   assumptions: string[];
   openQuestions: string[];
+  /**
+   * Fields whose absence would cause factual harm if we invented a value
+   * (e.g. a real date printed on an invitation). The Talk UI must block
+   * "Create the party" until each blocker is either resolved or explicitly
+   * acknowledged by the host.
+   */
+  blockingUnknowns: Array<{ field: string; label: string; placeholder?: string }>;
+  /**
+   * Fields we intentionally left as neutral zero / unknown rather than
+   * inventing a plausible-looking value. Surfaced as gentle nudges, not blockers.
+   */
+  optionalUnknowns: Array<{ field: string; label: string }>;
 };
 
 /**
