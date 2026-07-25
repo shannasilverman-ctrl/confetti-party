@@ -420,8 +420,9 @@ function ChecklistTab({ partyId }: { partyId: string }) {
                   </span>
                   {t.done && <CheckCircle2 className="h-4 w-4 text-success" />}
                   <button
+                    type="button"
                     onClick={() => remove(t.id)}
-                    className="text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-destructive sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                     aria-label="Delete task"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -491,7 +492,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
         <Badge variant="warning">{g.maybe} maybe</Badge>
         <Badge variant="destructive">{g.no} no</Badge>
         <Badge variant="soft">{g.invited} no reply</Badge>
-        <span className="ml-auto flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <span className="flex w-full flex-wrap items-center gap-3 text-sm text-muted-foreground sm:ml-auto sm:w-auto">
           <span>
             Headcount: <strong className="text-secondary">{g.adults}</strong> adults ·{" "}
             <strong className="text-secondary">{g.kids}</strong> kids
@@ -535,13 +536,16 @@ function GuestsTab({ partyId }: { partyId: string }) {
         ) : (
           <ul className="divide-y divide-border">
             {party.guests.map((guest, guestIndex) => (
-              <li key={guest.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
+              <li
+                key={guest.id}
+                className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 px-4 py-3 sm:flex"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <Input
-                    className="max-w-[220px] border-transparent bg-transparent focus-visible:border-input"
+                    className="min-w-0 border-transparent bg-transparent focus-visible:border-input sm:max-w-[220px]"
                     value={guest.name}
                     aria-label={`Edit name for ${guest.name || "guest"}`}
                     onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
@@ -552,67 +556,75 @@ function GuestsTab({ partyId }: { partyId: string }) {
                     </Badge>
                   )}
                 </div>
-                <Select
-                  value={guest.kind}
-                  onValueChange={(v) => updateGuest(guest.id, { kind: v as "adult" | "kid" })}
-                >
-                  <SelectTrigger className="w-24" aria-label={`Kind for ${guest.name || "guest"}`}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="adult">Adult</SelectItem>
-                    <SelectItem value="kid">Kid</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={guest.rsvp}
-                  onValueChange={(v) => updateGuest(guest.id, { rsvp: v as RSVP })}
-                >
-                  <SelectTrigger
-                    className="ml-auto w-32"
-                    aria-label={`RSVP for ${guest.name || "guest"}`}
+                <div className="col-start-2 flex min-w-0 items-center gap-2 sm:contents">
+                  <Select
+                    value={guest.kind}
+                    onValueChange={(v) => updateGuest(guest.id, { kind: v as "adult" | "kid" })}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="invited">No reply</SelectItem>
-                    <SelectItem value="yes">Yes</SelectItem>
-                    <SelectItem value="maybe">Maybe</SelectItem>
-                    <SelectItem value="no">No</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Badge variant={RSVP_STYLES[guest.rsvp].variant} className="hidden sm:inline-flex">
-                  {RSVP_STYLES[guest.rsvp].label}
-                </Badge>
-                <ConfirmDelete
-                  mode={guest.rsvp === "invited" ? "undo" : "confirm"}
-                  itemLabel={guest.name || "guest"}
-                  impact={
-                    guest.rsvp === "yes"
-                      ? "This guest is going. Removing clears their RSVP."
-                      : guest.rsvp === "maybe"
-                        ? "This guest is a maybe. Removing clears their response."
-                        : undefined
-                  }
-                  onConfirm={() => remove(guest.id)}
-                  onUndo={() => {
-                    updateParty(partyId, (p) => {
-                      if (p.guests.some((candidate) => candidate.id === guest.id)) return p;
-                      const guests = [...p.guests];
-                      guests.splice(Math.min(guestIndex, guests.length), 0, guest);
-                      return { ...p, guests };
-                    });
-                  }}
-                  trigger={
-                    <button
-                      type="button"
-                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground transition hover:text-destructive"
-                      aria-label={`Remove ${guest.name || "guest"}`}
+                    <SelectTrigger
+                      className="min-w-0 flex-1 sm:w-24 sm:flex-none"
+                      aria-label={`Kind for ${guest.name || "guest"}`}
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  }
-                />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="adult">Adult</SelectItem>
+                      <SelectItem value="kid">Kid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={guest.rsvp}
+                    onValueChange={(v) => updateGuest(guest.id, { rsvp: v as RSVP })}
+                  >
+                    <SelectTrigger
+                      className="min-w-0 flex-1 sm:ml-auto sm:w-32 sm:flex-none"
+                      aria-label={`RSVP for ${guest.name || "guest"}`}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invited">No reply</SelectItem>
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="maybe">Maybe</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Badge
+                    variant={RSVP_STYLES[guest.rsvp].variant}
+                    className="hidden sm:inline-flex"
+                  >
+                    {RSVP_STYLES[guest.rsvp].label}
+                  </Badge>
+                  <ConfirmDelete
+                    mode={guest.rsvp === "invited" ? "undo" : "confirm"}
+                    itemLabel={guest.name || "guest"}
+                    impact={
+                      guest.rsvp === "yes"
+                        ? "This guest is going. Removing clears their RSVP."
+                        : guest.rsvp === "maybe"
+                          ? "This guest is a maybe. Removing clears their response."
+                          : undefined
+                    }
+                    onConfirm={() => remove(guest.id)}
+                    onUndo={() => {
+                      updateParty(partyId, (p) => {
+                        if (p.guests.some((candidate) => candidate.id === guest.id)) return p;
+                        const guests = [...p.guests];
+                        guests.splice(Math.min(guestIndex, guests.length), 0, guest);
+                        return { ...p, guests };
+                      });
+                    }}
+                    trigger={
+                      <button
+                        type="button"
+                        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-destructive"
+                        aria-label={`Remove ${guest.name || "guest"}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    }
+                  />
+                </div>
               </li>
             ))}
           </ul>
@@ -854,29 +866,32 @@ function TimelineTab({ partyId }: { partyId: string }) {
           {party.timeline.map((item, idx) => (
             <li key={item.id} className="group relative">
               <span className="absolute -left-[31px] top-2 h-4 w-4 rounded-full border-2 border-primary bg-background" />
-              <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-card">
+              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4 shadow-card sm:gap-3">
                 <div className="font-display text-lg font-semibold text-primary">{item.time}</div>
-                <div className="flex-1 text-sm text-secondary">{item.activity}</div>
-                <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                <div className="min-w-0 flex-1 text-sm text-secondary">{item.activity}</div>
+                <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                   <button
+                    type="button"
                     onClick={() => move(item.id, -1)}
                     disabled={idx === 0}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
                     aria-label="Move up"
                   >
                     <ArrowUp className="h-4 w-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => move(item.id, 1)}
                     disabled={idx === party.timeline.length - 1}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
                     aria-label="Move down"
                   >
                     <ArrowDown className="h-4 w-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => remove(item.id)}
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive sm:min-h-8 sm:min-w-8"
                     aria-label="Remove"
                   >
                     <Trash2 className="h-4 w-4" />

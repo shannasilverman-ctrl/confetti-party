@@ -94,6 +94,42 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
+test("sample invite exposes the same practical guest details and calendar actions", async ({
+  page,
+}) => {
+  await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("textbox", { name: "Group name (optional)" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Other allergens" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Google Calendar/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Apple \/ .ics/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Directions/i })).toBeVisible();
+});
+
+test("mobile guest and timeline controls fit and remain touch-visible", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "mobile workspace regression");
+  await page.goto("/party/ava-liam-wedding", { waitUntil: "domcontentloaded" });
+
+  await page.getByTestId("party-tab-mobile-guests").click();
+  await expect(page.getByRole("button", { name: /Remove / }).first()).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+
+  await page.getByTestId("party-tab-mobile-timeline").click();
+  await expect(page.getByRole("button", { name: "Move down" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove" }).first()).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
 // Axe scans across the stable public + demo workspace surface. Fails on any
 // serious/critical violation including color-contrast — no rule exemptions.
 const AXE_ROUTES = [
