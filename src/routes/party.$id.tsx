@@ -135,11 +135,11 @@ function PartyWorkspace() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-nav-safe md:pb-0">
+    <div className="bg-brand-wash min-h-screen pb-nav-safe md:pb-0">
       {/* Header */}
-      <header className="border-b border-border bg-card/70 backdrop-blur">
-        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between gap-3">
+      <header>
+        <div className="mx-auto max-w-6xl px-3 pt-3 sm:px-6 sm:pt-5">
+          <div className="flex items-center justify-between gap-3 rounded-full border border-white/80 bg-white/92 px-3 py-1.5 shadow-brand backdrop-blur-xl sm:px-4">
             <div className="flex min-w-0 items-center gap-2">
               <Button asChild variant="ghost" size="icon" className="shrink-0">
                 <Link to="/app" aria-label="Back to your parties">
@@ -169,52 +169,62 @@ function PartyWorkspace() {
             </div>
           </div>
 
-          <div className="mt-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="soft">{OCCASION_LABELS[party.occasion]}</Badge>
-              {party.theme.trim() && <Badge variant="accent">{party.theme}</Badge>}
-            </div>
-            <h1 className="mt-2 break-words font-display text-2xl font-semibold text-secondary sm:text-4xl">
-              {party.name}
-            </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4 shrink-0" />
-              <span>
-                {formatDateOnly(party.date, {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </span>
-              <span aria-hidden>·</span>
-              <span className="font-medium text-primary">
-                {days > 0 ? `${days} days to go` : days === 0 ? "Today" : "Past"}
-              </span>
-            </div>
+          <div className="relative mt-4 overflow-hidden rounded-[2rem] bg-festive px-5 py-7 text-primary-foreground shadow-brand sm:rounded-[2.5rem] sm:px-10 sm:py-10">
+            <div
+              className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/16 blur-3xl"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-accent/20 blur-3xl"
+              aria-hidden
+            />
+            <div className="relative">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="onFestive">{OCCASION_LABELS[party.occasion]}</Badge>
+                {party.theme.trim() && <Badge variant="onFestive">{party.theme}</Badge>}
+              </div>
+              <h1 className="mt-3 max-w-3xl break-words font-display text-3xl font-medium leading-tight text-white sm:text-5xl">
+                {party.name}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/80">
+                <CalendarDays className="h-4 w-4 shrink-0" />
+                <span>
+                  {formatDateOnly(party.date, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </span>
+                <span aria-hidden>·</span>
+                <span className="font-semibold text-white">
+                  {days > 0 ? `${days} days to go` : days === 0 ? "Today" : "Past"}
+                </span>
+              </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-3 sm:max-w-lg">
-              <Stat
-                label="Progress"
-                value={`${prog}%`}
-                sub={`${party.tasks.filter((t) => t.done).length}/${party.tasks.length} tasks`}
-              />
-              <Stat
-                label="RSVPs"
-                value={`${g.yes}`}
-                sub={`${g.maybe} maybe · ${g.invited} pending`}
-              />
-              <Stat label="Budget" value={`$${spent}`} sub={`of $${party.budget}`} />
-            </div>
+              <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+                <Stat
+                  label="Progress"
+                  value={`${prog}%`}
+                  sub={`${party.tasks.filter((t) => t.done).length}/${party.tasks.length} tasks`}
+                />
+                <Stat
+                  label="RSVPs"
+                  value={`${g.yes}`}
+                  sub={`${g.maybe} maybe · ${g.invited} pending`}
+                />
+                <Stat label="Budget" value={`$${spent}`} sub={`of $${party.budget}`} />
+              </div>
 
-            <div className="mt-4">
-              <SaveStatus partyId={party.id} />
+              <div className="mt-4">
+                <SaveStatus partyId={party.id} />
+              </div>
             </div>
           </div>
 
           {/* Desktop tabs */}
           <nav
-            className="mt-6 hidden gap-1 border-b border-transparent md:flex"
+            className="mt-4 hidden gap-1 overflow-x-auto rounded-2xl border border-white/80 bg-white/88 px-2 shadow-card backdrop-blur-xl md:flex"
             aria-label="Party sections"
           >
             {tabs.map((t) => (
@@ -241,7 +251,7 @@ function PartyWorkspace() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
         {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
         {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "shopping" && <ShoppingTab partyId={party.id} />}
@@ -294,10 +304,14 @@ function PartyWorkspace() {
 
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-2xl bg-card p-3 shadow-card">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-display text-xl font-semibold text-secondary">{value}</div>
-      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
+    <div className="min-w-0 rounded-2xl border border-white/15 bg-white/12 p-3 backdrop-blur-sm sm:p-4">
+      <div className="truncate text-[10px] font-medium uppercase tracking-[0.12em] text-white/70">
+        {label}
+      </div>
+      <div className="mt-0.5 truncate font-display text-xl font-semibold text-white sm:text-2xl">
+        {value}
+      </div>
+      {sub && <div className="truncate text-[10px] text-white/70 sm:text-[11px]">{sub}</div>}
     </div>
   );
 }
