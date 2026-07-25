@@ -165,7 +165,7 @@ function DayOfPage() {
               {timeline.map((item) => (
                 <li key={item.id} className="flex items-start gap-3">
                   <span className="mt-0.5 min-w-16 text-xs font-medium tabular-nums text-muted-foreground">{item.time}</span>
-                  <span className="text-foreground">{item.title}</span>
+                  <span className="text-foreground">{item.activity}</span>
                 </li>
               ))}
             </ul>
