@@ -8,18 +8,22 @@ import type { SVGProps } from "react";
 export function LogoMark({
   className,
   title = "Confetti",
+  decorative = false,
   ...props
-}: SVGProps<SVGSVGElement> & { title?: string }) {
+}: SVGProps<SVGSVGElement> & { title?: string; decorative?: boolean }) {
+  const a11y = decorative
+    ? { "aria-hidden": true as const, focusable: false as const }
+    : { role: "img" as const, "aria-label": title };
   return (
     <svg
       viewBox="0 0 64 64"
       xmlns="http://www.w3.org/2000/svg"
-      role="img"
-      aria-label={title}
+      {...a11y}
       className={className}
       {...props}
     >
-      <title>{title}</title>
+      {!decorative && <title>{title}</title>}
+
       {/* Ribbon C — two overlapping strokes give it the ribbon-fold feel */}
       <path
         d="M46 16.5C41 12 34.5 10.5 28 12.5 18.5 15.4 12.5 24.5 13.7 34.3 14.8 43.4 22 50.4 31.2 51.5 37.6 52.3 43.9 50 48.2 45.6"
@@ -69,7 +73,7 @@ export function LogoLockup({
   const type = size === "hero" ? "text-2xl sm:text-3xl" : "text-xl";
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
-      <LogoMark className={markSize} />
+      <LogoMark className={markSize} decorative />
       <span
         className={`font-display font-semibold tracking-tight text-secondary ${type} ${wordmarkClassName}`}
       >

@@ -46,14 +46,32 @@ test("RSVP page shows a not-found state for an unknown token", async ({ page }) 
   const resp = await page.goto("/rsvp/00000000-0000-0000-0000-000000000000", {
     waitUntil: "domcontentloaded",
   });
-  // Server route always returns a page shell, even when the token is unknown.
-  // Route may return 200 (rendered not-found state) or 5xx (RPC error boundary);
-  // in either case the ErrorComponent/NotFoundComponent should surface copy.
   expect(resp?.status()).toBeGreaterThan(0);
   const body = (await page.textContent("body")) ?? "";
   expect(body.toLowerCase()).toMatch(
     /not found|invalid|couldn.?t|no invitation|expired|invite|something went wrong|error/i,
   );
+});
+
+test("/talk renders a signed-out demo experience (no redirect to /auth)", async ({ page }) => {
+  await page.goto("/talk", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/talk/);
+  // Demo affordance visible and steers toward sign-up without forcing it.
+  await expect(page.getByText(/demo/i).first()).toBeVisible();
+  const signup = page.getByRole("link", { name: /sign up/i }).first();
+  await expect(signup).toBeVisible();
+});
+
+test("/app party cards use accessible non-nested interactive controls", async ({ page }) => {
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
+  const nested = await page.evaluate(() => {
+    const links = Array.from(document.querySelectorAll("a"));
+    return links.some((a) => a.querySelector("button"));
+  });
+  expect(nested, "found <button> nested inside <a> on /app").toBe(false);
+  // Each party card exposes a Duplicate action with an accessible name.
+  const dupe = page.getByRole("button", { name: /duplicate/i }).first();
+  await expect(dupe).toBeVisible();
 });
 
 // Axe scans for stable public pages. Fails only on serious/critical violations.

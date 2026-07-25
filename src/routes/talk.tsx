@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { TalkClient, type TalkEvent, type TalkState } from "@/lib/talk-client";
 import { endSession, createDraft } from "@/lib/talk.functions";
 import { sendTurn, confirmDraft } from "@/lib/talk-brain.functions";
+import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
 import { celebrate } from "@/components/confetti-burst";
 
 export const Route = createFileRoute("/talk")({
@@ -158,13 +159,11 @@ function TalkRoute() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const authReady = !loading;
+  const isDemo = authReady && !user;
+  const [demoTurn, setDemoTurn] = useState(0);
+  const demoLimitReached = isDemo && demoTurn >= DEMO_MAX_TURNS;
 
-  useEffect(() => {
-    if (!authReady) return;
-    if (!user) navigate({ to: "/auth" });
-  }, [authReady, user, navigate]);
-
-  // Create a draft on first mount for signed-in users.
+  // Create a draft on first mount for signed-in users only.
   useEffect(() => {
     if (!authReady || !user || draftId) return;
     createDraft()
@@ -179,25 +178,37 @@ function TalkRoute() {
 
   const sendMessage = useCallback(async () => {
     const text = typed.trim();
-    if (!text || thinking || !draftId) return;
+    if (!text || thinking) return;
+    if (isDemo && demoLimitReached) return;
+    if (!isDemo && !draftId) return;
     const next: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setTyped("");
     setThinking(true);
     try {
-      const res = await sendTurn({ data: { draftId, messages: next } });
-      setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
-      setOpenQs(res.openQuestions ?? []);
-      setAssumptions(res.assumptions ?? []);
-      // Heuristic: assistant offering to confirm the plan.
-      if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
+      if (isDemo) {
+        // Bounded local demo — no network, no persistence.
+        await new Promise((r) => setTimeout(r, 500));
+        const d = demoReply(demoTurn);
+        setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
+        setOpenQs(d.openQuestions);
+        setAssumptions(d.assumptions);
+        setDemoTurn((n) => n + 1);
+        if (d.complete) setReadyToConfirm(true);
+      } else {
+        const res = await sendTurn({ data: { draftId: draftId!, messages: next } });
+        setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
+        setOpenQs(res.openQuestions ?? []);
+        setAssumptions(res.assumptions ?? []);
+        if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       toast.error(msg);
     } finally {
       setThinking(false);
     }
-  }, [typed, thinking, draftId, messages]);
+  }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
 
   const confirmAndCreate = useCallback(async () => {
     if (!draftId) return;
@@ -413,10 +424,25 @@ function TalkRoute() {
         {mode === "text" ? (
           <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
             <section className="flex flex-col">
+              {isDemo && (
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-primary/5 px-4 py-2.5 text-xs text-secondary">
+                  <Badge variant="secondary" className="uppercase tracking-wide">
+                    Demo
+                  </Badge>
+                  <span className="min-w-0 flex-1">
+                    You're chatting with a preview brain — {DEMO_MAX_TURNS} turns, no account
+                    needed. Sign up free to save the plan and unlock voice.
+                  </span>
+                  <Button asChild size="sm" variant="festive">
+                    <a href="/auth?mode=signup">Sign up free</a>
+                  </Button>
+                </div>
+              )}
               <Card className="flex h-[520px] flex-col md:h-[600px]">
                 <div className="border-b px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Conversation
                 </div>
+
                 <div
                   ref={chatScrollRef}
                   className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
@@ -455,14 +481,21 @@ function TalkRoute() {
                           sendMessage();
                         }
                       }}
-                      placeholder="Tell Confetti the brain dump…"
+                      placeholder={
+                        demoLimitReached
+                          ? "Demo turns used — sign up free to keep going."
+                          : "Tell Confetti the brain dump…"
+                      }
                       rows={2}
                       className="min-h-[52px] resize-none"
-                      disabled={!draftId || thinking}
+                      aria-label="Message Confetti"
+                      disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
                     />
                     <Button
                       onClick={sendMessage}
-                      disabled={!draftId || thinking || !typed.trim()}
+                      disabled={
+                        (!isDemo && !draftId) || thinking || !typed.trim() || demoLimitReached
+                      }
                       size="icon"
                       variant="secondary"
                       aria-label="Send message"
@@ -477,7 +510,7 @@ function TalkRoute() {
                         variant={dictating ? "festive" : "outline"}
                         aria-label={dictating ? "Stop dictation" : "Start dictation"}
                         title={dictating ? "Stop dictation" : "Dictate (browser voice input)"}
-                        disabled={!draftId || thinking}
+                        disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
                       >
                         {dictating ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                       </Button>
@@ -539,26 +572,43 @@ function TalkRoute() {
                   </div>
                 )}
               </Card>
-              <Button
-                variant="festive"
-                size="lg"
-                className="w-full"
-                onClick={confirmAndCreate}
-                disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
-              >
-                {confirming ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan
-                  </>
-                )}
-              </Button>
-              <p className="text-[11px] text-muted-foreground">
-                Turns your conversation into a real workspace: tasks, budget, guests, bring board.
-              </p>
+              {isDemo ? (
+                <>
+                  <Button asChild variant="festive" size="lg" className="w-full">
+                    <a href="/auth?mode=signup">
+                      <CheckCircle2 className="mr-2 h-4 w-4" /> Sign up to save this plan
+                    </a>
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Demo replies are canned so you can feel the flow. Real Confetti tailors the
+                    plan, saves your workspace, and unlocks voice.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="festive"
+                    size="lg"
+                    className="w-full"
+                    onClick={confirmAndCreate}
+                    disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
+                  >
+                    {confirming ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Turns your conversation into a real workspace: tasks, budget, guests, bring
+                    board.
+                  </p>
+                </>
+              )}
             </aside>
           </main>
         ) : (
@@ -570,21 +620,31 @@ function TalkRoute() {
                 <Card className="border-dashed p-5">
                   <h2 className="text-base font-semibold text-foreground">Voice mode (beta)</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Speech-to-speech uses OpenAI Realtime and requires an OPENAI_API_KEY on your
-                    project. Text mode always works.
+                    {isDemo
+                      ? "Real voice is authenticated so we can save your session. Try text mode as a demo, or sign up free to talk out loud."
+                      : "Speech-to-speech uses OpenAI Realtime. Text mode always works."}
                   </p>
                 </Card>
-                <Button
-                  variant="festive"
-                  size="lg"
-                  className="w-full"
-                  onClick={startVoice}
-                  disabled={connecting || !authReady}
-                >
-                  <Mic className="mr-2 h-5 w-5" /> Start voice session
-                </Button>
+                {isDemo ? (
+                  <Button asChild variant="festive" size="lg" className="w-full">
+                    <a href="/auth?mode=signup">
+                      <Mic className="mr-2 h-5 w-5" /> Sign up to unlock voice
+                    </a>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="festive"
+                    size="lg"
+                    className="w-full"
+                    onClick={startVoice}
+                    disabled={connecting || !authReady}
+                  >
+                    <Mic className="mr-2 h-5 w-5" /> Start voice session
+                  </Button>
+                )}
               </div>
             )}
+
             {(isLive || connecting) && (
               <div className="flex w-full max-w-md items-center justify-center gap-3">
                 <Button

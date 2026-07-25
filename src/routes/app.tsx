@@ -12,6 +12,8 @@ import {
   newId,
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
+import { partiesSummary } from "@/lib/parties-summary";
+
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { ConfettiBurst, celebrateAtEvent, celebrate } from "@/components/confetti-burst";
@@ -139,7 +141,7 @@ function Dashboard() {
                     ? isDemo
                       ? "Explore a sample or start your own."
                       : "Nothing here yet — plan your first party."
-                    : `${parties.length} in flight — pick one to keep planning.`}
+                    : partiesSummary(parties).copy}
             </p>
           </div>
           {status === "ready" &&
@@ -232,38 +234,33 @@ function Dashboard() {
               const spent = totalSpent(p);
               const prog = progressPct(p);
               return (
-                <Link
+                <article
                   key={p.id}
-                  to="/party/$id"
-                  params={{ id: p.id }}
-                  className="group flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-card transition hover:-translate-y-1 hover:shadow-elevated"
+                  aria-labelledby={`party-${p.id}-title`}
+                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-card transition hover:-translate-y-1 hover:shadow-elevated focus-within:-translate-y-1 focus-within:shadow-elevated"
                 >
                   <div className="relative h-28 bg-festive p-5">
                     <div className="absolute inset-0 bg-confetti opacity-40 mix-blend-overlay" />
                     <Badge variant="onFestive" className="relative">
                       {OCCASION_LABELS[p.occasion]}
                     </Badge>
-                    <button
-                      type="button"
-                      aria-label="Duplicate party"
-                      title="Duplicate party"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const id = cloneParty(p.id);
-                        if (id) toast.success("Party duplicated.");
-                      }}
-                      className="absolute right-3 top-3 rounded-full bg-white/85 p-1.5 text-secondary shadow-card transition hover:bg-white"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-
                     <div className="relative mt-2 text-primary-foreground/90 text-sm">
                       {p.theme}
                     </div>
                   </div>
                   <div className="flex-1 p-5">
-                    <h3 className="font-display text-xl font-semibold text-secondary">{p.name}</h3>
+                    <h3
+                      id={`party-${p.id}-title`}
+                      className="font-display text-xl font-semibold text-secondary"
+                    >
+                      <Link
+                        to="/party/$id"
+                        params={{ id: p.id }}
+                        className="rounded-sm outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        {p.name}
+                      </Link>
+                    </h3>
                     <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <CalendarDays className="h-3.5 w-3.5" />
                       {new Date(p.date).toLocaleDateString(undefined, {
@@ -304,11 +301,25 @@ function Dashboard() {
                       <Progress value={prog} />
                     </div>
 
-                    <div className="mt-5 flex items-center text-sm font-medium text-primary opacity-0 transition group-hover:opacity-100">
-                      Open workspace <ArrowRight className="ml-1 h-4 w-4" />
+                    <div className="mt-5 flex items-center justify-between text-sm font-medium">
+                      <span className="text-primary opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                        Open workspace <ArrowRight className="ml-1 inline h-4 w-4" />
+                      </span>
+                      {/* Sibling action — lifted above the title link's ::after overlay */}
+                      <button
+                        type="button"
+                        aria-label={`Duplicate ${p.name}`}
+                        onClick={() => {
+                          const id = cloneParty(p.id);
+                          if (id) toast.success("Party duplicated.");
+                        }}
+                        className="relative z-10 inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold text-secondary hover:bg-muted"
+                      >
+                        <Copy className="h-3.5 w-3.5" /> Duplicate
+                      </button>
                     </div>
                   </div>
-                </Link>
+                </article>
               );
             })}
 
