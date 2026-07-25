@@ -39,7 +39,6 @@
   --font-display: "Fraunces", "Cormorant Garamond", ui-serif, Georgia, "Times New Roman", serif;
   --font-body: "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-body);
-  --font-rounded: "Baloo 2", "Baloo 2 Variable", ui-rounded, "Segoe UI", system-ui, sans-serif;
 }
 
 :root {
@@ -136,8 +135,11 @@
   background-clip: text;
   color: transparent;
 }
-@utility font-rounded {
-  font-family: var(--font-rounded);
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+@utility pb-nav-safe {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
 }
 
 @keyframes pop-check {

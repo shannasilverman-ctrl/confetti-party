@@ -45,8 +45,10 @@ type NavTab =
   | "shopping"
   | "checklist"
   | "guests"
+  | "bring"
   | "budget"
   | "timeline";
+
 
 export function OverviewTab({
   partyId,
@@ -182,7 +184,9 @@ export function OverviewTab({
         hasPhotoDrop={!!party.photoDrop}
         rsvpToken={party.rsvpToken}
         onOpenInvite={() => setInviteOpen(true)}
+        onOpenBring={() => onNavigate("bring" as NavTab)}
       />
+
 
 
       {/* Up next */}
@@ -418,9 +422,10 @@ function CountdownRing({ days, progress }: { days: number; progress: number }) {
 }
 
 /**
- * Journey shortcuts on the Overview: only render the buttons whose
- * underlying feature is actually set up so there are no dead links.
- * Reveal + Day-of always exist; Bring Board and Photo Drop are conditional.
+ * Journey shortcuts on the Overview: every control routes to something real.
+ * Reveal + Day-of always exist. Guest link copies or opens invite. Bring Board
+ * and Photo Drop navigate into the shared "Bring & Photos" workspace tab where
+ * hosts edit both features — no dead pills.
  */
 function PartyJourneyActions({
   partyId,
@@ -428,12 +433,14 @@ function PartyJourneyActions({
   hasPhotoDrop,
   rsvpToken,
   onOpenInvite,
+  onOpenBring,
 }: {
   partyId: string;
   hasBring: boolean;
   hasPhotoDrop: boolean;
   rsvpToken?: string;
   onOpenInvite: () => void;
+  onOpenBring: () => void;
 }) {
   const copyGuestLink = async () => {
     if (!rsvpToken) {
@@ -456,29 +463,39 @@ function PartyJourneyActions({
       className="rounded-2xl border border-border bg-card p-3 shadow-card"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Button asChild size="sm" variant="festive">
+        <Button asChild size="sm" variant="festive" className="min-h-11">
           <Link to="/party/$id/reveal" params={{ id: partyId }}>
             <Sparkle className="h-4 w-4" /> Reveal
           </Link>
         </Button>
-        <Button asChild size="sm" variant="secondary">
+        <Button asChild size="sm" variant="secondary" className="min-h-11">
           <Link to="/party/$id/day-of" params={{ id: partyId }}>
             <Timer className="h-4 w-4" /> Day-of Mode
           </Link>
         </Button>
-        <Button size="sm" variant="outline" onClick={copyGuestLink}>
+        <Button size="sm" variant="outline" className="min-h-11" onClick={copyGuestLink}>
           <Copy className="h-4 w-4" /> {rsvpToken ? "Copy guest link" : "Create invite"}
         </Button>
-        {hasBring && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-            <Gift className="h-3.5 w-3.5" /> Bring Board live
-          </span>
-        )}
-        {hasPhotoDrop && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/20 px-3 py-1 text-xs font-semibold text-secondary">
-            <Camera className="h-3.5 w-3.5" /> Photo Drop live
-          </span>
-        )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="min-h-11"
+          onClick={onOpenBring}
+          aria-label={hasBring ? "Open Bring Board" : "Set up Bring Board"}
+        >
+          <Gift className="h-4 w-4" />
+          {hasBring ? "Bring Board" : "Set up Bring Board"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="min-h-11"
+          onClick={onOpenBring}
+          aria-label={hasPhotoDrop ? "Open Photo Drop" : "Set up Photo Drop"}
+        >
+          <Camera className="h-4 w-4" />
+          {hasPhotoDrop ? "Photo Drop" : "Set up Photo Drop"}
+        </Button>
       </div>
     </section>
   );

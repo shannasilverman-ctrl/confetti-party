@@ -45,18 +45,22 @@ function RevealPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-4xl px-4 pb-24 pt-4 md:pt-8">
-        <header className="flex items-center justify-between">
-          <Button asChild variant="ghost" size="sm" className="gap-1">
+      <div
+        className="mx-auto max-w-4xl px-4 pt-4 md:pt-8"
+        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
+      >
+        <header className="flex items-center justify-between gap-2">
+          <Button asChild variant="ghost" size="sm" className="gap-1 min-h-11">
             <Link to="/party/$id" params={{ id }}>
               <ArrowLeft className="h-4 w-4" /> Workspace
             </Link>
           </Button>
           <BrandLockup />
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="secondary" size="sm" className="min-h-11">
             <Link to="/party/$id/day-of" params={{ id }}>Day of →</Link>
           </Button>
         </header>
+
 
         <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-card md:p-8">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">

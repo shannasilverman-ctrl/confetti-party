@@ -134,14 +134,14 @@ function PartyWorkspace() {
 
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0">
+    <div className="min-h-screen bg-background pb-nav-safe md:pb-0">
       {/* Header */}
       <header className="border-b border-border bg-card/70 backdrop-blur">
         <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button asChild variant="ghost" size="icon">
-                <Link to="/app" aria-label="Back">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Button asChild variant="ghost" size="icon" className="shrink-0">
+                <Link to="/app" aria-label="Back to your parties">
                   <ArrowLeft />
                 </Link>
               </Button>
@@ -153,7 +153,7 @@ function PartyWorkspace() {
                   <Sparkle className="h-4 w-4" /> Reveal
                 </Link>
               </Button>
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" variant="secondary">
                 <Link to="/party/$id/day-of" params={{ id: party.id }}>
                   <Timer className="h-4 w-4" /> Day-of
                 </Link>
@@ -166,20 +166,22 @@ function PartyWorkspace() {
               <Badge variant="soft">{OCCASION_LABELS[party.occasion]}</Badge>
               {party.theme.trim() && <Badge variant="accent">{party.theme}</Badge>}
             </div>
-            <h1 className="mt-2 font-display text-3xl font-semibold text-secondary sm:text-4xl">
+            <h1 className="mt-2 break-words font-display text-2xl font-semibold text-secondary sm:text-4xl">
               {party.name}
             </h1>
-            <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              {new Date(party.date).toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-              <span>·</span>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+              <CalendarDays className="h-4 w-4 shrink-0" />
+              <span>
+                {new Date(party.date).toLocaleDateString(undefined, {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              <span aria-hidden>·</span>
               <span className="font-medium text-primary">
-                {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
+                {days > 0 ? `${days} days to go` : days === 0 ? "Today" : "Past"}
               </span>
             </div>
 
@@ -191,7 +193,7 @@ function PartyWorkspace() {
           </div>
 
           {/* Desktop tabs */}
-          <nav className="mt-6 hidden gap-1 border-b border-transparent md:flex">
+          <nav className="mt-6 hidden gap-1 border-b border-transparent md:flex" aria-label="Party sections">
             {tabs.map((t) => (
               <button
                 key={t.key}
@@ -201,6 +203,7 @@ function PartyWorkspace() {
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-secondary"
                 }`}
+                aria-current={tab === t.key ? "page" : undefined}
               >
                 <t.icon className="h-4 w-4" /> {t.label}
                 {t.badge != null && t.badge > 0 && (
@@ -213,6 +216,7 @@ function PartyWorkspace() {
           </nav>
         </div>
       </header>
+
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
@@ -231,16 +235,21 @@ function PartyWorkspace() {
 
       </main>
 
-      {/* Mobile bottom tab nav - horizontally scrollable */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden">
+      {/* Mobile bottom tab nav - horizontally scrollable, respects safe area */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label="Party sections"
+      >
         <div className="scrollbar-none flex overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`relative flex min-w-[68px] flex-1 shrink-0 flex-col items-center gap-1 py-3 text-[11px] transition ${
+              className={`relative flex min-h-[56px] min-w-[68px] flex-1 shrink-0 flex-col items-center justify-center gap-1 py-2 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
               }`}
+              aria-current={tab === t.key ? "page" : undefined}
             >
               <span className="relative">
                 <t.icon className="h-5 w-5" />
@@ -255,6 +264,7 @@ function PartyWorkspace() {
           ))}
         </div>
       </nav>
+
     </div>
   );
 }

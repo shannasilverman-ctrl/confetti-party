@@ -319,29 +319,37 @@ function TalkRoute() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pb-24 pt-4 md:pt-8">
-        <header className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app" })} className="gap-1">
+      <div
+        className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pt-4 md:pt-8"
+        style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
+      >
+        <header className="flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app" })} className="gap-1 min-h-11">
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="hidden text-xs font-medium uppercase tracking-wider text-muted-foreground sm:block">
             Talk it out
           </div>
-          <div className="inline-flex overflow-hidden rounded-lg border border-border text-xs">
+          <div className="inline-flex overflow-hidden rounded-lg border border-border text-xs" role="tablist" aria-label="Talk mode">
             <button
+              role="tab"
+              aria-selected={mode === "text"}
               onClick={() => setMode("text")}
-              className={cn("px-2.5 py-1", mode === "text" ? "bg-primary text-primary-foreground" : "bg-background")}
+              className={cn("min-h-9 px-3 py-1", mode === "text" ? "bg-primary text-primary-foreground" : "bg-background")}
             >
               Text
             </button>
             <button
+              role="tab"
+              aria-selected={mode === "voice"}
               onClick={() => setMode("voice")}
-              className={cn("px-2.5 py-1", mode === "voice" ? "bg-primary text-primary-foreground" : "bg-background")}
+              className={cn("min-h-9 px-3 py-1", mode === "voice" ? "bg-primary text-primary-foreground" : "bg-background")}
             >
               Voice
             </button>
           </div>
         </header>
+
 
         {mode === "text" ? (
           <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
