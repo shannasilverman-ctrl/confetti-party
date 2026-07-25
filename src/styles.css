@@ -61,7 +61,7 @@
      surfaces (measured ~5.1:1 vs cream, ~5.5:1 vs white). We keep the
      vibrant 62% coral exposed as `--brand-coral` for decorative gradients
      and the logo, so hero art still pops. */
-  --primary: hsl(10 78% 45%);
+  --primary: hsl(10 78% 38%);
   --primary-foreground: hsl(36 44% 98%);
 
   /* Deep violet */
