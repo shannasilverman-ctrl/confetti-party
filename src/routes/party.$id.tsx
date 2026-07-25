@@ -587,10 +587,24 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <ConfirmDelete
                   mode={guest.rsvp === "invited" ? "undo" : "confirm"}
                   itemLabel={guest.name || "guest"}
-                  onConfirm={() => remove(guest.id)}
-                  onUndo={() =>
-                    updateParty(partyId, (p) => ({ ...p, guests: [...p.guests, guest] }))
+                  impact={
+                    guest.rsvp === "yes"
+                      ? "This guest is going. Removing clears their RSVP."
+                      : guest.rsvp === "maybe"
+                        ? "This guest is a maybe. Removing clears their response."
+                        : undefined
                   }
+                  onConfirm={() => remove(guest.id)}
+                  onUndo={() => {
+                    const currentIndex = guests.findIndex((g) => g.id === guest.id);
+                    const insertAt = currentIndex === -1 ? index : currentIndex;
+                    updateParty(partyId, (p) => {
+                      if (p.guests.some((g) => g.id === guest.id)) return p;
+                      const next = [...p.guests];
+                      next.splice(Math.min(insertAt, next.length), 0, guest);
+                      return { ...p, guests: next };
+                    });
+                  }}
                   trigger={
                     <button
                       type="button"
