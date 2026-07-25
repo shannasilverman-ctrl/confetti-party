@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { BrandLockup } from "@/components/brand";
 import { celebrate } from "@/components/confetti-burst";
 
-export const Route = createFileRoute("/party/$id/day-of")({
+export const Route = createFileRoute("/party/$id_/day-of")({
   component: DayOfPage,
 });
 
