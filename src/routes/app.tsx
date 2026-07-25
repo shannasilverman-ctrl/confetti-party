@@ -308,22 +308,30 @@ function Dashboard() {
                       <Progress value={prog} aria-label="Checklist progress" />
                     </div>
 
-                    <div className="mt-5 flex items-center justify-between text-sm font-medium">
+                    <div className="mt-5 flex items-center justify-between gap-2 text-sm font-medium">
                       <span className="text-primary opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
                         Open workspace <ArrowRight className="ml-1 inline h-4 w-4" />
                       </span>
-                      {/* Sibling action — lifted above the title link's ::after overlay */}
-                      <button
-                        type="button"
-                        aria-label={`Duplicate ${p.name}`}
-                        onClick={() => {
-                          const id = cloneParty(p.id);
-                          if (id) toast.success("Party duplicated.");
-                        }}
-                        className="relative z-10 inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold text-secondary hover:bg-muted"
-                      >
-                        <Copy className="h-3.5 w-3.5" /> Duplicate
-                      </button>
+                      {/* Sibling actions — lifted above the title link's ::after overlay */}
+                      <div className="relative z-10 flex items-center gap-1">
+                        <button
+                          type="button"
+                          aria-label={`Duplicate ${p.name}`}
+                          onClick={() => {
+                            const id = cloneParty(p.id);
+                            if (id) toast.success("Party duplicated.");
+                          }}
+                          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold text-secondary hover:bg-muted"
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Duplicate
+                        </button>
+                        <DeletePartyButton
+                          partyId={p.id}
+                          partyName={p.name}
+                          variant="ghost"
+                          size="icon"
+                        />
+                      </div>
                     </div>
                   </div>
                 </article>
