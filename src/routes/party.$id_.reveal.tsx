@@ -1,7 +1,7 @@
 // Holiday / Party Reveal — a calm summary of the current plan generated
 // from the intake conversation. Editable via the existing workspace.
 
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CalendarDays,
