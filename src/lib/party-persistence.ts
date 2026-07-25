@@ -135,6 +135,7 @@ export function rowToParty(r: PartyRow): Party {
     occasion: r.occasion as Party["occasion"],
     date: r.date,
     startTime: r.start_time ?? undefined,
+    timeZone: r.time_zone ?? undefined,
     location: r.location ?? undefined,
     guestEstimate: r.guest_estimate,
     budget: Number(r.budget),
