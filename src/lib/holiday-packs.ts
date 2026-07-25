@@ -108,24 +108,32 @@ const FRIENDSGIVING: HolidayPack = {
 };
 
 // Lighter scaffolds for the rest — same shape, respectful defaults, hosts fill in.
-function stub(id: PackId, label: string, emoji: string, blurb: string, tone: HolidayPack["toneHint"]): HolidayPack {
+// Each pack ships distinct bring-board and menu seeds so seeding produces a
+// useful starting point, not a duplicate placeholder. Rituals stay empty by
+// default (opt-in) unless a widely shared secular expectation exists.
+function pack(
+  id: PackId,
+  label: string,
+  emoji: string,
+  blurb: string,
+  tone: HolidayPack["toneHint"],
+  bringBoardSeeds: BringSeed[],
+  suggestedMenu: MenuSeed[] = [],
+  taskExtras: TaskSeed[] = [],
+): HolidayPack {
   return {
     id, label, emoji, blurb, toneHint: tone,
     respectNote:
       `Every household observes ${label} differently. Nothing here is prescriptive. Keep, edit, or remove any item.`,
-    bringBoardSeeds: [
-      { category: "Main", label: "Main dish", qty: 1 },
-      { category: "Sides", label: "Side dish", qty: 2 },
-      { category: "Dessert", label: "Dessert", qty: 1 },
-      { category: "Drinks", label: "Drinks", qty: 2, unit: "bottles" },
-    ],
+    bringBoardSeeds,
     rituals: [],
-    suggestedMenu: [],
+    suggestedMenu,
     taskSeeds: [
       { title: `Confirm ${label} guest list and dietary needs`, bucket: "3-5 weeks" },
       { title: "Plan the menu", bucket: "1-2 weeks" },
       { title: "Shop and prep", bucket: "Party week" },
       { title: "Set the table", bucket: "Day of" },
+      ...taskExtras,
     ],
   };
 }
@@ -133,22 +141,160 @@ function stub(id: PackId, label: string, emoji: string, blurb: string, tone: Hol
 export const PACKS: Record<PackId, HolidayPack> = {
   thanksgiving: THANKSGIVING,
   friendsgiving: FRIENDSGIVING,
-  shabbat: stub("shabbat", "Shabbat Dinner", "🕯️",
-    "A weekly pause. Light candles, break bread, be together.", "reverent"),
-  hanukkah: stub("hanukkah", "Hanukkah", "🕎",
-    "Eight nights of light. Latkes, sufganiyot, and family.", "warm"),
-  christmas: stub("christmas", "Christmas", "🎄",
-    "The big one. Feed the family, protect the calm.", "festive"),
-  passover: stub("passover", "Passover Seder", "📜",
-    "The retelling. Structured, meaningful, long. Plan the pacing.", "reverent"),
-  easter: stub("easter", "Easter", "🐣",
-    "Brunch energy. Ham or lamb, spring sides, kids running.", "warm"),
-  diwali: stub("diwali", "Diwali", "🪔",
-    "Festival of lights. Diyas, sweets, and open homes.", "festive"),
-  eid: stub("eid", "Eid", "🌙",
-    "The joyful reunion after the fast. Feast and welcome.", "warm"),
-  "lunar-new-year": stub("lunar-new-year", "Lunar New Year", "🧧",
-    "Reunion dinner. Symbolic dishes, red envelopes, fresh start.", "festive"),
+  shabbat: pack(
+    "shabbat", "Shabbat Dinner", "🕯️",
+    "A weekly pause. Light candles, break bread, be together.", "reverent",
+    [
+      { category: "Main", label: "Main protein (chicken, brisket, or fish)", qty: 1 },
+      { category: "Sides", label: "Roasted vegetables", qty: 1, unit: "tray", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Rice or grain", qty: 1, unit: "bowl", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Challah", qty: 2, unit: "loaves" },
+      { category: "Dessert", label: "Fruit or babka", qty: 1 },
+      { category: "Drinks", label: "Kiddush wine or grape juice", qty: 1, unit: "bottle" },
+    ],
+    [
+      { label: "Chicken or brisket", role: "main" },
+      { label: "Challah", role: "side" },
+      { label: "Seasonal vegetables", role: "side" },
+    ],
+    [{ title: "Pick up challah and wine", bucket: "Party week" }],
+  ),
+  hanukkah: pack(
+    "hanukkah", "Hanukkah", "🕎",
+    "Eight nights of light. Latkes, sufganiyot, and family.", "warm",
+    [
+      { category: "Main", label: "Brisket or roast chicken", qty: 1 },
+      { category: "Sides", label: "Latkes (potato pancakes)", qty: 24, unit: "pieces", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Applesauce", qty: 1, unit: "bowl", dietaryTags: ["vegan"] },
+      { category: "Sides", label: "Sour cream", qty: 1, unit: "container", dietaryTags: ["vegetarian"] },
+      { category: "Dessert", label: "Sufganiyot (jelly donuts)", qty: 12, unit: "pieces" },
+      { category: "Drinks", label: "Wine or sparkling", qty: 2, unit: "bottles" },
+      { category: "Kids", label: "Dreidels & chocolate gelt", qty: 1, unit: "set" },
+    ],
+    [
+      { label: "Latkes", role: "side" },
+      { label: "Brisket", role: "main" },
+      { label: "Sufganiyot", role: "dessert" },
+    ],
+    [{ title: "Set up the menorah and candles", bucket: "Day of" }],
+  ),
+  christmas: pack(
+    "christmas", "Christmas", "🎄",
+    "The big one. Feed the family, protect the calm.", "festive",
+    [
+      { category: "Main", label: "Roast (ham, turkey, or beef)", qty: 1, notes: "Host usually covers" },
+      { category: "Sides", label: "Roast potatoes", qty: 1, unit: "tray", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Green vegetable side", qty: 1, unit: "dish", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Stuffing", qty: 1, unit: "casserole" },
+      { category: "Sides", label: "Rolls or bread", qty: 12, unit: "pieces" },
+      { category: "Dessert", label: "Pie, yule log, or Christmas pudding", qty: 1 },
+      { category: "Dessert", label: "Cookie plate", qty: 1, unit: "tray" },
+      { category: "Drinks", label: "Wine", qty: 3, unit: "bottles" },
+      { category: "Drinks", label: "Sparkling cider (kid-friendly)", qty: 1, unit: "bottle" },
+      { category: "Kids", label: "Craft or activity kit", qty: 1, unit: "set" },
+    ],
+    [
+      { label: "Holiday roast", role: "main" },
+      { label: "Roast potatoes", role: "side" },
+      { label: "Pie or pudding", role: "dessert" },
+    ],
+  ),
+  passover: pack(
+    "passover", "Passover Seder", "📜",
+    "The retelling. Structured, meaningful, long. Plan the pacing.", "reverent",
+    [
+      { category: "Main", label: "Brisket or roast chicken", qty: 1 },
+      { category: "Sides", label: "Matzo ball soup", qty: 1, unit: "pot" },
+      { category: "Sides", label: "Roasted vegetables", qty: 1, unit: "tray", dietaryTags: ["vegan"] },
+      { category: "Sides", label: "Charoset", qty: 1, unit: "bowl", dietaryTags: ["vegan"] },
+      { category: "Sides", label: "Matzo", qty: 2, unit: "boxes" },
+      { category: "Dessert", label: "Flourless chocolate cake or macaroons", qty: 1, dietaryTags: ["gluten-free"] },
+      { category: "Drinks", label: "Kosher wine or grape juice", qty: 3, unit: "bottles" },
+    ],
+    [
+      { label: "Matzo ball soup", role: "side" },
+      { label: "Brisket", role: "main" },
+      { label: "Flourless chocolate cake", role: "dessert" },
+    ],
+    [{ title: "Print or set out Haggadahs", bucket: "Party week" }],
+  ),
+  easter: pack(
+    "easter", "Easter", "🐣",
+    "Brunch energy. Ham or lamb, spring sides, kids running.", "warm",
+    [
+      { category: "Main", label: "Ham or leg of lamb", qty: 1 },
+      { category: "Sides", label: "Spring salad", qty: 1, unit: "bowl", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Deviled eggs", qty: 12, unit: "pieces", dietaryTags: ["gluten-free"] },
+      { category: "Sides", label: "Roasted asparagus or carrots", qty: 1, unit: "tray", dietaryTags: ["vegan"] },
+      { category: "Dessert", label: "Carrot cake or hot cross buns", qty: 1 },
+      { category: "Drinks", label: "Mimosas / sparkling", qty: 2, unit: "bottles" },
+      { category: "Kids", label: "Egg hunt supplies", qty: 1, unit: "set" },
+    ],
+    [
+      { label: "Ham or lamb", role: "main" },
+      { label: "Deviled eggs", role: "side" },
+      { label: "Carrot cake", role: "dessert" },
+    ],
+  ),
+  diwali: pack(
+    "diwali", "Diwali", "🪔",
+    "Festival of lights. Diyas, sweets, and open homes.", "festive",
+    [
+      { category: "Main", label: "Paneer or chicken curry", qty: 1, unit: "large dish" },
+      { category: "Sides", label: "Dal", qty: 1, unit: "pot", dietaryTags: ["vegan"] },
+      { category: "Sides", label: "Basmati rice", qty: 1, unit: "large pot", dietaryTags: ["vegan"] },
+      { category: "Sides", label: "Naan or roti", qty: 12, unit: "pieces", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Chutneys & pickles", qty: 2, unit: "jars", dietaryTags: ["vegan"] },
+      { category: "Dessert", label: "Mithai (Indian sweets) — gulab jamun, barfi, ladoo", qty: 1, unit: "box" },
+      { category: "Drinks", label: "Chai / masala chai supplies", qty: 1, unit: "batch" },
+      { category: "Décor", label: "Diyas or tealights", qty: 12, unit: "pieces" },
+    ],
+    [
+      { label: "Curry (paneer or chicken)", role: "main" },
+      { label: "Dal & rice", role: "side" },
+      { label: "Mithai", role: "dessert" },
+    ],
+  ),
+  eid: pack(
+    "eid", "Eid", "🌙",
+    "The joyful reunion after the fast. Feast and welcome.", "warm",
+    [
+      { category: "Main", label: "Biryani or roast lamb", qty: 1, unit: "large dish" },
+      { category: "Sides", label: "Kebabs (chicken or seekh)", qty: 12, unit: "pieces" },
+      { category: "Sides", label: "Salad / raita", qty: 1, unit: "bowl", dietaryTags: ["vegetarian"] },
+      { category: "Sides", label: "Naan or pita", qty: 12, unit: "pieces", dietaryTags: ["vegetarian"] },
+      { category: "Dessert", label: "Sheer khurma / baklava / kheer", qty: 1, unit: "tray" },
+      { category: "Dessert", label: "Dates & fruit platter", qty: 1, unit: "platter", dietaryTags: ["vegan"] },
+      { category: "Drinks", label: "Mango lassi or rose sharbat", qty: 1, unit: "pitcher" },
+    ],
+    [
+      { label: "Biryani", role: "main" },
+      { label: "Kebabs", role: "side" },
+      { label: "Sheer khurma / baklava", role: "dessert" },
+    ],
+  ),
+  "lunar-new-year": pack(
+    "lunar-new-year", "Lunar New Year", "🧧",
+    "Reunion dinner. Symbolic dishes, red envelopes, fresh start.", "festive",
+    [
+      { category: "Main", label: "Whole fish (steamed)", qty: 1, notes: "Symbolizes abundance — leave head & tail" },
+      { category: "Main", label: "Whole chicken or roast duck", qty: 1 },
+      { category: "Sides", label: "Dumplings", qty: 24, unit: "pieces" },
+      { category: "Sides", label: "Longevity noodles", qty: 1, unit: "large dish" },
+      { category: "Sides", label: "Rice", qty: 1, unit: "large pot", dietaryTags: ["vegan"] },
+      { category: "Sides", label: "Stir-fried greens", qty: 1, unit: "dish", dietaryTags: ["vegan"] },
+      { category: "Dessert", label: "Nian gao (sticky rice cake) or tangyuan", qty: 1 },
+      { category: "Dessert", label: "Oranges & mandarins", qty: 8, unit: "pieces", dietaryTags: ["vegan"] },
+      { category: "Drinks", label: "Tea service", qty: 1, unit: "pot" },
+      { category: "Décor", label: "Red envelopes (hongbao)", qty: 10, unit: "pieces" },
+    ],
+    [
+      { label: "Whole steamed fish", role: "main" },
+      { label: "Dumplings", role: "side" },
+      { label: "Longevity noodles", role: "side" },
+      { label: "Nian gao", role: "dessert" },
+    ],
+  ),
 };
 
 export function listPacks(): HolidayPack[] {
