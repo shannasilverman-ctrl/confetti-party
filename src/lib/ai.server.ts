@@ -52,9 +52,9 @@ export async function chatJSON<T = unknown>(opts: {
   } catch {
     parsed = null;
   }
-  const replyText =
-    parsed && typeof (parsed as { reply?: unknown }).reply === "string"
-      ? String((parsed as { reply: string }).reply)
+  const maybeReply =
+    parsed && typeof (parsed as unknown as { reply?: unknown }).reply === "string"
+      ? String((parsed as unknown as { reply: string }).reply)
       : raw;
-  return { replyText, parsed, raw };
+  return { replyText: maybeReply, parsed, raw };
 }
