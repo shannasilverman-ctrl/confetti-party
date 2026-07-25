@@ -617,90 +617,21 @@ function baseSeeds(): Party[] {
 
 const PartyContext = createContext<Ctx | null>(null);
 
-function rowToParty(r: {
-  id: string;
-  name: string;
-  occasion: string;
-  date: string;
-  start_time?: string | null;
-  location?: string | null;
-  guest_estimate: number;
-  budget: number;
-  theme: string;
-  theme_id: string | null;
-  rsvp_token?: string | null;
-  tasks: unknown;
-  guests: unknown;
-  budget_categories: unknown;
-  shopping_items: unknown;
-  timeline: unknown;
-  pinned_inspiration?: unknown;
-  host_note?: string | null;
-  households?: unknown;
-  bring_board?: unknown;
-  host_updates?: unknown;
-  holiday_pack_id?: string | null;
-  photo_drop?: unknown;
-  checkins?: unknown;
-  retrospective?: unknown;
-}): Party {
-  return {
-    id: r.id,
-    name: r.name,
-    occasion: r.occasion as OccasionType,
-    date: r.date,
-    startTime: r.start_time ?? undefined,
-    location: r.location ?? undefined,
-    guestEstimate: r.guest_estimate,
-    budget: Number(r.budget),
-    theme: r.theme,
-    themeId: r.theme_id ?? undefined,
-    rsvpToken: r.rsvp_token ?? undefined,
-    tasks: (r.tasks as Task[]) ?? [],
-    guests: (r.guests as Guest[]) ?? [],
-    budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
-    shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
-    timeline: (r.timeline as TimelineItem[]) ?? [],
-    pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
-    hostNote: r.host_note ?? undefined,
-    households: (r.households as Household[]) ?? [],
-    bringBoard: (r.bring_board as BringItem[]) ?? [],
-    hostUpdates: (r.host_updates as HostUpdate[]) ?? [],
-    holidayPackId: r.holiday_pack_id ?? undefined,
-    photoDrop: (r.photo_drop as PhotoDropInfo | null) ?? null,
-    checkins: (r.checkins as Record<string, string>) ?? {},
-    retrospective: (r.retrospective as PartyRetrospective | null) ?? null,
-  };
-}
+// rowToParty and partyToRow now live in party-persistence.ts so tests can
+// share them. Re-export the shapes used elsewhere in this module.
+import {
+  rowToParty as _rowToParty,
+  partyToColumns,
+  type PartyRow,
+} from "./party-persistence";
+import { PartyStore, type StoreEvent } from "./party-store";
+import { makeSupabaseClient } from "./party-supabase-client";
 
-function partyToRow(p: Party, userId: string) {
-  return {
-    id: p.id,
-    user_id: userId,
-    name: p.name,
-    occasion: p.occasion,
-    date: p.date,
-    start_time: p.startTime ?? null,
-    location: p.location ?? null,
-    guest_estimate: p.guestEstimate,
-    budget: p.budget,
-    theme: p.theme,
-    theme_id: p.themeId ?? null,
-    tasks: p.tasks as unknown as Json,
-    guests: p.guests as unknown as Json,
-    budget_categories: p.budgetCategories as unknown as Json,
-    shopping_items: p.shoppingItems as unknown as Json,
-    timeline: p.timeline as unknown as Json,
-    pinned_inspiration: p.pinnedInspiration as unknown as Json,
-    host_note: p.hostNote ?? null,
-    households: (p.households ?? []) as unknown as Json,
-    bring_board: (p.bringBoard ?? []) as unknown as Json,
-    host_updates: (p.hostUpdates ?? []) as unknown as Json,
-    holiday_pack_id: p.holidayPackId ?? null,
-    photo_drop: (p.photoDrop ?? null) as unknown as Json,
-    checkins: (p.checkins ?? {}) as unknown as Json,
-    retrospective: (p.retrospective ?? null) as unknown as Json,
-  };
+function rowToParty(r: unknown): Party {
+  return _rowToParty(r as PartyRow);
+}
+function partyToRow(p: Party, userId: string): PartyRow {
+  return partyToColumns(p, userId);
 }
 
 export function makeParty(
