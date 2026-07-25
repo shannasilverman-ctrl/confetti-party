@@ -57,39 +57,64 @@ Each mint request includes an `OpenAI-Safety-Identifier` header derived
 from the authenticated Supabase user id via SHA-256:
 
 - Format: `conf_<32 hex chars>` (128 bits, opaque).
-- Salted with `OPENAI_SAFETY_ID_SALT` when that server secret is set. This
-  makes the digest unlinkable across projects/deployments.
-- **Limitation** — without a salt, digests are still opaque but are
-  deterministic across any deployment that shares the same user-id space.
-  Set `OPENAI_SAFETY_ID_SALT` (any high-entropy string) in Project
-  Settings → Secrets to remove that cross-deployment linkability.
-- The raw user id, email, IP, and any other PII are never sent.
+- **`OPENAI_SAFETY_ID_SALT` is REQUIRED** whenever `OPENAI_API_KEY` is
+  configured. Missing/short salt fails closed with a sanitized `503
+  voice_unavailable`; the route never falls back to hashing an unsalted
+  user id. Set the salt (any high-entropy string, min 8 chars) in Project
+  Settings → Secrets. Rotate to invalidate all existing correlation ids.
+- The raw user id, email, bearer token, IP, and any other PII are never
+  sent to OpenAI, never logged, and never returned to the browser.
 
-## Rate limits
+## Server logging
+
+Each mint call emits a per-request `req_<16 hex>` correlation id and the
+`conf_<32 hex>` safety id — nothing user-identifying. When available the
+OpenAI `x-request-id` is captured so support tickets can be cross-referenced
+without leaking payloads. Raw OpenAI response bodies are never logged and
+never proxied to the browser.
+
+## Rate limits and session lifecycle
 
 Enforced server-side against `talk_sessions`:
 
 - Max **5 mints per rolling hour** per user → `429 rate_limited`.
 - Max **2 concurrent open sessions** per user → `429 too_many_concurrent`.
+- Concurrency ignores rows older than **15 minutes** with no `ended_at`,
+  so a crashed/refreshed browser cannot lock a user out permanently. This
+  15-minute cutoff is the client-secret's practical outer bound; the
+  stale row remains in the audit trail.
+- The `POST /_serverFn/*` `endSession` function (bearer-authenticated,
+  `requireSupabaseAuth`) is the only way a client ends its own session
+  early. RLS scopes the `UPDATE` by `auth.uid()` so no user can end
+  another user's session. Tests cover ownership + idempotency of the
+  end path.
 
-These are preserved from Phase 1 and covered by the existing session-row
-insert path.
+Fail-closed ordering inside the mint route:
+
+1. Auth + config + rate/concurrency read. **A Supabase read error is
+   NEVER treated as "zero recent sessions"** — it returns `503`.
+2. Insert a reserving `talk_sessions` row. Insert failure → `503` and
+   no OpenAI call is made.
+3. Mint the client secret. Upstream failure → the reserved row is marked
+   `ended` with a `disconnect_reason` and a sanitized `502` returned.
+4. The client secret is returned only after step 2 durably reserves the
+   concurrency slot.
 
 ## Failure behavior
 
 The server returns sanitized errors — never the raw OpenAI response body:
 
-| Condition                 | Status | `error` code                           |
-| ------------------------- | ------ | -------------------------------------- |
-| Missing `OPENAI_API_KEY`  | 503    | `voice_unavailable`                    |
-| Missing/invalid bearer    | 401    | (plain body)                           |
-| Rate limit hit            | 429    | `rate_limited` / `too_many_concurrent` |
-| Upstream network error    | 502    | `upstream_unreachable`                 |
-| Upstream non-2xx          | 502    | `upstream_error`                       |
-| Unexpected upstream shape | 502    | `upstream_error`                       |
+| Condition                          | Status | `error` code                           |
+| ---------------------------------- | ------ | -------------------------------------- |
+| Missing `OPENAI_API_KEY` or salt   | 503    | `voice_unavailable`                    |
+| Missing/invalid bearer             | 401    | (plain body)                           |
+| Supabase read/write failure        | 503    | `voice_unavailable`                    |
+| Rate limit hit                     | 429    | `rate_limited` / `too_many_concurrent` |
+| Upstream network error             | 502    | `upstream_unreachable`                 |
+| Upstream non-2xx                   | 502    | `upstream_error`                       |
+| Unexpected/malformed upstream JSON | 502    | `upstream_error`                       |
 
-Upstream details are logged server-side (truncated to 500 chars) but not
-surfaced to the client.
+
 
 ## Opt-in staging smoke test
 
