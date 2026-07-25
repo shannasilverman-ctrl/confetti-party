@@ -74,7 +74,6 @@ function ProductCard({ product }: { product: CatalogProduct }) {
     >
       <div className="relative aspect-square w-full bg-muted">
         {product.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={product.image}
             alt={product.title}
@@ -99,9 +98,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             {product.seller ?? "Shopify"}
           </span>
           {price && (
-            <span className="tabular-nums text-[11px] font-semibold text-secondary">
-              {price}
-            </span>
+            <span className="tabular-nums text-[11px] font-semibold text-secondary">{price}</span>
           )}
         </div>
       </div>

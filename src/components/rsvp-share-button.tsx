@@ -75,26 +75,20 @@ function DemoRsvpDialog({
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">Preview: public RSVP page</DialogTitle>
           <DialogDescription>
-            This is what guests would see. Sign up free to get a real shareable link for your parties.
+            This is what guests would see. Sign up free to get a real shareable link for your
+            parties.
           </DialogDescription>
         </DialogHeader>
 
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
           {theme?.heroImage && (
-            <img
-              src={theme.heroImage}
-              alt=""
-              className="h-32 w-full object-cover"
-              aria-hidden
-            />
+            <img src={theme.heroImage} alt="" className="h-32 w-full object-cover" aria-hidden />
           )}
           <div className="p-4">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
               You're invited
             </div>
-            <h3 className="mt-1 font-display text-xl font-semibold text-secondary">
-              {party.name}
-            </h3>
+            <h3 className="mt-1 font-display text-xl font-semibold text-secondary">{party.name}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {new Date(party.date).toLocaleDateString(undefined, {
                 weekday: "long",

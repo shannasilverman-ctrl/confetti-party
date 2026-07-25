@@ -2,8 +2,27 @@
 // from the intake conversation. Editable via the existing workspace.
 
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Wallet, Clock, Sparkles, ListChecks, Package, AlertTriangle, NotebookPen } from "lucide-react";
-import { useParties, daysUntil, guestCounts, totalSpent, progressPct, OCCASION_LABELS } from "@/lib/party-context";
+import {
+  ArrowLeft,
+  CalendarDays,
+  MapPin,
+  Users,
+  Wallet,
+  Clock,
+  Sparkles,
+  ListChecks,
+  Package,
+  AlertTriangle,
+  NotebookPen,
+} from "lucide-react";
+import {
+  useParties,
+  daysUntil,
+  guestCounts,
+  totalSpent,
+  progressPct,
+  OCCASION_LABELS,
+} from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
 import { PACKS } from "@/lib/holiday-packs";
 import { BrandLockup } from "@/components/brand";
@@ -34,7 +53,9 @@ function RevealPage() {
 
   const risks: string[] = [];
   if (days >= 0 && days <= 7 && openBring > 0) {
-    risks.push(`${openBring} bring-board item${openBring === 1 ? "" : "s"} still unclaimed with under a week to go.`);
+    risks.push(
+      `${openBring} bring-board item${openBring === 1 ? "" : "s"} still unclaimed with under a week to go.`,
+    );
   }
   if (spent > party.budget) {
     risks.push(`Projected spend is over budget by $${Math.round(spent - party.budget)}.`);
@@ -57,10 +78,11 @@ function RevealPage() {
           </Button>
           <BrandLockup />
           <Button asChild variant="secondary" size="sm" className="min-h-11">
-            <Link to="/party/$id/day-of" params={{ id }}>Day of →</Link>
+            <Link to="/party/$id/day-of" params={{ id }}>
+              Day of →
+            </Link>
           </Button>
         </header>
-
 
         <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-card md:p-8">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -75,10 +97,29 @@ function RevealPage() {
             {theme && <Badge variant="accent">{theme.name}</Badge>}
           </div>
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
-            <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> {new Date(party.date + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })} · {days >= 0 ? `${days} day${days === 1 ? "" : "s"} to go` : "past"}</div>
-            {party.startTime && <div className="flex items-center gap-2"><Clock className="h-4 w-4" /> {party.startTime}</div>}
-            {party.location && <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {party.location}</div>}
-            <div className="flex items-center gap-2"><Users className="h-4 w-4" /> {gc.yes} yes · {gc.maybe} maybe · target {party.guestEstimate}</div>
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4" />{" "}
+              {new Date(party.date + "T00:00:00").toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}{" "}
+              · {days >= 0 ? `${days} day${days === 1 ? "" : "s"} to go` : "past"}
+            </div>
+            {party.startTime && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4" /> {party.startTime}
+              </div>
+            )}
+            {party.location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" /> {party.location}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" /> {gc.yes} yes · {gc.maybe} maybe · target{" "}
+              {party.guestEstimate}
+            </div>
           </div>
           {party.hostNote && (
             <div className="mt-4 rounded-2xl bg-muted/40 p-4 text-sm text-foreground whitespace-pre-wrap">
@@ -94,27 +135,40 @@ function RevealPage() {
                 <ListChecks className="h-4 w-4 text-primary" /> Your next three actions
               </div>
               <Button asChild variant="link" size="sm">
-                <Link to="/party/$id" params={{ id }}>Open checklist</Link>
+                <Link to="/party/$id" params={{ id }}>
+                  Open checklist
+                </Link>
               </Button>
             </div>
             <ul className="mt-3 space-y-2">
               {nextThree.length === 0 ? (
-                <li className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">All set — nothing pending.</li>
-              ) : nextThree.map((t) => (
-                <li key={t.id} className="rounded-xl border border-border px-3 py-2 text-sm">
-                  <div className="font-medium text-foreground">{t.title}</div>
-                  <div className="text-xs text-muted-foreground">{t.bucket}</div>
+                <li className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">
+                  All set — nothing pending.
                 </li>
-              ))}
+              ) : (
+                nextThree.map((t) => (
+                  <li key={t.id} className="rounded-xl border border-border px-3 py-2 text-sm">
+                    <div className="font-medium text-foreground">{t.title}</div>
+                    <div className="text-xs text-muted-foreground">{t.bucket}</div>
+                  </li>
+                ))
+              )}
             </ul>
           </Card>
 
           <Card className="p-5">
             <div className="flex items-center justify-between text-sm font-semibold text-foreground">
-              <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" /> Budget</div>
-              <div className="tabular-nums">${Math.round(spent)} / ${party.budget}</div>
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" /> Budget
+              </div>
+              <div className="tabular-nums">
+                ${Math.round(spent)} / ${party.budget}
+              </div>
             </div>
-            <Progress value={Math.min(100, Math.round((spent / Math.max(1, party.budget)) * 100))} className="mt-3" />
+            <Progress
+              value={Math.min(100, Math.round((spent / Math.max(1, party.budget)) * 100))}
+              className="mt-3"
+            />
             <div className="mt-2 text-xs text-muted-foreground">Planning progress {pct}%</div>
           </Card>
 
@@ -127,7 +181,8 @@ function RevealPage() {
                 <>No shared items yet. Add some in the workspace.</>
               ) : (
                 <>
-                  {(party.bringBoard ?? []).filter((b) => b.status !== "open").length} claimed · {openBring} open
+                  {(party.bringBoard ?? []).filter((b) => b.status !== "open").length} claimed ·{" "}
+                  {openBring} open
                 </>
               )}
             </div>
@@ -142,7 +197,9 @@ function RevealPage() {
             ) : (
               <ul className="mt-2 space-y-1.5 text-sm text-foreground">
                 {risks.map((r, i) => (
-                  <li key={i} className="rounded-lg bg-muted/40 px-3 py-2">{r}</li>
+                  <li key={i} className="rounded-lg bg-muted/40 px-3 py-2">
+                    {r}
+                  </li>
                 ))}
               </ul>
             )}
@@ -161,26 +218,35 @@ function RevealPage() {
               <ul className="mt-3 space-y-2 text-sm">
                 {party.retrospective.worked && (
                   <li className="rounded-lg bg-muted/40 px-3 py-2">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">What worked</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      What worked
+                    </div>
                     <div className="mt-0.5 whitespace-pre-wrap">{party.retrospective.worked}</div>
                   </li>
                 )}
                 {party.retrospective.ranOut && (
                   <li className="rounded-lg bg-muted/40 px-3 py-2">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ran out / fell short</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Ran out / fell short
+                    </div>
                     <div className="mt-0.5 whitespace-pre-wrap">{party.retrospective.ranOut}</div>
                   </li>
                 )}
                 {party.retrospective.changeNext && (
                   <li className="rounded-lg bg-muted/40 px-3 py-2">
-                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Change next time</div>
-                    <div className="mt-0.5 whitespace-pre-wrap">{party.retrospective.changeNext}</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Change next time
+                    </div>
+                    <div className="mt-0.5 whitespace-pre-wrap">
+                      {party.retrospective.changeNext}
+                    </div>
                   </li>
                 )}
               </ul>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                Capture what worked, what ran out, and what to change. It'll show up as suggestions the next time you clone this party.
+                Capture what worked, what ran out, and what to change. It'll show up as suggestions
+                the next time you clone this party.
               </p>
             )}
           </Card>

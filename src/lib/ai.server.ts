@@ -25,7 +25,10 @@ export async function chatJSON<T = unknown>(opts: {
     temperature: opts.temperature ?? 0.6,
     response_format: { type: "json_object" as const },
     messages: [
-      { role: "system" as const, content: `${opts.system}\n\nRespond ONLY with valid JSON. Shape:\n${opts.schemaHint}` },
+      {
+        role: "system" as const,
+        content: `${opts.system}\n\nRespond ONLY with valid JSON. Shape:\n${opts.schemaHint}`,
+      },
       ...opts.messages,
     ],
   };

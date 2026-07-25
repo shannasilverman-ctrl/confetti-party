@@ -32,15 +32,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Check,
-  Plus,
-  ShoppingCart,
-  Trash2,
-  AlertTriangle,
-  Copy,
-  ExternalLink,
-} from "lucide-react";
+import { Check, Plus, ShoppingCart, Trash2, AlertTriangle, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { celebrate } from "@/components/confetti-burst";
 import {
@@ -74,8 +66,7 @@ const CATEGORY_NAMES: ShoppingCategoryName[] = [
 ];
 
 function buildQuery(item: ShoppingItem, party: Party): string {
-  const themed =
-    item.category === "Decorations" || item.category === "Favors";
+  const themed = item.category === "Decorations" || item.category === "Favors";
   const suffix = themed && party.theme ? `${party.theme} party` : "party";
   const q = `${item.name} ${suffix}`.trim().replace(/\s+/g, " ");
   return q.length > 80 ? q.slice(0, 80).trim() : q;
@@ -114,9 +105,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
   const projected = spent + remainingEst;
   const overBudget = projected > party.budget;
 
-  const needed = party.shoppingItems.filter(
-    (i) => i.status === "needed" || i.status === "in-cart",
-  );
+  const needed = party.shoppingItems.filter((i) => i.status === "needed" || i.status === "in-cart");
   const showDisclosure = affiliateDisclosureEnabled();
 
   function openPurchase(item: ShoppingItem) {
@@ -134,8 +123,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
     updateParty(partyId, (p) => markShoppingPurchased(p, confirm.item.id, n));
     toast.success("Purchased", { description: `${confirm.item.name} · $${n}` });
     celebrate("small");
-    const nextProjected =
-      projected - confirm.item.qty * confirm.item.estPrice + n;
+    const nextProjected = projected - confirm.item.qty * confirm.item.estPrice + n;
     if (wasOver && nextProjected <= party.budget) {
       toast.success("Back under budget!", {
         description: `Projected $${Math.round(nextProjected)} of $${party.budget}.`,
@@ -180,16 +168,11 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
   }
 
   function copyList() {
-    const lines = needed.map(
-      (i) => `- ${i.name} · qty ${i.qty} · ~$${i.qty * i.estPrice}`,
-    );
+    const lines = needed.map((i) => `- ${i.name} · qty ${i.qty} · ~$${i.qty * i.estPrice}`);
     const total = needed.reduce((s, i) => s + i.qty * i.estPrice, 0);
-    const text = [
-      `${party.name} — shopping list`,
-      ...lines,
-      ``,
-      `Estimated total: $${total}`,
-    ].join("\n");
+    const text = [`${party.name} — shopping list`, ...lines, ``, `Estimated total: $${total}`].join(
+      "\n",
+    );
     navigator.clipboard.writeText(text).then(
       () => {
         toast.success("List copied");
@@ -209,9 +192,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       >
         <div className="flex flex-wrap items-center gap-2">
           <ShoppingCart className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-lg font-semibold text-secondary">
-            Shopping summary
-          </h2>
+          <h2 className="font-display text-lg font-semibold text-secondary">Shopping summary</h2>
           {overBudget && (
             <Badge variant="warning">
               <AlertTriangle className="mr-1 h-3 w-3" /> Over budget
@@ -244,11 +225,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
         <h3 className="font-display text-base font-semibold text-secondary">Add an item</h3>
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_160px_90px_110px_auto]">
-          <Input
-            placeholder="Item name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <Input placeholder="Item name" value={name} onChange={(e) => setName(e.target.value)} />
           <Select value={category} onValueChange={(v) => setCategory(v as ShoppingCategoryName)}>
             <SelectTrigger>
               <SelectValue />
@@ -318,9 +295,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       </div>
 
       {showDisclosure && (
-        <p className="text-center text-xs text-muted-foreground">
-          {AFFILIATE_DISCLOSURE}
-        </p>
+        <p className="text-center text-xs text-muted-foreground">{AFFILIATE_DISCLOSURE}</p>
       )}
 
       {/* Purchase confirm */}
@@ -344,9 +319,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
               type="number"
               min={0}
               value={confirm?.price ?? ""}
-              onChange={(e) =>
-                setConfirm((c) => (c ? { ...c, price: e.target.value } : c))
-              }
+              onChange={(e) => setConfirm((c) => (c ? { ...c, price: e.target.value } : c))}
               onKeyDown={(e) => e.key === "Enter" && confirmPurchase()}
             />
             <p className="text-xs text-muted-foreground">
@@ -370,9 +343,7 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
         onOpenChange={setShopOpen}
         needed={needed}
         party={party}
-        onSetRetailer={(id, r) =>
-          updateParty(partyId, (p) => setPreferredRetailer(p, id, r))
-        }
+        onSetRetailer={(id, r) => updateParty(partyId, (p) => setPreferredRetailer(p, id, r))}
         onMarkAllInCart={(ids) =>
           updateParty(partyId, (p) =>
             ids.reduce((acc, id) => setShoppingStatus(acc, id, "in-cart"), p),
@@ -446,8 +417,8 @@ function CartDialog({
         <DialogHeader>
           <DialogTitle>Your cart</DialogTitle>
           <DialogDescription>
-            Open every search on your favorite retailer, then mark items Purchased
-            to track them in your budget.
+            Open every search on your favorite retailer, then mark items Purchased to track them in
+            your budget.
           </DialogDescription>
         </DialogHeader>
 
@@ -466,18 +437,12 @@ function CartDialog({
             if (items.length === 0) return null;
             const groupEst = items.reduce((s, i) => s + i.qty * i.estPrice, 0);
             return (
-              <section
-                key={key}
-                className="rounded-2xl border border-border bg-background/60 p-3"
-              >
+              <section key={key} className="rounded-2xl border border-border bg-background/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <div className="font-display text-sm font-semibold text-secondary">
-                      {label}
-                    </div>
+                    <div className="font-display text-sm font-semibold text-secondary">{label}</div>
                     <div className="text-[11px] text-muted-foreground">
-                      {items.length} item{items.length === 1 ? "" : "s"} · est $
-                      {groupEst}
+                      {items.length} item{items.length === 1 ? "" : "s"} · est ${groupEst}
                     </div>
                   </div>
                   <div className="flex gap-1.5">
@@ -488,21 +453,14 @@ function CartDialog({
                     >
                       Mark all In cart
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="festive"
-                      onClick={() => openGroup(key)}
-                    >
+                    <Button size="sm" variant="festive" onClick={() => openGroup(key)}>
                       <ExternalLink /> Open {items.length} on {label}
                     </Button>
                   </div>
                 </div>
                 <ul className="mt-3 space-y-2">
                   {items.map((it) => (
-                    <li
-                      key={it.id}
-                      className="rounded-xl border border-border bg-card p-2.5"
-                    >
+                    <li key={it.id} className="rounded-xl border border-border bg-card p-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-secondary">
@@ -513,7 +471,10 @@ function CartDialog({
                           </div>
                         </div>
                         <a
-                          href={retailerUrl(it.preferredRetailer ?? "amazon", buildQuery(it, party))}
+                          href={retailerUrl(
+                            it.preferredRetailer ?? "amazon",
+                            buildQuery(it, party),
+                          )}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0 rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-secondary hover:border-primary hover:text-primary"
@@ -550,9 +511,7 @@ function CartDialog({
         </div>
 
         {showDisclosure && (
-          <p className="text-center text-[11px] text-muted-foreground">
-            {AFFILIATE_DISCLOSURE}
-          </p>
+          <p className="text-center text-[11px] text-muted-foreground">{AFFILIATE_DISCLOSURE}</p>
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -576,7 +535,9 @@ function SumStat({
   return (
     <div className="rounded-xl bg-background/60 p-3">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 font-display text-xl font-semibold ${valueClass ?? "text-secondary"}`}>
+      <div
+        className={`mt-0.5 font-display text-xl font-semibold ${valueClass ?? "text-secondary"}`}
+      >
         {value}
       </div>
     </div>

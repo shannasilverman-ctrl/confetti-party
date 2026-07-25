@@ -33,7 +33,7 @@ const CATEGORIES: BringCategory[] = [
 export function BringBoardEditor({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
-  const items = party.bringBoard ?? [];
+  const items = useMemo(() => party.bringBoard ?? [], [party.bringBoard]);
 
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState<BringCategory>("Sides");
@@ -86,7 +86,13 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
       ...p,
       bringBoard: (p.bringBoard ?? []).map((i) =>
         i.id === id
-          ? { ...i, status: "open", assigneeName: undefined, assigneeHousehold: undefined, claimedAt: undefined }
+          ? {
+              ...i,
+              status: "open",
+              assigneeName: undefined,
+              assigneeHousehold: undefined,
+              claimedAt: undefined,
+            }
           : i,
       ),
     }));
@@ -98,9 +104,7 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
     updateParty(party.id, (p) => {
       const existing = p.bringBoard ?? [];
       const known = new Set(existing.map((i) => `${i.category}::${i.label.toLowerCase()}`));
-      const additions = seeds.filter(
-        (s) => !known.has(`${s.category}::${s.label.toLowerCase()}`),
-      );
+      const additions = seeds.filter((s) => !known.has(`${s.category}::${s.label.toLowerCase()}`));
       return {
         ...p,
         holidayPackId: packId,
@@ -113,7 +117,8 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
 
   // Missing-category prompts
   const missingCats = CATEGORIES.filter(
-    (c) => !items.some((i) => i.category === c) && ["Main", "Sides", "Dessert", "Drinks"].includes(c),
+    (c) =>
+      !items.some((i) => i.category === c) && ["Main", "Sides", "Dessert", "Drinks"].includes(c),
   );
 
   return (
@@ -138,16 +143,13 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
               <Sparkles className="h-3.5 w-3.5" /> Seed from a holiday pack
             </div>
             <div className="flex flex-wrap gap-2">
-              {listPacks().slice(0, 6).map((p) => (
-                <Button
-                  key={p.id}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => applyPack(p.id)}
-                >
-                  {p.emoji} {p.label}
-                </Button>
-              ))}
+              {listPacks()
+                .slice(0, 6)
+                .map((p) => (
+                  <Button key={p.id} size="sm" variant="outline" onClick={() => applyPack(p.id)}>
+                    {p.emoji} {p.label}
+                  </Button>
+                ))}
             </div>
           </div>
         )}
@@ -155,7 +157,9 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
         {/* Add item */}
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_180px_100px_auto]">
           <div>
-            <Label htmlFor="bb-label" className="sr-only">Item</Label>
+            <Label htmlFor="bb-label" className="sr-only">
+              Item
+            </Label>
             <Input
               id="bb-label"
               placeholder="e.g. Pumpkin pie"
@@ -166,10 +170,14 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
             />
           </div>
           <Select value={category} onValueChange={(v) => setCategory(v as BringCategory)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {CATEGORIES.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -209,7 +217,11 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
                   <li key={i.id} className="flex items-center gap-3 py-2.5">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-secondary">
-                        {i.label} <span className="font-normal text-muted-foreground">× {i.qty}{i.unit ? ` ${i.unit}` : ""}</span>
+                        {i.label}{" "}
+                        <span className="font-normal text-muted-foreground">
+                          × {i.qty}
+                          {i.unit ? ` ${i.unit}` : ""}
+                        </span>
                       </div>
                       {i.status === "claimed" && i.assigneeName && (
                         <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
@@ -228,7 +240,9 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
                         <X className="h-4 w-4" />
                       </Button>
                     ) : (
-                      <Badge variant="soft" className="text-[10px]">Open</Badge>
+                      <Badge variant="soft" className="text-[10px]">
+                        Open
+                      </Badge>
                     )}
                     <Button
                       size="sm"

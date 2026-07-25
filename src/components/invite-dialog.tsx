@@ -69,8 +69,7 @@ export function InviteDialog({
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/rsvp/${party.rsvpToken}`
     : "confettiplans.com/rsvp/preview";
 
-  const canShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   const copyLink = async () => {
     if (!isReal) {
@@ -139,20 +138,15 @@ export function InviteDialog({
         backgroundPosition: "center",
       }
     : {
-        backgroundImage:
-          "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
+        backgroundImage: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
       };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl text-secondary">
-            Party invite
-          </DialogTitle>
-          <DialogDescription>
-            Share the card and RSVP link with your guests.
-          </DialogDescription>
+          <DialogTitle className="font-display text-2xl text-secondary">Party invite</DialogTitle>
+          <DialogDescription>Share the card and RSVP link with your guests.</DialogDescription>
         </DialogHeader>
 
         {/* Invite card */}
@@ -193,9 +187,7 @@ export function InviteDialog({
               </div>
 
               <div className="mt-4 rounded-xl bg-white/20 px-3 py-2 text-xs backdrop-blur">
-                <div className="text-[10px] uppercase tracking-wide text-white/80">
-                  RSVP at
-                </div>
+                <div className="text-[10px] uppercase tracking-wide text-white/80">RSVP at</div>
                 <div className="mt-0.5 truncate font-medium">{url}</div>
               </div>
             </div>
@@ -204,8 +196,8 @@ export function InviteDialog({
 
         {!isReal && (
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-secondary">
-            You're viewing a demo party. Sign up free to get a real shareable RSVP link
-            for your own invites.
+            You're viewing a demo party. Sign up free to get a real shareable RSVP link for your own
+            invites.
           </div>
         )}
 

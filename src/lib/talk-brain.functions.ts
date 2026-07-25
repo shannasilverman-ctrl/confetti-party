@@ -64,8 +64,21 @@ function extractDate(text: string): string | undefined {
   if (iso) return iso[0];
   const md = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
   if (md) {
-    const months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
-    const m = months.indexOf(md[1].slice(0,3).toLowerCase());
+    const months = [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "oct",
+      "nov",
+      "dec",
+    ];
+    const m = months.indexOf(md[1].slice(0, 3).toLowerCase());
     const d = parseInt(md[2], 10);
     const year = new Date().getFullYear();
     const dt = new Date(year, m, d);
@@ -91,7 +104,10 @@ type TurnMessages = z.infer<typeof TurnInput>["messages"];
 
 function demoBrain(messages: TurnMessages): TurnResult {
   const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  const allUser = messages.filter((m) => m.role === "user").map((m) => m.content).join(" ");
+  const allUser = messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.content)
+    .join(" ");
   const pack = detectPack(allUser);
   const patch: DraftPatch = {};
   const questions: string[] = [];
@@ -226,7 +242,10 @@ export const sendTurn = createServerFn({ method: "POST" })
 
     // Merge patch into stored draft (shallow — draft body is jsonb).
     const existing = (draftRow.draft as Record<string, unknown>) ?? {};
-    const merged = { ...existing, patch: mergePatchLog(existing.patch, result.draftPatch, result.usedDemo) };
+    const merged = {
+      ...existing,
+      patch: mergePatchLog(existing.patch, result.draftPatch, result.usedDemo),
+    };
     await supabase
       .from("gathering_drafts")
       .update({
@@ -281,9 +300,7 @@ export const confirmDraft = createServerFn({ method: "POST" })
     const packId = merged.identity?.holidayPackId as PackId | undefined;
     const pack = packId ? PACKS[packId] : undefined;
     const occasion = (merged.identity?.occasion ?? (pack ? "holiday" : "other")) as string;
-    const name =
-      merged.identity?.workingTitle ??
-      (pack ? pack.label : "Untitled gathering");
+    const name = merged.identity?.workingTitle ?? (pack ? pack.label : "Untitled gathering");
     const dateISO = merged.when?.date ?? isoDateInDays(21);
     const startTime = merged.when?.startTime ?? null;
     const location = merged.where?.display ?? null;

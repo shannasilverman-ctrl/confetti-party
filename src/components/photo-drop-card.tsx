@@ -16,11 +16,16 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
   const providerLabel = useMemo(() => {
     if (!drop) return "";
     switch (drop.provider) {
-      case "dropbox_request": return "Dropbox File Request";
-      case "google_photos": return "Google Photos album";
-      case "kululu": return "Kululu event";
-      case "guestpix": return "GuestPix gallery";
-      default: return "external upload link";
+      case "dropbox_request":
+        return "Dropbox File Request";
+      case "google_photos":
+        return "Google Photos album";
+      case "kululu":
+        return "Kululu event";
+      case "guestpix":
+        return "GuestPix gallery";
+      default:
+        return "external upload link";
     }
   }, [drop]);
 
@@ -42,7 +47,9 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({ title: label, url: drop.url });
-      } catch { /* user cancel */ }
+      } catch {
+        /* user cancel */
+      }
     }
   }
 
@@ -63,9 +70,7 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
           </p>
         </div>
       </div>
-      {drop.notes && (
-        <p className="mt-2 text-sm text-foreground">{drop.notes}</p>
-      )}
+      {drop.notes && <p className="mt-2 text-sm text-foreground">{drop.notes}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button asChild size="sm" variant="festive">
           <a href={drop.url} target="_blank" rel="noopener noreferrer">

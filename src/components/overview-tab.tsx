@@ -49,7 +49,6 @@ type NavTab =
   | "budget"
   | "timeline";
 
-
 export function OverviewTab({
   partyId,
   onNavigate,
@@ -156,8 +155,8 @@ export function OverviewTab({
               </h2>
             )}
             <p className="mt-1 text-sm text-muted-foreground">
-              {prog}% planned ·{" "}
-              {party.tasks.filter((t) => t.done).length}/{party.tasks.length} tasks complete
+              {prog}% planned · {party.tasks.filter((t) => t.done).length}/{party.tasks.length}{" "}
+              tasks complete
             </p>
             {!party.heroImageUrl && (party.startTime || party.location) && (
               <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -186,8 +185,6 @@ export function OverviewTab({
         onOpenInvite={() => setInviteOpen(true)}
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
-
-
 
       {/* Up next */}
       <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
@@ -261,8 +258,8 @@ export function OverviewTab({
             </div>
             <p className="mt-1 text-muted-foreground">
               {noReply.map((n) => n.name).join(", ")}
-              {g.invited > noReply.length ? ` and ${g.invited - noReply.length} more` : ""}
-              {" "}haven't replied yet.
+              {g.invited > noReply.length ? ` and ${g.invited - noReply.length} more` : ""} haven't
+              replied yet.
             </p>
           </div>
         )}
@@ -293,27 +290,16 @@ export function OverviewTab({
         <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
           <MiniStat label="Spent" value={`$${spent}`} />
           <MiniStat label="Est. remaining" value={`$${remainingEst}`} />
-          <MiniStat
-            label="Projected"
-            value={`$${projected}`}
-            emphasize={overBudget}
-          />
+          <MiniStat label="Projected" value={`$${projected}`} emphasize={overBudget} />
         </div>
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
             <span>Budget ${party.budget}</span>
             <span>
-              {party.budget
-                ? Math.round((projected / party.budget) * 100)
-                : 0}
-              % projected
+              {party.budget ? Math.round((projected / party.budget) * 100) : 0}% projected
             </span>
           </div>
-          <Progress
-            value={
-              party.budget ? Math.min(100, (projected / party.budget) * 100) : 0
-            }
-          />
+          <Progress value={party.budget ? Math.min(100, (projected / party.budget) * 100) : 0} />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => onNavigate("budget")}>

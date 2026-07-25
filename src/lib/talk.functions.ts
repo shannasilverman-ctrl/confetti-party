@@ -8,7 +8,12 @@ import { emptyDraftBody } from "./gathering-draft";
 
 const endSessionInput = z.object({
   sessionId: z.string().uuid(),
-  durationS: z.number().int().min(0).max(60 * 60).optional(),
+  durationS: z
+    .number()
+    .int()
+    .min(0)
+    .max(60 * 60)
+    .optional(),
   disconnectReason: z.string().max(120).optional(),
 });
 
@@ -54,10 +59,7 @@ export const deleteDraft = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ draftId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { error } = await supabase
-      .from("gathering_drafts")
-      .delete()
-      .eq("id", data.draftId);
+    const { error } = await supabase.from("gathering_drafts").delete().eq("id", data.draftId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

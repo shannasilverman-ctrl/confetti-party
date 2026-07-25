@@ -35,11 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
-import {
-  amazonSearchUrl,
-  targetSearchUrl,
-  walmartSearchUrl,
-} from "@/lib/affiliates";
+import { amazonSearchUrl, targetSearchUrl, walmartSearchUrl } from "@/lib/affiliates";
 import { ProductTiles } from "@/components/product-tiles";
 
 type TileKey = "table" | "decor" | "dessert" | "entry" | "activity" | "photoSpot";
@@ -60,13 +56,14 @@ function tileImage(theme: Theme, key: TileKey): string {
   if (theme.inspiration) return theme.inspiration[key];
   // Fallback: rotate through vision board when inspiration images not generated yet.
   const pool = [theme.visionBoard.decor, theme.visionBoard.table, theme.visionBoard.dessert];
-  return pool[(key === "entry" ? 0 : key === "activity" ? 1 : 2)];
+  return pool[key === "entry" ? 0 : key === "activity" ? 1 : 2];
 }
 
 function ideaThumb(theme: Theme, idea: DecorIdea): string {
   const t = idea.title.toLowerCase();
   if (/(cake|cookie|dessert|cupcake|treat|favor|candy)/.test(t)) return theme.visionBoard.dessert;
-  if (/(table|runner|tablecloth|napkin|plate|linen|centerpiece)/.test(t)) return theme.visionBoard.table;
+  if (/(table|runner|tablecloth|napkin|plate|linen|centerpiece)/.test(t))
+    return theme.visionBoard.table;
   return theme.visionBoard.decor;
 }
 
@@ -78,7 +75,10 @@ export function ThemeTab({ partyId }: { partyId: string }) {
 
   const [lightbox, setLightbox] = useState<TileKey | null>(null);
   const [bundleOpen, setBundleOpen] = useState(false);
-  const [pendingSwitch, setPendingSwitch] = useState<{ theme: Theme; origin?: { x: number; y: number } } | null>(null);
+  const [pendingSwitch, setPendingSwitch] = useState<{
+    theme: Theme;
+    origin?: { x: number; y: number };
+  } | null>(null);
 
   function selectTheme(t: Theme, e?: React.MouseEvent) {
     if (party.themeId === t.id) return;
@@ -132,10 +132,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
     () => new Set(party.shoppingItems.map((i) => i.name)),
     [party.shoppingItems],
   );
-  const taskTitles = useMemo(
-    () => new Set(party.tasks.map((t) => t.title)),
-    [party.tasks],
-  );
+  const taskTitles = useMemo(() => new Set(party.tasks.map((t) => t.title)), [party.tasks]);
   const isAdded = (idea: DecorIdea) =>
     idea.kind === "Buy"
       ? idea.estPrice <= 0 || shoppingNames.has(idea.title)
@@ -144,9 +141,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
   // Bundle stats for the active theme
   const bundleStats = useMemo(() => {
     if (!activeTheme) return { toAdd: [] as DecorIdea[], alreadyIn: 0, estTotal: 0 };
-    const buys = activeTheme.decorIdeas.filter(
-      (i) => i.kind === "Buy" && i.estPrice > 0,
-    );
+    const buys = activeTheme.decorIdeas.filter((i) => i.kind === "Buy" && i.estPrice > 0);
     const toAdd = buys.filter((i) => !shoppingNames.has(i.title));
     const alreadyIn = buys.length - toAdd.length;
     const estTotal = toAdd.reduce((s, i) => s + i.estPrice, 0);
@@ -214,8 +209,8 @@ export function ThemeTab({ partyId }: { partyId: string }) {
           Themes for {label} are coming soon
         </div>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          You can keep planning — your checklist, guests, budget, and shopping list all
-          work without a theme. Décor themes for watch parties and cookouts land next.
+          You can keep planning — your checklist, guests, budget, and shopping list all work without
+          a theme. Décor themes for watch parties and cookouts land next.
         </p>
       </div>
     );
@@ -300,9 +295,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               <div className="flex flex-col gap-4 p-5 sm:p-7">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="accent">
-                      {OCCASION_LABELS[party.occasion]}
-                    </Badge>
+                    <Badge variant="accent">{OCCASION_LABELS[party.occasion]}</Badge>
                     <Badge variant="soft">{activeTheme.decorIdeas.length} ideas</Badge>
                   </div>
                   <h1 className="mt-2 font-display text-2xl font-semibold text-secondary sm:text-3xl">
@@ -341,9 +334,8 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {bundleStats.alreadyIn} of{" "}
-                  {bundleStats.alreadyIn + bundleStats.toAdd.length} shoppable items
-                  already in your list.
+                  {bundleStats.alreadyIn} of {bundleStats.alreadyIn + bundleStats.toAdd.length}{" "}
+                  shoppable items already in your list.
                 </p>
               </div>
             </div>
@@ -354,9 +346,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
             <section>
               <div className="mb-2 flex items-center gap-2">
                 <Pin className="h-3.5 w-3.5 text-primary" />
-                <h3 className="font-display text-sm font-semibold text-secondary">
-                  Your pins
-                </h3>
+                <h3 className="font-display text-sm font-semibold text-secondary">Your pins</h3>
               </div>
               <div className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
                 {pinnedForTheme.map((pinId) => {
@@ -493,9 +483,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
           {/* Styling tips + Setup plan */}
           <section className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-              <h3 className="font-display text-lg font-semibold text-secondary">
-                Styling tips
-              </h3>
+              <h3 className="font-display text-lg font-semibold text-secondary">Styling tips</h3>
               <ul className="mt-3 space-y-2 text-sm text-secondary">
                 {activeTheme.stylingTips.map((tip, i) => (
                   <li key={i} className="flex gap-2">
@@ -506,9 +494,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               </ul>
             </div>
             <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
-              <h3 className="font-display text-lg font-semibold text-secondary">
-                Setup plan
-              </h3>
+              <h3 className="font-display text-lg font-semibold text-secondary">Setup plan</h3>
               <ul className="mt-3 space-y-3">
                 {activeTheme.setup.map((z) => {
                   const Icon = zoneIcon(z.key);
@@ -519,16 +505,12 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                       </div>
                       <div>
                         <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-sm font-semibold text-secondary">
-                            {z.label}
-                          </span>
+                          <span className="text-sm font-semibold text-secondary">{z.label}</span>
                           <span className="text-[11px] text-primary">
                             {z.minutesBefore} min before
                           </span>
                         </div>
-                        <p className="mt-0.5 text-sm text-secondary/90">
-                          {z.instruction}
-                        </p>
+                        <p className="mt-0.5 text-sm text-secondary/90">{z.instruction}</p>
                       </div>
                     </li>
                   );
@@ -554,9 +536,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
                       <div className="font-display text-lg font-semibold text-secondary">
                         {TILE_LABELS[lightbox]}
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {activeTheme.name}
-                      </div>
+                      <div className="text-xs text-muted-foreground">{activeTheme.name}</div>
                     </div>
                     <Button
                       variant={
@@ -584,8 +564,8 @@ export function ThemeTab({ partyId }: { partyId: string }) {
               <DialogHeader>
                 <DialogTitle>Shop this theme</DialogTitle>
                 <DialogDescription>
-                  Add {bundleStats.toAdd.length} items · est ${bundleStats.estTotal} to
-                  your shopping list. DIYs stay off the cart.
+                  Add {bundleStats.toAdd.length} items · est ${bundleStats.estTotal} to your
+                  shopping list. DIYs stay off the cart.
                 </DialogDescription>
               </DialogHeader>
               <ul className="max-h-[45vh] space-y-1.5 overflow-y-auto rounded-xl border border-border bg-background/60 p-3 text-sm">
@@ -613,12 +593,10 @@ export function ThemeTab({ partyId }: { partyId: string }) {
           <Dialog open={pendingSwitch !== null} onOpenChange={(o) => !o && setPendingSwitch(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>
-                  Switch to {pendingSwitch?.theme.name}?
-                </DialogTitle>
+                <DialogTitle>Switch to {pendingSwitch?.theme.name}?</DialogTitle>
                 <DialogDescription>
-                  Your guests, budget, checklist, and shopping list stay exactly as they
-                  are. Only the vision board, décor ideas, and theme suggestions update.
+                  Your guests, budget, checklist, and shopping list stay exactly as they are. Only
+                  the vision board, décor ideas, and theme suggestions update.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -662,10 +640,7 @@ function IdeaCard({
           loading="lazy"
           className="h-full w-full object-cover transition group-hover:scale-105"
         />
-        <Badge
-          variant={isBuy ? "soft" : "accent"}
-          className="absolute left-2 top-2"
-        >
+        <Badge variant={isBuy ? "soft" : "accent"} className="absolute left-2 top-2">
           {idea.kind}
         </Badge>
         {isBuy && idea.estPrice > 0 && (
@@ -762,4 +737,3 @@ function zoneIcon(key: "entry" | "food" | "activity" | "photo") {
       return Camera;
   }
 }
-

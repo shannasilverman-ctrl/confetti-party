@@ -36,5 +36,19 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // Context providers and shadcn UI variant files intentionally co-locate
+    // hooks/variants with the component export. The react-refresh HMR hint
+    // does not apply to these framework-idiomatic patterns.
+    files: [
+      "src/lib/party-context.tsx",
+      "src/lib/auth.tsx",
+      "src/components/ui/**/*.tsx",
+      "src/components/confetti-burst.tsx",
+    ],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
   eslintPluginPrettier,
 );

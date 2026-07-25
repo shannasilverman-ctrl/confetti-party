@@ -12,9 +12,7 @@ function clamp(q: string): string {
 
 export function amazonSearchUrl(query: string): string {
   const q = encodeURIComponent(clamp(query));
-  const tag = AFFILIATE.amazonTag
-    ? `&tag=${encodeURIComponent(AFFILIATE.amazonTag)}`
-    : "";
+  const tag = AFFILIATE.amazonTag ? `&tag=${encodeURIComponent(AFFILIATE.amazonTag)}` : "";
   return `https://www.amazon.com/s?k=${q}${tag}`;
 }
 

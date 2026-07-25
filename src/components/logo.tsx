@@ -47,11 +47,7 @@ export function LogoMark({
         fill="var(--brand-coral, hsl(10 82% 62%))"
       />
       <circle cx="57" cy="19" r="2.4" fill="var(--brand-gold, hsl(38 92% 58%))" />
-      <path
-        d="M52 22 L56 22 L54 26 Z"
-        fill="var(--brand-gold, hsl(38 92% 58%))"
-        opacity="0.9"
-      />
+      <path d="M52 22 L56 22 L54 26 Z" fill="var(--brand-gold, hsl(38 92% 58%))" opacity="0.9" />
     </svg>
   );
 }

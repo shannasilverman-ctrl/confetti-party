@@ -39,7 +39,6 @@ export type PartyView = {
   total_count: number;
 };
 
-
 export type RsvpLoaderData = {
   party: PartyView | null;
   origin: string;

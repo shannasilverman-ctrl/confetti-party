@@ -19,9 +19,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         festive:
           "bg-festive text-primary-foreground shadow-card hover:brightness-110 hover:shadow-elevated",
-        onFestive:
-          "bg-card text-secondary shadow-card hover:bg-card/95",
-
+        onFestive: "bg-card text-secondary shadow-card hover:bg-card/95",
       },
       size: {
         default: "h-9 px-4 py-2",

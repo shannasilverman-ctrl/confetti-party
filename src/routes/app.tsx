@@ -43,7 +43,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-
 type AppSearch = { new?: boolean };
 
 export const Route = createFileRoute("/app")({
@@ -96,7 +95,6 @@ function Dashboard() {
             </Button>
           </div>
         </div>
-
       </header>
 
       {showBanner && (
@@ -144,38 +142,39 @@ function Dashboard() {
                     : `${parties.length} in flight — pick one to keep planning.`}
             </p>
           </div>
-          {status === "ready" && parties.length > 0 && (() => {
-            const upcoming = [...parties]
-              .filter((p) => daysUntil(p.date) >= 0)
-              .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
-            if (!upcoming) return null;
-            const d = daysUntil(upcoming.date);
-            return (
-              <Link
-                to="/party/$id"
-                params={{ id: upcoming.id }}
-                className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-elevated"
-              >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <CalendarDays className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Next up
+          {status === "ready" &&
+            parties.length > 0 &&
+            (() => {
+              const upcoming = [...parties]
+                .filter((p) => daysUntil(p.date) >= 0)
+                .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
+              if (!upcoming) return null;
+              const d = daysUntil(upcoming.date);
+              return (
+                <Link
+                  to="/party/$id"
+                  params={{ id: upcoming.id }}
+                  className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-elevated"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <CalendarDays className="h-5 w-5" />
                   </div>
-                  <div className="truncate font-display text-base font-semibold text-secondary">
-                    {upcoming.name}
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Next up
+                    </div>
+                    <div className="truncate font-display text-base font-semibold text-secondary">
+                      {upcoming.name}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 shrink-0 text-primary opacity-0 transition group-hover:opacity-100" />
-              </Link>
-            );
-          })()}
+                  <ArrowRight className="h-4 w-4 shrink-0 text-primary opacity-0 transition group-hover:opacity-100" />
+                </Link>
+              );
+            })()}
         </div>
-
 
         {status === "loading" ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -218,8 +217,8 @@ function Dashboard() {
               Plan your first party
             </h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-              Answer a few quick questions and Confetti will set up your checklist, shopping
-              list, and day-of timeline.
+              Answer a few quick questions and Confetti will set up your checklist, shopping list,
+              and day-of timeline.
             </p>
             <Button className="mt-6" variant="festive" onClick={() => setWizardOpen(true)}>
               <Plus /> Start a party
@@ -329,7 +328,6 @@ function Dashboard() {
 
       <NewPartyWizard open={wizardOpen} onOpenChange={setWizardOpen} />
     </div>
-
   );
 }
 
@@ -428,7 +426,6 @@ function NewPartyWizard({
 
   const createdParty = createdId ? getParty(createdId) : undefined;
 
-
   return (
     <Dialog
       open={open}
@@ -494,12 +491,7 @@ function NewPartyWizard({
             </div>
             <div>
               <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
@@ -610,7 +602,10 @@ function NewPartyWizard({
         {step === "done" && createdParty && (
           <div className="py-4 text-center">
             <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
-              <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" aria-hidden />
+              <div
+                className="absolute inset-0 animate-ping rounded-full bg-primary/30"
+                aria-hidden
+              />
               <PartyPopper className="h-10 w-10 animate-scale-in" />
               <ConfettiBurst active count={22} spread={130} />
             </div>
@@ -622,10 +617,7 @@ function NewPartyWizard({
             </p>
             <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
               <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
-              <PlanStat
-                label="Shopping items"
-                value={createdParty.shoppingItems.length}
-              />
+              <PlanStat label="Shopping items" value={createdParty.shoppingItems.length} />
               <PlanStat label="Theme applied" value={createdParty.theme} />
               <PlanStat label="Budget set" value={`$${createdParty.budget}`} />
             </div>
@@ -635,7 +627,13 @@ function NewPartyWizard({
         <DialogFooter className="flex-row justify-between sm:justify-between">
           {step === "done" ? (
             <>
-              <Button variant="ghost" onClick={() => { onOpenChange(false); reset(); }}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  onOpenChange(false);
+                  reset();
+                }}
+              >
                 Close
               </Button>
               <Button variant="festive" onClick={openPlan}>
@@ -647,9 +645,7 @@ function NewPartyWizard({
               <Button
                 variant="ghost"
                 onClick={() =>
-                  step === 1
-                    ? onOpenChange(false)
-                    : setStep(((step as number) - 1) as 1 | 2)
+                  step === 1 ? onOpenChange(false) : setStep(((step as number) - 1) as 1 | 2)
                 }
               >
                 {step === 1 ? "Cancel" : "Back"}
@@ -657,10 +653,7 @@ function NewPartyWizard({
               {(step as number) < 3 ? (
                 <Button
                   variant="festive"
-                  disabled={
-                    (step === 1 && !occasion) ||
-                    (step === 2 && (!date || !name))
-                  }
+                  disabled={(step === 1 && !occasion) || (step === 2 && (!date || !name))}
                   onClick={() => setStep(((step as number) + 1) as 2 | 3)}
                 >
                   Continue <ArrowRight />
@@ -678,7 +671,6 @@ function NewPartyWizard({
   );
 }
 
-
 function PlanStat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 text-left shadow-card">
@@ -687,6 +679,3 @@ function PlanStat({ label, value }: { label: string; value: string | number }) {
     </div>
   );
 }
-
-
-
