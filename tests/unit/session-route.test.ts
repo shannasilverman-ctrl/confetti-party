@@ -15,7 +15,10 @@ interface FakeSupabaseState {
   authError?: boolean;
   sessions: FakeSession[];
   selectError?: { code: string } | null;
+  /** Applies only to selects AFTER at least one insert (post-insert recount). */
+  recountError?: { code: string } | null;
   insertError?: { code: string } | null;
+  updateError?: { code: string } | null;
   insertHook?: () => void | Promise<void>;
   updates: Array<{ id: string; patch: Record<string, unknown> }>;
   inserts: Array<Record<string, unknown>>;
