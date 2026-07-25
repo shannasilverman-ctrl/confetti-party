@@ -189,19 +189,40 @@ function TalkRoute() {
   const isDemo = authReady && !user;
   const [demoTurn, setDemoTurn] = useState(0);
   const demoLimitReached = isDemo && demoTurn >= DEMO_MAX_TURNS;
+  // Announcement region for screen readers: thinking, send/connect errors,
+  // demo-limit reached, connection lifecycle.
+  const [statusAnnouncement, setStatusAnnouncement] = useState("");
 
   // Create a draft on first mount for signed-in users only.
+  // Belt-and-braces: never call the persistence mint on the signed-out
+  // demo path. `isDemo` is also gated below in sendMessage/startVoice.
   useEffect(() => {
-    if (!authReady || !user || draftId) return;
+    if (!authReady || !user || isDemo || draftId) return;
     createDraft()
       .then((r) => setDraftId(r.id))
-      .catch(() => toast.error("Couldn't start a fresh draft. Please retry."));
-  }, [authReady, user, draftId]);
+      .catch((err) => {
+        const msg = friendlyTalkError("draft_create", err);
+        toast.error(msg);
+        setStatusAnnouncement(msg);
+      });
+  }, [authReady, user, isDemo, draftId]);
 
   useEffect(() => {
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, thinking]);
+
+  useEffect(() => {
+    if (thinking) setStatusAnnouncement("Confetti is thinking.");
+  }, [thinking]);
+
+  useEffect(() => {
+    if (demoLimitReached) {
+      setStatusAnnouncement(
+        "Demo turns used. Sign up free to keep going and save your plan.",
+      );
+    }
+  }, [demoLimitReached]);
 
   const sendMessage = useCallback(async () => {
     const text = typed.trim();
@@ -214,7 +235,7 @@ function TalkRoute() {
     setThinking(true);
     try {
       if (isDemo) {
-        // Bounded local demo — no network, no persistence.
+        // Bounded local demo — no network, no persistence, no server brain.
         await new Promise((r) => setTimeout(r, 500));
         const d = demoReply(demoTurn);
         setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
@@ -230,15 +251,16 @@ function TalkRoute() {
         if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      const msg = friendlyTalkError("send_turn", err);
       toast.error(msg);
+      setStatusAnnouncement(msg);
     } finally {
       setThinking(false);
     }
   }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
 
   const confirmAndCreate = useCallback(async () => {
-    if (!draftId) return;
+    if (!draftId || isDemo) return;
     setConfirming(true);
     try {
       const { partyId } = await confirmDraft({ data: { draftId } });
@@ -246,12 +268,14 @@ function TalkRoute() {
       toast.success("Plan created — welcome to your workspace.");
       navigate({ to: "/party/$id/reveal", params: { id: partyId } });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Couldn't finalize the plan.";
+      const msg = friendlyTalkError("confirm", err);
       toast.error(msg);
+      setStatusAnnouncement(msg);
     } finally {
       setConfirming(false);
     }
-  }, [draftId, navigate]);
+  }, [draftId, isDemo, navigate]);
+
 
   // ---------- Voice-mode handlers (unchanged behavior) ----------
 
