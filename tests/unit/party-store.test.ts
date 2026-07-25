@@ -170,7 +170,7 @@ describe("mergeBringBoard", () => {
       },
       baseline[1],
     ];
-    const merged = mergeBringBoard(baseline, local, server);
+    const merged = mergeBringBoard(baseline, local, server).items;
     expect(merged.find((i) => i.id === "b1")?.status).toBe("claimed");
     expect(merged.find((i) => i.id === "b1")?.assigneeName).toBe("Sam");
     expect(merged.find((i) => i.id === "b2")?.qty).toBe(12);
