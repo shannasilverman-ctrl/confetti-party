@@ -1,67 +1,83 @@
-# Brand Parity + Product Completion — Batch 1
 
-This batch is a **brand transplant** on top of the existing app. No routes, Supabase RPCs, RLS, Talk/Reveal/Bring Board/Party Pass/Photo Drop/Day-of/retrospective logic get replaced — only the visual layer, the landing page, the sample data hero, and the app shell chrome around them.
+# Security hardening — token RPCs and public projections
 
-Working assumption to confirm: the three uploaded images are approved brand source material. I'll derive a clean SVG **Logo** from the concept board (violet ribbon "C" + three confetti pieces) rather than embedding the concept sheet, use the hero poster only as landing hero art, and pin the Ava & Liam banner to that one sample party.
+I'm in plan mode and can't run the migration without approval. Approving this plan runs the migration and code changes in one batch.
 
-## 1. Design system pass (`src/styles.css` + tokens)
+## Scope
 
-- Retune tokens to the confettiapp.ai palette: cream `#FBF7EE` bg, ink `#151016` text, plum `#3B1E5E` (secondary/brand), coral `#EF5C4A`, gold `#E4B24C`, mint `#4FB393`, with existing HSL token names kept so nothing downstream breaks.
-- Fonts: add editorial serif ("Fraunces") for display headings via `<link>` in `__root.tsx`, keep Nunito for body, drop Baloo 2 as the display face. Update `--font-display` accordingly. Wordmark stays Baloo (playful) or moves to serif — I'll pick serif to match the concept board.
-- Add layered shadow tokens (`--shadow-soft`, `--shadow-lift`), refined gradient tokens, a subtler `--pattern-confetti` (fewer, softer dots).
-- Respect `prefers-reduced-motion` (already wired) and add focus-visible ring token.
+One additive Supabase migration replacing five SECURITY DEFINER functions in place (CREATE OR REPLACE, no data touched, no columns dropped), plus small frontend adjustments to match the tightened public projections and single-use claim receipt. No RLS, table, or column changes. No user data deleted.
 
-## 2. Logo component
+## Migration (single file)
 
-- New `src/components/logo.tsx` exporting `<Logo />` (mark only) and `<LogoLockup />` (mark + wordmark). Pure inline SVG ribbon "C" + 3 confetti pieces (square/circle/triangle) in brand colors — scales cleanly 20px → 96px.
-- Replace `BrandMark` / `BrandLockup` internals in `src/components/brand.tsx` so every existing call site (header, footers, RSVP, printable sign, invite dialog) inherits the new mark without prop churn.
-- New `public/favicon.svg` (simplified ribbon-only mark) + updated `<link rel="icon">` in `__root.tsx`; delete old `public/favicon.ico` per template rule. Update `<title>` to "Confetti — Plan unforgettable gatherings" and rewrite meta description.
+### 1. `get_rsvp_party(token uuid)` — tighten public projection
 
-## 3. Landing page rebuild (`src/routes/index.tsx`)
+Return only:
+- `name`, `date`, `start_time`, `location`, `occasion`, `theme_id`, `theme`, `host_note`, `holiday_pack_id`
+- `host_updates` sanitized to `{ id, text, at }` only (drop any other keys)
+- `photo_drop` limited to `{ provider, label, url, notes }` when configured, else null
+- `bring_board` items reduced to `{ id, category, label, qty, unit, status }` — remove `dietaryTags`, `assigneeName`, `assigneeHousehold`, `notes`
+- `yes_count`, `maybe_count`, `total_count`
 
-- Keep the seasonal banner, keep the three CTAs (Start planning / Talk it out / Sample party) — reposition into a cinematic hero:
-  - Full-bleed hero image (uploaded `confetti-hero-poster.jpg` uploaded via `lovable-assets`) with a plum-to-transparent overlay for AA contrast on white display type.
-  - H1: "Throw the party everyone remembers." Sub: product-wedge sentence about first idea → final toast.
-- Below hero, story sections alternating cream / plum-tint / cream / photo-field:
-  1. Talk it out (voice orb still + copy)
-  2. Reveal (screenshot-style card of a Reveal page)
-  3. Next Three (task strip)
-  4. Guest World + Bring Board (RSVP card + claim chips)
-  5. Day-of Mode (mobile mock)
-  6. Memories (retrospective card)
-- Footer keeps affiliate disclosure logic + brand lockup.
+Remove: `guest_first_names` entirely.
 
-## 4. Sample party hero
+### 2. `list_bring_board(token uuid)` — same reduction
 
-- Upload `ava-liam-wedding-banner.png` via `lovable-assets`, store URL on the Ava & Liam seed record (add optional `heroImageUrl` on the sample-party seed only — not a schema change; the existing themes system already supports background art).
-- In the party Overview header, when `heroImageUrl` is present render an art-directed banner with plum gradient overlay, party name in serif, date + location in rounded sans. Mobile: shorter crop, no text truncation.
-- Guard: only the Ava & Liam sample gets the wedding image; all other parties keep their theme art or the festive gradient.
+Return items with `{ id, category, label, qty, unit, status }` only. Drop `dietaryTags`, `assigneeName`, `assigneeHousehold`, `notes`.
 
-## 5. Authenticated shell
+### 3. `claim_bring_item` — atomic + validated
 
-- Refresh `src/routes/app.tsx` and party workspace header (`src/routes/party.$id.tsx`): sticky top bar with logo lockup + primary nav, cream panel background, plum accents, softer card shadows.
-- Overview header gets an always-visible action row with real links (not decorative): **Reveal**, **Day-of**, **Guest link (copy)**, **Bring Board**, **Photo Drop** — each hidden if the underlying feature isn't set up (no dead buttons).
-- Mobile: bottom action bar with safe-area insets (`pb-[env(safe-area-inset-bottom)]`) for the Overview primary actions.
+- `SELECT ... FROM parties WHERE rsvp_token = token FOR UPDATE` before inspecting `bring_board`.
+- Validate: `item_id` non-empty, length ≤ 64, matches `^[A-Za-z0-9_\-]+$`; `guest_name` 1..80 after btrim; `household_label` NULL or ≤ 80; `qty` NULL or `> 0 AND <= 999`.
+- Verify `jsonb_typeof(bring_board) = 'array'` and cap size at 500.
+- On success set `claimSecret = gen_random_uuid()`, persist, and return `{ ok: true, claimSecret }` — the only time the secret is ever returned.
+- Preserve `SET search_path = public`.
 
-## 6. Mobile + a11y gates
+### 4. `release_bring_item` — receipt-only for anonymous
 
-- Audit at 320/375/390: `min-w-0` on flex text children, `truncate` on titles, `min-h-11` on icon buttons, grid promotion at `sm:`.
-- Add `focus-visible:ring-2 ring-ring` defaults on interactive tokens; verify contrast for muted text on cream.
-- Never encode state by color alone (add icon + text to status chips).
+- Remove the name-fallback branch entirely.
+- Require `claim_secret` non-null and exact match against stored `claimSecret`.
+- Same `FOR UPDATE` lock, same input validation on `item_id` / `guest_name`.
+- Legacy items without `claimSecret` cannot be released via this RPC. Host reopens them from the authenticated Bring Board editor (already writes `bring_board` directly under RLS as owner — no code change needed).
 
-## 7. Quality gate
+### 5. `submit_rsvp` — collapse overloads, validate
 
-- Typecheck (tsgo), lint, build. Playwright walk of `/`, `/talk`, `/party/<sample>`, `/party/<sample>/reveal`, `/party/<sample>/day-of`, `/rsvp/<sample-token>` at 375 and 1280. Screenshot each and eyeball.
+- `DROP FUNCTION public.submit_rsvp(uuid, text, text, int, int)` (the older 5-arg overload). Keep only the 8-arg overload with `household_label`, `dietary`, `allergens`.
+- Add validation: `dietary` and `allergens` must be `jsonb` arrays, length ≤ 20, each element a text ≤ 40 chars. Cap resulting `guests` array size at 500. Preserve existing wildcard escaping and search_path.
 
-## Explicitly out of scope for this batch
+### 6. Grants
 
-- Publishing / custom domain changes.
-- Any schema migration, RLS or RPC change.
-- New product features (composer, household editor, holiday-pack picker) — those stay on the Batch 2 backlog.
-- Sending email/SMS, QR redesign, dark mode.
+At end of migration:
+```
+REVOKE EXECUTE ON FUNCTION
+  public.get_rsvp_party(uuid),
+  public.list_bring_board(uuid),
+  public.claim_bring_item(uuid, text, text, text, numeric),
+  public.release_bring_item(uuid, text, text, text),
+  public.submit_rsvp(uuid, text, text, int, int, text, jsonb, jsonb)
+FROM PUBLIC;
 
-## Files expected to change
+GRANT EXECUTE ON FUNCTION ... TO anon, authenticated;
+```
+(exact arg lists matched to current signatures).
 
-- `src/styles.css`, `src/routes/__root.tsx`, `src/routes/index.tsx`, `src/routes/app.tsx`, `src/routes/party.$id.tsx`, `src/components/brand.tsx`, `src/components/overview-tab.tsx`, `src/components/auth-nav.tsx`, `src/lib/party-context.tsx` (sample seed hero URL only), plus new `src/components/logo.tsx`, `src/assets/confetti-hero.jpg.asset.json`, `src/assets/ava-liam.jpg.asset.json`, `public/favicon.svg`.
+## Frontend changes
 
-Approve and I'll execute end-to-end, then report changed files + gate results.
+- `src/lib/rsvp.functions.ts` — `PartyView`: remove `guest_first_names`; `PublicBringItem`: remove `dietaryTags`, `assigneeName`, `assigneeHousehold`, `notes`.
+- `src/routes/rsvp.$token.tsx` — remove any "Who's coming" chip row that consumed `guest_first_names`; keep aggregate counts.
+- `src/components/public-bring-board.tsx`:
+  - Drop rendering of dietary tags, "Claimed by …", and the name-based `mine` detection. `mine` = `!!secrets[it.id]` only.
+  - After a successful claim, immediately persist the returned `claimSecret` to localStorage (already done) and never surface it in UI.
+- Types: regenerated after migration approval.
+
+## Verification (post-apply)
+
+- `pg_get_functiondef` on all five functions — confirm bodies match.
+- `pg_proc.proacl` — confirm no PUBLIC EXECUTE; only anon/authenticated.
+- Concurrency: two parallel `claim_bring_item` calls on the same open item → exactly one `{ok:true}`, one `{ok:false, reason:'unavailable'}`.
+- Release: wrong/missing secret → `{ok:false}`; correct secret → `{ok:true}`.
+- `get_rsvp_party` / `list_bring_board` JSON keys asserted to exclude the prohibited set.
+- `bunx tsgo` typecheck, `bun run build`, existing tests.
+
+## Out of scope
+
+Publishing, RLS changes, host-side Bring Board editor (already RLS-scoped), any UI redesign.
