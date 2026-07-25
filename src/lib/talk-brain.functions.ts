@@ -222,10 +222,10 @@ export const sendTurn = createServerFn({ method: "POST" })
 
     // Atomic per-hour rate limit + windowed anchor update, all in one DB
     // trip. Prevents interleaved concurrent turns from overshooting the cap.
+    // Cap/window are enforced server-side inside the RPC (fixed constants);
+    // callers can no longer influence the rate limit.
     const { data: rlRaw, error: rlErr } = await supabase.rpc("bump_ai_turn", {
       _draft_id: data.draftId,
-      _cap: MAX_TURNS_PER_HOUR,
-      _window_ms: RATE_WINDOW_MS,
     });
     if (rlErr) {
       // Draft-not-found and auth-required surface as generic messages; the
