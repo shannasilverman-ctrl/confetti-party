@@ -13,6 +13,7 @@ import {
   ListChecks,
   Package,
   AlertTriangle,
+  Info,
   NotebookPen,
 } from "lucide-react";
 import {
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/party/$id_/reveal")({
 
 function RevealPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch } = useParties();
+  const { parties, status, refetch, isDemo } = useParties();
   const party = parties.find((p) => p.id === id);
 
   // PartyProvider hydrates asynchronously for signed-in hosts. Treating
@@ -115,6 +116,19 @@ function RevealPage() {
             </Link>
           </Button>
         </header>
+
+        {isDemo && (
+          <div
+            className="mt-3 flex items-start gap-2 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-secondary"
+            role="note"
+          >
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              <strong>Sample reveal.</strong> This fictional plan is safe to explore and never
+              changes a real event.
+            </span>
+          </div>
+        )}
 
         <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-card md:p-8">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">

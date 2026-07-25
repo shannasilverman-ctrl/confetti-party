@@ -298,7 +298,7 @@ function Landing() {
             <StoryRow
               chapter="Chapter 06"
               title="Memories, so next time is easier."
-              body="A five-minute retrospective after the toast: what worked, what ran out, what to change. It carries into the next gathering as suggestions — not a blank page."
+              body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Duplicate the plan later and those notes stay attached for reference."
               cta={{
                 label: "Read Ava & Liam's retro",
                 to: "/party/$id/reveal",
@@ -838,7 +838,7 @@ function MemoriesMini() {
         ))}
       </ul>
       <p className="mt-3 text-[11px] text-muted-foreground">
-        Rolls forward as suggestions when you plan the next one.
+        A private copy stays attached when you duplicate the plan.
       </p>
     </div>
   );

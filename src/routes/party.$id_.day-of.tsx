@@ -4,7 +4,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Circle, Megaphone, UserCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Info, Megaphone, UserCheck } from "lucide-react";
 import { useParties, newId } from "@/lib/party-context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/party/$id_/day-of")({
 
 function DayOfPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch, updateParty } = useParties();
+  const { parties, status, refetch, updateParty, isDemo } = useParties();
   const party = parties.find((p) => p.id === id);
   const [note, setNote] = useState("");
   // Compute derived state before any early return so hook order is stable
@@ -89,7 +89,9 @@ function DayOfPage() {
       ].slice(0, 20),
     }));
     setNote("");
-    toast.success("Update posted to your guest invite.");
+    toast.success(
+      isDemo ? "Sample update added here. No guests were notified." : "Update posted to guests.",
+    );
   }
 
   const arrived = Object.keys(checkins).length;
@@ -109,6 +111,19 @@ function DayOfPage() {
           <BrandLockup />
           <div className="w-11" aria-hidden />
         </header>
+
+        {isDemo && (
+          <div
+            className="mt-3 flex items-start gap-2 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-secondary"
+            role="note"
+          >
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+            <span>
+              <strong>Sample Day-of Mode.</strong> Try tasks, check-ins, and updates safely—nothing
+              here notifies real guests.
+            </span>
+          </div>
+        )}
 
         <section className="mt-4 rounded-3xl border border-border bg-card p-5 shadow-card">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -143,7 +158,8 @@ function DayOfPage() {
 
         <Card className="mt-4 p-5">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Megaphone className="h-4 w-4 text-primary" /> Post an update to guests
+            <Megaphone className="h-4 w-4 text-primary" />{" "}
+            {isDemo ? "Try a sample guest update" : "Post an update to guests"}
           </div>
           <Textarea
             value={note}
@@ -154,7 +170,7 @@ function DayOfPage() {
           />
           <div className="mt-2 flex justify-end">
             <Button size="sm" variant="festive" onClick={postUpdate} disabled={!note.trim()}>
-              Post update
+              {isDemo ? "Add sample update" : "Post update"}
             </Button>
           </div>
           {(party.hostUpdates ?? []).length > 0 && (
