@@ -26,6 +26,7 @@ import {
   toHolidayStarterId,
   type HolidayStarterId,
 } from "./holiday-packs";
+import { daysUntilLocal } from "./date-only";
 
 export type OccasionType =
   | "birthday"
@@ -911,8 +912,8 @@ export function useParties() {
 // ---- Derived helpers ----
 
 export function daysUntil(dateISO: string): number {
-  const ms = new Date(dateISO).getTime() - Date.now();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  // Local calendar-day delta — never rounded milliseconds. See src/lib/date-only.ts.
+  return daysUntilLocal(dateISO);
 }
 
 export function progressPct(p: Party): number {

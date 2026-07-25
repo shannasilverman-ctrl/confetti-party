@@ -90,7 +90,7 @@ function DemoRsvpDialog({
             </div>
             <h3 className="mt-1 font-display text-xl font-semibold text-secondary">{party.name}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              {new Date(party.date).toLocaleDateString(undefined, {
+              {formatDateOnly(party.date, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",

@@ -273,7 +273,7 @@ function Dashboard() {
                     </h3>
                     <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <CalendarDays className="h-3.5 w-3.5" />
-                      {new Date(p.date).toLocaleDateString(undefined, {
+                      {formatDateOnly(p.date, {
                         month: "short",
                         day: "numeric",
                         year: "numeric",
