@@ -803,7 +803,8 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
             </div>
 
             <p className="text-center text-[11px] text-muted-foreground">
-              Sending again with the same name updates your response.
+              If your host added you by name, sending again with the same name updates your
+              response. Otherwise it adds a new entry — the host can merge duplicates.
             </p>
           </form>
         )}
