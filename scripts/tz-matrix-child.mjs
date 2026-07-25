@@ -10,7 +10,8 @@ function parse(s) {
     mo = +m[2],
     d = +m[3];
   const probe = new Date(y, mo - 1, d);
-  if (probe.getFullYear() !== y || probe.getMonth() !== mo - 1 || probe.getDate() !== d) return null;
+  if (probe.getFullYear() !== y || probe.getMonth() !== mo - 1 || probe.getDate() !== d)
+    return null;
   return { y, m: mo, d };
 }
 function toLocal(iso) {

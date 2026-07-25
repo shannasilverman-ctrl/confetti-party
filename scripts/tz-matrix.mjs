@@ -42,7 +42,11 @@ for (const tz of ZONES) {
     assert.equal(out.day, 22, `[${tz}] expected day 22`);
     assert.equal(out.month, 5, `[${tz}] expected month 5`);
     assert.equal(out.year, 2027, `[${tz}] expected year 2027`);
-    assert.equal(out.formatted.includes("May 22"), true, `[${tz}] expected 'May 22' in "${out.formatted}"`);
+    assert.equal(
+      out.formatted.includes("May 22"),
+      true,
+      `[${tz}] expected 'May 22' in "${out.formatted}"`,
+    );
     assert.equal(out.plusOne, "2027-05-23", `[${tz}] +1 day mismatch`);
     assert.equal(out.leapPlusOne, "2024-02-29", `[${tz}] leap day mismatch`);
     assert.equal(out.dstSpring, 2, `[${tz}] DST spring diff`);

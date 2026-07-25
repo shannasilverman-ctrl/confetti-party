@@ -34,11 +34,7 @@ export function parseDateOnly(s: string | null | undefined): DateOnlyParts | nul
   // Reject invalid days (Feb 30, Apr 31, etc.) by round-tripping through a
   // local Date and re-checking the components.
   const probe = new Date(y, m - 1, d);
-  if (
-    probe.getFullYear() !== y ||
-    probe.getMonth() !== m - 1 ||
-    probe.getDate() !== d
-  ) {
+  if (probe.getFullYear() !== y || probe.getMonth() !== m - 1 || probe.getDate() !== d) {
     return null;
   }
   return { y, m, d };
@@ -162,10 +158,7 @@ export function parseWallClockTime(t: string | null | undefined): { h: number; m
  * viewer's local wall-clock. If host time zone becomes captured later,
  * swap this for a TZ-aware helper.
  */
-export function combineDateAndTime(
-  dateISO: string,
-  time: { h: number; m: number } | null,
-): Date {
+export function combineDateAndTime(dateISO: string, time: { h: number; m: number } | null): Date {
   const { y, m, d } = parseDateOnly(dateISO) ?? { y: 0, m: 0, d: 0 };
   if (!m) throw new Error(`Invalid date-only value: ${JSON.stringify(dateISO)}`);
   const t = time ?? { h: 0, m: 0 };

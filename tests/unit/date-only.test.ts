@@ -34,7 +34,15 @@ describe("parseDateOnly", () => {
     expect(parseDateOnly("2027-05-22")).toEqual({ y: 2027, m: 5, d: 22 });
   });
   it("rejects bad shapes", () => {
-    for (const s of ["", "2027-5-22", "2027/05/22", "2027-05-22T00:00:00", null, undefined, "abc"]) {
+    for (const s of [
+      "",
+      "2027-5-22",
+      "2027/05/22",
+      "2027-05-22T00:00:00",
+      null,
+      undefined,
+      "abc",
+    ]) {
       expect(parseDateOnly(s as string)).toBeNull();
     }
   });
@@ -124,7 +132,11 @@ describe("todayDateOnly", () => {
 
 describe("formatDateOnly", () => {
   it("renders the input calendar day", () => {
-    const s = formatDateOnly("2027-05-22", { month: "long", day: "numeric", year: "numeric" }, "en-US");
+    const s = formatDateOnly(
+      "2027-05-22",
+      { month: "long", day: "numeric", year: "numeric" },
+      "en-US",
+    );
     expect(s).toContain("May 22, 2027");
   });
 });
