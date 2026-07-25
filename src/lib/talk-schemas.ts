@@ -15,6 +15,7 @@
 //   - No `.passthrough()` — unknown keys are stripped.
 
 import { z } from "zod";
+import type { DraftPatch } from "./talk-materialize";
 
 const SHORT = z.string().trim().min(1).max(200);
 const MED = z.string().trim().min(1).max(1000);
