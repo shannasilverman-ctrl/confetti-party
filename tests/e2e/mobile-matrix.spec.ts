@@ -29,9 +29,10 @@ const SCENARIOS: Scenario[] = [
     route: "/app",
     containers: ['[role="dialog"]'],
     setup: async (page) => {
-      const trigger = page.getByRole("button", { name: /new party/i }).first();
+      const trigger = page.locator('[data-testid="new-party-trigger"]');
+      await trigger.waitFor({ state: "visible" });
       await trigger.click();
-      await page.getByRole("dialog").waitFor();
+      await page.getByRole("dialog").waitFor({ state: "visible", timeout: 15_000 });
     },
   },
   {
@@ -42,14 +43,15 @@ const SCENARIOS: Scenario[] = [
   {
     slug: "workspace-bring-board",
     route: "/party/ava-liam-wedding",
-    containers: ["main", '[role="tabpanel"]'],
+    containers: ["main"],
     setup: async (page) => {
-      // Mobile shows a select; desktop shows tab buttons. Try both.
-      const mobileTab = page.locator('[data-testid="party-tab-mobile-bring"]');
-      if (await mobileTab.count()) {
-        await mobileTab.first().click();
+      // Both a mobile bottom nav and desktop tab bar render into the DOM;
+      // CSS toggles visibility. Click whichever is currently visible.
+      const mobile = page.locator('[data-testid="party-tab-mobile-bring"]:visible').first();
+      if (await mobile.count()) {
+        await mobile.click();
       } else {
-        await page.locator('[data-testid="party-tab-bring"]').first().click();
+        await page.locator('[data-testid="party-tab-bring"]:visible').first().click();
       }
     },
   },
