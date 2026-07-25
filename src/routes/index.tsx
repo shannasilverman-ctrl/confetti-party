@@ -8,7 +8,7 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import heroImage from "@/assets/confetti-hero.jpg.asset.json";
+const heroImage = { url: "/brand/confetti-hero.jpg" };
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
