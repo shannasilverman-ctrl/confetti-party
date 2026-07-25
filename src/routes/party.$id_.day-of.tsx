@@ -1,11 +1,17 @@
 // Day-of Host Mode — calm mobile-first surface with next actions,
 // timeline, arrivals and quick host updates.
 
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Circle, Megaphone, UserCheck } from "lucide-react";
 import { useParties, newId } from "@/lib/party-context";
+import { useResolvedParty } from "@/lib/use-resolved-party";
+import {
+  PartyModeLoading,
+  PartyModeError,
+  PartyModeMissing,
+} from "@/components/party-mode-panels";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
