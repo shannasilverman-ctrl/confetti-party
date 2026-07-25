@@ -21,7 +21,8 @@ export const createDraft = createServerFn({ method: "POST" })
       .from("gathering_drafts")
       .insert({
         user_id: userId,
-        draft: emptyDraftBody() as unknown as Record<string, unknown>,
+        // Draft body is a nested plain-JSON object — safe cast for the typed client.
+        draft: JSON.parse(JSON.stringify(emptyDraftBody())),
       })
       .select("id")
       .single();
