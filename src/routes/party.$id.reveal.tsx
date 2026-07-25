@@ -167,6 +167,7 @@ function RevealPage() {
             </div>
             <Progress
               value={Math.min(100, Math.round((spent / Math.max(1, party.budget)) * 100))}
+              aria-label="Budget used"
               className="mt-3"
             />
             <div className="mt-2 text-xs text-muted-foreground">Planning progress {pct}%</div>
