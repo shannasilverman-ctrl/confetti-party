@@ -8,6 +8,7 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
+import heroImage from "@/assets/confetti-hero.jpg.asset.json";
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
@@ -25,20 +26,20 @@ export const Route = createFileRoute("/")({
   component: Landing,
   head: () => ({
     meta: [
-      { title: "Confetti | Party Planning Made Easy" },
+      { title: "Confetti — Plan unforgettable gatherings" },
       {
         name: "description",
         content:
-          "Plan any party from first idea to final toast. Checklists, guests, budget, and day-of timeline in one warm little app.",
+          "From the first idea to the final toast. Confetti is the calm co-host that gets guests, checklists, budget, day-of, and memories done — for any gathering.",
       },
-      { property: "og:title", content: "Confetti | Party Planning Made Easy" },
+      { property: "og:title", content: "Confetti — Plan unforgettable gatherings" },
       {
         property: "og:description",
-        content: "From first idea to final toast — everything you need to host well.",
+        content: "The calm co-host for any gathering. From first idea to final toast.",
       },
-      { property: "og:url", content: "/" },
+      { property: "og:url", content: "https://confetti-party.lovable.app/" },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: "https://confetti-party.lovable.app/" }],
   }),
 });
 
@@ -85,38 +86,61 @@ function Landing() {
         </nav>
       </header>
 
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-confetti">
-        <FloatingConfettiField />
-        <div className="relative mx-auto max-w-4xl px-6 pb-20 pt-10 text-center sm:pt-16">
-          <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight text-secondary sm:text-6xl md:text-7xl">
-            The group chat can't
+      {/* Cinematic hero */}
+      <section className="relative isolate overflow-hidden">
+        {/* Image plate */}
+        <div className="absolute inset-0 -z-10">
+          <img
+            src={heroImage.url}
+            alt=""
+            aria-hidden
+            fetchPriority="high"
+            className="h-full w-full object-cover"
+          />
+          {/* Plum veil for AA contrast on display type */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(180deg, hsl(268 55% 12% / 0.55) 0%, hsl(268 55% 12% / 0.35) 55%, hsl(36 44% 97% / 0.98) 100%)",
+            }}
+            aria-hidden
+          />
+        </div>
+
+        <div className="relative mx-auto max-w-4xl px-6 pb-24 pt-16 text-center sm:pb-32 sm:pt-24">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 backdrop-blur">
+            <Sparkles className="h-3.5 w-3.5" /> Your calm co-host
+          </span>
+          <h1 className="mt-6 font-display text-[2.75rem] font-semibold leading-[1.02] tracking-tight text-white drop-shadow-[0_2px_20px_hsl(268_55%_10%/0.5)] sm:text-6xl md:text-7xl">
+            Throw the party
             <br />
-            plan the party.
+            everyone remembers.
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-base text-muted-foreground sm:text-lg">
-            <span className="font-semibold text-secondary">Confetti can.</span> Guests, checklist,
-            budget, and the day-of timeline in one calm place, so you get to enjoy the party
-            you're throwing.
-          </p>
-          <p className="mx-auto mt-4 max-w-md text-sm italic text-muted-foreground/80">
-            Party planning made easy, from first idea to final toast.
+          <p className="mx-auto mt-6 max-w-xl text-base text-white/85 sm:text-lg">
+            From the first idea to the final toast — guests, checklist, budget, day-of, and the
+            memories after. Confetti gets you there, calmly.
           </p>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" variant="festive" onClick={startPlanning}>
               Start planning <ArrowRight />
             </Button>
             <Button asChild size="lg" variant="secondary">
               <Link to="/talk">Talk it out</Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+            >
               <Link to="/party/$id" params={{ id: "maya-8th" }}>
-                Crash a sample party
+                See a sample party
               </Link>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">
+          <p className="mt-4 text-xs text-white/70">
             Free. No sign-up needed to look around.
           </p>
         </div>
