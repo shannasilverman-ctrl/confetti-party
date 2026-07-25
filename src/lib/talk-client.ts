@@ -77,7 +77,6 @@ export class TalkClient {
         headers: {
           Authorization: `Bearer ${this.opts.clientSecret}`,
           "Content-Type": "application/sdp",
-          "OpenAI-Beta": "realtime=v1",
         },
         body: offer.sdp,
       },
