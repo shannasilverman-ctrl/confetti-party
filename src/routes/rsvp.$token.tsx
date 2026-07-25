@@ -530,6 +530,8 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
             </p>
           </form>
         )}
+        <PublicBringBoard token={token} items={party.bring_board ?? []} defaultName={name} />
+        <PhotoDropCard drop={party.photo_drop ?? null} />
       </main>
 
       <ConversionFooter />
