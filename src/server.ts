@@ -10,6 +10,28 @@ type ServerEntry = {
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
+function releaseResponse(request: Request) {
+  if (new URL(request.url).pathname !== "/release.json") return null;
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+
+  const body =
+    request.method === "HEAD"
+      ? null
+      : JSON.stringify({
+          release: __CONFETTI_RELEASE_SHA__,
+        });
+
+  return withSecurityHeaders(
+    request,
+    new Response(body, {
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "application/json; charset=utf-8",
+      },
+    }),
+  );
+}
+
 async function getServerEntry(): Promise<ServerEntry> {
   if (!serverEntryPromise) {
     serverEntryPromise = import("@tanstack/react-start/server-entry").then(
@@ -48,6 +70,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      const release = releaseResponse(request);
+      if (release) return release;
+
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
       return withSecurityHeaders(request, await normalizeCatastrophicSsrResponse(response));

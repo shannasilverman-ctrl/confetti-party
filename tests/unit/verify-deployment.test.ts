@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   assertHtmlSecurityHeaders,
   normalizeDeploymentUrl,
+  resolveExpectedReleaseSha,
   verifyDeployment,
   verifyDeploymentWithRetry,
 } from "../../scripts/verify-deployment.mjs";
+
+const RELEASE_SHA = "0123456789abcdef0123456789abcdef01234567";
 
 function secureHeaders(overrides: Record<string, string> = {}) {
   return new Headers({
@@ -43,9 +46,29 @@ describe("deployment verification", () => {
     ).toThrow("/app: missing or invalid x-frame-options header");
   });
 
+  it("accepts a configured release SHA and rejects malformed provenance", () => {
+    expect(resolveExpectedReleaseSha({ CONFETTI_EXPECTED_RELEASE_SHA: RELEASE_SHA })).toBe(
+      RELEASE_SHA,
+    );
+    expect(() =>
+      resolveExpectedReleaseSha({ CONFETTI_EXPECTED_RELEASE_SHA: "not-a-commit" }),
+    ).toThrow(/invalid/);
+  });
+
   it("verifies the complete route, asset, metadata, and manifest contract", async () => {
     const fetchImpl = async (input: string | URL | Request) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === "/release.json") {
+        return Response.json(
+          { release: RELEASE_SHA },
+          {
+            headers: secureHeaders({
+              "cache-control": "no-store",
+              "content-type": "application/json",
+            }),
+          },
+        );
+      }
       if (["/", "/app", "/talk"].includes(url.pathname)) {
         return new Response(
           [
@@ -74,11 +97,32 @@ describe("deployment verification", () => {
       return new Response("png", { headers: { "content-type": "image/png" } });
     };
 
-    await expect(verifyDeployment("https://preview.example.com", { fetchImpl })).resolves.toEqual({
+    await expect(
+      verifyDeployment("https://preview.example.com", {
+        fetchImpl,
+        expectedReleaseSha: RELEASE_SHA,
+      }),
+    ).resolves.toEqual({
       baseUrl: "https://preview.example.com",
+      releaseSha: RELEASE_SHA,
       htmlRoutes: 3,
       assets: 4,
     });
+  });
+
+  it("rejects a healthy deployment that serves the wrong release", async () => {
+    const fetchImpl = async () =>
+      Response.json(
+        { release: "fedcba9876543210fedcba9876543210fedcba98" },
+        { headers: secureHeaders({ "content-type": "application/json" }) },
+      );
+
+    await expect(
+      verifyDeployment("https://preview.example.com", {
+        fetchImpl,
+        expectedReleaseSha: RELEASE_SHA,
+      }),
+    ).rejects.toThrow(`/release.json: expected ${RELEASE_SHA}`);
   });
 
   it("retries a partial edge response and then verifies the deployment", async () => {
@@ -89,6 +133,12 @@ describe("deployment verification", () => {
       if (calls === 1) return new Response("stale edge", { status: 503 });
 
       const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === "/release.json") {
+        return Response.json(
+          { release: RELEASE_SHA },
+          { headers: secureHeaders({ "content-type": "application/json" }) },
+        );
+      }
       if (["/", "/app", "/talk"].includes(url.pathname)) {
         return new Response(
           [
@@ -122,6 +172,7 @@ describe("deployment verification", () => {
         attempts: 2,
         delayMs: 0,
         fetchImpl,
+        expectedReleaseSha: RELEASE_SHA,
         onRetry: ({ attempt }) => retryAttempts.push(attempt),
       }),
     ).resolves.toMatchObject({ baseUrl: "https://preview.example.com" });

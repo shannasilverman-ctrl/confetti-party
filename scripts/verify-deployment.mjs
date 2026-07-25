@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 export const DEFAULT_DEPLOYMENT_URL =
@@ -28,6 +29,27 @@ export function normalizeDeploymentUrl(value) {
   url.search = "";
   url.hash = "";
   return url.toString().replace(/\/$/, "");
+}
+
+export function resolveExpectedReleaseSha(env = process.env) {
+  const configured = env.CONFETTI_EXPECTED_RELEASE_SHA ?? env.CONFETTI_RELEASE_SHA;
+  if (configured) {
+    invariant(/^[0-9a-f]{40}$/i.test(configured), "Expected release SHA is invalid.");
+    return configured.toLowerCase();
+  }
+
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: import.meta.dirname,
+      encoding: "utf8",
+    })
+      .trim()
+      .toLowerCase();
+  } catch {
+    throw new Error(
+      "Could not resolve the expected release SHA. Set CONFETTI_EXPECTED_RELEASE_SHA.",
+    );
+  }
 }
 
 export function assertHtmlSecurityHeaders(headers, route) {
@@ -61,9 +83,22 @@ async function fetchChecked(fetchImpl, url, expectedType) {
   return response;
 }
 
-export async function verifyDeployment(baseUrl, { fetchImpl = fetch } = {}) {
+export async function verifyDeployment(
+  baseUrl,
+  { fetchImpl = fetch, expectedReleaseSha = resolveExpectedReleaseSha() } = {},
+) {
   const normalizedBase = normalizeDeploymentUrl(baseUrl);
   const cacheBust = `release-${Date.now()}`;
+
+  const releaseUrl = new URL("/release.json", `${normalizedBase}/`);
+  releaseUrl.searchParams.set("verify", cacheBust);
+  const releaseResponse = await fetchChecked(fetchImpl, releaseUrl, "application/json");
+  assertHtmlSecurityHeaders(releaseResponse.headers, "/release.json");
+  const releasePayload = await releaseResponse.json();
+  invariant(
+    releasePayload?.release === expectedReleaseSha,
+    `/release.json: expected ${expectedReleaseSha}, received ${releasePayload?.release ?? "no release"}`,
+  );
 
   for (const route of HTML_ROUTES) {
     const url = new URL(route, `${normalizedBase}/`);
@@ -114,6 +149,7 @@ export async function verifyDeployment(baseUrl, { fetchImpl = fetch } = {}) {
 
   return {
     baseUrl: normalizedBase,
+    releaseSha: expectedReleaseSha,
     htmlRoutes: HTML_ROUTES.length,
     assets: ASSETS.length,
   };
@@ -125,6 +161,7 @@ export async function verifyDeploymentWithRetry(
     attempts = 4,
     delayMs = 1_500,
     fetchImpl = fetch,
+    expectedReleaseSha = resolveExpectedReleaseSha(),
     onRetry = ({ attempt, error }) =>
       console.warn(
         `[deployment] attempt ${attempt} failed; waiting for edge propagation: ${error.message}`,
@@ -140,7 +177,7 @@ export async function verifyDeploymentWithRetry(
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await verifyDeployment(baseUrl, { fetchImpl });
+      return await verifyDeployment(baseUrl, { fetchImpl, expectedReleaseSha });
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       if (attempt === attempts) break;
@@ -156,7 +193,7 @@ async function main() {
   const baseUrl = process.argv[2] ?? process.env.CONFETTI_DEPLOYMENT_URL ?? DEFAULT_DEPLOYMENT_URL;
   const result = await verifyDeploymentWithRetry(baseUrl);
   console.log(
-    `[deployment] ${result.baseUrl}: ${result.htmlRoutes} routes and ${result.assets} assets verified`,
+    `[deployment] ${result.baseUrl}: release ${result.releaseSha.slice(0, 12)}, ${result.htmlRoutes} routes and ${result.assets} assets verified`,
   );
 }
 

@@ -4,10 +4,12 @@ Evidence date: 2026-07-25
 
 ## Scope
 
-This signoff covers canonical GitHub commit
-`85766e532a3511b976cbce47de10608a819149b8` deployed as Cloudflare Worker
-version `b51bb11d-a758-471e-9754-83664fbb6271` at
+This signoff covers the exact canonical GitHub commit reported by
+`/release.json` at
 `https://confetti-independent-preview.shannasilverman-apps.workers.dev`.
+The deployment verifier compares that live marker with the local release
+commit and fails closed on a mismatch; GitHub and Cloudflare retain the
+corresponding historical commit and Worker version IDs.
 It does **not** cover `confettiapp.ai`, custom domains, billing, a vendor
 marketplace, the rollback-only Lovable deployment, or missing production
 secret configuration.
@@ -31,17 +33,17 @@ The release candidate completes these representative journeys:
 The exact application candidate passed locally against the production
 Cloudflare Worker build:
 
-| Gate                  | Result                                                                     |
-| --------------------- | -------------------------------------------------------------------------- |
-| Prettier              | All files matched                                                          |
-| ESLint                | Passed                                                                     |
-| TypeScript            | Passed with `tsc --noEmit`                                                 |
-| Vitest                | 43 files, 320 tests passed                                                 |
-| Production build      | Passed                                                                     |
-| Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                          |
-| Playwright            | Desktop and mobile projects passed; project-specific skips intentional     |
-| GitHub Actions        | Exact merged commit passed the complete CI workflow                        |
-| Live deployment       | Core routes, PWA assets, metadata, MIME types, and security headers passed |
+| Gate                  | Result                                                                 |
+| --------------------- | ---------------------------------------------------------------------- |
+| Prettier              | All files matched                                                      |
+| ESLint                | Passed                                                                 |
+| TypeScript            | Passed with `tsc --noEmit`                                             |
+| Vitest                | 43 files, 322 tests passed                                             |
+| Production build      | Passed                                                                 |
+| Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                      |
+| Playwright            | Desktop and mobile projects passed; project-specific skips intentional |
+| GitHub Actions        | Exact merged commit passed the complete CI workflow                    |
+| Live deployment       | Exact commit, routes, PWA assets, metadata, MIME, and headers passed   |
 
 The Playwright run covers desktop and Pixel-class mobile layouts, a
 320/375/390/430 px route matrix, keyboard/focus behavior, minimum 44 px
