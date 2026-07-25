@@ -154,11 +154,7 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
             <ul className="space-y-1.5">
               {list.map((it) => {
                 const taken = it.status !== "open";
-                const mine =
-                  taken &&
-                  (!!secrets[it.id] ||
-                    (!!name.trim() &&
-                      it.assigneeName?.trim().toLowerCase() === name.trim().toLowerCase()));
+                const mine = taken && !!secrets[it.id];
                 return (
                   <li
                     key={it.id}
@@ -173,18 +169,14 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
                           × {it.qty}
                           {it.unit ? ` ${it.unit}` : ""}
                         </span>
-                        {it.dietaryTags?.map((t) => (
-                          <Badge key={t} variant="secondary" className="h-5 text-[10px]">
-                            {t}
-                          </Badge>
-                        ))}
                       </div>
                       {taken && (
                         <div className="mt-0.5 text-xs text-muted-foreground">
-                          Claimed{it.assigneeName ? ` by ${it.assigneeName}` : ""}
+                          Claimed
                         </div>
                       )}
                     </div>
+
                     {taken ? (
                       mine ? (
                         <Button
