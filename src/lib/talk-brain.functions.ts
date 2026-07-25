@@ -87,7 +87,9 @@ function extractBudget(text: string): number | undefined {
   return undefined;
 }
 
-function demoBrain(messages: TurnInput["_output"]["messages"]): TurnResult {
+type TurnMessages = z.infer<typeof TurnInput>["messages"];
+
+function demoBrain(messages: TurnMessages): TurnResult {
   const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const allUser = messages.filter((m) => m.role === "user").map((m) => m.content).join(" ");
   const pack = detectPack(allUser);
