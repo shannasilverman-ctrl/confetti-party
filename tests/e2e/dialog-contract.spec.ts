@@ -108,9 +108,10 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
 
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    const returnedProbe = await page.evaluate(
-      () => document.activeElement?.getAttribute("data-focus-probe") ?? null,
-    );
+    // Radix restores focus asynchronously — wait for the trigger to be focused
+    // before reading the probe attribute rather than racing document.activeElement.
+    await expect(trigger).toBeFocused();
+    const returnedProbe = await trigger.getAttribute("data-focus-probe");
     expect(returnedProbe).toBe("trigger-a");
   });
 
