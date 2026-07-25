@@ -116,6 +116,14 @@ export type Party = {
   holidayPackId?: string;
   photoDrop?: PhotoDropInfo | null;
   checkins?: Record<string, string>; // guestId -> ISO timestamp
+  retrospective?: PartyRetrospective | null;
+};
+
+export type PartyRetrospective = {
+  updatedAt: string;
+  worked?: string;
+  ranOut?: string;
+  changeNext?: string;
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
