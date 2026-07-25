@@ -91,6 +91,27 @@ export function isoDateInDaysLocal(days: number, base: Date = new Date()): strin
 }
 
 /**
+ * Find the requested local weekday on or after `minimumDays` from now.
+ * Useful for illustrative dates that must stay internally truthful.
+ */
+export function nextWeekdayDateOnly(
+  weekday: number,
+  minimumDays: number,
+  now: Date = new Date(),
+): string {
+  if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+    throw new Error("weekday must be an integer from 0 through 6");
+  }
+  if (!Number.isInteger(minimumDays) || minimumDays < 0) {
+    throw new Error("minimumDays must be a non-negative integer");
+  }
+  const earliest = new Date(now.getFullYear(), now.getMonth(), now.getDate() + minimumDays);
+  const daysToWeekday = (weekday - earliest.getDay() + 7) % 7;
+  earliest.setDate(earliest.getDate() + daysToWeekday);
+  return localDateToDateOnly(earliest);
+}
+
+/**
  * Difference between two date-only values in calendar days (b - a). Uses
  * local components so DST does not distort the count.
  */

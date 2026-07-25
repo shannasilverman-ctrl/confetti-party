@@ -4,6 +4,7 @@ import {
   isValidDateOnly,
   dateOnlyToLocalDate,
   localDateToDateOnly,
+  nextWeekdayDateOnly,
   todayDateOnly,
   addDaysDateOnly,
   isoDateInDaysLocal,
@@ -28,6 +29,25 @@ import {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("nextWeekdayDateOnly", () => {
+  it.each([
+    new Date(2026, 0, 1),
+    new Date(2026, 5, 15),
+    new Date(2027, 10, 30),
+    new Date(2028, 1, 29),
+  ])("returns a Saturday 21–27 days after %s", (now) => {
+    const result = nextWeekdayDateOnly(6, 21, now);
+    expect(dateOnlyToLocalDate(result).getDay()).toBe(6);
+    expect(daysUntilLocal(result, now)).toBeGreaterThanOrEqual(21);
+    expect(daysUntilLocal(result, now)).toBeLessThanOrEqual(27);
+  });
+
+  it("rejects invalid weekday and range inputs", () => {
+    expect(() => nextWeekdayDateOnly(7, 1)).toThrow(/weekday/);
+    expect(() => nextWeekdayDateOnly(6, -1)).toThrow(/minimumDays/);
+  });
 });
 
 describe("parseDateOnly", () => {
