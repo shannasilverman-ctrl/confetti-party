@@ -13,6 +13,8 @@ import {
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
 import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
+import { LegalFooter } from "@/components/legal-footer";
+
 import { partiesSummary } from "@/lib/parties-summary";
 
 import { BrandLockup } from "@/components/brand";
@@ -354,6 +356,7 @@ function Dashboard() {
       </main>
 
       <NewPartyWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+      <LegalFooter />
     </div>
   );
 }

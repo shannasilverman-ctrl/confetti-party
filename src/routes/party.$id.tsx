@@ -145,13 +145,13 @@ function PartyWorkspace() {
               </Button>
               <BrandLockup />
             </div>
-            <div className="hidden items-center gap-2 sm:flex">
-              <Button asChild size="sm" variant="outline">
+            <div className="flex items-center gap-2">
+              <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link to="/party/$id/reveal" params={{ id: party.id }}>
                   <Sparkle className="h-4 w-4" /> Reveal
                 </Link>
               </Button>
-              <Button asChild size="sm" variant="secondary">
+              <Button asChild size="sm" variant="secondary" className="hidden sm:inline-flex">
                 <Link to="/party/$id/day-of" params={{ id: party.id }}>
                   <Timer className="h-4 w-4" /> Day-of
                 </Link>

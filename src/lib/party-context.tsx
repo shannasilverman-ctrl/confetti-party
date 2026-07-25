@@ -603,44 +603,14 @@ type Ctx = {
   deleteParty: (id: string) => Promise<{ error: string | null }>;
 };
 
-// localStorage key for demo parties. Bump version if the Party shape changes.
-const DEMO_STORAGE_KEY = "confetti:demo-parties:v1";
-const DEMO_MAX_BYTES = 512 * 1024; // 512KB cap
-const DEMO_MAX_PARTIES = 20;
+import {
+  loadDemoState as _loadDemoState,
+  saveDemoState as _saveDemoState,
+  clearDemoState as _clearDemoState,
+} from "./demo-storage";
 
-function loadDemoParties(): Party[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(DEMO_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    // Trust structure only enough to render; runtime code re-normalizes via getParty.
-    return parsed as Party[];
-  } catch {
-    return null;
-  }
-}
-
-function saveDemoParties(list: Party[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    const capped = list.slice(0, DEMO_MAX_PARTIES);
-    const json = JSON.stringify(capped);
-    if (json.length > DEMO_MAX_BYTES) return; // silently skip oversized state
-    window.localStorage.setItem(DEMO_STORAGE_KEY, json);
-  } catch {
-    /* quota / private mode — ignore */
-  }
-}
-
-function clearDemoParties(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(DEMO_STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
+function baseSeeds(): Party[] {
+  return [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()];
 }
 
 const PartyContext = createContext<Ctx | null>(null);
@@ -787,18 +757,24 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const savingRef = useRef<Map<string, "in-flight" | Party>>(new Map());
+  // Ids that have been deleted this session; blocks in-flight saves from
+  // resurrecting a row after deleteParty() completed.
+  const tombstonesRef = useRef<Set<string>>(new Set());
+  const [demoWarning, setDemoWarning] = useState<null | "corrupt" | "quota" | "oversized">(null);
+  const warnedRef = useRef<Set<string>>(new Set());
 
   // Load data based on auth state.
   useEffect(() => {
     if (authLoading) return;
     let cancelled = false;
     if (!user) {
-      const stored = loadDemoParties();
-      setParties(
-        stored && stored.length > 0
-          ? stored
-          : [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()],
-      );
+      const seeds = baseSeeds();
+      const { parties: hydrated, warning } = _loadDemoState(seeds);
+      setParties(hydrated);
+      if (warning && !warnedRef.current.has(warning)) {
+        warnedRef.current.add(warning);
+        setDemoWarning(warning);
+      }
       setStatus("ready");
       return;
     }
@@ -818,7 +794,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         setParties((data ?? []).map(rowToParty));
         setStatus("ready");
         // Signed in: demo storage is no longer authoritative.
-        clearDemoParties();
+        _clearDemoState();
       });
     return () => {
       cancelled = true;
@@ -829,22 +805,48 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authLoading || user) return;
     if (status !== "ready") return;
-    saveDemoParties(parties);
+    const result = _saveDemoState(parties, baseSeeds());
+    if (!result.ok && result.reason && !warnedRef.current.has(result.reason)) {
+      warnedRef.current.add(result.reason);
+      setDemoWarning(result.reason);
+    }
   }, [parties, user, authLoading, status]);
+
+  // Surface demo warnings once, non-blocking.
+  useEffect(() => {
+    if (!demoWarning) return;
+    const msg =
+      demoWarning === "corrupt"
+        ? "Some saved demo data was invalid and was reset."
+        : demoWarning === "oversized"
+          ? "Demo state is getting large; new changes may not persist across reloads."
+          : "Couldn't save demo changes to this browser.";
+    toast.message(msg);
+    setDemoWarning(null);
+  }, [demoWarning]);
 
   const persist = useCallback(
     async (p: Party) => {
       if (!user) return;
+      // Guard: if this row was deleted this session, never resurrect it.
+      if (tombstonesRef.current.has(p.id)) {
+        savingRef.current.delete(p.id);
+        return;
+      }
       const state = savingRef.current.get(p.id);
       if (state) {
         // Save already in flight (or queued); record the latest pending state.
-        savingRef.current.set(p.id, state === "in-flight" ? p : p);
+        savingRef.current.set(p.id, p);
         return;
       }
       savingRef.current.set(p.id, "in-flight");
       let current: Party = p;
       try {
         while (true) {
+          if (tombstonesRef.current.has(current.id)) {
+            savingRef.current.delete(current.id);
+            return;
+          }
           const { data, error } = await supabase
             .from("parties")
             .upsert(partyToRow(current, user.id))
@@ -853,7 +855,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           if (error) {
             console.error("[parties] save failed", error);
             toast.error("Couldn't save changes. Check your connection.");
-            // Preserve the latest pending state so a retry or next edit persists it.
             const pending = savingRef.current.get(current.id);
             if (!pending || pending === "in-flight") {
               savingRef.current.set(current.id, current);
@@ -943,19 +944,30 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         return newId;
       },
       deleteParty: async (id) => {
-        const prev = parties;
-        const target = prev.find((p) => p.id === id);
+        const target = parties.find((p) => p.id === id);
         if (!target) return { error: null };
-        // Optimistic remove.
-        setParties((list) => list.filter((p) => p.id !== id));
+        // Tombstone first so any queued/in-flight save cannot recreate it.
+        tombstonesRef.current.add(id);
+        // Cancel any pending save.
         savingRef.current.delete(id);
+        // Optimistic remove — only the target.
+        setParties((list) => list.filter((p) => p.id !== id));
         if (!user) return { error: null };
-        const { error } = await supabase.from("parties").delete().eq("id", id);
+        // Require RLS-scoped delete to actually match a row we own; the
+        // `.select()` return set is empty if RLS filtered the row out.
+        const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
           console.error("[parties] delete failed", error);
-          // Rollback local removal so the user is not silently lied to.
-          setParties(prev);
-          return { error: error.message };
+          tombstonesRef.current.delete(id);
+          // Reinsert ONLY the target if it is still missing; do not stomp
+          // unrelated concurrent local changes.
+          setParties((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
+          return { error: "Couldn't delete this party. Try again." };
+        }
+        if (!data || data.length === 0) {
+          // RLS denied or row already gone — treat as success from the
+          // user's perspective; keep the tombstone.
+          return { error: null };
         }
         return { error: null };
       },

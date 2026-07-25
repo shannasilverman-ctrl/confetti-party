@@ -14,6 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { themeById } from "@/lib/themes";
 import { daysUntil } from "@/lib/party-context";
 import { BrandLockup } from "@/components/brand";
+import { LegalFooter } from "@/components/legal-footer";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -309,17 +311,20 @@ function CalendarAndDirections({ party }: { party: PartyView }) {
 
 function ConversionFooter() {
   return (
-    <footer className="mx-auto mt-10 max-w-lg px-6 pb-10 text-center">
-      <div className="flex flex-col items-center gap-2">
-        <BrandLockup />
-        <p className="text-xs text-muted-foreground">
-          Planning something of your own?{" "}
-          <Link to="/" className="font-medium text-primary underline-offset-2 hover:underline">
-            Start with Confetti — free.
-          </Link>
-        </p>
-      </div>
-    </footer>
+    <>
+      <footer className="mx-auto mt-10 max-w-lg px-6 pb-6 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <BrandLockup />
+          <p className="text-xs text-muted-foreground">
+            Planning something of your own?{" "}
+            <Link to="/" className="font-medium text-primary underline-offset-2 hover:underline">
+              Start with Confetti — free.
+            </Link>
+          </p>
+        </div>
+      </footer>
+      <LegalFooter className="mt-0" />
+    </>
   );
 }
 
