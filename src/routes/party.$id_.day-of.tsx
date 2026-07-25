@@ -3,7 +3,6 @@
 
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Circle, Info, Megaphone, UserCheck } from "lucide-react";
 import { useParties, newId } from "@/lib/party-context";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,7 @@ function DayOfPage() {
   const { parties, status, refetch, updateParty, isDemo } = useParties();
   const party = parties.find((p) => p.id === id);
   const [note, setNote] = useState("");
+  const [postStatus, setPostStatus] = useState("");
   // Compute derived state before any early return so hook order is stable
   // across renders where the party may briefly disappear (e.g. delete).
   const nextThree = useMemo(
@@ -30,17 +30,17 @@ function DayOfPage() {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <main className="flex min-h-screen items-center justify-center bg-background">
         <div role="status" className="text-sm text-muted-foreground">
           Loading your party…
         </div>
-      </div>
+      </main>
     );
   }
 
   if (status === "error") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="max-w-sm text-center">
           <h1 className="font-display text-2xl text-secondary">We couldn’t load your party</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -50,7 +50,7 @@ function DayOfPage() {
             Try again
           </Button>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -89,16 +89,17 @@ function DayOfPage() {
       ].slice(0, 20),
     }));
     setNote("");
-    toast.success(
-      isDemo ? "Sample update added here. No guests were notified." : "Update posted to guests.",
-    );
+    const message = isDemo
+      ? "Sample update added here. No guests were notified."
+      : "Update posted to the guest page.";
+    setPostStatus(message);
   }
 
   const arrived = Object.keys(checkins).length;
 
   return (
     <div className="min-h-screen bg-background">
-      <div
+      <main
         className="mx-auto max-w-2xl px-4 pt-4"
         style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
       >
@@ -173,6 +174,11 @@ function DayOfPage() {
               {isDemo ? "Add sample update" : "Post update"}
             </Button>
           </div>
+          {postStatus && (
+            <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+              {postStatus}
+            </p>
+          )}
           {(party.hostUpdates ?? []).length > 0 && (
             <ul className="mt-3 space-y-1.5">
               {(party.hostUpdates ?? []).slice(0, 3).map((u) => (
@@ -238,7 +244,7 @@ function DayOfPage() {
             </ul>
           </Card>
         )}
-      </div>
+      </main>
     </div>
   );
 }

@@ -49,17 +49,17 @@ function RevealPage() {
   // party is missing after the provider has reached a terminal state.
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <main className="flex min-h-screen items-center justify-center bg-background">
         <div role="status" className="text-sm text-muted-foreground">
           Loading your party…
         </div>
-      </div>
+      </main>
     );
   }
 
   if (status === "error") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <main className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="max-w-sm text-center">
           <h1 className="font-display text-2xl text-secondary">We couldn’t load your party</h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -69,7 +69,7 @@ function RevealPage() {
             Try again
           </Button>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -99,7 +99,7 @@ function RevealPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div
+      <main
         className="mx-auto max-w-4xl px-4 pt-4 md:pt-8"
         style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
       >
@@ -298,7 +298,7 @@ function RevealPage() {
             )}
           </Card>
         )}
-      </div>
+      </main>
     </div>
   );
 }
