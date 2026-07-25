@@ -214,7 +214,12 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
               </div>
               <ul className="divide-y divide-border">
                 {list.map((i) => (
-                  <li key={i.id} className="flex items-center gap-3 py-2.5">
+                  <li
+                    key={i.id}
+                    data-testid="bring-item"
+                    data-bring-label={i.label}
+                    className="flex items-center gap-3 py-2.5"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-secondary">
                         {i.label}{" "}
