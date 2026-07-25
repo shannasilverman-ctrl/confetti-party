@@ -220,26 +220,23 @@ export const sendTurn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<TurnResult> => {
     const { supabase, userId } = context;
 
-    // Fetch draft. Rate limit is windowed via ai_turns_hour_start so a lifetime
-    // count above the cap does NOT block a fresh hour (previous bug).
-    const { data: draftRow, error: draftErr } = await supabase
-      .from("gathering_drafts")
-      .select("id, draft, ai_turns, ai_turns_hour_start")
-      .eq("id", data.draftId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (draftErr) throw new Error(draftErr.message);
-    if (!draftRow) throw new Error("Draft not found");
-
-    const rate = computeRateWindow(
-      { aiTurns: draftRow.ai_turns, hourStartISO: draftRow.ai_turns_hour_start },
-      Date.now(),
-    );
-    if (!rate.allowed) {
+    // Atomic per-hour rate limit + windowed anchor update, all in one DB
+    // trip. Prevents interleaved concurrent turns from overshooting the cap.
+    const { data: rlRaw, error: rlErr } = await supabase.rpc("bump_ai_turn", {
+      _draft_id: data.draftId,
+      _cap: MAX_TURNS_PER_HOUR,
+      _window_ms: RATE_WINDOW_MS,
+    });
+    if (rlErr) {
+      // Draft-not-found and auth-required surface as generic messages; the
+      // raw DB error stays server-side.
+      console.warn("[talk] bump_ai_turn error", rlErr.code);
+      throw new Error("Couldn't reach your draft. Please retry.");
+    }
+    const rl = rlRaw as { allowed?: boolean; turns?: number } | null;
+    if (!rl || rl.allowed !== true) {
       throw new Error("Slow down — that's a lot of turns in one hour. Try again in a bit.");
     }
-    const nextTurns = rate.nextTurns;
-    const newHourStartISO = rate.nextHourStartISO;
 
     let result: TurnResult;
     const canUseAi = !!process.env.LOVABLE_API_KEY;
@@ -247,34 +244,55 @@ export const sendTurn = createServerFn({ method: "POST" })
       try {
         const { chatJSON } = await import("./ai.server");
         const { parsed } = await chatJSON<{
-          reply: string;
-          draftPatch?: DraftPatch;
-          openQuestions?: string[];
-          assumptions?: string[];
-          suggestedPackId?: PackId;
+          reply?: unknown;
+          draftPatch?: unknown;
+          openQuestions?: unknown;
+          assumptions?: unknown;
+          suggestedPackId?: unknown;
         }>({ system: TALK_SYSTEM_PROMPT, messages: data.messages, schemaHint: SCHEMA_HINT });
-        if (parsed?.reply) {
+        const rawReply = typeof parsed?.reply === "string" ? parsed.reply.trim() : "";
+        if (rawReply) {
+          const { patch, issues } = safeParseDraftPatch(parsed?.draftPatch ?? {});
+          if (issues.length) {
+            // Redacted structured log — no user content, only field paths.
+            console.warn("[talk] dropped invalid draftPatch fields", { issues });
+          }
+          const suggested =
+            typeof parsed?.suggestedPackId === "string"
+              ? (parsed.suggestedPackId as PackId)
+              : undefined;
           result = {
-            reply: parsed.reply,
-            draftPatch: parsed.draftPatch ?? {},
-            openQuestions: parsed.openQuestions ?? [],
-            assumptions: parsed.assumptions ?? [],
-            suggestedPackId: parsed.suggestedPackId,
+            reply: rawReply.slice(0, 4000),
+            draftPatch: patch,
+            openQuestions: sanitizeStringList(parsed?.openQuestions, 8, 200),
+            assumptions: sanitizeStringList(parsed?.assumptions, 8, 300),
+            suggestedPackId: suggested,
             usedDemo: false,
           };
         } else {
           result = demoBrain(data.messages);
         }
       } catch (err) {
-        console.error("[talk-brain] AI call failed, falling back to demo", err);
+        console.error(
+          "[talk-brain] AI call failed, falling back to demo",
+          err instanceof Error ? err.name : typeof err,
+        );
         result = demoBrain(data.messages);
       }
     } else {
       result = demoBrain(data.messages);
     }
 
-    // Merge patch into stored draft log.
-    const existing = (draftRow.draft as Record<string, unknown>) ?? {};
+    // Merge patch into stored draft log. Rate-limit anchor already persisted
+    // atomically by bump_ai_turn above.
+    const { data: draftRow, error: readErr } = await supabase
+      .from("gathering_drafts")
+      .select("draft")
+      .eq("id", data.draftId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (readErr) throw new Error("Failed to load draft");
+    const existing = (draftRow?.draft as Record<string, unknown> | undefined) ?? {};
     const merged = {
       ...existing,
       patch: mergePatchLog(existing.patch, result.draftPatch, result.usedDemo),
@@ -283,15 +301,12 @@ export const sendTurn = createServerFn({ method: "POST" })
       .from("gathering_drafts")
       .update({
         draft: merged,
-        ai_turns: nextTurns,
-        ai_turns_hour_start: newHourStartISO,
         open_questions: result.openQuestions as unknown as never,
         assumptions: result.assumptions as unknown as never,
       })
       .eq("id", data.draftId)
       .eq("user_id", userId);
     if (updateErr) {
-      // Surface persistence failures instead of silently pretending success.
       throw new Error(`Failed to save draft: ${updateErr.message}`);
     }
 
