@@ -9,20 +9,21 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 /** Bumped whenever the shape of the export payload changes. */
 export const EXPORT_SCHEMA_VERSION = 1 as const;
 
-export type AccountExport = {
+/**
+ * The export is returned as a pre-serialized JSON string so the transport
+ * layer never has to reason about arbitrary `unknown` shapes. The client
+ * parses it once for the summary view and writes it verbatim to disk.
+ */
+export type AccountExportEnvelope = {
   schemaVersion: typeof EXPORT_SCHEMA_VERSION;
   generatedAt: string;
   userId: string;
   email: string | null;
-  source: {
-    description: string;
-    tables: string[];
-    excluded: string[];
-  };
-  // JSON at the transport layer — the client renders/downloads as JSON.
-  parties: unknown;
-  gatheringDrafts: unknown;
-  talkSessions: unknown;
+  partyCount: number;
+  draftCount: number;
+  sessionCount: number;
+  /** Full JSON string — the content of the downloadable file. */
+  json: string;
 };
 
 /**
