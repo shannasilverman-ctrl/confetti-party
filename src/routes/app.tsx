@@ -205,6 +205,20 @@ function Dashboard() {
                     <Badge variant="onFestive" className="relative">
                       {OCCASION_LABELS[p.occasion]}
                     </Badge>
+                    <button
+                      type="button"
+                      aria-label="Duplicate party"
+                      title="Duplicate party"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const id = cloneParty(p.id);
+                        if (id) toast.success("Party duplicated.");
+                      }}
+                      className="absolute right-3 top-3 rounded-full bg-white/85 p-1.5 text-secondary shadow-card transition hover:bg-white"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
 
                     <div className="relative mt-2 text-primary-foreground/90 text-sm">
                       {p.theme}
