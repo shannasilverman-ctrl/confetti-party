@@ -137,6 +137,10 @@ export class PartyStore {
 
   /** Record a server snapshot (from initial load) so the first UPDATE has a baseline. */
   seedBaseline(party: Party, userId: string) {
+    if (!this.acceptsUser(userId)) {
+      this.refuseCrossUser("seedBaseline", party.id, userId);
+      return;
+    }
     const row = { ...partyToColumns(party, userId), updated_at: party.updatedAt };
     const existing = this.queue.get(party.id);
     if (existing) existing.baseline = row;
@@ -150,6 +154,7 @@ export class PartyStore {
         pendingConflict: null,
         insertRejected: false,
         userId,
+        epoch: this.epoch,
       });
   }
 
@@ -167,6 +172,10 @@ export class PartyStore {
   }
 
   enqueueInsert(party: Party, userId: string) {
+    if (!this.acceptsUser(userId)) {
+      this.refuseCrossUser("enqueueInsert", party.id, userId);
+      return;
+    }
     const e = this.queue.get(party.id);
     if (e) {
       e.latest = party;
@@ -182,12 +191,17 @@ export class PartyStore {
         pendingConflict: null,
         insertRejected: false,
         userId,
+        epoch: this.epoch,
       });
     }
     void this.kick(party.id);
   }
 
   enqueueUpdate(party: Party, userId: string) {
+    if (!this.acceptsUser(userId)) {
+      this.refuseCrossUser("enqueueUpdate", party.id, userId);
+      return;
+    }
     const e = this.queue.get(party.id);
     if (!e) {
       // Never loaded from server (e.g. locally-created row). Treat as insert.
@@ -198,6 +212,7 @@ export class PartyStore {
     e.userId = userId;
     void this.kick(party.id);
   }
+
 
   drop(id: string) {
     this.queue.delete(id);
