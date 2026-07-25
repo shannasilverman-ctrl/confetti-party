@@ -64,6 +64,7 @@ export const HOST_COLUMNS = [
   "occasion",
   "date",
   "start_time",
+  "time_zone",
   "location",
   "guest_estimate",
   "budget",
