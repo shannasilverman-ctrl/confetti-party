@@ -207,7 +207,7 @@ function Landing() {
                   </span>
                   <span className="font-semibold text-secondary tabular-nums">$342 / $600</span>
                 </div>
-                <Progress value={57} />
+                <Progress value={57} aria-label="Budget used" />
               </div>
 
               <div className="mt-4 space-y-2">
@@ -555,7 +555,7 @@ function ChecklistMini() {
         <div className="text-xs font-semibold text-secondary tabular-nums">1 / 4</div>
       </div>
       <div className="mt-3">
-        <Progress value={25} />
+        <Progress value={25} aria-label="Checklist progress" />
       </div>
       <div className="mt-4 space-y-2">
         {rows.map((r, i) => (
