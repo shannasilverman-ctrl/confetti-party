@@ -282,7 +282,7 @@ describe("POST /api/realtime/session", () => {
     const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(200);
     expect(capturedUrl).toBe("https://api.openai.com/v1/realtime/client_secrets");
-    const init = capturedInit as RequestInit;
+    const init = capturedInit as unknown as RequestInit;
     const headers = new Headers(init.headers);
     expect(headers.get("Authorization")).toBe("Bearer sk-test");
     const safetyId = headers.get("OpenAI-Safety-Identifier");
