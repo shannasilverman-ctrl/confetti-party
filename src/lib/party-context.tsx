@@ -110,6 +110,12 @@ export type Party = {
   shoppingItems: ShoppingItem[];
   pinnedInspiration: string[]; // e.g. ["unicorn-rainbow:table"]
   hostNote?: string;
+  households?: Household[];
+  bringBoard?: BringItem[];
+  hostUpdates?: HostUpdate[];
+  holidayPackId?: string;
+  photoDrop?: PhotoDropInfo | null;
+  checkins?: Record<string, string>; // guestId -> ISO timestamp
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
