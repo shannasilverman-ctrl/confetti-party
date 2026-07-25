@@ -104,18 +104,23 @@ revisions of this doc named `Outfit`; the live font is Nunito 400/500/600/700.
 
 ## 3. Hero image (truth-up)
 
-Source is a managed asset pointer, `src/assets/confetti-hero.jpg.asset.json`:
+Source is a managed asset pointer, `src/assets/confetti-hero.jpg.asset.json`.
+The pointer file itself is small JSON; the JPEG payload it references is
+much larger and lives in R2 behind the `/__l5e/...` URL.
 
-| Property                 | Value                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------- |
-| Descriptor bytes         | 121,037 (matches `size` field in pointer)                                                         |
-| Content type             | `image/jpeg`                                                                                      |
-| Decoded pixel dimensions | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker) |
-| `<img>` intrinsic attrs  | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"` |
+| Property                             | Value                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Descriptor file (`*.asset.json`)     | **459 bytes on disk** (`wc -c src/assets/confetti-hero.jpg.asset.json`)                            |
+| Referenced JPEG payload (`size:` field) | **121,037 bytes** (declared in the pointer, served from R2 at the `url` field)                     |
+| Payload content type                 | `image/jpeg`                                                                                      |
+| Decoded pixel dimensions             | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker) |
+| `<img>` intrinsic attrs              | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"` |
 
-The intrinsic attrs and the decoded pixel dimensions now agree. Any
-prior mention of `1600 × 900` was inherited from an earlier hero and is
-no longer accurate — this document is the source of truth.
+The intrinsic attrs and the decoded pixel dimensions agree. Any prior
+mention of `1600 × 900` was inherited from an earlier hero and is no
+longer accurate — this document is the source of truth. The 121,037
+number is the JPEG payload size, **not** the descriptor file size;
+earlier revisions of this doc conflated the two.
 
 Below-fold theme thumbnails and workspace previews use
 `loading="lazy"` + `decoding="async"`; grep for `loading="lazy"` under
