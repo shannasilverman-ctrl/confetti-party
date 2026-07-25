@@ -36,9 +36,10 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --font-display: "Baloo 2", "Baloo 2 Variable", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Fraunces", "Cormorant Garamond", ui-serif, Georgia, "Times New Roman", serif;
   --font-body: "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-body);
+  --font-rounded: "Baloo 2", "Baloo 2 Variable", ui-rounded, "Segoe UI", system-ui, sans-serif;
 }
 
 :root {
@@ -79,19 +80,28 @@
   --input: hsl(30 25% 88%);
   --ring: hsl(10 82% 62%);
 
+  /* Brand accents (used by Logo and gradients) */
+  --brand-plum: hsl(268 55% 32%);
+  --brand-coral: hsl(10 82% 62%);
+  --brand-gold: hsl(38 92% 58%);
+  --brand-mint: hsl(150 55% 52%);
+
   /* Festive gradient */
   --gradient-festive: linear-gradient(135deg, hsl(10 82% 62%) 0%, hsl(340 75% 58%) 45%, hsl(268 55% 42%) 100%);
   --gradient-sunrise: linear-gradient(135deg, hsl(38 92% 62%) 0%, hsl(10 82% 62%) 100%);
+  --gradient-plum-veil: linear-gradient(180deg, hsl(268 55% 18% / 0.05) 0%, hsl(268 55% 18% / 0.7) 100%);
+  --shadow-soft: 0 2px 10px -6px hsl(268 55% 20% / 0.18), 0 1px 3px -1px hsl(268 55% 20% / 0.08);
   --shadow-card: 0 4px 20px -8px hsl(268 55% 32% / 0.15);
-  --shadow-elevated: 0 20px 50px -20px hsl(268 55% 32% / 0.25);
+  --shadow-elevated: 0 24px 60px -24px hsl(268 55% 26% / 0.28), 0 4px 12px -6px hsl(268 55% 26% / 0.12);
+  --shadow-lift: 0 40px 80px -30px hsl(268 55% 20% / 0.35);
 
-  /* Confetti dot pattern */
+  /* Confetti dot pattern — softer, larger tile so it feels editorial */
   --pattern-confetti:
-    radial-gradient(circle at 12% 22%, hsl(10 82% 62% / 0.25) 2px, transparent 3px),
-    radial-gradient(circle at 78% 18%, hsl(38 92% 58% / 0.28) 2.5px, transparent 3.5px),
-    radial-gradient(circle at 42% 68%, hsl(268 55% 42% / 0.22) 2px, transparent 3px),
-    radial-gradient(circle at 88% 82%, hsl(340 75% 58% / 0.22) 2px, transparent 3px),
-    radial-gradient(circle at 22% 88%, hsl(150 55% 52% / 0.2) 2px, transparent 3px);
+    radial-gradient(circle at 15% 25%, hsl(10 82% 62% / 0.18) 2px, transparent 3px),
+    radial-gradient(circle at 80% 22%, hsl(38 92% 58% / 0.22) 2.5px, transparent 3.5px),
+    radial-gradient(circle at 45% 70%, hsl(268 55% 42% / 0.16) 2px, transparent 3px),
+    radial-gradient(circle at 88% 82%, hsl(340 75% 58% / 0.16) 2px, transparent 3px),
+    radial-gradient(circle at 22% 88%, hsl(150 55% 52% / 0.15) 2px, transparent 3px);
 }
 
 @utility bg-festive {
@@ -105,17 +115,29 @@
   background-image: var(--pattern-confetti);
   background-size: 260px 260px;
 }
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
 @utility shadow-card {
   box-shadow: var(--shadow-card);
 }
 @utility shadow-elevated {
   box-shadow: var(--shadow-elevated);
 }
+@utility shadow-lift {
+  box-shadow: var(--shadow-lift);
+}
+@utility bg-plum-veil {
+  background-image: var(--gradient-plum-veil);
+}
 @utility text-gradient-festive {
   background-image: var(--gradient-festive);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+@utility font-rounded {
+  font-family: var(--font-rounded);
 }
 
 @keyframes pop-check {
