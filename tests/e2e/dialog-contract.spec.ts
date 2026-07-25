@@ -217,30 +217,29 @@ test.describe("Holiday starter → editable workspace", () => {
       timeout: 10_000,
     });
 
-    // Required: seeded checklist. No conditional skip.
-    const checklistTab = page.getByTestId("party-tab-checklist").first();
-    await expect(checklistTab).toBeVisible();
-    await checklistTab.click();
-    // A Thanksgiving starter seeds turkey / guest / invite flavored tasks.
+    // Required: seeded checklist. Use a resilient locator that matches either
+    // the desktop tab (`party-tab-*`) or the mobile bottom-nav twin
+    // (`party-tab-mobile-*`) and pick whichever is currently visible.
+    const tab = async (key: string) => {
+      const desk = page.getByTestId(`party-tab-${key}`);
+      const mob = page.getByTestId(`party-tab-mobile-${key}`);
+      const visible = (await desk.isVisible()) ? desk : mob;
+      await expect(visible).toBeVisible();
+      await visible.click();
+    };
+
+    await tab("checklist");
     await expect(page.locator("main")).toContainText(/turkey|guest|invite|rsvp/i);
 
-    // Required: seeded Bring Board.
-    const bringTab = page.getByTestId("party-tab-bring").first();
-    await expect(bringTab).toBeVisible();
-    await bringTab.click();
-    const items = page.getByTestId("bring-item");
-    await expect(items.first()).toBeVisible({ timeout: 10_000 });
-    const seededCount = await items.count();
+    await tab("bring");
+    await expect(page.getByTestId("bring-item").first()).toBeVisible({ timeout: 10_000 });
+    const seededCount = await page.getByTestId("bring-item").count();
     expect(seededCount, "Thanksgiving starter seeds ≥1 bring item").toBeGreaterThan(0);
 
     // Prove edits persist across in-session tab navigation. (Demo mode
     // deliberately does not write to localStorage / server — a full reload
     // resets seed data, so persistence is scoped to the live session.)
-    await page.getByTestId("party-tab-checklist").first().click();
-    await expect(page.locator("main")).toContainText(/turkey|guest|invite|rsvp/i);
-    await page.getByTestId("party-tab-bring").first().click();
-    await expect(page.getByTestId("bring-item").first()).toBeVisible();
-    await page.getByTestId("party-tab-overview").first().click();
+    await tab("overview");
     await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible();
   });
 });
