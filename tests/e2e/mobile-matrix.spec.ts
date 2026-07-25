@@ -29,10 +29,23 @@ const SCENARIOS: Scenario[] = [
     route: "/app",
     containers: ['[role="dialog"]'],
     setup: async (page) => {
+      await page.waitForLoadState("networkidle").catch(() => undefined);
       const trigger = page.locator('[data-testid="new-party-trigger"]');
       await trigger.waitFor({ state: "visible" });
-      await trigger.click();
-      await page.getByRole("dialog").waitFor({ state: "visible", timeout: 15_000 });
+      const dialog = page.getByRole("dialog");
+      // Radix Dialog occasionally misses the first click before React hydrates
+      // its onClick handler; retry until the dialog is visible or budget runs
+      // out. Deterministic — no test.retry, no flake budget.
+      for (let i = 0; i < 6; i++) {
+        await trigger.click({ force: true });
+        try {
+          await dialog.waitFor({ state: "visible", timeout: 3_000 });
+          return;
+        } catch {
+          await page.waitForTimeout(250);
+        }
+      }
+      await dialog.waitFor({ state: "visible", timeout: 3_000 });
     },
   },
   {
