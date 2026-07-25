@@ -76,11 +76,10 @@ function Landing() {
         <BrandLockup />
         <nav className="flex items-center gap-3 sm:gap-5">
           <Link
-            to="/party/$id"
-            params={{ id: "maya-8th" }}
+            to="/sample-invite"
             className="hidden text-sm font-medium text-secondary/80 hover:text-secondary sm:inline"
           >
-            See a sample party
+            See a sample invite
           </Link>
           <div className="hidden sm:block">
             <AuthNav variant="landing" />
@@ -146,9 +145,7 @@ function Landing() {
               variant="outline"
               className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
             >
-              <Link to="/party/$id" params={{ id: "maya-8th" }}>
-                See a sample party
-              </Link>
+              <Link to="/sample-invite">Open a sample invite</Link>
             </Button>
           </div>
           <p className="mt-4 text-xs text-white/70">Free. No sign-up needed to look around.</p>
@@ -274,9 +271,9 @@ function Landing() {
             />
             <StoryRow
               chapter="Chapter 04"
-              title="Guest World, with a Bring Board."
+              title={`${VOCAB.guestInvite}, with a ${VOCAB.bringBoard}.`}
               body="One link for every guest. They RSVP, claim what to bring, and see host updates. You watch it fill in — no more group-chat archaeology."
-              cta={{ label: "Open a sample invite", to: "/party/$id", params: { id: "maya-8th" } }}
+              cta={{ label: "Open a sample invite", to: "/sample-invite" }}
               tone="coral"
               flip
               art={<GuestWorldMini />}
@@ -322,9 +319,7 @@ function Landing() {
               Start planning <ArrowRight />
             </Button>
             <Button asChild size="lg" variant="outline">
-              <Link to="/party/$id" params={{ id: "maya-8th" }}>
-                Crash a sample party
-              </Link>
+              <Link to="/sample-invite">Open a sample invite</Link>
             </Button>
           </div>
         </div>
@@ -760,8 +755,8 @@ function GuestWorldMini() {
     <div className="rotate-[-1deg] space-y-3 rounded-3xl border border-border bg-card p-5 shadow-card">
       <div>
         <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <span>Guest World</span>
-          <span className="text-primary">confetti.app/rsvp/…</span>
+          <span>{VOCAB.guestInvite}</span>
+          <span className="text-primary">RSVP · Bring · Photos</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {rsvp.map((r) => (
