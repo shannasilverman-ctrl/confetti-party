@@ -540,3 +540,144 @@ describe("PartyStore — conflict resolution", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Auth identity lifecycle: PartyStore is constructed once and MUST fully
+// isolate account A from account B on sign-out/sign-in. An offline pending
+// write from A must never flush after B signs in; no A state (queue entries,
+// save-status events, toasts, conflicts) may leak into B's UI.
+// ---------------------------------------------------------------------------
+describe("PartyStore auth identity isolation", () => {
+  it("reset() drops the queue and rejects the old user's writes", async () => {
+    const fake = new FakeDb();
+    const { store } = mkStore(fake);
+    const partyA = mkParty({ id: "pA", name: "A-party" });
+    store.enqueueInsert(partyA, "user-A");
+    await flush();
+    expect(fake.rows.has("pA")).toBe(true);
+    expect(store.getCurrentUserId()).toBe("user-A");
+
+    // Sign out → sign in as B.
+    store.reset("user-B");
+    expect(store.getCurrentUserId()).toBe("user-B");
+
+    // Writes under A's id after reset are refused, never sent to the wire.
+    fake.rows.delete("pA");
+    store.enqueueUpdate({ ...partyA, name: "A-ghost-edit" }, "user-A");
+    await flush();
+    expect(fake.rows.has("pA")).toBe(false);
+  });
+
+  it("offline queue from account A does not flush after B signs in", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty({ id: "pA", name: "A-party" }), "user-A"));
+    let online = true;
+    const events: StoreEvent[] = [];
+    const store = new PartyStore({
+      client: fake.client(),
+      isTombstoned: () => false,
+      sleep: () => Promise.resolve(),
+      isOnline: () => online,
+      onEvent: (e) => events.push(e),
+    });
+    const partyA = rowToParty(fake.rows.get("pA")!);
+    store.seedBaseline(partyA, "user-A");
+
+    // Go offline, queue an update from A.
+    online = false;
+    fake.errors.push({ message: "network down", kind: "network" });
+    store.enqueueUpdate({ ...partyA, name: "A-offline-edit" }, "user-A");
+    await flush();
+    expect(store.getState("pA").state).toBe("offline");
+    const beforeSwitch = { ...fake.rows.get("pA") };
+
+    // Sign out A, sign in B.
+    store.reset("user-B");
+    expect(store.getState("pA").state).toBe("idle"); // queue cleared
+
+    // Come back online — flushAll must not push A's pending edit into DB.
+    online = true;
+    store.flushAll();
+    await flush();
+    expect(fake.rows.get("pA")?.name).toBe(beforeSwitch.name);
+    expect(fake.rows.get("pA")?.name).not.toBe("A-offline-edit");
+  });
+
+  it("in-flight insert whose await resolves after reset does not emit into B", async () => {
+    const fake = new FakeDb();
+    // Gate the insert until we release it.
+    let release: (() => void) | null = null;
+    const gated = new Promise<void>((r) => (release = r));
+    const client: PartyClient = {
+      ...fake.client(),
+      insert: async (row) => {
+        await gated;
+        const stored = { ...row, updated_at: fake.tick(), created_at: fake.tick() };
+        fake.rows.set(row.id, stored);
+        return { data: stored, error: null };
+      },
+    };
+    const events: StoreEvent[] = [];
+    const store = new PartyStore({
+      client,
+      isTombstoned: () => false,
+      sleep: () => Promise.resolve(),
+      isOnline: () => true,
+      onEvent: (e) => events.push(e),
+    });
+    store.enqueueInsert(mkParty({ id: "pA", name: "A-inflight" }), "user-A");
+    await flush(); // enters await inside insert()
+
+    // Reset to B while insert is still awaiting the wire.
+    store.reset("user-B");
+
+    // Release the network — the continuation must abort silently.
+    release!();
+    await flush();
+
+    // No server-row event for A's id may reach the UI under B.
+    const serverRowsForA = events.filter(
+      (e) => e.type === "server-row" && "id" in e && e.id === "pA",
+    );
+    expect(serverRowsForA.length).toBe(0);
+    // And no lingering queue entry for A.
+    expect(store.getState("pA").state).toBe("idle");
+  });
+
+  it("cross-user seedBaseline is refused (defense-in-depth)", () => {
+    const fake = new FakeDb();
+    const logs: Array<{ event: string; meta: Record<string, unknown> }> = [];
+    const store = new PartyStore({
+      client: fake.client(),
+      isTombstoned: () => false,
+      sleep: () => Promise.resolve(),
+      isOnline: () => true,
+      onEvent: () => {},
+      logError: (event, meta) => logs.push({ event, meta }),
+    });
+    store.seedBaseline(mkParty({ id: "pA" }), "user-A");
+    // Forgot to reset — sneaking a B seed in must be refused, not silently
+    // adopted (which would let A's queue write into B's row).
+    store.seedBaseline(mkParty({ id: "pA" }), "user-B");
+    expect(store.getCurrentUserId()).toBe("user-A");
+    expect(logs.some((l) => l.event === "cross_user_write_refused")).toBe(true);
+  });
+
+  it("reset clears pending semantic conflict state so it does not leak into B", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty({ id: "pA", name: "A-party" }), "user-A"));
+    const { store } = mkStore(fake);
+    const partyA = rowToParty(fake.rows.get("pA")!);
+    store.seedBaseline(partyA, "user-A");
+    // Diverge server so update conflicts.
+    fake.patchServer("pA", { name: "server-name" });
+    store.enqueueUpdate({ ...partyA, name: "A-local-name" }, "user-A");
+    await flush();
+    expect(store.getState("pA").state).toBe("conflict");
+
+    // Identity reset must nuke the conflict, not carry it into B.
+    store.reset("user-B");
+    expect(store.getState("pA").state).toBe("idle");
+    expect(store.getState("pA").conflict).toBeNull();
+  });
+});
