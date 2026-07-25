@@ -4,10 +4,13 @@ Evidence date: 2026-07-25
 
 ## Scope
 
-This signoff covers the GitHub-connected Lovable beta at
-`https://confetti-party.lovable.app`. It does **not** cover
-`confettiapp.ai`, custom domains, billing, a vendor marketplace, or any
-production secret configuration.
+This signoff covers canonical GitHub commit
+`85766e532a3511b976cbce47de10608a819149b8` deployed as Cloudflare Worker
+version `b51bb11d-a758-471e-9754-83664fbb6271` at
+`https://confetti-independent-preview.shannasilverman-apps.workers.dev`.
+It does **not** cover `confettiapp.ai`, custom domains, billing, a vendor
+marketplace, the rollback-only Lovable deployment, or missing production
+secret configuration.
 
 The release candidate completes these representative journeys:
 
@@ -28,23 +31,24 @@ The release candidate completes these representative journeys:
 The exact application candidate passed locally against the production
 Cloudflare Worker build:
 
-| Gate                  | Result                                                                         |
-| --------------------- | ------------------------------------------------------------------------------ |
-| Prettier              | All files matched                                                              |
-| ESLint                | Passed                                                                         |
-| TypeScript            | Passed with `tsc --noEmit`                                                     |
-| Vitest + coverage     | 39 files, 298 tests passed                                                     |
-| Coverage              | 81.64% statements, 76.22% branches, 81.81% functions, 85.07% lines             |
-| Production build      | Passed                                                                         |
-| Initial client bundle | 566,293 raw bytes; 163,755 gzip bytes; within enforced budget                  |
-| Playwright            | 101 applicable tests passed; 51 intentional project-specific skips; 0 failures |
+| Gate                  | Result                                                                     |
+| --------------------- | -------------------------------------------------------------------------- |
+| Prettier              | All files matched                                                          |
+| ESLint                | Passed                                                                     |
+| TypeScript            | Passed with `tsc --noEmit`                                                 |
+| Vitest                | 42 files, 315 tests passed                                                 |
+| Production build      | Passed                                                                     |
+| Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                          |
+| Playwright            | Desktop and mobile projects passed; project-specific skips intentional     |
+| GitHub Actions        | Exact merged commit passed the complete CI workflow                        |
+| Live deployment       | Core routes, PWA assets, metadata, MIME types, and security headers passed |
 
 The Playwright run covers desktop and Pixel-class mobile layouts, a
 320/375/390/430 px route matrix, keyboard/focus behavior, minimum 44 px
 primary targets, asset availability, semantic route identity, malformed
 invite recovery, sample-vs-real action truthfulness, and serious/critical
 axe checks. Mobile-only matrix cases and desktop-only axe cases are skipped
-in the other Playwright project by design, which accounts for the 51 skips.
+in the other Playwright project by design.
 
 GitHub Actions independently replays formatting, lint, typecheck, coverage,
 build, bundle enforcement, a clean Worker startup, and Playwright before
@@ -87,5 +91,8 @@ payments, transactional guest messaging, native photo storage, or a support
 SLA. UI copy must continue to describe shared guest-page updates as updates,
 not sent notifications.
 
-The beta deployment may proceed only to `confetti-party.lovable.app` after
-the exact GitHub head is green and the Lovable preview reflects that head.
+The independent beta preview may proceed only after the exact GitHub commit
+is green, the Cloudflare Worker reports that same deployment, and
+`bun run verify:deployment` plus desktop/mobile acceptance pass. Moving
+`confettiapp.ai`, attaching a custom domain, or retiring the Lovable rollback
+remains a separate owner-approved release decision.

@@ -62,15 +62,16 @@ bodies only.
 
 ## Tests
 
-| Command                 | What it runs                                                  |
-| ----------------------- | ------------------------------------------------------------- |
-| `bun run format:check`  | Prettier drift gate                                           |
-| `bun run lint`          | ESLint (0 warnings tolerated in CI)                           |
-| `bun run typecheck`     | `tsc --noEmit`                                                |
-| `bun run test`          | Vitest unit + integration                                     |
-| `bun run test:coverage` | Vitest with V8 coverage                                       |
-| `bun run test:e2e`      | Playwright end-to-end (desktop + mobile)                      |
-| `bun run test:db`       | Postgres RPC harness (requires local Postgres; skipped in CI) |
+| Command                     | What it runs                                                  |
+| --------------------------- | ------------------------------------------------------------- |
+| `bun run format:check`      | Prettier drift gate                                           |
+| `bun run lint`              | ESLint (0 warnings tolerated in CI)                           |
+| `bun run typecheck`         | `tsc --noEmit`                                                |
+| `bun run test`              | Vitest unit + integration                                     |
+| `bun run test:coverage`     | Vitest with V8 coverage                                       |
+| `bun run test:e2e`          | Playwright end-to-end (desktop + mobile)                      |
+| `bun run test:db`           | Postgres RPC harness (requires local Postgres; skipped in CI) |
+| `bun run verify:deployment` | Live route, installability, and security-header smoke check   |
 
 The E2E suite spawns a real production server via `wrangler dev`. If the
 sandbox lacks system libraries (`libglib-2.0.so.0`), tests fail at browser
