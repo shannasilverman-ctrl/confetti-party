@@ -329,9 +329,15 @@ function Landing() {
       <footer className="border-t border-border bg-background">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
           <BrandLockup />
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Confetti. Be the host people talk about.
-          </p>
+          <nav aria-label="Legal" className="flex items-center gap-4 text-xs text-muted-foreground">
+            <Link to="/privacy" className="hover:text-secondary">
+              Privacy
+            </Link>
+            <Link to="/terms" className="hover:text-secondary">
+              Terms
+            </Link>
+            <span>© {new Date().getFullYear()} Confetti</span>
+          </nav>
         </div>
         {affiliateDisclosureEnabled() && (
           <div className="border-t border-border">
