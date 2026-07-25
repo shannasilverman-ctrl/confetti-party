@@ -78,6 +78,9 @@ describe("withKeyedLock", () => {
     let releaseB!: () => void;
     const a = withKeyedLock("A", () => new Promise<void>((r) => (releaseA = r)));
     const b = withKeyedLock("B", () => new Promise<void>((r) => (releaseB = r)));
+    // Let the internal `.then(fn)` microtask run so fn actually starts.
+    await Promise.resolve();
+    await Promise.resolve();
     // Both keys should be tracked while their tasks are in flight.
     expect(_keyedLockSize()).toBe(2);
     releaseA();
