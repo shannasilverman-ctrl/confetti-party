@@ -59,7 +59,6 @@ import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
-import { formatDateOnly } from "@/lib/date-only";
 
 export type TabKey =
   | "overview"
