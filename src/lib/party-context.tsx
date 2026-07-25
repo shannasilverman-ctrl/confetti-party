@@ -479,6 +479,7 @@ type Ctx = {
     extraTasks?: Task[];
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
+  cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
 };
 
 const PartyContext = createContext<Ctx | null>(null);
@@ -724,6 +725,38 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           }),
         );
         if (user && updated) void persist(updated);
+      },
+      cloneParty: (id, overrides) => {
+        const src = parties.find((x) => x.id === id);
+        if (!src) return null;
+        const newId =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : uid();
+        // Deep-copy via JSON: safe for our plain-data Party shape.
+        const copy: Party = JSON.parse(JSON.stringify(src));
+        copy.id = newId;
+        copy.name = overrides?.name ?? `${src.name} (copy)`;
+        copy.date = overrides?.date ?? src.date;
+        copy.rsvpToken = undefined; // fresh token minted server-side
+        // Reset per-event runtime state; keep templates, theme, budget plan, seeded tasks.
+        copy.tasks = copy.tasks.map((t) => ({ ...t, done: false }));
+        copy.guests = [];
+        copy.hostUpdates = [];
+        copy.checkins = {};
+        copy.bringBoard = (copy.bringBoard ?? []).map((b) => ({
+          ...b,
+          status: "open",
+          assigneeName: undefined,
+          assigneeHousehold: undefined,
+          claimedAt: undefined,
+        }));
+        // Zero out logged expenses; preserve planned amounts.
+        copy.budgetCategories = copy.budgetCategories.map((c) => ({ ...c, expenses: [] }));
+        copy.shoppingItems = copy.shoppingItems.map((s) => ({ ...s, status: "needed" }));
+        setParties((prev) => [...prev, copy]);
+        if (user) void persist(copy);
+        return newId;
       },
     }),
     [parties, status, isDemo, user, persist],

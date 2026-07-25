@@ -38,7 +38,10 @@ import {
   Sparkles,
   X,
   RefreshCw,
+  MessageSquare,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 
 
 type AppSearch = { new?: boolean };
@@ -58,7 +61,7 @@ export const Route = createFileRoute("/app")({
 });
 
 function Dashboard() {
-  const { parties, status, isDemo, refetch } = useParties();
+  const { parties, status, isDemo, refetch, cloneParty } = useParties();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [wizardOpen, setWizardOpen] = useState(!!search.new);
@@ -81,6 +84,9 @@ function Dashboard() {
           <BrandLockup />
           <div className="flex items-center gap-2">
             <AuthNav variant="app" />
+            <Button asChild variant="outline" size="sm">
+              <Link to="/talk"><MessageSquare className="h-4 w-4" /> Talk it out</Link>
+            </Button>
             <Button variant="festive" onClick={() => setWizardOpen(true)}>
               <Plus /> New Party
             </Button>
@@ -199,6 +205,20 @@ function Dashboard() {
                     <Badge variant="onFestive" className="relative">
                       {OCCASION_LABELS[p.occasion]}
                     </Badge>
+                    <button
+                      type="button"
+                      aria-label="Duplicate party"
+                      title="Duplicate party"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const id = cloneParty(p.id);
+                        if (id) toast.success("Party duplicated.");
+                      }}
+                      className="absolute right-3 top-3 rounded-full bg-white/85 p-1.5 text-secondary shadow-card transition hover:bg-white"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
 
                     <div className="relative mt-2 text-primary-foreground/90 text-sm">
                       {p.theme}
