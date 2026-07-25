@@ -628,6 +628,16 @@ function SampleBringBoard({
         />
       </div>
 
+      {error && (
+        <p
+          className="mt-2 text-xs text-destructive"
+          role="alert"
+          aria-live="polite"
+        >
+          {error}
+        </p>
+      )}
+
       <div className="mt-4 space-y-4">
         {Object.entries(grouped).map(([cat, list]) => (
           <div key={cat}>
