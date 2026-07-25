@@ -13,6 +13,11 @@ import { resolve } from "node:path";
 
 const REQUIRED_PUBLIC_FILES = ["public/brand/confetti-hero.jpg", "public/brand/ava-liam.jpg"];
 const MANIFEST_PATH = "public/manifest.webmanifest";
+const APP_ICON_FILES = [
+  "public/apple-touch-icon.png",
+  "public/app-icon-192.png",
+  "public/app-icon-512.png",
+];
 
 // Performance contract: enforce upper-bound sizes on branded imagery so
 // we do not silently regress LCP. Values are generous ceilings above the
@@ -68,8 +73,13 @@ test.describe("first-party image asset contract", () => {
     expect(manifest.icons).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          src: "/favicon.svg",
-          sizes: "any",
+          src: "/app-icon-192.png",
+          sizes: "192x192",
+          purpose: expect.stringContaining("maskable"),
+        }),
+        expect.objectContaining({
+          src: "/app-icon-512.png",
+          sizes: "512x512",
           purpose: expect.stringContaining("maskable"),
         }),
       ]),
@@ -88,6 +98,10 @@ test.describe("first-party image asset contract", () => {
       "href",
       "/manifest.webmanifest",
     );
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
+      "href",
+      "/apple-touch-icon.png",
+    );
     await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#3B1E5E");
     await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute(
       "content",
@@ -97,6 +111,20 @@ test.describe("first-party image asset contract", () => {
       "content",
       "Confetti",
     );
+  });
+
+  test("install icons exist and resolve as PNG assets", async ({ request }) => {
+    test.skip(test.info().project.name !== "desktop", "icon contract runs once");
+
+    for (const relativePath of APP_ICON_FILES) {
+      const iconFile = statSync(resolve(process.cwd(), relativePath));
+      expect(iconFile.isFile(), `${relativePath} must exist as a file`).toBe(true);
+      expect(iconFile.size, `${relativePath} must be non-empty`).toBeGreaterThan(1024);
+
+      const response = await request.get(`/${relativePath.replace("public/", "")}`);
+      expect(response.status()).toBe(200);
+      expect(response.headers()["content-type"]).toContain("image/png");
+    }
   });
 
   test("landing + sample workspace image URLs return 2xx and no /__l5e/ refs", async ({
