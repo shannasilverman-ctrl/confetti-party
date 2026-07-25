@@ -82,6 +82,30 @@ export function addDaysDateOnly(s: string, days: number): string {
 }
 
 /**
+ * Move an annual gathering to its next future occurrence.
+ *
+ * The result is always at least one calendar year after the source date and
+ * strictly after `now`. Leap-day gatherings clamp to the final day of
+ * February in non-leap years instead of rolling into March.
+ */
+export function nextAnnualDateOnly(s: string, now: Date = new Date()): string {
+  const source = parseDateOnly(s);
+  if (!source) throw new Error(`Invalid date-only value: ${JSON.stringify(s)}`);
+
+  const today = todayDateOnly(now);
+  let year = source.y + 1;
+
+  while (true) {
+    const lastDay = new Date(year, source.m, 0).getDate();
+    const candidate = localDateToDateOnly(
+      new Date(year, source.m - 1, Math.min(source.d, lastDay)),
+    );
+    if (candidate > today) return candidate;
+    year += 1;
+  }
+}
+
+/**
  * ISO date `days` days from `base` (default today), computed against LOCAL
  * calendar. Returns `YYYY-MM-DD`.
  */
