@@ -169,7 +169,7 @@ export function createMintRealtimeSessionHandler(
     }
 
     // ---- 4-6. Reservation, serialized per user on this node --------------
-    return withUserMutex(userId, async () => {
+    return withKeyedLock(userId, async () => {
       const oneHourAgoISO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const staleCutoffISO = new Date(Date.now() - REALTIME_SESSION_STALE_MS).toISOString();
 
