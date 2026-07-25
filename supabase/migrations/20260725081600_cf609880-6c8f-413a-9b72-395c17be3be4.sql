@@ -5,37 +5,44 @@
 -- public.talk_sessions, public.talk_transcripts remove all owned rows
 -- transactionally as part of the same statement.
 --
--- Requires a recent sign-in (auth_time within 15 minutes) as a generic
--- reauth threshold — the JWT's `iat` claim is the closest portable proxy
--- across email/password + social providers.
+-- Requires a real authentication method within the last 15 minutes.
+-- JWT `iat` is deliberately NOT used: access-token refresh advances iat
+-- without asking the person to prove control of their login method.
 CREATE OR REPLACE FUNCTION public.delete_own_account()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, auth
+SET search_path = pg_catalog, auth
 AS $$
 DECLARE
   uid uuid := auth.uid();
-  issued_at_epoch bigint;
-  issued_at timestamptz;
+  claims jsonb := auth.jwt();
+  authenticated_at_epoch bigint;
+  authenticated_at timestamptz;
 BEGIN
   IF uid IS NULL THEN
     RAISE EXCEPTION 'auth required';
   END IF;
 
-  -- Fresh-session gate: reject if the current access token was issued
-  -- more than 15 minutes ago. Generic across providers; caller UX asks
-  -- the user to sign in again when this fails.
+  -- AMR timestamps record the actual password/OAuth/OTP/etc. proof and
+  -- survive routine token refresh. Fail closed when AMR is absent or bad.
   BEGIN
-    issued_at_epoch := ((current_setting('request.jwt.claims', true))::jsonb ->> 'iat')::bigint;
+    SELECT max((method->>'timestamp')::bigint)
+      INTO authenticated_at_epoch
+      FROM jsonb_array_elements(COALESCE(claims->'amr', '[]'::jsonb)) AS method
+     WHERE method->>'method' IN (
+       'password','oauth','otp','totp','magiclink','recovery',
+       'email/signup','invite','sso/saml'
+     );
   EXCEPTION WHEN others THEN
-    issued_at_epoch := NULL;
+    authenticated_at_epoch := NULL;
   END;
-  IF issued_at_epoch IS NULL THEN
+  IF authenticated_at_epoch IS NULL THEN
     RAISE EXCEPTION 'reauth required';
   END IF;
-  issued_at := to_timestamp(issued_at_epoch);
-  IF now() - issued_at > interval '15 minutes' THEN
+  authenticated_at := to_timestamp(authenticated_at_epoch);
+  IF authenticated_at > now() + interval '1 minute'
+     OR now() - authenticated_at > interval '15 minutes' THEN
     RAISE EXCEPTION 'reauth required';
   END IF;
 

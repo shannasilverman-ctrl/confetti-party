@@ -33,7 +33,7 @@ function TermsPage() {
       <main className="mx-auto max-w-3xl px-6 py-6 pb-24">
         <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">Terms</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated November 2025. Plain-language product information for using Confetti
+          Last updated July 25, 2026. Plain-language product information for using Confetti
           (currently in beta). Not legal counsel.
         </p>
 
@@ -76,8 +76,8 @@ function TermsPage() {
           <h2 className="mt-8 font-display text-xl font-semibold">Ending your use</h2>
           <p className="mt-3 text-sm">
             You can delete individual parties at any time from the dashboard or from a party's
-            workspace. A self-serve account deletion flow is not currently exposed; contact the
-            operator of this deployment if you need it. The operator may suspend accounts that
+            workspace. You can export your account data or permanently delete your account and its
+            active-database records from the Account page. The operator may suspend accounts that
             violate these terms.
           </p>
 

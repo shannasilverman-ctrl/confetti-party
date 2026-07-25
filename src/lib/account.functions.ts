@@ -22,6 +22,7 @@ export type AccountExportEnvelope = {
   partyCount: number;
   draftCount: number;
   sessionCount: number;
+  transcriptCount: number;
   /** Full JSON string — the content of the downloadable file. */
   json: string;
 };
@@ -44,7 +45,7 @@ export const exportMyData = createServerFn({ method: "GET" })
     const { supabase, userId, claims } = context;
 
     // Fetch in parallel; each query is RLS-scoped to auth.uid().
-    const [parties, drafts, sessions] = await Promise.all([
+    const [parties, drafts, sessions, transcripts] = await Promise.all([
       supabase.from("parties").select("*").eq("user_id", userId),
       supabase.from("gathering_drafts").select("*").eq("user_id", userId),
       supabase
@@ -53,14 +54,18 @@ export const exportMyData = createServerFn({ method: "GET" })
         // actual column set present on the table (no updated_at/status).
         .select("id,draft_id,created_at,started_at,ended_at,duration_s,disconnect_reason")
         .eq("user_id", userId),
+      // Normally empty because the beta defaults to summary-only retention,
+      // but include every caller-owned row if full retention was ever used.
+      supabase.from("talk_transcripts").select("*").eq("user_id", userId),
     ]);
 
-    if (parties.error || drafts.error || sessions.error) {
+    if (parties.error || drafts.error || sessions.error || transcripts.error) {
       // Never leak DB error text to the caller.
       console.error("[export] db_failure", {
         parties: parties.error?.code ?? null,
         drafts: drafts.error?.code ?? null,
         sessions: sessions.error?.code ?? null,
+        transcripts: transcripts.error?.code ?? null,
       });
       throw new Error("export_failed");
     }
@@ -72,6 +77,7 @@ export const exportMyData = createServerFn({ method: "GET" })
     );
     const draftRows = drafts.data ?? [];
     const sessionRows = sessions.data ?? [];
+    const transcriptRows = transcripts.data ?? [];
 
     const generatedAt = new Date().toISOString();
     const doc = {
@@ -86,11 +92,11 @@ export const exportMyData = createServerFn({ method: "GET" })
           "public.parties (full row — includes embedded guest names, dietary, allergens, bring board, host updates)",
           "public.gathering_drafts (full row — voice/text intake draft state)",
           "public.talk_sessions (metadata only — no transcripts)",
+          "public.talk_transcripts (caller-owned rows, when full transcript retention was enabled)",
         ],
         excluded: [
           "auth passwords / tokens / session cookies",
           "claim secrets stored inside bring board items",
-          "public.talk_transcripts raw content",
           "service / operational logs",
           "any row owned by another user",
         ],
@@ -98,6 +104,7 @@ export const exportMyData = createServerFn({ method: "GET" })
       parties: cleanedParties,
       gatheringDrafts: draftRows,
       talkSessions: sessionRows,
+      talkTranscripts: transcriptRows,
     };
 
     return {
@@ -108,6 +115,7 @@ export const exportMyData = createServerFn({ method: "GET" })
       partyCount: cleanedParties.length,
       draftCount: draftRows.length,
       sessionCount: sessionRows.length,
+      transcriptCount: transcriptRows.length,
       json: JSON.stringify(doc, null, 2),
     };
   });
@@ -117,7 +125,7 @@ export const exportMyData = createServerFn({ method: "GET" })
  * export. Claim secrets let a guest release an item; they're the guest's
  * private token, not export material for the host.
  */
-function stripPartyClaimSecrets(party: Record<string, unknown>): Record<string, unknown> {
+export function stripPartyClaimSecrets(party: Record<string, unknown>): Record<string, unknown> {
   const bring = party.bring_board;
   if (!Array.isArray(bring)) return party;
   const cleaned = bring.map((item) => {

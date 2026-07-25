@@ -33,14 +33,18 @@ function PrivacyPage() {
       <main className="mx-auto max-w-3xl px-6 py-6 pb-24">
         <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">Privacy</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated November 2025. This is plain-language product information about how Confetti
+          Last updated July 25, 2026. This is plain-language product information about how Confetti
           (currently in beta) handles data. It is not legal advice or a compliance certification.
         </p>
 
         <section className="prose prose-slate mt-8 max-w-none text-secondary">
           <h2 className="mt-8 font-display text-xl font-semibold">What we collect</h2>
           <ul className="mt-3 list-disc space-y-1 pl-6 text-sm">
-            <li>Host account data: email address and password hash, used only to sign you in.</li>
+            <li>
+              Host account data: email address and authentication metadata. Supabase Auth stores the
+              password hash; Confetti's application code never receives your plaintext password or
+              password hash.
+            </li>
             <li>
               Party data you enter: name, date, optional start time and location, guest list (names,
               optional dietary and allergen tags), checklist, budget, shopping items, theme choices,
@@ -69,7 +73,13 @@ function PrivacyPage() {
           <ul className="mt-3 list-disc space-y-1 pl-6 text-sm">
             <li>Supabase — database, authentication, and storage.</li>
             <li>Cloudflare — hosting and edge delivery.</li>
-            <li>OpenAI — Realtime API for the voice co-host, only when you use that feature.</li>
+            <li>
+              OpenAI — Realtime API for the voice co-host, only when you start a voice session.
+            </li>
+            <li>
+              Lovable AI Gateway — processes text planning turns and plan generation when you use
+              the AI co-host.
+            </li>
           </ul>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Retention and deletion</h2>
@@ -83,14 +93,14 @@ function PrivacyPage() {
             you can also download a JSON export of everything we store for your account, or
             permanently delete your account. Deleting your account cascades: every party, guest
             RSVP, bring-board item, host update, draft, and voice-session record tied to your
-            account is removed from our primary database. Short-lived operational backups may
-            retain copies for up to 30 days before rolling off.
+            account is removed from the active database. Infrastructure providers may retain
+            encrypted operational backups according to the deployment's configured backup schedule;
+            this beta does not promise a specific backup purge window.
           </p>
           <p className="mt-3 text-sm">
-            Confetti also stores a small amount of sample/demo state in this browser's local
-            storage so signed-out visitors can preview the product. That state lives only on this
-            device and can be wiped at any time from the Account page or by clearing site data in
-            your browser.
+            Confetti also stores a small amount of sample/demo state in this browser's local storage
+            so signed-out visitors can preview the product. That state lives only on this device and
+            can be wiped at any time from the Account page or by clearing site data in your browser.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Guest data</h2>

@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { useServerFn } from "@tanstack/react-start";
 import { deleteMyAccount, exportMyData, EXPORT_SCHEMA_VERSION } from "@/lib/account.functions";
 import { clearDemoState } from "@/lib/demo-storage";
+import { maskEmail } from "@/lib/account-format";
 import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -30,7 +31,10 @@ export const Route = createFileRoute("/account")({
   head: () => ({
     meta: [
       { title: "Account · Confetti" },
-      { name: "description", content: "Manage your Confetti account, export your data, or delete." },
+      {
+        name: "description",
+        content: "Manage your Confetti account, export your data, or delete.",
+      },
       { property: "og:title", content: "Account · Confetti" },
       {
         property: "og:description",
@@ -41,15 +45,6 @@ export const Route = createFileRoute("/account")({
   }),
   component: AccountPage,
 });
-
-/** Masks an email for casual display: `a****z@example.com`. */
-function maskEmail(email: string | null): string {
-  if (!email) return "—";
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return email;
-  if (local.length <= 2) return `${local[0] ?? ""}*@${domain}`;
-  return `${local[0]}${"*".repeat(Math.max(1, local.length - 2))}${local[local.length - 1]}@${domain}`;
-}
 
 function AccountPage() {
   const { user, loading, signOut } = useAuth();
@@ -95,7 +90,7 @@ function AccountPage() {
       a.click();
       a.remove();
       toast.success(
-        `Exported ${env.partyCount} ${env.partyCount === 1 ? "party" : "parties"}, ${env.draftCount} draft(s), ${env.sessionCount} voice session(s).`,
+        `Exported ${env.partyCount} ${env.partyCount === 1 ? "party" : "parties"}, ${env.draftCount} draft(s), ${env.sessionCount} voice session(s), and ${env.transcriptCount} transcript record(s).`,
       );
     } catch {
       toast.error("We couldn't build your export just now. Try again in a moment.");
@@ -198,13 +193,11 @@ function AccountPage() {
 
             {/* Export */}
             <Card className="p-4 sm:p-5">
-              <h2 className="font-display text-lg font-semibold text-secondary">
-                Export my data
-              </h2>
+              <h2 className="font-display text-lg font-semibold text-secondary">Export my data</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Download a JSON file with every party, guest, dietary/allergen tag, bring-board
-                item, host update, and voice-session metadata Confetti stores for your account.
-                Claim secrets, raw transcripts, and other users' data are excluded.
+                item, host update, draft, voice-session record, and retained transcript Confetti
+                stores for your account. Claim secrets and other users' data are excluded.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 File format: JSON, schema version {EXPORT_SCHEMA_VERSION}.
@@ -243,10 +236,7 @@ function AccountPage() {
             {/* Delete */}
             <Card className="border-destructive/40 bg-destructive/5 p-4 sm:p-5">
               <div className="flex items-start gap-3">
-                <ShieldAlert
-                  className="mt-0.5 h-5 w-5 shrink-0 text-destructive"
-                  aria-hidden
-                />
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
                 <div className="flex-1">
                   <h2 className="font-display text-lg font-semibold text-secondary">
                     Delete my account
@@ -257,11 +247,7 @@ function AccountPage() {
                     will stop working. This can't be undone. Export first if you want a copy.
                   </p>
                   <div className="mt-4">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setDeleteOpen(true)}
-                    >
+                    <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
                       <Trash2 className="mr-1.5 h-4 w-4" /> Delete account…
                     </Button>
                   </div>
@@ -320,11 +306,7 @@ function AccountPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setDeleteOpen(false)}
-              disabled={deleting}
-            >
+            <Button variant="ghost" onClick={() => setDeleteOpen(false)} disabled={deleting}>
               Cancel
             </Button>
             <Button
@@ -341,5 +323,3 @@ function AccountPage() {
     </div>
   );
 }
-
-export { maskEmail };
