@@ -38,6 +38,10 @@ type Entry = {
    * "Not saved" recovery card until the user retries or discards. */
   insertRejected: boolean;
   userId: string;
+  /** Monotonic epoch stamped from the store at entry creation. Used to
+   *  discard writes/events after an identity reset so a pending write from
+   *  account A cannot flush after account B signs in. */
+  epoch: number;
 };
 
 export type StoreEvent =
@@ -64,6 +68,13 @@ const GENERIC_REJECTED = "This party couldn't be saved to the cloud. It's kept o
 
 export class PartyStore {
   private queue = new Map<string, Entry>();
+  /** Monotonic identity epoch. Bumped by reset() so async continuations
+   *  from a prior identity can detect they are stale and abort. */
+  private epoch = 0;
+  /** Owner user id for the queue. null = not established yet (e.g. demo/
+   *  signed-out) or just after reset(null). Enqueue/seed calls that don't
+   *  match will be refused. */
+  private currentUserId: string | null = null;
   private opts: Required<
     Omit<PartyStoreOptions, "onEvent" | "client" | "isTombstoned" | "logError">
   > &
@@ -86,6 +97,43 @@ export class PartyStore {
         }),
     };
   }
+
+  /** Reset the store on auth identity change. Drops every queued entry
+   *  (pending inserts, updates, conflicts, offline retries) and bumps the
+   *  epoch so any in-flight network continuation aborts silently instead of
+   *  emitting state/toasts or persisting into the wrong account. */
+  reset(nextUserId: string | null) {
+    this.epoch += 1;
+    this.queue.clear();
+    this.currentUserId = nextUserId;
+  }
+
+  /** Read the current owner user id (test helper / diagnostics). */
+  getCurrentUserId(): string | null {
+    return this.currentUserId;
+  }
+
+  /** True when writes from `userId` are welcome — i.e. queue is unclaimed
+   *  or already claimed by that user. */
+  private acceptsUser(userId: string): boolean {
+    if (this.currentUserId === null) {
+      this.currentUserId = userId;
+      return true;
+    }
+    return this.currentUserId === userId;
+  }
+
+  private refuseCrossUser(op: string, id: string, userId: string) {
+    this.opts.logError("cross_user_write_refused", {
+      op,
+      id,
+      // Never log the raw ids — only lengths — to avoid painting auth ids
+      // into error surfaces.
+      currentUserIdLen: this.currentUserId?.length ?? 0,
+      incomingUserIdLen: userId.length,
+    });
+  }
+
 
   /** Record a server snapshot (from initial load) so the first UPDATE has a baseline. */
   seedBaseline(party: Party, userId: string) {
