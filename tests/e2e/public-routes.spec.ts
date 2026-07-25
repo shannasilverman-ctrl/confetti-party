@@ -19,10 +19,13 @@ for (const path of ROUTES) {
     // Full "Confetti" wordmark visible in the shared brand lockup (link with aria-label)
     await expect(page.getByRole("link", { name: /confetti/i }).first()).toBeVisible();
 
-    // Landmarks / structure — every page should have a semantic <main> or <h1>
+    // Landmarks / structure — every page needs one primary landmark and a
+    // visible route heading. A heading alone does not provide navigation for
+    // screen-reader landmark shortcuts.
     const hasMain = await page.locator("main").count();
     const hasH1 = await page.locator("h1").count();
-    expect(hasMain + hasH1).toBeGreaterThan(0);
+    expect(hasMain, `${path} should expose exactly one <main>`).toBe(1);
+    expect(hasH1, `${path} should expose an <h1>`).toBeGreaterThan(0);
 
     // No horizontal overflow at this project's viewport
     const overflow = await page.evaluate(() => {

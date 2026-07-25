@@ -102,242 +102,244 @@ function Landing() {
         </nav>
       </header>
 
-      {/* Cinematic hero */}
-      <section
-        className="relative isolate overflow-hidden"
-        style={{ backgroundColor: "hsl(268 55% 15%)" }}
-      >
-        {/* Image plate */}
-        <div className="absolute inset-0 -z-10">
-          <img
-            src={heroImage.url}
-            alt=""
-            aria-hidden
-            width={1280}
-            height={714}
-            fetchPriority="high"
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-          {/* Plum veil for AA contrast on display type */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(180deg, hsl(268 55% 12% / 0.55) 0%, hsl(268 55% 12% / 0.35) 55%, hsl(36 44% 97% / 0.98) 100%)",
-            }}
-            aria-hidden
-          />
-        </div>
-
-        <div className="relative mx-auto max-w-4xl px-6 pb-24 pt-16 text-center sm:pb-32 sm:pt-24">
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 backdrop-blur">
-            <Sparkles className="h-3.5 w-3.5" /> Your calm co-host
-          </span>
-          <h1 className="mt-6 font-display text-[2.75rem] font-semibold leading-[1.02] tracking-tight text-white drop-shadow-[0_2px_20px_hsl(268_55%_10%/0.5)] sm:text-6xl md:text-7xl">
-            Throw the party
-            <br />
-            everyone remembers.
-          </h1>
-          <p className="mx-auto mt-6 max-w-xl text-base text-white/85 sm:text-lg">
-            From the first idea to the final toast — guests, checklist, budget, day-of, and the
-            memories after. Confetti gets you there, calmly.
-          </p>
-
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button size="lg" variant="festive" onClick={startPlanning}>
-              Start planning <ArrowRight />
-            </Button>
-            <Button asChild size="lg" variant="secondary">
-              <Link to="/talk">Talk it out</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
-            >
-              <Link to="/sample-invite">Open a sample invite</Link>
-            </Button>
-          </div>
-          <p className="mt-4 text-xs text-white/70">Free. No sign-up needed to look around.</p>
-        </div>
-      </section>
-
-      {/* Chaos → Calm */}
-      <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
-        <div className="grid items-center gap-10 md:grid-cols-[1fr_auto_1fr]">
-          {/* Chaos: message bubbles */}
-          <div className="relative mx-auto w-full max-w-sm">
-            <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              The group chat
-            </div>
-            <div className="flex flex-col gap-3">
-              <Bubble rot={-2}>wait who's bringing the cake??</Bubble>
-              <Bubble rot={1.5} align="right">
-                did anyone invite the Nguyens?
-              </Bubble>
-              <Bubble rot={-1}>is it BYOB or…?</Bubble>
-              <Bubble rot={2} align="right" strike>
-                scroll up someone said 3pm
-              </Bubble>
-            </div>
+      <main>
+        {/* Cinematic hero */}
+        <section
+          className="relative isolate overflow-hidden"
+          style={{ backgroundColor: "hsl(268 55% 15%)" }}
+        >
+          {/* Image plate */}
+          <div className="absolute inset-0 -z-10">
+            <img
+              src={heroImage.url}
+              alt=""
+              aria-hidden
+              width={1280}
+              height={714}
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
+            {/* Plum veil for AA contrast on display type */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(180deg, hsl(268 55% 12% / 0.55) 0%, hsl(268 55% 12% / 0.35) 55%, hsl(36 44% 97% / 0.98) 100%)",
+              }}
+              aria-hidden
+            />
           </div>
 
-          {/* Arrow */}
-          <div className="hidden items-center justify-center md:flex">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
-              <ArrowRightIcon className="h-6 w-6" />
-            </div>
-          </div>
-          <div className="flex items-center justify-center md:hidden">
-            <div className="rotate-90 flex h-12 w-12 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-card">
-              <ArrowRightIcon className="h-5 w-5" />
-            </div>
-          </div>
-
-          {/* Calm: app card */}
-          <div className="relative mx-auto w-full max-w-sm">
-            <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-primary">
-              With Confetti
-            </div>
-            <div className="rotate-[1.5deg] rounded-3xl border border-border bg-card p-5 shadow-elevated">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="font-display text-lg font-semibold text-secondary">
-                    Maya's 8th Birthday
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {sampleCardDateLabel} · 2:00 PM
-                  </div>
-                </div>
-                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-                  {sampleCountdown}
-                </span>
-              </div>
-
-              <div className="mt-4 flex items-center gap-2 text-sm">
-                <Users className="h-4 w-4 text-secondary/70" />
-                <span className="font-medium text-secondary">12 yes</span>
-                <span className="text-muted-foreground">· 3 maybe</span>
-              </div>
-
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <Wallet className="h-3.5 w-3.5" /> Budget
-                  </span>
-                  <span className="font-semibold text-secondary tabular-nums">$342 / $600</span>
-                </div>
-                <Progress value={57} aria-label="Budget used" />
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <ChecklistRow done>Book the venue</ChecklistRow>
-                <ChecklistRow>Send invites</ChecklistRow>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Product story — six chapters, in the order a host actually lives them */}
-      <section className="bg-muted/30 py-20 sm:py-28">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
-              One gathering, first idea to next-year notes.
-            </h2>
-            <p className="mt-3 text-muted-foreground">
-              Every screen below is a real Confetti surface, in the order you'll meet them.
+          <div className="relative mx-auto max-w-4xl px-6 pb-24 pt-16 text-center sm:pb-32 sm:pt-24">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5" /> Your calm co-host
+            </span>
+            <h1 className="mt-6 font-display text-[2.75rem] font-semibold leading-[1.02] tracking-tight text-white drop-shadow-[0_2px_20px_hsl(268_55%_10%/0.5)] sm:text-6xl md:text-7xl">
+              Throw the party
+              <br />
+              everyone remembers.
+            </h1>
+            <p className="mx-auto mt-6 max-w-xl text-base text-white/85 sm:text-lg">
+              From the first idea to the final toast — guests, checklist, budget, day-of, and the
+              memories after. Confetti gets you there, calmly.
             </p>
-          </div>
 
-          <div className="mt-16 space-y-20">
-            <StoryRow
-              chapter="Chapter 01"
-              title="Talk it out."
-              body="Brain-dump the gathering — the vibe, the humans, the constraints. Confetti listens, asks the right questions, and turns the noise into a plan you can edit."
-              cta={{ label: "Try Talk it out", to: "/talk" }}
-              tone="cream"
-              art={<TalkMini />}
-            />
-            <StoryRow
-              chapter="Chapter 02"
-              title="The Reveal."
-              body="A single calm page: what you're hosting, when, for whom, with the risks flagged. No dashboards to decode, no ten tabs of setup."
-              cta={{
-                label: "See a sample reveal",
-                to: "/party/$id/reveal",
-                params: { id: "ava-liam-wedding" },
-              }}
-              tone="mint"
-              flip
-              art={<RevealMini />}
-            />
-            <StoryRow
-              chapter="Chapter 03"
-              title="Your next three things."
-              body="Not a wall of tasks. Just the three moves that matter this week, in the right order, with the right timing bucket."
-              cta={{ label: "Peek at Maya's list", to: "/party/$id", params: { id: "maya-8th" } }}
-              tone="cream"
-              art={<ChecklistMini />}
-            />
-            <StoryRow
-              chapter="Chapter 04"
-              title={`${VOCAB.guestInvite}, with a ${VOCAB.bringBoard}.`}
-              body="One link for every guest. They RSVP, claim what to bring, and see host updates. You watch it fill in — no more group-chat archaeology."
-              cta={{ label: "Open a sample invite", to: "/sample-invite" }}
-              tone="coral"
-              flip
-              art={<GuestWorldMini />}
-            />
-            <StoryRow
-              chapter="Chapter 05"
-              title="Day-of Mode."
-              body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
-              cta={{
-                label: "Open Day-of Mode",
-                to: "/party/$id/day-of",
-                params: { id: "maya-8th" },
-              }}
-              tone="cream"
-              art={<TimelineMini />}
-            />
-            <StoryRow
-              chapter="Chapter 06"
-              title="Memories, so next time is easier."
-              body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Duplicate the plan later and those notes stay attached for reference."
-              cta={{
-                label: "Read Ava & Liam's retro",
-                to: "/party/$id/reveal",
-                params: { id: "ava-liam-wedding" },
-              }}
-              tone="gold"
-              flip
-              art={<MemoriesMini />}
-            />
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button size="lg" variant="festive" onClick={startPlanning}>
+                Start planning <ArrowRight />
+              </Button>
+              <Button asChild size="lg" variant="secondary">
+                <Link to="/talk">Talk it out</Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+              >
+                <Link to="/sample-invite">Open a sample invite</Link>
+              </Button>
+            </div>
+            <p className="mt-4 text-xs text-white/70">Free. No sign-up needed to look around.</p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Closing band */}
-      <section className="relative overflow-hidden bg-confetti py-20 sm:py-24">
-        <FloatingConfettiField />
-        <div className="relative mx-auto max-w-2xl px-6 text-center">
-          <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
-            Your next party starts with a name and a date.
-          </h2>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button size="lg" variant="festive" onClick={startPlanning}>
-              Start planning <ArrowRight />
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link to="/sample-invite">Open a sample invite</Link>
-            </Button>
+        {/* Chaos → Calm */}
+        <section className="mx-auto max-w-6xl px-6 py-16 sm:py-24">
+          <div className="grid items-center gap-10 md:grid-cols-[1fr_auto_1fr]">
+            {/* Chaos: message bubbles */}
+            <div className="relative mx-auto w-full max-w-sm">
+              <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                The group chat
+              </div>
+              <div className="flex flex-col gap-3">
+                <Bubble rot={-2}>wait who's bringing the cake??</Bubble>
+                <Bubble rot={1.5} align="right">
+                  did anyone invite the Nguyens?
+                </Bubble>
+                <Bubble rot={-1}>is it BYOB or…?</Bubble>
+                <Bubble rot={2} align="right" strike>
+                  scroll up someone said 3pm
+                </Bubble>
+              </div>
+            </div>
+
+            {/* Arrow */}
+            <div className="hidden items-center justify-center md:flex">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
+                <ArrowRightIcon className="h-6 w-6" />
+              </div>
+            </div>
+            <div className="flex items-center justify-center md:hidden">
+              <div className="rotate-90 flex h-12 w-12 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-card">
+                <ArrowRightIcon className="h-5 w-5" />
+              </div>
+            </div>
+
+            {/* Calm: app card */}
+            <div className="relative mx-auto w-full max-w-sm">
+              <div className="mb-3 text-center text-[11px] font-medium uppercase tracking-wider text-primary">
+                With Confetti
+              </div>
+              <div className="rotate-[1.5deg] rounded-3xl border border-border bg-card p-5 shadow-elevated">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-display text-lg font-semibold text-secondary">
+                      Maya's 8th Birthday
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {sampleCardDateLabel} · 2:00 PM
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+                    {sampleCountdown}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex items-center gap-2 text-sm">
+                  <Users className="h-4 w-4 text-secondary/70" />
+                  <span className="font-medium text-secondary">12 yes</span>
+                  <span className="text-muted-foreground">· 3 maybe</span>
+                </div>
+
+                <div className="mt-4">
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Wallet className="h-3.5 w-3.5" /> Budget
+                    </span>
+                    <span className="font-semibold text-secondary tabular-nums">$342 / $600</span>
+                  </div>
+                  <Progress value={57} aria-label="Budget used" />
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <ChecklistRow done>Book the venue</ChecklistRow>
+                  <ChecklistRow>Send invites</ChecklistRow>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        {/* Product story — six chapters, in the order a host actually lives them */}
+        <section className="bg-muted/30 py-20 sm:py-28">
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
+                One gathering, first idea to next-year notes.
+              </h2>
+              <p className="mt-3 text-muted-foreground">
+                Every screen below is a real Confetti surface, in the order you'll meet them.
+              </p>
+            </div>
+
+            <div className="mt-16 space-y-20">
+              <StoryRow
+                chapter="Chapter 01"
+                title="Talk it out."
+                body="Brain-dump the gathering — the vibe, the humans, the constraints. Confetti listens, asks the right questions, and turns the noise into a plan you can edit."
+                cta={{ label: "Try Talk it out", to: "/talk" }}
+                tone="cream"
+                art={<TalkMini />}
+              />
+              <StoryRow
+                chapter="Chapter 02"
+                title="The Reveal."
+                body="A single calm page: what you're hosting, when, for whom, with the risks flagged. No dashboards to decode, no ten tabs of setup."
+                cta={{
+                  label: "See a sample reveal",
+                  to: "/party/$id/reveal",
+                  params: { id: "ava-liam-wedding" },
+                }}
+                tone="mint"
+                flip
+                art={<RevealMini />}
+              />
+              <StoryRow
+                chapter="Chapter 03"
+                title="Your next three things."
+                body="Not a wall of tasks. Just the three moves that matter this week, in the right order, with the right timing bucket."
+                cta={{ label: "Peek at Maya's list", to: "/party/$id", params: { id: "maya-8th" } }}
+                tone="cream"
+                art={<ChecklistMini />}
+              />
+              <StoryRow
+                chapter="Chapter 04"
+                title={`${VOCAB.guestInvite}, with a ${VOCAB.bringBoard}.`}
+                body="One link for every guest. They RSVP, claim what to bring, and see host updates. You watch it fill in — no more group-chat archaeology."
+                cta={{ label: "Open a sample invite", to: "/sample-invite" }}
+                tone="coral"
+                flip
+                art={<GuestWorldMini />}
+              />
+              <StoryRow
+                chapter="Chapter 05"
+                title="Day-of Mode."
+                body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
+                cta={{
+                  label: "Open Day-of Mode",
+                  to: "/party/$id/day-of",
+                  params: { id: "maya-8th" },
+                }}
+                tone="cream"
+                art={<TimelineMini />}
+              />
+              <StoryRow
+                chapter="Chapter 06"
+                title="Memories, so next time is easier."
+                body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Duplicate the plan later and those notes stay attached for reference."
+                cta={{
+                  label: "Read Ava & Liam's retro",
+                  to: "/party/$id/reveal",
+                  params: { id: "ava-liam-wedding" },
+                }}
+                tone="gold"
+                flip
+                art={<MemoriesMini />}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Closing band */}
+        <section className="relative overflow-hidden bg-confetti py-20 sm:py-24">
+          <FloatingConfettiField />
+          <div className="relative mx-auto max-w-2xl px-6 text-center">
+            <h2 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
+              Your next party starts with a name and a date.
+            </h2>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Button size="lg" variant="festive" onClick={startPlanning}>
+                Start planning <ArrowRight />
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <Link to="/sample-invite">Open a sample invite</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-border bg-background">

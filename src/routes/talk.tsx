@@ -538,13 +538,11 @@ function TalkRoute() {
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
-          <a
-            href="/"
-            aria-label="Confetti — home"
-            className="text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
-          >
-            Talk it out · Confetti
-          </a>
+          <h1 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <a href="/" aria-label="Confetti — home" className="hover:text-foreground">
+              Talk it out · Confetti
+            </a>
+          </h1>
 
           <div
             className="inline-flex overflow-hidden rounded-lg border border-border text-xs"
