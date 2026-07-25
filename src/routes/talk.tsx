@@ -24,6 +24,8 @@ import { sendTurn, confirmDraft, previewDraft } from "@/lib/talk-brain.functions
 import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
 import { createTalkLifecycle } from "@/lib/talk-lifecycle";
 import { celebrate } from "@/components/confetti-burst";
+import { readHandoff, saveHandoff, type TalkHandoffV1 } from "@/lib/talk-handoff";
+import { ResumeHandoffCard } from "@/components/resume-handoff-card";
 import {
   Dialog,
   DialogContent,
