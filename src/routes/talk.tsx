@@ -601,6 +601,32 @@ function TalkRoute() {
         {mode === "text" ? (
           <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
             <section className="flex flex-col">
+              {authReady && user && handoff && !handoffDismissed && (
+                <div className="mb-3">
+                  <ResumeHandoffCard
+                    handoff={handoff}
+                    userId={user.id}
+                    onImported={(id) => {
+                      setDraftId(id);
+                      setHandoff(null);
+                      setHandoffDismissed(true);
+                      // Seed the visible transcript from the handoff so the
+                      // user sees continuity, not a blank canvas.
+                      setMessages(
+                        handoff.messages.map((m) => ({
+                          role: m.role,
+                          content: m.text,
+                        })),
+                      );
+                      toast.success("Picked up where you left off");
+                    }}
+                    onDiscard={() => {
+                      setHandoff(null);
+                      setHandoffDismissed(true);
+                    }}
+                  />
+                </div>
+              )}
               {isDemo && (
                 <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-primary/5 px-4 py-2.5 text-xs text-secondary">
                   <Badge variant="secondary" className="uppercase tracking-wide">
