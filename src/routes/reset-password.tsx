@@ -28,21 +28,16 @@ function ResetPasswordPage() {
   const [submitting, setSubmitting] = useState(false);
   const [invalidLink, setInvalidLink] = useState(false);
 
-  // Supabase places recovery info in the URL hash and immediately establishes a
-  // session server-side. Wait for onAuthStateChange PASSWORD_RECOVERY (or an
-  // existing session) before enabling the form. If neither arrives within a
-  // short window, show a "link expired" state instead of an unusable form.
+  // Only PASSWORD_RECOVERY proves this tab followed a recovery link. An
+  // arbitrary existing session is not enough: otherwise any signed-in user
+  // who visits /reset-password could change their password without the link.
   useEffect(() => {
     let cancelled = false;
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (cancelled) return;
-      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
+      if (event === "PASSWORD_RECOVERY") {
         setReady(true);
       }
-    });
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      if (data.session) setReady(true);
     });
     const timer = setTimeout(() => {
       if (cancelled) return;
@@ -50,7 +45,7 @@ function ResetPasswordPage() {
         if (!r) setInvalidLink(true);
         return r;
       });
-    }, 3000);
+    }, 8000);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -69,14 +64,19 @@ function ResetPasswordPage() {
       return;
     }
     setSubmitting(true);
-    const { error } = await updatePassword(password);
-    setSubmitting(false);
-    if (error) {
-      toast.error(error);
-      return;
+    try {
+      const { error } = await updatePassword(password);
+      if (error) {
+        toast.error("Couldn't update the password. Request a fresh reset link and try again.");
+        return;
+      }
+      toast.success("Password updated");
+      void navigate({ to: "/app", replace: true });
+    } catch {
+      toast.error("Couldn't reach the sign-in service. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
-    toast.success("Password updated");
-    void navigate({ to: "/app", replace: true });
   }
 
   return (
@@ -99,7 +99,9 @@ function ResetPasswordPage() {
             <div className="mt-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm text-secondary">
               <p>This reset link looks expired or already used.</p>
               <Button asChild className="mt-3" variant="festive" size="sm">
-                <Link to="/auth">Request a new link</Link>
+                <Link to="/auth" search={{ mode: "forgot" }}>
+                  Request a new link
+                </Link>
               </Button>
             </div>
           ) : !ready ? (

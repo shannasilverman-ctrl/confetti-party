@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
+import { normalizeAuthReturnTo } from "@/lib/auth-redirect";
 
 type AuthMode = "signin" | "signup" | "forgot";
-type AuthSearch = { mode?: AuthMode };
+type AuthSearch = { mode?: AuthMode; returnTo?: string };
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/auth")({
           : s.mode === "forgot"
             ? "forgot"
             : undefined,
+    returnTo: typeof s.returnTo === "string" ? normalizeAuthReturnTo(s.returnTo) : undefined,
   }),
   head: () => ({
     meta: [
@@ -55,12 +57,17 @@ function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [sentTo, setSentTo] = useState<{ kind: "confirm" | "reset"; email: string } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const returnTo = normalizeAuthReturnTo(search.returnTo);
 
   useEffect(() => {
     if (!authLoading && user) {
-      void navigate({ to: "/app", replace: true });
+      window.location.replace(returnTo);
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, returnTo]);
+
+  useEffect(() => {
+    setMode(search.mode ?? "signin");
+  }, [search.mode]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -71,17 +78,17 @@ function AuthPage() {
   async function submitSignIn() {
     const { error } = await signIn(email, password);
     if (error) {
-      toast.error(error);
+      toast.error("That email and password combination wasn't recognized.");
       return;
     }
     toast.success("Welcome back");
-    void navigate({ to: "/app", replace: true });
+    window.location.replace(returnTo);
   }
 
   async function submitSignUp() {
-    const result = await signUp(email, password);
+    const result = await signUp(email, password, returnTo);
     if (result.error) {
-      toast.error(result.error);
+      toast.error("Couldn't create that account. Check the details or try signing in.");
       return;
     }
     // Clear the password from state as soon as signUp resolves. Resends must
@@ -91,7 +98,7 @@ function AuthPage() {
       // Confirmation is disabled — Supabase returned an active session.
       // Navigate straight into the app.
       toast.success("Welcome to Confetti");
-      void navigate({ to: "/app", replace: true });
+      window.location.replace(returnTo);
       return;
     }
     // Confirmation required — show the persistent confirm-email state.
@@ -102,7 +109,7 @@ function AuthPage() {
   async function submitForgot() {
     const { error } = await resetPasswordForEmail(email);
     if (error) {
-      toast.error(error);
+      toast.error("Couldn't send a reset email just now. Please try again shortly.");
       return;
     }
     setSentTo({ kind: "reset", email });
@@ -118,6 +125,8 @@ function AuthPage() {
       if (mode === "signup") await submitSignUp();
       else if (mode === "forgot") await submitForgot();
       else await submitSignIn();
+    } catch {
+      toast.error("Couldn't reach the sign-in service. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -132,7 +141,7 @@ function AuthPage() {
           ? await resetPasswordForEmail(sentTo.email)
           : await resendSignupConfirmation(sentTo.email);
       if (error) {
-        toast.error(error);
+        toast.error("Couldn't send that email just now. Please try again shortly.");
         return;
       }
       toast.success("Sent again");
@@ -150,6 +159,16 @@ function AuthPage() {
         : "Welcome back";
   const submitLabel =
     mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in";
+
+  function changeMode(next: AuthMode) {
+    setSentTo(null);
+    setMode(next);
+    void navigate({
+      to: "/auth",
+      search: { mode: next, returnTo },
+      replace: true,
+    });
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -184,7 +203,7 @@ function AuthPage() {
                   variant="ghost"
                   onClick={() => {
                     setSentTo(null);
-                    setMode("signin");
+                    changeMode("signin");
                   }}
                 >
                   Back to sign in
@@ -222,7 +241,7 @@ function AuthPage() {
                         <button
                           type="button"
                           className="text-xs font-medium text-primary hover:underline"
-                          onClick={() => setMode("forgot")}
+                          onClick={() => changeMode("forgot")}
                         >
                           Forgot password?
                         </button>
@@ -251,7 +270,7 @@ function AuthPage() {
                     <button
                       type="button"
                       className="font-medium text-primary hover:underline"
-                      onClick={() => setMode("signin")}
+                      onClick={() => changeMode("signin")}
                     >
                       Sign in
                     </button>
@@ -260,7 +279,7 @@ function AuthPage() {
                   <button
                     type="button"
                     className="font-medium text-primary hover:underline"
-                    onClick={() => setMode("signin")}
+                    onClick={() => changeMode("signin")}
                   >
                     Back to sign in
                   </button>
@@ -270,7 +289,7 @@ function AuthPage() {
                     <button
                       type="button"
                       className="font-medium text-primary hover:underline"
-                      onClick={() => setMode("signup")}
+                      onClick={() => changeMode("signup")}
                     >
                       Create an account
                     </button>

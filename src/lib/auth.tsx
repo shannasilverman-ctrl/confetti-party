@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeAuthReturnTo } from "@/lib/auth-redirect";
 
 export type SignUpResult = {
   error: string | null;
@@ -15,7 +16,7 @@ type AuthCtx = {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string) => Promise<SignUpResult>;
+  signUp: (email: string, password: string, returnTo?: string) => Promise<SignUpResult>;
   /**
    * Resend the signup confirmation email. Never re-invokes signUp and never
    * requires the password. Uses Supabase's dedicated resend API.
@@ -57,9 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error: error?.message ?? null };
       },
-      signUp: async (email, password) => {
+      signUp: async (email, password, returnTo) => {
         const origin = originOrUndefined();
-        const emailRedirectTo = origin ? `${origin}/app` : undefined;
+        const emailRedirectTo = origin
+          ? new URL(normalizeAuthReturnTo(returnTo), origin).toString()
+          : undefined;
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
