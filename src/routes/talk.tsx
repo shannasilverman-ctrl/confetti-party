@@ -442,6 +442,12 @@ function TalkRoute() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Polite screen-reader announcements: thinking, send/connect
+          errors, connection lifecycle, demo-limit reached. */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {statusAnnouncement}
+      </div>
+
       <div
         className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pt-4 md:pt-8"
         style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
