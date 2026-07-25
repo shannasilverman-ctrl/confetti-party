@@ -100,7 +100,7 @@ function DemoRsvpDialog({
             </p>
             <div className="mt-3 flex items-center gap-2 rounded-xl bg-muted/60 p-2 text-xs text-muted-foreground">
               <Copy className="h-3 w-3" />
-              <span className="truncate">confetti.app/rsvp/…</span>
+              <span className="truncate">Your private RSVP link</span>
             </div>
           </div>
         </div>
