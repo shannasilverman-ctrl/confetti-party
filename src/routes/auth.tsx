@@ -61,11 +61,14 @@ function AuthPage() {
   const [sentTo, setSentTo] = useState<{ kind: "confirm" | "reset"; email: string } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  // Sanitize once so downstream navigations are always safe.
+  const safeReturnTo = sanitizeReturnTo(search.returnTo) ?? "/app";
+
   useEffect(() => {
     if (!authLoading && user) {
-      void navigate({ to: "/app", replace: true });
+      void navigate({ to: safeReturnTo, replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, safeReturnTo]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -80,7 +83,7 @@ function AuthPage() {
       return;
     }
     toast.success("Welcome back");
-    void navigate({ to: "/app", replace: true });
+    void navigate({ to: safeReturnTo, replace: true });
   }
 
   async function submitSignUp() {
@@ -94,12 +97,14 @@ function AuthPage() {
     setPassword("");
     if (result.session) {
       // Confirmation is disabled — Supabase returned an active session.
-      // Navigate straight into the app.
+      // Navigate straight into the resolved return target.
       toast.success("Welcome to Confetti");
-      void navigate({ to: "/app", replace: true });
+      void navigate({ to: safeReturnTo, replace: true });
       return;
     }
     // Confirmation required — show the persistent confirm-email state.
+    // Local handoff / import candidates persist locally and are surfaced
+    // after the confirmed session returns on the next signed-in visit.
     setSentTo({ kind: "confirm", email });
     setResendCooldown(60);
   }
