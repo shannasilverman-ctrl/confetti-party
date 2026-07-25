@@ -310,6 +310,7 @@ export type Database = {
         Args: { _draft_id: string; _party: Json }
         Returns: Json
       }
+      delete_own_account: { Args: never; Returns: Json }
       get_rsvp_party: { Args: { token: string }; Returns: Json }
       list_bring_board: { Args: { token: string }; Returns: Json }
       release_bring_item: {
