@@ -112,7 +112,10 @@ function makeFakeSupabase(state: FakeSupabaseState) {
                 select: (cols: string) => Promise<{ data: unknown[]; error: null }>;
               };
               promise.select = async (_cols: string) => {
-                doApply();
+                const r = doApply();
+                if ((r as { error?: unknown }).error) {
+                  return { data: [], error: null };
+                }
                 return { data: [{ id }], error: null };
               };
               return promise;
