@@ -76,6 +76,7 @@ export type Database = {
           occasion: string
           photo_drop: Json | null
           pinned_inspiration: Json
+          retrospective: Json | null
           rsvp_token: string
           shopping_items: Json
           start_time: string | null
@@ -105,6 +106,7 @@ export type Database = {
           occasion: string
           photo_drop?: Json | null
           pinned_inspiration?: Json
+          retrospective?: Json | null
           rsvp_token?: string
           shopping_items?: Json
           start_time?: string | null
@@ -134,6 +136,7 @@ export type Database = {
           occasion?: string
           photo_drop?: Json | null
           pinned_inspiration?: Json
+          retrospective?: Json | null
           rsvp_token?: string
           shopping_items?: Json
           start_time?: string | null
@@ -262,7 +265,12 @@ export type Database = {
       get_rsvp_party: { Args: { token: string }; Returns: Json }
       list_bring_board: { Args: { token: string }; Returns: Json }
       release_bring_item: {
-        Args: { guest_name: string; item_id: string; token: string }
+        Args: {
+          claim_secret?: string
+          guest_name: string
+          item_id: string
+          token: string
+        }
         Returns: Json
       }
       submit_rsvp:
