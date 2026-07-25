@@ -130,9 +130,11 @@ test.describe("Holiday starter → editable workspace", () => {
     await dialog.getByLabel(/date/i).fill(future);
     await dialog.getByRole("button", { name: /continue|next/i }).click();
 
-    const themeCards = dialog.getByRole("button").filter({ hasText: /./ });
-    // First theme card in step 3 grid.
-    await themeCards.first().click();
+    // Theme cards use the theme name as accessible name; pick the first holiday theme.
+    await dialog
+      .getByRole("button", { name: /winter wonderland|cozy cabin|sparkle and shine/i })
+      .first()
+      .click();
     // Look for the finish/create button.
     await dialog
       .getByRole("button", { name: /create party/i })
