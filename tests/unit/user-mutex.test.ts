@@ -65,7 +65,6 @@ describe("withKeyedLock", () => {
 
   it("registry stays bounded across many sequential tasks (no per-user leak)", async () => {
     for (let i = 0; i < 25; i++) {
-      // eslint-disable-next-line no-await-in-loop
       await withKeyedLock(`user-${i}`, async () => i);
     }
     await new Promise((r) => setTimeout(r, 0));

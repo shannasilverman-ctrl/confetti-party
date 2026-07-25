@@ -299,7 +299,10 @@ export function OverviewTab({
               {party.budget ? Math.round((projected / party.budget) * 100) : 0}% projected
             </span>
           </div>
-          <Progress value={party.budget ? Math.min(100, (projected / party.budget) * 100) : 0} aria-label="Budget used" />
+          <Progress
+            value={party.budget ? Math.min(100, (projected / party.budget) * 100) : 0}
+            aria-label="Budget used"
+          />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => onNavigate("budget")}>
