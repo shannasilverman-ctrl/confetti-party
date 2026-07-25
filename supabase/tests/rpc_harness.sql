@@ -104,7 +104,9 @@ DECLARE
   party_id uuid;
   marker text := current_setting('confetti.fixture_marker');
   fixture_email text := marker || '@rpc-harness.invalid';
+  created_synthetic_auth boolean := false;
   bring jsonb;
+
   res jsonb;
   claim_secret text;
   proj jsonb;
