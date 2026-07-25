@@ -191,13 +191,13 @@ export const DraftPatchZ = z
  * returns a clean patch (possibly empty) plus a redacted issue log the
  * server can console.warn without leaking user content.
  */
-export function safeParseDraftPatch(
-  input: unknown,
-): { patch: DraftPatch; issues: string[] } {
+export function safeParseDraftPatch(input: unknown): { patch: DraftPatch; issues: string[] } {
   const res = DraftPatchZ.safeParse(input);
   if (res.success) return { patch: res.data as DraftPatch, issues: [] };
   // Redact: keep paths + codes only.
-  const issues = res.error.issues.slice(0, 10).map((i) => `${i.path.join(".") || "<root>"}:${i.code}`);
+  const issues = res.error.issues
+    .slice(0, 10)
+    .map((i) => `${i.path.join(".") || "<root>"}:${i.code}`);
   return { patch: {}, issues };
 }
 

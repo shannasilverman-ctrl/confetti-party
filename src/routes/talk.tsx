@@ -951,8 +951,8 @@ function ReviewDialog({
               >
                 <p className="font-medium">We don't have a real date yet.</p>
                 <p className="mt-1 text-amber-900/90">
-                  Guests shouldn't see a placeholder date on an invitation. Set the real date
-                  first, or check the box below to create the party now and pick a date later.
+                  Guests shouldn't see a placeholder date on an invitation. Set the real date first,
+                  or check the box below to create the party now and pick a date later.
                 </p>
                 <label className="mt-2 flex items-start gap-2 text-sm">
                   <input
@@ -1062,15 +1062,7 @@ function ReviewDialog({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone?: "warn";
-}) {
+function DetailRow({ label, value, tone }: { label: string; value: string; tone?: "warn" }) {
   return (
     <div className="flex items-baseline justify-between gap-2 border-b border-border/60 py-1 sm:border-b-0 sm:py-0">
       <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>

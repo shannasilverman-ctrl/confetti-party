@@ -314,9 +314,7 @@ export function materializeDraft(
   // the review shows "TBD" instead of a plausible-looking number. Host can
   // set the real values from the workspace.
   const hasGuestCount = typeof merged.people?.expectedCount === "number";
-  const guestEstimate = hasGuestCount
-    ? clampInt(merged.people?.expectedCount, 0, 500, 0)
-    : 0;
+  const guestEstimate = hasGuestCount ? clampInt(merged.people?.expectedCount, 0, 500, 0) : 0;
   const hasBudget = typeof merged.budget?.total === "number";
   const budget = hasBudget ? clampInt(merged.budget?.total, 0, 100_000, 0) : 0;
 
