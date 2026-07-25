@@ -600,7 +600,48 @@ type Ctx = {
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
+  deleteParty: (id: string) => Promise<{ error: string | null }>;
 };
+
+// localStorage key for demo parties. Bump version if the Party shape changes.
+const DEMO_STORAGE_KEY = "confetti:demo-parties:v1";
+const DEMO_MAX_BYTES = 512 * 1024; // 512KB cap
+const DEMO_MAX_PARTIES = 20;
+
+function loadDemoParties(): Party[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DEMO_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    // Trust structure only enough to render; runtime code re-normalizes via getParty.
+    return parsed as Party[];
+  } catch {
+    return null;
+  }
+}
+
+function saveDemoParties(list: Party[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const capped = list.slice(0, DEMO_MAX_PARTIES);
+    const json = JSON.stringify(capped);
+    if (json.length > DEMO_MAX_BYTES) return; // silently skip oversized state
+    window.localStorage.setItem(DEMO_STORAGE_KEY, json);
+  } catch {
+    /* quota / private mode — ignore */
+  }
+}
+
+function clearDemoParties(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(DEMO_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 const PartyContext = createContext<Ctx | null>(null);
 
