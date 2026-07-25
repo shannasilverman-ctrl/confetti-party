@@ -28,6 +28,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
+import {
+  formatDateOnly,
+  parseWallClockTime,
+  combineDateAndTime,
+  toLocalCalendarStamp,
+  toAllDayStamp,
+  allDayStampPlusDays,
+} from "@/lib/date-only";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
@@ -57,7 +65,7 @@ const ALLERGEN_OPTIONS = [
 ] as const;
 
 function formatDateLong(date: string) {
-  return new Date(date + "T00:00:00").toLocaleDateString(undefined, {
+  return formatDateOnly(date, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -180,51 +188,26 @@ function PublicRsvpPage() {
 
 /* ---------- Calendar helpers ---------- */
 
-function parseTimeTo24h(t: string | null): { h: number; m: number } | null {
-  if (!t) return null;
-  const m = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-  if (!m) return null;
-  let h = parseInt(m[1], 10);
-  const min = parseInt(m[2], 10);
-  const ap = m[3]?.toUpperCase();
-  if (ap === "PM" && h < 12) h += 12;
-  if (ap === "AM" && h === 12) h = 0;
-  if (h > 23 || min > 59) return null;
-  return { h, m: min };
-}
-
-function pad(n: number) {
-  return n.toString().padStart(2, "0");
-}
-
-function toLocalStamp(d: Date) {
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
-}
-
-function toAllDayStamp(date: string) {
-  return date.replace(/-/g, "");
-}
-
 function buildCalendarPayload(party: PartyView) {
-  const time = parseTimeTo24h(party.start_time);
+  // Wall-clock semantics: host-entered start_time is treated as floating
+  // local time. If host time zone becomes a first-class field, wire it in
+  // here — do NOT silently convert to UTC.
+  const time = parseWallClockTime(party.start_time);
   if (time) {
-    const start = new Date(party.date + "T00:00:00");
-    start.setHours(time.h, time.m, 0, 0);
+    const start = combineDateAndTime(party.date, time);
     const end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
     return {
       allDay: false as const,
       start,
       end,
-      googleDates: `${toLocalStamp(start)}/${toLocalStamp(end)}`,
-      icsStart: toLocalStamp(start),
-      icsEnd: toLocalStamp(end),
+      googleDates: `${toLocalCalendarStamp(start)}/${toLocalCalendarStamp(end)}`,
+      icsStart: toLocalCalendarStamp(start),
+      icsEnd: toLocalCalendarStamp(end),
       icsAllDay: false,
     };
   }
   const startStamp = toAllDayStamp(party.date);
-  const endDate = new Date(party.date + "T00:00:00");
-  endDate.setDate(endDate.getDate() + 1);
-  const endStamp = `${endDate.getFullYear()}${pad(endDate.getMonth() + 1)}${pad(endDate.getDate())}`;
+  const endStamp = allDayStampPlusDays(party.date, 1);
   return {
     allDay: true as const,
     googleDates: `${startStamp}/${endStamp}`,
@@ -249,7 +232,7 @@ function googleCalUrl(party: PartyView) {
 function buildIcs(party: PartyView): string {
   const p = buildCalendarPayload(party);
   const uid = `${(party.name || "party").replace(/\W+/g, "-")}-${Date.now()}@confetti-party.lovable.app`;
-  const now = toLocalStamp(new Date());
+  const now = toLocalCalendarStamp(new Date());
   const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
   const lines = [
     "BEGIN:VCALENDAR",
