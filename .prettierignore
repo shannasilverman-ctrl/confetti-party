@@ -12,3 +12,4 @@ playwright-report
 .workspace
 
 src/integrations/supabase/types.ts
+PHASE4_QA_evidence.json
