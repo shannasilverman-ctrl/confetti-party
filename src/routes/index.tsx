@@ -207,7 +207,7 @@ function Landing() {
                   </span>
                   <span className="font-semibold text-secondary tabular-nums">$342 / $600</span>
                 </div>
-                <Progress value={57} />
+                <Progress value={57} aria-label="Budget used" />
               </div>
 
               <div className="mt-4 space-y-2">
