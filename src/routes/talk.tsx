@@ -61,6 +61,56 @@ function TalkRoute() {
   const [confirming, setConfirming] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
+  // Browser dictation (Web Speech API). Not a realtime AI voice call — it
+  // transcribes what the user says into the text box, then the normal text
+  // brain replies. Availability is browser-specific (Chrome/Edge/Safari).
+  const [dictating, setDictating] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const speechSupported =
+    typeof window !== "undefined" &&
+    (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
+
+  const stopDictation = useCallback(() => {
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    setDictating(false);
+  }, []);
+
+  const startDictation = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast.error("Voice input isn't supported in this browser. Type instead.");
+      return;
+    }
+    const rec = new SR();
+    rec.lang = "en-US";
+    rec.continuous = false;
+    rec.interimResults = true;
+    let finalText = "";
+    rec.onresult = (e: any) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setTyped((prev) => {
+        const base = prev.replace(/\s*\[…[^\]]*\]\s*$/, "");
+        const combined = (finalText + (interim ? ` [… ${interim}]` : "")).trim();
+        return base ? `${base} ${combined}` : combined;
+      });
+    };
+    rec.onerror = () => setDictating(false);
+    rec.onend = () => {
+      setDictating(false);
+      setTyped((prev) => prev.replace(/\s*\[…[^\]]*\]\s*$/, "").trim());
+    };
+    recognitionRef.current = rec;
+    setDictating(true);
+    try { rec.start(); } catch { setDictating(false); }
+  }, []);
+
+
   // Voice-mode state (kept intact)
   const [state, setState] = useState<TalkState>("idle");
   const [muted, setMuted] = useState(false);
