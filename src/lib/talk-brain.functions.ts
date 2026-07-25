@@ -13,6 +13,7 @@ import {
   type DraftPatch,
   type ReviewSummary,
 } from "./talk-materialize";
+import { safeParseDraftPatch, sanitizeStringList } from "./talk-schemas";
 
 const MAX_TURNS_PER_HOUR = 40;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -219,26 +220,23 @@ export const sendTurn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<TurnResult> => {
     const { supabase, userId } = context;
 
-    // Fetch draft. Rate limit is windowed via ai_turns_hour_start so a lifetime
-    // count above the cap does NOT block a fresh hour (previous bug).
-    const { data: draftRow, error: draftErr } = await supabase
-      .from("gathering_drafts")
-      .select("id, draft, ai_turns, ai_turns_hour_start")
-      .eq("id", data.draftId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (draftErr) throw new Error(draftErr.message);
-    if (!draftRow) throw new Error("Draft not found");
-
-    const rate = computeRateWindow(
-      { aiTurns: draftRow.ai_turns, hourStartISO: draftRow.ai_turns_hour_start },
-      Date.now(),
-    );
-    if (!rate.allowed) {
+    // Atomic per-hour rate limit + windowed anchor update, all in one DB
+    // trip. Prevents interleaved concurrent turns from overshooting the cap.
+    const { data: rlRaw, error: rlErr } = await supabase.rpc("bump_ai_turn", {
+      _draft_id: data.draftId,
+      _cap: MAX_TURNS_PER_HOUR,
+      _window_ms: RATE_WINDOW_MS,
+    });
+    if (rlErr) {
+      // Draft-not-found and auth-required surface as generic messages; the
+      // raw DB error stays server-side.
+      console.warn("[talk] bump_ai_turn error", rlErr.code);
+      throw new Error("Couldn't reach your draft. Please retry.");
+    }
+    const rl = rlRaw as { allowed?: boolean; turns?: number } | null;
+    if (!rl || rl.allowed !== true) {
       throw new Error("Slow down — that's a lot of turns in one hour. Try again in a bit.");
     }
-    const nextTurns = rate.nextTurns;
-    const newHourStartISO = rate.nextHourStartISO;
 
     let result: TurnResult;
     const canUseAi = !!process.env.LOVABLE_API_KEY;
@@ -246,34 +244,55 @@ export const sendTurn = createServerFn({ method: "POST" })
       try {
         const { chatJSON } = await import("./ai.server");
         const { parsed } = await chatJSON<{
-          reply: string;
-          draftPatch?: DraftPatch;
-          openQuestions?: string[];
-          assumptions?: string[];
-          suggestedPackId?: PackId;
+          reply?: unknown;
+          draftPatch?: unknown;
+          openQuestions?: unknown;
+          assumptions?: unknown;
+          suggestedPackId?: unknown;
         }>({ system: TALK_SYSTEM_PROMPT, messages: data.messages, schemaHint: SCHEMA_HINT });
-        if (parsed?.reply) {
+        const rawReply = typeof parsed?.reply === "string" ? parsed.reply.trim() : "";
+        if (rawReply) {
+          const { patch, issues } = safeParseDraftPatch(parsed?.draftPatch ?? {});
+          if (issues.length) {
+            // Redacted structured log — no user content, only field paths.
+            console.warn("[talk] dropped invalid draftPatch fields", { issues });
+          }
+          const suggested =
+            typeof parsed?.suggestedPackId === "string"
+              ? (parsed.suggestedPackId as PackId)
+              : undefined;
           result = {
-            reply: parsed.reply,
-            draftPatch: parsed.draftPatch ?? {},
-            openQuestions: parsed.openQuestions ?? [],
-            assumptions: parsed.assumptions ?? [],
-            suggestedPackId: parsed.suggestedPackId,
+            reply: rawReply.slice(0, 4000),
+            draftPatch: patch,
+            openQuestions: sanitizeStringList(parsed?.openQuestions, 8, 200),
+            assumptions: sanitizeStringList(parsed?.assumptions, 8, 300),
+            suggestedPackId: suggested,
             usedDemo: false,
           };
         } else {
           result = demoBrain(data.messages);
         }
       } catch (err) {
-        console.error("[talk-brain] AI call failed, falling back to demo", err);
+        console.error(
+          "[talk-brain] AI call failed, falling back to demo",
+          err instanceof Error ? err.name : typeof err,
+        );
         result = demoBrain(data.messages);
       }
     } else {
       result = demoBrain(data.messages);
     }
 
-    // Merge patch into stored draft log.
-    const existing = (draftRow.draft as Record<string, unknown>) ?? {};
+    // Merge patch into stored draft log. Rate-limit anchor already persisted
+    // atomically by bump_ai_turn above.
+    const { data: draftRow, error: readErr } = await supabase
+      .from("gathering_drafts")
+      .select("draft")
+      .eq("id", data.draftId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (readErr) throw new Error("Failed to load draft");
+    const existing = (draftRow?.draft as Record<string, unknown> | undefined) ?? {};
     const merged = {
       ...existing,
       patch: mergePatchLog(existing.patch, result.draftPatch, result.usedDemo),
@@ -282,15 +301,12 @@ export const sendTurn = createServerFn({ method: "POST" })
       .from("gathering_drafts")
       .update({
         draft: merged,
-        ai_turns: nextTurns,
-        ai_turns_hour_start: newHourStartISO,
         open_questions: result.openQuestions as unknown as never,
         assumptions: result.assumptions as unknown as never,
       })
       .eq("id", data.draftId)
       .eq("user_id", userId);
     if (updateErr) {
-      // Surface persistence failures instead of silently pretending success.
       throw new Error(`Failed to save draft: ${updateErr.message}`);
     }
 
@@ -310,11 +326,13 @@ async function readMergedPatch(
   userId: string,
 ): Promise<{
   merged: DraftPatch;
+  storedAssumptions: string[];
+  storedOpenQuestions: string[];
   draftRow: { id: string; status: string; confirmed_party_id: string | null };
 }> {
   const { data: draftRow, error } = await supabase
     .from("gathering_drafts")
-    .select("id, draft, status, confirmed_party_id")
+    .select("id, draft, status, confirmed_party_id, assumptions, open_questions")
     .eq("id", draftId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -324,14 +342,36 @@ async function readMergedPatch(
     (l) => l.patch,
   );
   const merged = mergeDraftLog(log);
+  // Trust nothing that was persisted as `jsonb`; the AI might have pushed
+  // arbitrary shapes into these columns at some point. sanitizeStringList
+  // trims, dedupes, and caps.
+  const storedAssumptions = sanitizeStringList(draftRow.assumptions, 12, 300);
+  const storedOpenQuestions = sanitizeStringList(draftRow.open_questions, 12, 200);
   return {
     merged,
+    storedAssumptions,
+    storedOpenQuestions,
     draftRow: {
       id: draftRow.id,
       status: draftRow.status,
       confirmed_party_id: draftRow.confirmed_party_id,
     },
   };
+}
+
+function mergeDedupeStrings(a: string[], b: string[], cap = 12): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of [...a, ...b]) {
+    const clean = s.trim();
+    if (!clean) continue;
+    const key = clean.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+    if (out.length >= cap) break;
+  }
+  return out;
 }
 
 // -------- Preview draft (used by the review UI before confirm) --------
@@ -347,10 +387,21 @@ export const previewDraft = createServerFn({ method: "POST" })
       context,
     }): Promise<ReviewSummary & { alreadyConfirmed: boolean; confirmedPartyId: string | null }> => {
       const { supabase, userId } = context;
-      const { merged, draftRow } = await readMergedPatch(supabase, data.draftId, userId);
+      const { merged, storedAssumptions, storedOpenQuestions, draftRow } = await readMergedPatch(
+        supabase,
+        data.draftId,
+        userId,
+      );
       const summary = summarize(merged);
+      // Merge conversation-captured assumptions/questions with the
+      // materializer-derived ones. Deduped case-insensitively so the review
+      // dialog doesn't repeat itself.
+      const assumptions = mergeDedupeStrings(storedAssumptions, summary.assumptions);
+      const openQuestions = mergeDedupeStrings(storedOpenQuestions, summary.openQuestions);
       return {
         ...summary,
+        assumptions,
+        openQuestions,
         alreadyConfirmed: draftRow.status === "confirmed" && !!draftRow.confirmed_party_id,
         confirmedPartyId: draftRow.confirmed_party_id,
       };
@@ -359,17 +410,25 @@ export const previewDraft = createServerFn({ method: "POST" })
 
 // -------- Confirm draft -> materialize a Party row (idempotent) --------
 
-const ConfirmInput = z.object({ draftId: z.string().uuid() });
+const ConfirmInput = z.object({
+  draftId: z.string().uuid(),
+  /**
+   * The host has seen the "no real date yet — I'll set it later" warning and
+   * still wants to create the party. Required when the merged draft has no
+   * `when.date`. Blocking gate is enforced by the client; the server also
+   * fails-closed with a clear error message so a bypassed client cannot
+   * silently create a fake-date party.
+   */
+  acknowledgePlaceholderDate: z.boolean().optional().default(false),
+});
 
 export const confirmDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ConfirmInput.parse(input))
   .handler(async ({ data, context }): Promise<{ partyId: string; alreadyConfirmed: boolean }> => {
-    const { supabase, userId } = context;
-    const { merged, draftRow } = await readMergedPatch(supabase, data.draftId, userId);
+    const { supabase } = context;
+    const { merged, draftRow } = await readMergedPatch(supabase, data.draftId, context.userId);
 
-    // Idempotent fast path: if this draft is already confirmed, return the
-    // existing party id instead of inserting a duplicate.
     if (draftRow.status === "confirmed" && draftRow.confirmed_party_id) {
       return { partyId: draftRow.confirmed_party_id, alreadyConfirmed: true };
     }
@@ -379,69 +438,48 @@ export const confirmDraft = createServerFn({ method: "POST" })
         ? crypto.randomUUID().slice(0, 8)
         : Math.random().toString(36).slice(2, 10);
 
-    const { party } = materializeDraft(merged, { mkId });
+    const { party, blockingUnknowns } = materializeDraft(merged, { mkId });
 
-    const insertRow = {
-      user_id: userId,
+    // Server-side enforcement mirrors the client's blocking gate. If the
+    // real date is missing, require the explicit acknowledgment.
+    const dateBlocked = blockingUnknowns.some((b) => b.field === "date");
+    if (dateBlocked && !data.acknowledgePlaceholderDate) {
+      throw new Error(
+        "Set a real event date first, or confirm you'll pick a date later before creating the party.",
+      );
+    }
+
+    // Single transactional RPC: locks the draft row, checks ownership,
+    // returns the existing party id if already confirmed, otherwise inserts
+    // the party and claims the draft in one shot. Removes the previous
+    // best-effort insert + rollback pattern.
+    const payload = {
       name: party.name,
       occasion: party.occasion,
       date: party.date,
-      start_time: party.startTime,
+      startTime: party.startTime,
       location: party.location,
-      guest_estimate: party.guestEstimate,
+      guestEstimate: party.guestEstimate,
       budget: party.budget,
       theme: party.theme,
-      theme_id: party.themeId,
-      tasks: party.tasks as unknown as never,
-      guests: [] as unknown as never,
-      budget_categories: party.budgetCategories as unknown as never,
-      shopping_items: party.shoppingItems as unknown as never,
-      timeline: party.timeline as unknown as never,
-      pinned_inspiration: [] as unknown as never,
-      host_note: party.hostNote,
-      households: [] as unknown as never,
-      bring_board: party.bringBoard as unknown as never,
-      host_updates: [] as unknown as never,
-      holiday_pack_id: party.holidayPackId ?? null,
-      checkins: {} as unknown as never,
+      themeId: party.themeId,
+      holidayPackId: party.holidayPackId,
+      hostNote: party.hostNote,
+      tasks: party.tasks,
+      budgetCategories: party.budgetCategories,
+      shoppingItems: party.shoppingItems,
+      timeline: party.timeline,
+      bringBoard: party.bringBoard,
     };
-
-    const { data: partyRow, error: insertErr } = await supabase
-      .from("parties")
-      .insert(insertRow)
-      .select("id")
-      .single();
-    if (insertErr) throw new Error(insertErr.message);
-
-    // Conditional update: only claim the draft if nobody else already did.
-    // Combined with the partial-unique index on confirmed_party_id, this is
-    // safe against double-click and retry races.
-    const { data: claimed, error: claimErr } = await supabase
-      .from("gathering_drafts")
-      .update({ status: "confirmed", confirmed_party_id: partyRow.id })
-      .eq("id", data.draftId)
-      .eq("user_id", userId)
-      .is("confirmed_party_id", null)
-      .select("confirmed_party_id");
-    if (claimErr) {
-      // Roll back the party insert to avoid an orphan row.
-      await supabase.from("parties").delete().eq("id", partyRow.id).eq("user_id", userId);
-      throw new Error(`Failed to claim draft: ${claimErr.message}`);
+    const { data: rpc, error: rpcErr } = await supabase.rpc("confirm_gathering_draft", {
+      _draft_id: data.draftId,
+      _party: payload as unknown as never,
+    });
+    if (rpcErr) {
+      console.warn("[talk] confirm_gathering_draft error", rpcErr.code);
+      throw new Error("Couldn't create the party. Please try again.");
     }
-    if (!claimed || claimed.length === 0) {
-      // A concurrent confirm won. Delete our just-inserted party and return
-      // the winner's party id.
-      await supabase.from("parties").delete().eq("id", partyRow.id).eq("user_id", userId);
-      const { data: winner } = await supabase
-        .from("gathering_drafts")
-        .select("confirmed_party_id")
-        .eq("id", data.draftId)
-        .eq("user_id", userId)
-        .maybeSingle();
-      const winnerId = winner?.confirmed_party_id;
-      if (!winnerId) throw new Error("Confirm race resolution failed");
-      return { partyId: winnerId, alreadyConfirmed: true };
-    }
-
-    return { partyId: partyRow.id, alreadyConfirmed: false };
+    const out = rpc as { party_id?: string; already_confirmed?: boolean } | null;
+    if (!out?.party_id) throw new Error("Couldn't create the party. Please try again.");
+    return { partyId: out.party_id, alreadyConfirmed: !!out.already_confirmed };
   });

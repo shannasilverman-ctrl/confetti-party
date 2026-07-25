@@ -248,6 +248,11 @@ export type ReviewSummary = {
     budget: number;
     hostReadyTarget: string | null;
     foodApproach: string | null;
+    effortLevel: string | null;
+    tone: string | null;
+    palette: string[];
+    budgetStance: string | null;
+    contributionMode: string | null;
   };
   counts: {
     tasks: number;
@@ -258,6 +263,18 @@ export type ReviewSummary = {
   };
   assumptions: string[];
   openQuestions: string[];
+  /**
+   * Fields whose absence would cause factual harm if we invented a value
+   * (e.g. a real date printed on an invitation). The Talk UI must block
+   * "Create the party" until each blocker is either resolved or explicitly
+   * acknowledged by the host.
+   */
+  blockingUnknowns: Array<{ field: string; label: string; placeholder?: string }>;
+  /**
+   * Fields we intentionally left as neutral zero / unknown rather than
+   * inventing a plausible-looking value. Surfaced as gentle nudges, not blockers.
+   */
+  optionalUnknowns: Array<{ field: string; label: string }>;
 };
 
 /**
@@ -267,7 +284,13 @@ export type ReviewSummary = {
 export function materializeDraft(
   merged: DraftPatch,
   options: MaterializeOptions = {},
-): { party: MaterializedParty; assumptions: string[]; openQuestions: string[] } {
+): {
+  party: MaterializedParty;
+  assumptions: string[];
+  openQuestions: string[];
+  blockingUnknowns: Array<{ field: string; label: string; placeholder?: string }>;
+  optionalUnknowns: Array<{ field: string; label: string }>;
+} {
   const mkId =
     options.mkId ??
     (() =>
@@ -283,11 +306,17 @@ export function materializeDraft(
     0,
     120,
   );
+  const hasRealDate = !!merged.when?.date;
   const date = merged.when?.date ?? isoDateInDays(21, now);
   const startTime = merged.when?.startTime?.trim() || null;
   const location = merged.where?.display?.trim() || null;
-  const guestEstimate = clampInt(merged.people?.expectedCount, 1, 500, 12);
-  const budget = clampInt(merged.budget?.total, 0, 100_000, 300);
+  // No invented facts: default to neutral 0 (schema NOT NULL default 0) so
+  // the review shows "TBD" instead of a plausible-looking number. Host can
+  // set the real values from the workspace.
+  const hasGuestCount = typeof merged.people?.expectedCount === "number";
+  const guestEstimate = hasGuestCount ? clampInt(merged.people?.expectedCount, 0, 500, 0) : 0;
+  const hasBudget = typeof merged.budget?.total === "number";
+  const budget = hasBudget ? clampInt(merged.budget?.total, 0, 100_000, 0) : 0;
 
   // ---- Tasks: occasion baseline + pack seeds + captured-field derived +
   //      open-question converts. Deduped case-insensitively by title.
@@ -346,6 +375,42 @@ export function materializeDraft(
   if (merged.contributions?.mode && merged.contributions.mode !== "none") {
     derivedTasks.push({
       title: `Coordinate contributions (${merged.contributions.mode.replace("-", " ")})`,
+      bucket: "3-5 weeks",
+    });
+  }
+
+  // Effort level → stance-only task the host can rename/delete.
+  if (merged.effort?.level) {
+    derivedTasks.push({
+      title: `Plan for a ${merged.effort.level}-effort gathering`,
+      bucket: "3-5 weeks",
+    });
+  }
+
+  // Food approach (potluck / catering / cook / mix / snacks-only / grocery-prepared)
+  if (merged.food?.approach) {
+    const label = merged.food.approach.replace("-", " ");
+    derivedTasks.push({ title: `Food approach: ${label}`, bucket: "1-2 weeks" });
+  }
+
+  // Households / kids — track separately from headcount if provided.
+  if (typeof merged.people?.households === "number" && merged.people.households > 0) {
+    derivedTasks.push({
+      title: `Track ${merged.people.households} household${merged.people.households === 1 ? "" : "s"}`,
+      bucket: "3-5 weeks",
+    });
+  }
+  if (typeof merged.people?.kids === "number" && merged.people.kids > 0) {
+    derivedTasks.push({
+      title: `Plan for ${merged.people.kids} kid${merged.people.kids === 1 ? "" : "s"} (activities / menu)`,
+      bucket: "1-2 weeks",
+    });
+  }
+
+  // Budget stance is guidance, not a number.
+  if (merged.budget?.stance && merged.budget.stance !== "flexible") {
+    derivedTasks.push({
+      title: `Budget stance: ${merged.budget.stance.replace("-", " ")}`,
       bucket: "3-5 weeks",
     });
   }
@@ -435,25 +500,57 @@ export function materializeDraft(
 
   // ---- Theme: light-touch from creativeDirection.vibe. No inference of themeId.
   const theme = (merged.vibe?.creativeDirection?.vibe ?? "").trim();
+  const palette = (merged.vibe?.creativeDirection?.palette ?? [])
+    .map((p) => String(p).trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  const tone = merged.identity?.tone?.trim() || null;
 
-  // ---- Assumptions and open questions surfaced for the review UI.
+  // ---- Host note enrichment: capture soft "vibe" info (tone, palette,
+  //      needsSoundCheck-only-when-true) that has no dedicated Party column
+  //      so it isn't silently dropped. Public projections never expose it.
+  const noteParts: string[] = [];
+  if (merged.hostNote) noteParts.push(merged.hostNote.trim());
+  if (tone) noteParts.push(`Tone: ${tone}.`);
+  if (palette.length) noteParts.push(`Palette: ${palette.join(", ")}.`);
+  if (merged.vibe?.broadcast?.needsSoundCheck === true) {
+    noteParts.push("Sound check needed on the day.");
+  }
+  const hostNote = noteParts.length ? noteParts.join(" ").slice(0, 2000) : null;
+
+  // ---- Assumptions, open questions, and blocking / optional unknowns.
   const assumptions: string[] = [];
   const openQuestions: string[] = [];
+  const blockingUnknowns: Array<{ field: string; label: string; placeholder?: string }> = [];
+  const optionalUnknowns: Array<{ field: string; label: string }> = [];
 
-  if (!merged.when?.date) {
-    assumptions.push(
-      `Placeholder date ${date} (3 weeks from today). Change before you send invites.`,
-    );
+  if (!hasRealDate) {
+    // NEVER auto-fill a fake date into an invitation. The Talk UI treats this
+    // as blocking until the host either types a real date or ticks the
+    // "I'll pick a date later" acknowledgment.
+    blockingUnknowns.push({
+      field: "date",
+      label: "Real event date",
+      placeholder: date,
+    });
     openQuestions.push("What's the actual date?");
   }
-  if (!merged.people?.expectedCount) {
-    assumptions.push(`Guest estimate ${guestEstimate} (default). Update once you know.`);
+  if (!hasGuestCount) {
+    optionalUnknowns.push({ field: "guestEstimate", label: "Guest estimate" });
+    assumptions.push("Guest estimate not set — leaving at 0 until you know.");
   }
-  if (!merged.budget?.total) {
-    assumptions.push(`Budget $${budget} (default). Adjust in the Budget tab.`);
+  if (!hasBudget) {
+    optionalUnknowns.push({ field: "budget", label: "Budget" });
+    assumptions.push("Budget not set — leaving at $0 until you decide.");
   }
-  if (!location) openQuestions.push("Where will it be?");
-  if (!startTime) openQuestions.push("What time does it start?");
+  if (!location) {
+    optionalUnknowns.push({ field: "location", label: "Location" });
+    openQuestions.push("Where will it be?");
+  }
+  if (!startTime) {
+    optionalUnknowns.push({ field: "startTime", label: "Start time" });
+    openQuestions.push("What time does it start?");
+  }
 
   return {
     party: {
@@ -467,7 +564,7 @@ export function materializeDraft(
       theme,
       themeId: null,
       holidayPackId: pack?.id ?? null,
-      hostNote: merged.hostNote?.trim() || null,
+      hostNote,
       tasks,
       bringBoard,
       shoppingItems,
@@ -476,12 +573,19 @@ export function materializeDraft(
     },
     assumptions,
     openQuestions,
+    blockingUnknowns,
+    optionalUnknowns,
   };
 }
 
 export function summarize(merged: DraftPatch, options: MaterializeOptions = {}): ReviewSummary {
-  const { party, assumptions, openQuestions } = materializeDraft(merged, options);
+  const { party, assumptions, openQuestions, blockingUnknowns, optionalUnknowns } =
+    materializeDraft(merged, options);
   const pack = getPack(party.holidayPackId ?? undefined);
+  const palette = (merged.vibe?.creativeDirection?.palette ?? [])
+    .map((p) => String(p).trim())
+    .filter(Boolean)
+    .slice(0, 8);
   return {
     essentials: {
       name: party.name,
@@ -494,6 +598,11 @@ export function summarize(merged: DraftPatch, options: MaterializeOptions = {}):
       budget: party.budget,
       hostReadyTarget: merged.effort?.hostReadyTarget ?? null,
       foodApproach: merged.food?.approach ?? null,
+      effortLevel: merged.effort?.level ?? null,
+      tone: merged.identity?.tone?.trim() || null,
+      palette,
+      budgetStance: merged.budget?.stance ?? null,
+      contributionMode: merged.contributions?.mode ?? null,
     },
     counts: {
       tasks: party.tasks.length,
@@ -504,6 +613,8 @@ export function summarize(merged: DraftPatch, options: MaterializeOptions = {}):
     },
     assumptions,
     openQuestions,
+    blockingUnknowns,
+    optionalUnknowns,
   };
 }
 

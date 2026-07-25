@@ -98,7 +98,10 @@ describe("materializeDraft — rich case", () => {
     expect(party.location).toBe("Our place");
     expect(party.guestEstimate).toBe(22);
     expect(party.budget).toBe(450);
-    expect(party.hostNote).toBe("Everyone's welcome; kids table by the window.");
+    // hostNote is composed of the host-authored note plus deterministic
+    // vibe metadata (tone/palette/sound-check), so we assert prefix + parts.
+    expect(party.hostNote).toContain("Everyone's welcome; kids table by the window.");
+    expect(party.hostNote).toContain("Palette: amber, cream");
     expect(party.theme).toBe("warm and low-key");
 
     // Derived tasks include host-ready target, backup plan, dietary, accessibility,
@@ -150,23 +153,26 @@ describe("materializeDraft — rich case", () => {
 });
 
 describe("materializeDraft — missing / empty patch", () => {
-  it("falls back to safe defaults and surfaces open questions", () => {
-    const { party, assumptions, openQuestions } = materializeDraft(
-      {},
-      { mkId: counterMkId(), now: FIXED_NOW },
-    );
+  it("uses neutral zero for optional fields and flags the missing date as blocking", () => {
+    const { party, assumptions, openQuestions, blockingUnknowns, optionalUnknowns } =
+      materializeDraft({}, { mkId: counterMkId(), now: FIXED_NOW });
     expect(party.name).toBe("Untitled gathering");
     expect(party.occasion).toBe("other");
-    expect(party.guestEstimate).toBe(12);
-    expect(party.budget).toBe(300);
+    // No invented numbers: schema-safe zeros the review UI renders as "TBD".
+    expect(party.guestEstimate).toBe(0);
+    expect(party.budget).toBe(0);
+    // Date is still a valid ISO string (parties.date is NOT NULL) but it's
+    // flagged as blocking so the UI must gate confirmation on it.
     expect(party.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(blockingUnknowns.some((b) => b.field === "date")).toBe(true);
     expect(party.holidayPackId).toBeNull();
     expect(party.location).toBeNull();
     expect(party.startTime).toBeNull();
-    // Empty patch = every optional field triggers an assumption or open question.
-    expect(assumptions.some((a) => a.includes("Placeholder date"))).toBe(true);
-    expect(assumptions.some((a) => a.includes("Guest estimate"))).toBe(true);
-    expect(assumptions.some((a) => a.includes("Budget"))).toBe(true);
+    expect(optionalUnknowns.map((u) => u.field)).toEqual(
+      expect.arrayContaining(["guestEstimate", "budget", "location", "startTime"]),
+    );
+    expect(assumptions.some((a) => a.toLowerCase().includes("guest estimate"))).toBe(true);
+    expect(assumptions.some((a) => a.toLowerCase().includes("budget"))).toBe(true);
     expect(openQuestions).toContain("Where will it be?");
     expect(openQuestions).toContain("What time does it start?");
   });
@@ -179,7 +185,9 @@ describe("materializeDraft — missing / empty patch", () => {
       },
       { mkId: counterMkId() },
     );
-    expect(party.guestEstimate).toBeGreaterThanOrEqual(1);
+    // Negative counts clamp to 0 (neutral), oversized budgets clamp to the cap.
+    expect(party.guestEstimate).toBeGreaterThanOrEqual(0);
+    expect(party.guestEstimate).toBeLessThanOrEqual(500);
     expect(party.budget).toBeLessThanOrEqual(100_000);
   });
 });

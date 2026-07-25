@@ -255,6 +255,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bump_ai_turn: {
+        Args: { _cap?: number; _draft_id: string; _window_ms?: number }
+        Returns: Json
+      }
       claim_bring_item: {
         Args: {
           guest_name: string
@@ -263,6 +267,10 @@ export type Database = {
           qty?: number
           token: string
         }
+        Returns: Json
+      }
+      confirm_gathering_draft: {
+        Args: { _draft_id: string; _party: Json }
         Returns: Json
       }
       get_rsvp_party: { Args: { token: string }; Returns: Json }
