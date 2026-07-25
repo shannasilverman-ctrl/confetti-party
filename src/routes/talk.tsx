@@ -78,7 +78,12 @@ function TalkRoute() {
     lang: string;
     continuous: boolean;
     interimResults: boolean;
-    onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
+    onresult:
+      | ((e: {
+          resultIndex: number;
+          results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+        }) => void)
+      | null;
     onerror: ((e: { error?: string }) => void) | null;
     onend: (() => void) | null;
     start: () => void;

@@ -74,7 +74,6 @@ function ProductCard({ product }: { product: CatalogProduct }) {
     >
       <div className="relative aspect-square w-full bg-muted">
         {product.image ? (
-          
           <img
             src={product.image}
             alt={product.title}
