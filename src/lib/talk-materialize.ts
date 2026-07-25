@@ -300,11 +300,19 @@ export function materializeDraft(
     0,
     120,
   );
+  const hasRealDate = !!merged.when?.date;
   const date = merged.when?.date ?? isoDateInDays(21, now);
   const startTime = merged.when?.startTime?.trim() || null;
   const location = merged.where?.display?.trim() || null;
-  const guestEstimate = clampInt(merged.people?.expectedCount, 1, 500, 12);
-  const budget = clampInt(merged.budget?.total, 0, 100_000, 300);
+  // No invented facts: default to neutral 0 (schema NOT NULL default 0) so
+  // the review shows "TBD" instead of a plausible-looking number. Host can
+  // set the real values from the workspace.
+  const hasGuestCount = typeof merged.people?.expectedCount === "number";
+  const guestEstimate = hasGuestCount
+    ? clampInt(merged.people?.expectedCount, 0, 500, 0)
+    : 0;
+  const hasBudget = typeof merged.budget?.total === "number";
+  const budget = hasBudget ? clampInt(merged.budget?.total, 0, 100_000, 0) : 0;
 
   // ---- Tasks: occasion baseline + pack seeds + captured-field derived +
   //      open-question converts. Deduped case-insensitively by title.
