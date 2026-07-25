@@ -30,7 +30,10 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     expect(focusInsideDialog).toBe(true);
 
     // Pick an occasion so step 2 renders with form fields to tab through.
-    await page.getByRole("button", { name: /holiday/i }).first().click();
+    await page
+      .getByRole("button", { name: /holiday/i })
+      .first()
+      .click();
     await page.getByRole("button", { name: /^next$/i }).click();
 
     // Every visible input in the dialog must have an accessible name.
@@ -79,7 +82,10 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     for (const width of [320, 375, 390, 430]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/app");
-      await page.getByRole("button", { name: /new party/i }).first().click();
+      await page
+        .getByRole("button", { name: /new party/i })
+        .first()
+        .click();
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible();
 
@@ -98,9 +104,15 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
 test.describe("Holiday starter → editable workspace", () => {
   test("picking a starter prefills a name and opens the party overview", async ({ page }) => {
     await page.goto("/app");
-    await page.getByRole("button", { name: /new party/i }).first().click();
+    await page
+      .getByRole("button", { name: /new party/i })
+      .first()
+      .click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: /holiday/i }).first().click();
+    await dialog
+      .getByRole("button", { name: /holiday/i })
+      .first()
+      .click();
     await dialog.getByRole("button", { name: /^next$/i }).click();
 
     // Starter radiogroup exists and picks Thanksgiving.
@@ -122,7 +134,10 @@ test.describe("Holiday starter → editable workspace", () => {
     // First theme card in step 3 grid.
     await themeCards.first().click();
     // Look for the finish/create button.
-    await dialog.getByRole("button", { name: /create|finish|ready|plan/i }).first().click();
+    await dialog
+      .getByRole("button", { name: /create|finish|ready|plan/i })
+      .first()
+      .click();
 
     // Success screen or auto-nav lands in the party workspace; loosely assert.
     // Signed-out demo mode does not persist, but the workspace must render.
