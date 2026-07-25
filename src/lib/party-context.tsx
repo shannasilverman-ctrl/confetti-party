@@ -281,10 +281,8 @@ function seedGameDayTimeline(kickoff: string): TimelineItem[] {
 
 export function generateTasks(occasion: OccasionType, dateISO: string): Task[] {
   const template = TASK_TEMPLATES[occasion] ?? TASK_TEMPLATES.other;
-  const weeks = Math.max(
-    0,
-    Math.floor((new Date(dateISO).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 7)),
-  );
+  // Calendar-day math via the shared date-only helper — never ms rounding.
+  const weeks = Math.max(0, Math.floor(daysUntilLocal(dateISO) / 7));
   const allowedFrom = (b: Bucket): boolean => {
     if (b === "6+ weeks out") return weeks >= 6;
     if (b === "3-5 weeks") return weeks >= 3;
