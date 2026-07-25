@@ -11,7 +11,7 @@ import {
   type Task,
   newId,
 } from "@/lib/party-context";
-import { themesForOccasion, type Theme } from "@/lib/themes";
+import { themeById, themesForOccasion, type Theme } from "@/lib/themes";
 import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
 import { LegalFooter } from "@/components/legal-footer";
 
@@ -137,60 +137,63 @@ function Dashboard() {
         </div>
       )}
 
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="min-w-0">
-            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
-              <Sparkles className="h-3 w-3" /> Your calm co-host
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+        <section className="relative mb-8 overflow-hidden rounded-3xl border border-border bg-card/80 p-5 shadow-card sm:p-7">
+          <div className="absolute inset-0 bg-confetti opacity-45" aria-hidden />
+          <div className="relative grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className="min-w-0">
+              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                <Sparkles className="h-3 w-3" /> Your calm co-host
+              </div>
+              <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
+                Your parties
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {status === "loading"
+                  ? "Loading your parties…"
+                  : status === "error"
+                    ? "We couldn't load your parties."
+                    : parties.length === 0
+                      ? isDemo
+                        ? "Explore a sample or start your own."
+                        : "Nothing here yet — plan your first party."
+                      : partiesSummary(parties).copy}
+              </p>
             </div>
-            <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
-              Your parties
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {status === "loading"
-                ? "Loading your parties…"
-                : status === "error"
-                  ? "We couldn't load your parties."
-                  : parties.length === 0
-                    ? isDemo
-                      ? "Explore a sample or start your own."
-                      : "Nothing here yet — plan your first party."
-                    : partiesSummary(parties).copy}
-            </p>
+            {status === "ready" &&
+              parties.length > 0 &&
+              (() => {
+                const upcoming = [...parties]
+                  .filter((p) => daysUntil(p.date) >= 0)
+                  .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
+                if (!upcoming) return null;
+                const d = daysUntil(upcoming.date);
+                return (
+                  <Link
+                    to="/party/$id"
+                    params={{ id: upcoming.id }}
+                    className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-elevated"
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <CalendarDays className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Next up
+                      </div>
+                      <div className="truncate font-display text-base font-semibold text-secondary">
+                        {upcoming.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-primary opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                  </Link>
+                );
+              })()}
           </div>
-          {status === "ready" &&
-            parties.length > 0 &&
-            (() => {
-              const upcoming = [...parties]
-                .filter((p) => daysUntil(p.date) >= 0)
-                .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
-              if (!upcoming) return null;
-              const d = daysUntil(upcoming.date);
-              return (
-                <Link
-                  to="/party/$id"
-                  params={{ id: upcoming.id }}
-                  className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-elevated"
-                >
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <CalendarDays className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Next up
-                    </div>
-                    <div className="truncate font-display text-base font-semibold text-secondary">
-                      {upcoming.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-primary opacity-0 transition group-hover:opacity-100" />
-                </Link>
-              );
-            })()}
-        </div>
+        </section>
 
         {status === "loading" ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -247,14 +250,35 @@ function Dashboard() {
               const g = guestCounts(p);
               const spent = totalSpent(p);
               const prog = progressPct(p);
+              const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
               return (
                 <article
                   key={p.id}
                   aria-labelledby={`party-${p.id}-title`}
                   className="group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-card transition hover:-translate-y-1 hover:shadow-elevated focus-within:-translate-y-1 focus-within:shadow-elevated"
                 >
-                  <div className="relative h-28 bg-festive p-5">
-                    <div className="absolute inset-0 bg-confetti opacity-40 mix-blend-overlay" />
+                  <div
+                    className={`relative h-32 overflow-hidden p-5 ${
+                      cardImage ? "bg-secondary" : "bg-festive"
+                    }`}
+                  >
+                    {cardImage && (
+                      <img
+                        src={cardImage}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    )}
+                    <div
+                      className={`absolute inset-0 ${
+                        cardImage
+                          ? "bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
+                          : "bg-confetti opacity-40 mix-blend-overlay"
+                      }`}
+                      aria-hidden
+                    />
                     <Badge variant="onFestive" className="relative">
                       {OCCASION_LABELS[p.occasion]}
                     </Badge>
@@ -316,7 +340,7 @@ function Dashboard() {
                     </div>
 
                     <div className="mt-5 flex items-center justify-between gap-2 text-sm font-medium">
-                      <span className="text-primary opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100">
+                      <span className="text-primary opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                         Open workspace <ArrowRight className="ml-1 inline h-4 w-4" />
                       </span>
                       {/* Sibling actions — lifted above the title link's ::after overlay */}
