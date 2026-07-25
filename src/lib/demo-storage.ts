@@ -186,6 +186,7 @@ export function saveDemoState(
   parties: Party[],
   seeds: Party[],
   storage: StorageLike | null = getStorage(),
+  origins: Record<string, PartyOrigin> = {},
 ): { ok: boolean; reason?: "quota" | "oversized" } {
   if (!storage) return { ok: false, reason: "quota" };
   const seedIds = new Set(seeds.map((s) => s.id));
@@ -202,10 +203,24 @@ export function saveDemoState(
     cappedSamples[id] = p;
     i++;
   }
+  // Filter origins to ids that are actually present after capping, so we
+  // don't accumulate stale metadata for deleted parties.
+  const keptIds = new Set<string>([
+    ...Object.keys(cappedSamples),
+    ...custom.slice(0, DEMO_MAX_PARTIES).map((p) => p.id),
+  ]);
+  const filteredOrigins: Record<string, PartyOrigin> = {};
+  for (const id of keptIds) {
+    const o = origins[id];
+    if (o) filteredOrigins[id] = o;
+    else if (seedIds.has(id)) filteredOrigins[id] = { origin: "curated", edited: false };
+    else filteredOrigins[id] = { origin: "user", edited: false };
+  }
   const payload = {
     v: 2 as const,
     samples: cappedSamples,
     custom: custom.slice(0, DEMO_MAX_PARTIES),
+    origins: filteredOrigins,
   };
   const json = JSON.stringify(payload);
   if (utf8Bytes(json) > DEMO_MAX_BYTES) {
@@ -217,6 +232,25 @@ export function saveDemoState(
   } catch {
     return { ok: false, reason: "quota" };
   }
+}
+
+/** IDs of parties that a signed-in Import Review should offer. Excludes
+ *  curated samples unless the user meaningfully edited them. */
+export function selectImportCandidateIds(
+  parties: Party[],
+  origins: Record<string, PartyOrigin>,
+  seedIds: ReadonlySet<string>,
+): string[] {
+  const out: string[] = [];
+  for (const p of parties) {
+    const o = origins[p.id] ?? {
+      origin: seedIds.has(p.id) ? ("curated" as const) : ("user" as const),
+      edited: false,
+    };
+    if (o.origin === "user") out.push(p.id);
+    else if (o.edited) out.push(p.id);
+  }
+  return out;
 }
 
 export function clearDemoState(storage: StorageLike | null = getStorage()): void {
