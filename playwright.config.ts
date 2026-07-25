@@ -14,6 +14,12 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: "retain-on-failure",
+    // Allow overriding the browser binary (used locally on the Lovable sandbox
+    // where a Nix chromium is provided). CI installs system deps via
+    // `playwright install --with-deps` and uses the bundled binary.
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+      : undefined,
   },
   projects: [
     {
