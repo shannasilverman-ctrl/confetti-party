@@ -94,9 +94,7 @@ export function PublicBringBoard({
   // `memoryOnly` marks receipts that failed to persist and only live in this
   // tab. On unmount / token change the memory receipts are dropped along with
   // the tab's session — a canonical refresh from the server is authoritative.
-  const [secrets, setSecrets] = useState<Record<string, string>>(
-    () => loadSecrets(token).map,
-  );
+  const [secrets, setSecrets] = useState<Record<string, string>>(() => loadSecrets(token).map);
   const memoryOnly = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -226,9 +224,7 @@ export function PublicBringBoard({
         return;
       }
       setSecrets((prev) => ({ ...prev, [item.id]: secret }));
-      setRows((prev) =>
-        prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)),
-      );
+      setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)));
       celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
       setStatus({ kind: "success", text: `You're on ${item.label}. Thanks!` });
       await awaitRefresh();

@@ -115,20 +115,12 @@ describe("PublicBringBoard", () => {
     );
     const OTHER = "11111111-1111-1111-1111-111111111111";
     const { rerender } = render(
-      <PublicBringBoard
-        token={TOKEN}
-        items={[{ ...ITEM, status: "claimed" }]}
-        defaultName="Ana"
-      />,
+      <PublicBringBoard token={TOKEN} items={[{ ...ITEM, status: "claimed" }]} defaultName="Ana" />,
     );
     expect(await screen.findByRole("button", { name: /^release$/i })).toBeVisible();
 
     rerender(
-      <PublicBringBoard
-        token={OTHER}
-        items={[{ ...ITEM, status: "claimed" }]}
-        defaultName="Ben"
-      />,
+      <PublicBringBoard token={OTHER} items={[{ ...ITEM, status: "claimed" }]} defaultName="Ben" />,
     );
     expect(screen.queryByRole("button", { name: /^release$/i })).toBeNull();
     expect(screen.getByLabelText(/your name/i)).toHaveValue("Ben");

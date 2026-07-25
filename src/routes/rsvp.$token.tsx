@@ -222,25 +222,32 @@ function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
 
 function CalendarAndDirections({ party }: { party: PartyView }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button asChild variant="outline" size="sm">
-        <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
-          <CalendarPlus /> Google Calendar
-        </a>
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => downloadIcs(party)}>
-        <CalendarPlus /> Apple / .ics
-      </Button>
-      {party.location && (
+    <div className="space-y-2">
+      <div className="flex flex-wrap justify-center gap-2">
         <Button asChild variant="outline" size="sm">
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Navigation /> Directions
+          <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
+            <CalendarPlus /> Google Calendar
           </a>
         </Button>
+        <Button variant="outline" size="sm" onClick={() => downloadIcs(party)}>
+          <CalendarPlus /> Apple / .ics
+        </Button>
+        {party.location && (
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Navigation /> Directions
+            </a>
+          </Button>
+        )}
+      </div>
+      {party.start_time && (
+        <p className="text-center text-[11px] text-muted-foreground">
+          Calendar times use the host-entered local time shown above.
+        </p>
       )}
     </div>
   );
@@ -333,6 +340,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   const [done, setDone] = useState(false);
   const [submittedChoice, setSubmittedChoice] = useState<RSVPChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const submitInFlight = useRef(false);
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (v: string) =>
     setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
@@ -401,6 +409,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitInFlight.current) return;
     const trimmedName = name.trim();
     if (!trimmedName) {
       setError("Please add your name.");
@@ -411,6 +420,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
       return;
     }
     setError(null);
+    submitInFlight.current = true;
     setSubmitting(true);
 
     const dietaryOut = [
@@ -422,7 +432,6 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
       ...(allergensOther.trim() ? [allergensOther.trim().slice(0, 60)] : []),
     ];
 
-    let rpcError: unknown = null;
     try {
       const res = await supabase.rpc("submit_rsvp", {
         token,
@@ -434,21 +443,22 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
         dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
         allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
       });
-      rpcError = res.error;
-    } catch (thrown) {
-      rpcError = thrown;
+      if (res.error) {
+        setError("We couldn't send your RSVP. Your answers are still here — please try again.");
+        return;
+      }
+      setSubmittedChoice(rsvp);
+      setDone(true);
+      if (rsvp === "yes") celebrate("cannon");
+      // Await canonical state so rapid follow-up actions cannot race a stale
+      // count or Bring Board snapshot.
+      await refresh();
+    } catch {
+      setError("We couldn't send your RSVP. Your answers are still here — please try again.");
+    } finally {
+      submitInFlight.current = false;
+      setSubmitting(false);
     }
-    setSubmitting(false);
-    if (rpcError) {
-      // Preserve form inputs so the guest can retry without re-entering.
-      setError("We couldn't send your RSVP. Check your connection and try again.");
-      return;
-    }
-    setSubmittedChoice(rsvp);
-    setDone(true);
-    if (rsvp === "yes") celebrate("cannon");
-    // Canonical refresh — never rely on hand-calculated optimistic counts.
-    void refresh();
   };
 
   const relLabel = (() => {
@@ -739,7 +749,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
           token={token}
           items={party.bring_board ?? []}
           defaultName={name}
-          onChanged={() => void refresh()}
+          onChanged={refresh}
           onRequestRefresh={refresh}
           refreshing={refreshing}
           lastUpdatedAt={lastUpdatedAt}
