@@ -38,7 +38,10 @@ import {
   Sparkles,
   X,
   RefreshCw,
+  MessageSquare,
+  Copy,
 } from "lucide-react";
+import { toast } from "sonner";
 
 
 type AppSearch = { new?: boolean };
