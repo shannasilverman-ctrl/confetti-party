@@ -139,8 +139,17 @@ function Dashboard() {
                     ? isDemo
                       ? "Explore a sample or start your own."
                       : "Nothing here yet — plan your first party."
-                    : `${parties.length} in flight — pick one to keep planning.`}
+                    : (() => {
+                        const active = parties.filter((p) => daysUntil(p.date) >= 0).length;
+                        const past = parties.length - active;
+                        if (active === 0) return `${past} wrapped — start a new one.`;
+                        const activeCopy = `${active} upcoming`;
+                        return past > 0
+                          ? `${activeCopy} · ${past} past — pick one to keep planning.`
+                          : `${activeCopy} — pick one to keep planning.`;
+                      })()}
             </p>
+
           </div>
           {status === "ready" &&
             parties.length > 0 &&
