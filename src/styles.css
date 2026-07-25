@@ -53,8 +53,9 @@
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(290 30% 15%);
 
-  /* Warm coral */
-  --primary: hsl(10 82% 62%);
+  /* Deep coral — darkened from L=62% → L=42% so `text-primary` on cream
+     and on primary/10 tints meets WCAG AA (4.5:1) for small text. */
+  --primary: hsl(10 82% 42%);
   --primary-foreground: hsl(36 44% 98%);
 
   /* Deep violet */
@@ -66,18 +67,20 @@
   --accent-foreground: hsl(290 30% 15%);
 
   --muted: hsl(36 30% 92%);
-  --muted-foreground: hsl(290 15% 40%);
+  --muted-foreground: hsl(290 15% 32%);
 
-  --destructive: hsl(0 72% 55%);
+  --destructive: hsl(0 72% 45%);
   --destructive-foreground: hsl(36 44% 98%);
-  --warning: hsl(28 90% 55%);
-  --warning-foreground: hsl(290 30% 15%);
-  --success: hsl(150 55% 42%);
+  --warning: hsl(28 90% 42%);
+  --warning-foreground: hsl(36 44% 98%);
+  /* Deep mint — darkened for `text-success` on success/15 tints. */
+  --success: hsl(150 55% 30%);
   --success-foreground: hsl(36 44% 98%);
 
   --border: hsl(30 25% 88%);
   --input: hsl(30 25% 88%);
-  --ring: hsl(10 82% 62%);
+  --ring: hsl(10 82% 42%);
+
 
   /* Brand accents (used by Logo and gradients) */
   --brand-plum: hsl(268 55% 32%);
