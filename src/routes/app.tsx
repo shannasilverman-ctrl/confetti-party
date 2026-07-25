@@ -87,9 +87,9 @@ function Dashboard() {
   const isEmptyLoggedIn = !isDemo && status === "ready" && parties.length === 0;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6">
+    <div className="min-h-screen bg-brand-wash">
+      <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 rounded-[1.35rem] border border-white/80 bg-white/90 px-3 py-2.5 shadow-elevated backdrop-blur-xl sm:rounded-full sm:px-5">
           <BrandLockup />
           <div className="flex items-center gap-1.5 sm:gap-2">
             <AuthNav variant="app" />
@@ -116,8 +116,8 @@ function Dashboard() {
       <AppSaveStatus />
 
       {showBanner && (
-        <div className="border-b border-border bg-primary/5">
-          <div className="mx-auto flex max-w-6xl items-center gap-3 px-6 py-3">
+        <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6">
+          <div className="flex items-center gap-3 rounded-2xl border border-primary/10 bg-white/75 px-4 py-3 shadow-soft backdrop-blur">
             <Sparkles className="h-4 w-4 shrink-0 text-primary" />
             <p className="flex-1 text-sm text-secondary">
               You're in demo mode. Sign up free to save your parties.
@@ -130,7 +130,7 @@ function Dashboard() {
             <button
               type="button"
               aria-label="Dismiss"
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
               onClick={() => setBannerDismissed(true)}
             >
               <X className="h-4 w-4" />
@@ -139,19 +139,30 @@ function Dashboard() {
         </div>
       )}
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10">
         <InstallAppPrompt hidden={showBanner} />
-        <section className="relative mb-8 overflow-hidden rounded-3xl border border-border bg-card/80 p-5 shadow-card sm:p-7">
-          <div className="absolute inset-0 bg-confetti opacity-45" aria-hidden />
+        <section className="relative mb-8 overflow-hidden rounded-[2rem] bg-secondary p-6 text-white shadow-lift sm:p-9">
+          <div
+            className="absolute inset-0 bg-confetti opacity-[0.12] mix-blend-screen"
+            aria-hidden
+          />
+          <div
+            className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-accent/50 blur-3xl"
+            aria-hidden
+          />
+          <div
+            className="absolute -bottom-36 right-20 h-72 w-72 rounded-full bg-[hsl(161_46%_45%/0.45)] blur-3xl"
+            aria-hidden
+          />
           <div className="relative grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
             <div className="min-w-0">
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+              <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/85 backdrop-blur">
                 <Sparkles className="h-3 w-3" /> Your calm co-host
               </div>
-              <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
+              <h1 className="font-display text-4xl font-medium tracking-[-0.025em] text-white sm:text-5xl">
                 Your parties
               </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-2 max-w-xl text-sm font-medium text-white/75 sm:text-base">
                 {status === "loading"
                   ? "Loading your parties…"
                   : status === "error"
@@ -175,23 +186,23 @@ function Dashboard() {
                   <Link
                     to="/party/$id"
                     params={{ id: upcoming.id }}
-                    className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-elevated"
+                    className="group flex items-center gap-4 rounded-2xl border border-white/20 bg-white/12 px-4 py-3 text-white shadow-card backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-white/18 hover:shadow-elevated"
                   >
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white">
                       <CalendarDays className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-white/65">
                         Next up
                       </div>
-                      <div className="truncate font-display text-base font-semibold text-secondary">
+                      <div className="truncate font-body text-base font-bold text-white">
                         {upcoming.name}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-white/70">
                         {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-primary opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                    <ArrowRight className="h-4 w-4 shrink-0 text-white opacity-60 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
                   </Link>
                 );
               })()}
@@ -262,7 +273,7 @@ function Dashboard() {
                 <article
                   key={p.id}
                   aria-labelledby={`party-${p.id}-title`}
-                  className="group relative flex flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-card transition hover:-translate-y-1 hover:shadow-elevated focus-within:-translate-y-1 focus-within:shadow-elevated"
+                  className="group relative flex flex-col overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/94 shadow-card backdrop-blur-sm transition duration-300 hover:-translate-y-1.5 hover:shadow-elevated focus-within:-translate-y-1 focus-within:shadow-elevated"
                 >
                   <div
                     className={`relative h-32 overflow-hidden p-5 ${
@@ -296,7 +307,7 @@ function Dashboard() {
                   <div className="flex-1 p-5">
                     <h3
                       id={`party-${p.id}-title`}
-                      className="font-display text-xl font-semibold text-secondary"
+                      className="font-display text-[1.35rem] font-medium tracking-[-0.015em] text-foreground"
                     >
                       <Link
                         to="/party/$id"
@@ -331,7 +342,7 @@ function Dashboard() {
                           <Users className="h-3.5 w-3.5" />{" "}
                           {hasGuestList ? "Guest list" : "Guest goal"}
                         </div>
-                        <div className="mt-0.5 font-semibold text-secondary">
+                        <div className="mt-0.5 font-bold text-foreground">
                           {hasGuestList ? g.total : !guestsTbd ? p.guestEstimate : "To decide"}
                         </div>
                       </div>
@@ -339,7 +350,7 @@ function Dashboard() {
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Wallet className="h-3.5 w-3.5" /> Budget
                         </div>
-                        <div className="mt-0.5 font-semibold text-secondary">
+                        <div className="mt-0.5 font-bold text-foreground">
                           {budgetTbd ? (
                             "To decide"
                           ) : (
@@ -391,7 +402,7 @@ function Dashboard() {
 
             <button
               onClick={() => setWizardOpen(true)}
-              className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed border-border bg-transparent p-6 text-muted-foreground transition hover:border-primary hover:bg-card hover:text-primary"
+              className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-2 border-dashed border-secondary/20 bg-white/35 p-6 text-muted-foreground backdrop-blur-sm transition hover:-translate-y-1 hover:border-secondary/45 hover:bg-white/80 hover:text-secondary hover:shadow-card"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <Plus className="h-6 w-6" />

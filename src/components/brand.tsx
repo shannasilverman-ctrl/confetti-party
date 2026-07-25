@@ -19,8 +19,8 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
 }
 
 /**
- * Wordmark, rendered in the display serif so it reads as the
- * approved brand lockup. `animated` fades letters in on mount.
+ * Wordmark, rendered in Outfit to match the original confettiapp.ai
+ * lockup. `animated` fades letters in on mount.
  * The visible glyphs are aria-hidden — the parent lockup Link
  * owns the single accessible name.
  */
@@ -44,12 +44,12 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
   return (
     <Link
       to="/"
-      className="flex items-center gap-2"
+      className="flex min-h-11 items-center gap-2"
       onClick={(e) => celebrateAtEvent("micro", e)}
       aria-label="Confetti — home"
     >
       <BrandMark className="h-9 w-9" />
-      <span className="font-display text-2xl font-semibold tracking-tight text-secondary">
+      <span className="font-body text-2xl font-extrabold tracking-[-0.035em] text-foreground">
         <Wordmark text="Confetti" animated={animated} />
       </span>
     </Link>

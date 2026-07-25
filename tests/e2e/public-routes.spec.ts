@@ -48,6 +48,49 @@ test("home exposes the primary CTA", async ({ page }) => {
   await expect(cta).toBeVisible();
 });
 
+test("the original Confetti typography remains a product-wide contract", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  const landingType = await page.evaluate(() => ({
+    body: getComputedStyle(document.body).fontFamily,
+    headline: getComputedStyle(document.querySelector("h1")!).fontFamily,
+  }));
+  expect(landingType.body).toContain("Outfit");
+  expect(landingType.headline).toContain("Fraunces");
+
+  await page.goto("/app", { waitUntil: "networkidle" });
+  const appType = await page.evaluate(() => ({
+    body: getComputedStyle(document.body).fontFamily,
+    headline: getComputedStyle(document.querySelector("h1")!).fontFamily,
+  }));
+  expect(appType.body).toContain("Outfit");
+  expect(appType.headline).toContain("Fraunces");
+});
+
+test("mobile app header controls preserve 44px touch targets", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "mobile interaction contract");
+  await page.goto("/app", { waitUntil: "networkidle" });
+  const controls = await page.locator("header a, header button").evaluateAll((elements) =>
+    elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      })
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          label: element.getAttribute("aria-label") ?? element.textContent?.trim() ?? "",
+          width: rect.width,
+          height: rect.height,
+        };
+      }),
+  );
+  expect(controls.length).toBeGreaterThan(0);
+  for (const control of controls) {
+    expect(control.width, `${control.label} width`).toBeGreaterThanOrEqual(44);
+    expect(control.height, `${control.label} height`).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test("focused host modes expose distinct, private browser metadata", async ({ page }) => {
   await page.goto("/party/ava-liam-wedding/reveal");
   await expect(page).toHaveTitle("Party reveal · Confetti");
