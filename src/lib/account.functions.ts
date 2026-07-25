@@ -19,9 +19,12 @@ export type AccountExport = {
     tables: string[];
     excluded: string[];
   };
-  parties: unknown[];
-  gatheringDrafts: unknown[];
-  talkSessions: unknown[];
+  // Rows are opaque JSON at the transport layer — the client renders/downloads
+  // as JSON. We type them permissively rather than fighting the
+  // start-serializer over unknown/Json equivalence.
+  parties: Array<Record<string, unknown>>;
+  gatheringDrafts: Array<Record<string, unknown>>;
+  talkSessions: Array<Record<string, unknown>>;
 };
 
 /**
