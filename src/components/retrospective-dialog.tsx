@@ -36,7 +36,7 @@ export function RetrospectiveDialog({ partyId }: { partyId: string }) {
       changeNext: changeNext.trim() || undefined,
     };
     updateParty(party.id, (p) => ({ ...p, retrospective: next }));
-    toast.success("Saved — you'll see these next time you clone this party.");
+    toast.success("Retrospective updated.");
     setOpen(false);
   }
 
@@ -52,8 +52,8 @@ export function RetrospectiveDialog({ partyId }: { partyId: string }) {
         <DialogHeader>
           <DialogTitle>How did it go?</DialogTitle>
           <DialogDescription>
-            Only you can see this. Next time you clone this party we'll surface these notes as
-            suggested improvements.
+            Only you can see this. If you duplicate the party, a private copy of these notes comes
+            with it for reference.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

@@ -120,7 +120,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
         estPrice: idea.estPrice,
       }),
     );
-    toast.success("In cart", { description: idea.title });
+    toast.success("Added to shopping list", { description: idea.title });
   }
 
   function togglePinTile(key: TileKey) {

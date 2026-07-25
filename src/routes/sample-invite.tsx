@@ -102,6 +102,7 @@ function SampleInvitePage() {
   const [state, setState] = useState<SampleState>(() => defaultSampleState());
   const [hydrated, setHydrated] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [interactionKey, setInteractionKey] = useState(0);
 
   // Client-only load — never call localStorage during SSR.
   useEffect(() => {
@@ -127,6 +128,7 @@ function SampleInvitePage() {
     resetSampleState();
     setState(defaultSampleState());
     setSaveError(null);
+    setInteractionKey((value) => value + 1);
   }
 
   function onSubmit(entry: NonNullable<SampleState["rsvp"]>) {
@@ -228,18 +230,20 @@ function SampleInvitePage() {
           </p>
         </div>
 
-        {done ? (
-          <SuccessCard entry={state.rsvp!} counts={counts} onChange={onChangeResponse} />
-        ) : (
-          <RsvpForm counts={counts} onSubmit={onSubmit} />
-        )}
+        <div key={interactionKey}>
+          {done ? (
+            <SuccessCard entry={state.rsvp!} counts={counts} onChange={onChangeResponse} />
+          ) : (
+            <RsvpForm counts={counts} onSubmit={onSubmit} />
+          )}
 
-        <SampleBringBoard
-          items={state.bring}
-          defaultName={state.rsvp?.name ?? ""}
-          onClaim={claim}
-          onRelease={release}
-        />
+          <SampleBringBoard
+            items={state.bring}
+            defaultName={state.rsvp?.name ?? ""}
+            onClaim={claim}
+            onRelease={release}
+          />
+        </div>
 
         <ConversionFooter />
       </main>
@@ -347,9 +351,10 @@ function RsvpForm({
         />
       </div>
 
-      <div className="space-y-2">
-        <Label>Can you make it?</Label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-secondary">Can you make it?</legend>
         <RadioGroup
+          aria-label="Can you make it?"
           value={choice}
           onValueChange={(v) => setChoice(v as SampleRSVP)}
           className="grid grid-cols-3 gap-2"
@@ -368,7 +373,7 @@ function RsvpForm({
             </label>
           ))}
         </RadioGroup>
-      </div>
+      </fieldset>
 
       {choice === "yes" && (
         <div className="grid grid-cols-2 gap-3">
