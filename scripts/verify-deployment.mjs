@@ -119,9 +119,42 @@ export async function verifyDeployment(baseUrl, { fetchImpl = fetch } = {}) {
   };
 }
 
+export async function verifyDeploymentWithRetry(
+  baseUrl,
+  {
+    attempts = 4,
+    delayMs = 1_500,
+    fetchImpl = fetch,
+    onRetry = ({ attempt, error }) =>
+      console.warn(
+        `[deployment] attempt ${attempt} failed; waiting for edge propagation: ${error.message}`,
+      ),
+  } = {},
+) {
+  invariant(
+    Number.isInteger(attempts) && attempts >= 1,
+    "Retry attempts must be a positive integer.",
+  );
+  invariant(Number.isFinite(delayMs) && delayMs >= 0, "Retry delay must be a non-negative number.");
+
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await verifyDeployment(baseUrl, { fetchImpl });
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt === attempts) break;
+      onRetry({ attempt, error: lastError });
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw lastError;
+}
+
 async function main() {
   const baseUrl = process.argv[2] ?? process.env.CONFETTI_DEPLOYMENT_URL ?? DEFAULT_DEPLOYMENT_URL;
-  const result = await verifyDeployment(baseUrl);
+  const result = await verifyDeploymentWithRetry(baseUrl);
   console.log(
     `[deployment] ${result.baseUrl}: ${result.htmlRoutes} routes and ${result.assets} assets verified`,
   );

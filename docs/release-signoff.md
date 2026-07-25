@@ -36,7 +36,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                          |
 | ESLint                | Passed                                                                     |
 | TypeScript            | Passed with `tsc --noEmit`                                                 |
-| Vitest                | 42 files, 315 tests passed                                                 |
+| Vitest                | 42 files, 317 tests passed                                                 |
 | Production build      | Passed                                                                     |
 | Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                          |
 | Playwright            | Desktop and mobile projects passed; project-specific skips intentional     |
