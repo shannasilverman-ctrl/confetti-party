@@ -99,6 +99,8 @@ export type Party = {
   occasion: OccasionType;
   date: string; // ISO date
   startTime?: string; // e.g. "2:00 PM"
+  /** Optional host IANA time zone (e.g. "America/New_York"). Undefined => "floating" local time. */
+  timeZone?: string;
   location?: string;
   guestEstimate: number;
   budget: number;
@@ -704,19 +706,13 @@ type Ctx = {
   isDemo: boolean;
   refetch: () => void;
   getParty: (id: string) => Party | undefined;
-  createParty: (input: {
-    name: string;
-    occasion: OccasionType;
-    date: string;
-    startTime?: string;
-    location?: string;
-    guestEstimate: number;
-    budget: number;
-    theme: string;
-    themeId?: string;
-    extraTasks?: Task[];
-    holidayPackId?: HolidayStarterId;
-  }) => string;
+  createParty: (input: CreatePartyInput) => string;
+  /**
+   * Async create: for signed-in users, resolves after the initial insert
+   * settles. Signed-out demo resolves immediately. On persistent failure
+   * the party remains as a recoverable local draft (insertRejected[id]).
+   */
+  createPartyAsync: (input: CreatePartyInput) => Promise<{ id: string; error: string | null }>;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
   deleteParty: (id: string) => Promise<{ error: string | null }>;
@@ -759,22 +755,22 @@ function partyToRow(p: Party, userId: string): PartyRow {
   return partyToColumns(p, userId);
 }
 
-export function makeParty(
-  input: {
-    name: string;
-    occasion: OccasionType;
-    date: string;
-    startTime?: string;
-    location?: string;
-    guestEstimate: number;
-    budget: number;
-    theme: string;
-    themeId?: string;
-    extraTasks?: Task[];
-    holidayPackId?: HolidayStarterId;
-  },
-  id: string,
-): Party {
+export type CreatePartyInput = {
+  name: string;
+  occasion: OccasionType;
+  date: string;
+  startTime?: string;
+  timeZone?: string;
+  location?: string;
+  guestEstimate: number;
+  budget: number;
+  theme: string;
+  themeId?: string;
+  extraTasks?: Task[];
+  holidayPackId?: HolidayStarterId;
+};
+
+export function makeParty(input: CreatePartyInput, id: string): Party {
   // Runtime-narrow the id so any stray unknown value fails safely to undefined
   // instead of crashing or seeding a garbage pack.
   const starterId = toHolidayStarterId(input.holidayPackId);
@@ -787,6 +783,7 @@ export function makeParty(
     occasion: input.occasion,
     date: input.date,
     startTime: input.startTime,
+    timeZone: input.timeZone,
     location: input.location,
     guestEstimate: input.guestEstimate,
     budget: input.budget,
@@ -1021,6 +1018,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         applyPartiesUpdate((prev) => [...prev, p]);
         if (user) store.enqueueInsert(p, user.id);
         return id;
+      },
+      createPartyAsync: async (input) => {
+        const id =
+          typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
+        const p = makeParty(input, id);
+        applyPartiesUpdate((prev) => [...prev, p]);
+        if (!user) return { id, error: null }; // demo persists via localStorage
+        store.enqueueInsert(p, user.id);
+        const outcome = await store.waitForInitialSave(id);
+        if (outcome.ok) return { id, error: null };
+        // Party remains as a recoverable local draft; UI can call retrySave.
+        return { id, error: outcome.error ?? "save-failed" };
       },
       updateParty: (id, updater) => {
         // Deterministic: compute next from the authoritative ref, not from the

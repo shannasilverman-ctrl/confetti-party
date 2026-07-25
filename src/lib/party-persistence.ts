@@ -33,6 +33,7 @@ export type PartyRow = {
   occasion: string;
   date: string;
   start_time: string | null;
+  time_zone: string | null;
   location: string | null;
   guest_estimate: number;
   budget: number;
@@ -63,6 +64,7 @@ export const HOST_COLUMNS = [
   "occasion",
   "date",
   "start_time",
+  "time_zone",
   "location",
   "guest_estimate",
   "budget",
@@ -103,6 +105,7 @@ export function partyToColumns(p: Party, userId: string): PartyRow {
     occasion: p.occasion,
     date: p.date,
     start_time: p.startTime ?? null,
+    time_zone: p.timeZone ?? null,
     location: p.location ?? null,
     guest_estimate: p.guestEstimate,
     budget: p.budget,
@@ -132,6 +135,7 @@ export function rowToParty(r: PartyRow): Party {
     occasion: r.occasion as Party["occasion"],
     date: r.date,
     startTime: r.start_time ?? undefined,
+    timeZone: r.time_zone ?? undefined,
     location: r.location ?? undefined,
     guestEstimate: r.guest_estimate,
     budget: Number(r.budget),

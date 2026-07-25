@@ -1,76 +1,63 @@
-# Showroom Truth + Brand Continuity — execution plan
+## Host Creation + First-Run Completion — Implementation Plan
 
-This batch spans landing, guest RSVP, host workspace tabs, and shared vocabulary — ~4,500 lines across the highest-signal files plus tests. To ship it responsibly in one pass I want to confirm scope and sequencing before editing.
+Scope is broad and coordinates schema + domain + UI + tests. Presenting the plan for approval before touching code, because it introduces a new persisted column (host timezone) and rewrites the wizard.
 
-## What I will implement in this batch
+### 1. Schema migration — host timezone
 
-### 1. Sample guest invitation route (item 1) — new
+Add `time_zone TEXT NULL` to `public.parties`, cap length ≤ 60 in `confirm_gathering_draft` (regex `^[A-Za-z0-9_+\-/]+$`), extend `get_rsvp_party` return with `time_zone`. Existing rows stay NULL → "timezone not set" fallback; no guessing on read. No new grants (existing table).
 
-- Add `src/routes/sample-invite.tsx` (no `$token`) that renders the real `rsvp.$token` guest UI against a **local demo adapter** — no RPC, no token, no user record.
-- Extract the guest-facing view from `src/routes/rsvp.$token.tsx` into `src/components/guest-invite-view.tsx` so both routes share one presentation contract.
-- Create `src/lib/sample-invite-state.ts`: versioned, capped `localStorage` state for the demo's RSVP/claims, with a persistent “Sample — try it. Nothing is sent.” banner and a Reset button.
-- Point landing “Open a sample invite,” nav sample CTAs, and any other invite-preview links to `/sample-invite`. The host-workspace link to `/party/maya-8th` stays as “Peek at a sample workspace” (labeled truthfully).
+### 2. Domain & persistence plumbing
 
-### 2. Domain / URL truth (item 2)
+- `src/lib/types.ts` (or wherever `Party` lives): add `timeZone?: string`.
+- `src/lib/party-persistence.ts`: read/write `time_zone` in `rowToParty` / `partyToColumns`; include in `updatable-columns` diff.
+- `src/lib/talk-materialize.ts`: accept `timeZone` from draft when present.
+- `src/lib/party-context.tsx` `createParty` input, `makeParty` builder, `Ctx` type: accept `timeZone`.
+- `src/routes/rsvp.$token.tsx`: display "Times shown in {tz}" when set; keep floating-time disclosure only when unset.
+- `src/lib/ics.ts` calendar export: if `timeZone` present, include `TZID` on `DTSTART`; else keep floating.
 
-- Replace every `confetti.app/rsvp/…` string with neutral copy (“Your private RSVP link,” “A link only your guests see”).
-- Remove any other unsupported domain/marketplace/production claims from landing, share dialogs, invite dialog, footers, and metadata.
+### 3. Wizard rewrite (`src/routes/app.tsx`, `NewPartyWizard`)
 
-### 3. Vocabulary centralization (item 3)
+Extract into `src/components/new-party-wizard.tsx` (~450 lines) to keep `app.tsx` tidy. Structure:
 
-- Add `src/lib/vocab.ts` exporting `VOCAB = { guestInvite, bringBoard, photoDrop, dayOf, reveal, hostNotes }`.
-- Rewrite user-visible “Party Pass,” “Guest World,” “RSVP link,” and raw route/RPC names in `src/routes/index.tsx`, `party.$id.tsx`, `party.$id.day-of.tsx`, `party.$id.reveal.tsx`, `overview-tab.tsx`, `bring-board-editor.tsx`, `public-bring-board.tsx`, `invite-dialog.tsx`, `rsvp-share-button.tsx`.
+- New Zod schema `wizardSchema` per step with trimmed name (1..80), date required (past allowed only with `allowPast` flag, default disallow), wall-clock time via `parseWallClockTime`, guests integer 1..500, budget integer 0..1_000_000, location ≤ 200, timezone required IANA (default `Intl.DateTimeFormat().resolvedOptions().timeZone`, `Intl.supportedValuesOf('timeZone')` when available; else regex fallback).
+- Inline per-field aria-live errors; preserve inputs on submit failure; focus first invalid field.
+- Stepper: `<ol aria-label="Wizard steps">` with `aria-current="step"` on active; visually-hidden "Step N of 3" label.
+- Dirty tracker: intercept `onOpenChange(false)` with confirm dialog when any field changed.
+- Enter-to-advance: form-level `onSubmit` with `submitLockRef` to block double-submit.
+- Zero-theme fix: when `themeOptions.length === 0`, provide a real neutral "Un-themed plan" default card that sets `theme = { id: 'none', name: 'Un-themed', … }`; button always enabled.
+- Creation contract: for signed-in users, await async `createParty`, keep dialog on error with Retry + "Download plan JSON" for recovery; only advance to "done" when persisted (or explicitly demo). Idempotency guard via `submitLockRef` + a one-shot `createdIdRef`.
+- Post-create "Open plan" navigates to `/party/$id` (unchanged).
 
-### 4. Sample coherence (item 4)
+`createParty` in `party-context.tsx` needs an async variant returning `{ id, error }`. Wrap existing sync return; when authenticated, await `store.enqueueInsert` result; when demo, remains sync-succeeding.
 
-- Rebuild Ava/Liam and Maya sample data so every surface agrees:
-  - Budget total = sum of category allocations (fix the $12,500 vs $600 contradiction).
-  - Shopping/Bring Board seeded to non-empty for showcased categories.
-  - RSVP counts, headcount, timeline, updates internally consistent with a date computed via the new date-only contract.
-  - Landing’s static "34 days out" and any mock date computed live from the seeded date via `daysUntilLocal`.
+### 4. Party-context async create surface
 
-### 5. Empty states (item 5) — bounded
+Add `createPartyAsync(input) => Promise<{ id: string; error: FriendlyError | null }>` alongside existing sync `createParty`. Signed-in path awaits PartyStore insert; failure returns `insertRejected[id] = true` and the friendly error, keeping the local draft recoverable.
 
-- Add branded, action-led empty states for: shopping, tasks, guests, bring, timeline, updates, photo drop, budget.
-- One shared `<EmptyState>` component in `src/components/empty-state.tsx` (icon slot, headline in Fraunces, one primary CTA, warm cream card).
-- Reuse across the 8 surfaces above.
+### 5. Tests
 
-### 6. Destructive-action safety + a11y labels (item 6)
+- `tests/unit/wizard-schema.test.ts`: zod contract — name trimming/caps, date past/future, time parsing, guest integer bounds, budget bounds, timezone allowlist, location cap.
+- `tests/unit/party-timezone.test.ts`: `rowToParty` / `partyToColumns` round-trip; NULL fallback.
+- `tests/e2e/wizard-first-run.spec.ts`: 5 occasions (Birthday, Holiday+starter, BBQ, Watch, Other) × [320, 390, 1280]; keyboard tab through; invalid name/date/time/numbers show inline errors; no-theme "Un-themed" path completes; dirty-close confirms; duplicate-click creates one; reload persists; Open plan lands on `/party/:id`; edit details persists; delete confirms.
+- `tests/e2e/wizard-persistence.spec.ts`: DB insert reject → recoverable draft state; retry succeeds without duplicate.
 
-- Repeated rows (guest name, bring item, task, shopping row, expense): every editable input gets an `aria-label` derived from `row.name || row.id`; every icon-only delete gets `aria-label={\`Remove \${row.name}\`}`.
-- Delete affordance: `<ConfirmDelete>` wrapper.
-  - Guest/bring rows with RSVP or claim data → AlertDialog confirmation.
-  - Safe local rows (empty tasks, empty shopping) → immediate delete with undo toast (5s).
-- All destructive icon buttons `min-h-11 min-w-11`.
+E2E uses signed-out demo storage (isolated per test via `sessionStorage` key namespace) and mocks Supabase via `page.route('**/rest/v1/parties*', …)` for auth-path tests.
 
-### 7. Hero motif carry (item 7) — bounded
+### 6. Gates
 
-- Reuse existing `--gradient-*` and party-hands/sparkle motifs from landing on: workspace tab headers, empty states, and the Reveal/Day-of hero bands.
-- No new animation libraries. Respect `prefers-reduced-motion` on the existing `celebrate()` calls (already throttled).
-- Explicitly out of scope: redesigning individual form fields or reworking `theme-tab.tsx`.
+- `bun run format` + `bunx eslint` clean
+- `bunx tsgo --noEmit` clean
+- `bunx vitest run` — target ~285 passing (adds ~10-15 unit tests)
+- `bunx playwright test` — spec runs at 3 viewports
+- `bun run build` — no chunk regressions
 
-### 8. Tests (item 8)
+### 7. Out of scope
 
-- Unit: sample-state isolation (no production writes), vocab constants, budget coherence invariant for seeded parties, empty-state renders.
-- Playwright: nav truth (`/sample-invite` reachable from every advertised CTA), destructive confirm/undo, axe on landing + `/sample-invite` + `/app`, 320/375/390/430 overflow.
-- Playwright is still unexecutable in-sandbox (missing `libglib-2.0.so.0`); specs will be added and lint-clean but I will report browser runs as not-executed-here.
+Talk materializer invariants sharing: verify contract via test-only import, no behavior changes. No email/OAuth/domain/publish/marketplace touched.
 
-### 9. Gates
+### Open questions
 
-- Prettier, ESLint, tsgo, Vitest (with new tests), TZ-matrix, production build. Playwright as caveated in #8.
+- Timezone editability UX: dropdown of `Intl.supportedValuesOf('timeZone')` (~600 items) or typeahead? Plan: shadcn Combobox with default = detected zone, searchable. If Combobox lookup misses (older browsers), fall back to `<Input>` with regex validation.
+- Past-date policy: default is "today or future"; add a small "This already happened (retrospective)" checkbox that unlocks past dates. This preserves memory/retro flows without a footgun.
 
-## Explicitly NOT in this batch (call out for a follow-up)
-
-- Refactoring `theme-tab.tsx` or Shopify surfaces.
-- Any changes to auth flows, RLS, RPCs, or migrations.
-- New animation libs, new fonts, or logo changes.
-- Custom-domain wiring, publish, real messages, real analytics.
-
-## Risk / size notes
-
-Total edited surface ≈ 4,500 lines across ~15 files, plus ~6 new files and ~5 new test files. This is the largest batch to date; I will do it in one pass but the empty-state and hero-motif items (5, 7) will be applied only to the surfaces listed — I won’t chase every card in the app.
-
-## Confirm or adjust
-
-- Any of the 8 items you’d rather I defer, or any additional surface you want in scope?
-- If “yes, proceed as written,” I’ll execute end-to-end and report SHA + gate totals.
+Estimated diff: ~1200 LOC net (mostly new tests + wizard extraction). No production data or deploy; test users only.

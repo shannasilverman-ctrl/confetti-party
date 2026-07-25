@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   daysUntil,
   guestCounts,
@@ -50,6 +50,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateOnly } from "@/lib/date-only";
+import {
+  detectTimeZone,
+  essentialsSchema,
+  flattenErrors,
+  supportedTimeZones,
+} from "@/lib/wizard-schema";
 
 type AppSearch = { new?: boolean };
 
@@ -383,7 +389,7 @@ function NewPartyWizard({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { createParty, getParty } = useParties();
+  const { createPartyAsync, getParty } = useParties();
   const navigate = Route.useNavigate();
   const [step, setStep] = useState<1 | 2 | 3 | "done">(1);
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -392,12 +398,25 @@ function NewPartyWizard({
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [location, setLocation] = useState("");
-  const [guestEstimate, setGuestEstimate] = useState(20);
-  const [budget, setBudget] = useState(500);
+  const [guestEstimate, setGuestEstimate] = useState("20");
+  const [budget, setBudget] = useState("500");
+  const [timeZone, setTimeZone] = useState<string>(() => detectTimeZone());
   const [theme, setTheme] = useState<Theme | null>(null);
   const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
+  const zones = useMemo(() => supportedTimeZones(), []);
+  const isDirty =
+    !!occasion ||
+    name.trim() !== "" ||
+    date !== "" ||
+    startTime.trim() !== "" ||
+    location.trim() !== "" ||
+    !!theme;
 
   function reset() {
     setStep(1);
@@ -407,43 +426,93 @@ function NewPartyWizard({
     setDate("");
     setStartTime("");
     setLocation("");
-    setGuestEstimate(20);
-    setBudget(500);
+    setGuestEstimate("20");
+    setBudget("500");
+    setTimeZone(detectTimeZone());
     setTheme(null);
     setHolidayStarter(null);
+    setErrors({});
+    setFormError(null);
+    setSubmitting(false);
+    setConfirmClose(false);
   }
 
-  function finish() {
-    if (!occasion || !date || !theme) return;
-    // Seed a small set of theme decor tasks into the checklist.
-    // Skip purely instructional ideas (estPrice 0) so seeded tasks are actionable items.
-    const extraTasks: Task[] = theme.decorIdeas
-      .filter((idea) => idea.estPrice > 0)
-      .slice(0, 4)
-      .map((idea) => ({
-        id: newId(),
-        title: `${idea.kind === "DIY" ? "DIY: " : ""}${idea.title}`,
-        bucket: idea.bucket,
-        done: false,
-      }));
-    const id = createParty({
-      name: name || `New ${OCCASION_LABELS[occasion]}`,
-      occasion,
+  function validateEssentials(): ReturnType<
+    ReturnType<typeof essentialsSchema>["safeParse"]
+  > | null {
+    const parsed = essentialsSchema().safeParse({
+      name,
       date,
-      startTime: startTime.trim() || undefined,
-      location: location.trim() || undefined,
-      guestEstimate,
+      startTime,
+      location,
+      guests: guestEstimate,
       budget,
-      theme: theme.name,
-      themeId: theme.id,
-      extraTasks,
-      holidayPackId: occasion === "holiday" && holidayStarter ? holidayStarter : undefined,
+      timeZone,
     });
-    setCreatedId(id);
-    setStep("done");
-    // Big physics cannon for the "your plan is ready" moment.
-    if (typeof window !== "undefined") {
-      setTimeout(() => celebrate("cannon"), 60);
+    if (!parsed.success) {
+      setErrors(flattenErrors(parsed.error));
+      setFormError("Please fix the highlighted fields.");
+      return parsed;
+    }
+    setErrors({});
+    setFormError(null);
+    return parsed;
+  }
+
+  async function finish() {
+    if (submitting) return;
+    if (!occasion) return;
+    const parsed = validateEssentials();
+    if (!parsed || !parsed.success) {
+      setStep(2);
+      return;
+    }
+    const values = parsed.data;
+    const themeName = theme?.name ?? "Un-themed";
+    const themeId = theme?.id;
+    const extraTasks: Task[] = theme
+      ? theme.decorIdeas
+          .filter((idea) => idea.estPrice > 0)
+          .slice(0, 4)
+          .map((idea) => ({
+            id: newId(),
+            title: `${idea.kind === "DIY" ? "DIY: " : ""}${idea.title}`,
+            bucket: idea.bucket,
+            done: false,
+          }))
+      : [];
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const { id, error } = await createPartyAsync({
+        name: values.name || `New ${OCCASION_LABELS[occasion]}`,
+        occasion,
+        date: values.date,
+        startTime: values.startTime,
+        timeZone: values.timeZone,
+        location: values.location,
+        guestEstimate: values.guests,
+        budget: values.budget,
+        theme: themeName,
+        themeId,
+        extraTasks,
+        holidayPackId: occasion === "holiday" && holidayStarter ? holidayStarter : undefined,
+      });
+      if (error) {
+        setFormError(
+          "We saved a local draft but couldn't reach the server. You can retry from your dashboard.",
+        );
+        setCreatedId(id);
+        setStep("done");
+        return;
+      }
+      setCreatedId(id);
+      setStep("done");
+      if (typeof window !== "undefined") setTimeout(() => celebrate("cannon"), 60);
+    } catch {
+      setFormError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -455,7 +524,6 @@ function NewPartyWizard({
     void navigate({ to: "/party/$id", params: { id } });
   }
 
-  // Reset selected theme when occasion changes so palette matches
   function selectOccasion(o: OccasionType) {
     setOccasion(o);
     setTheme(null);
@@ -465,327 +533,489 @@ function NewPartyWizard({
   function pickStarter(id: HolidayStarterId) {
     setHolidayStarter(id);
     const starter = getStarter(id);
-    // Prefill an editable name only when the field is empty, so we never overwrite the host's input.
     if (starter && !name.trim()) setName(starter.suggestedName);
   }
 
   const createdParty = createdId ? getParty(createdId) : undefined;
 
+  function tryClose(next: boolean) {
+    if (next) {
+      onOpenChange(true);
+      return;
+    }
+    if (step === "done" || !isDirty) {
+      onOpenChange(false);
+      reset();
+      return;
+    }
+    setConfirmClose(true);
+  }
+
+  function goNext() {
+    if (step === 1 && occasion) setStep(2);
+    else if (step === 2) {
+      const parsed = validateEssentials();
+      if (parsed && parsed.success) setStep(3);
+    }
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        onOpenChange(v);
-        if (!v) reset();
-      }}
-    >
-      <DialogContent
-        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
-        onCloseAutoFocus={(event) => {
-          // Trigger is a plain <Button>, not <DialogTrigger asChild>, so
-          // Radix cannot auto-restore focus. Manually return focus to the
-          // "New party" trigger to satisfy the dialog contract.
-          const trigger = document.querySelector<HTMLElement>('[data-testid="new-party-trigger"]');
-          if (trigger) {
-            event.preventDefault();
-            trigger.focus();
-          }
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle className="font-display text-2xl text-secondary">
-            {step === 1 && "What are you hosting?"}
-            {step === 2 && "The essentials"}
-            {step === 3 && "Pick your theme"}
-            {step === "done" && "Your plan is ready"}
-          </DialogTitle>
-          <div className="mt-2 flex gap-1.5">
-            {[1, 2, 3].map((n) => {
-              const active = step === "done" ? true : n <= step;
-              return (
-                <div
-                  key={n}
-                  className={`h-1.5 flex-1 rounded-full transition ${
-                    active ? "bg-primary" : "bg-muted"
+    <>
+      <Dialog open={open} onOpenChange={tryClose}>
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+          onCloseAutoFocus={(event) => {
+            const trigger = document.querySelector<HTMLElement>(
+              '[data-testid="new-party-trigger"]',
+            );
+            if (trigger) {
+              event.preventDefault();
+              trigger.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl text-secondary">
+              {step === 1 && "What are you hosting?"}
+              {step === 2 && "The essentials"}
+              {step === 3 && "Pick your theme"}
+              {step === "done" && "Your plan is ready"}
+            </DialogTitle>
+            <div
+              className="mt-2 flex gap-1.5"
+              role="progressbar"
+              aria-label={step === "done" ? "Step 3 of 3" : `Step ${step} of 3`}
+              aria-valuemin={1}
+              aria-valuemax={3}
+              aria-valuenow={step === "done" ? 3 : step}
+            >
+              {[1, 2, 3].map((n) => {
+                const active = step === "done" ? true : n <= (step as number);
+                const current = step !== "done" && n === (step as number);
+                return (
+                  <div
+                    key={n}
+                    aria-current={current ? "step" : undefined}
+                    className={`h-1.5 flex-1 rounded-full transition ${
+                      active ? "bg-primary" : "bg-muted"
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </DialogHeader>
+
+          {step === 1 && (
+            <div className="grid grid-cols-2 gap-3 py-4" data-testid="wizard-step-1">
+              {OCCASIONS.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  data-testid={`wizard-occasion-${o.value}`}
+                  onClick={() => selectOccasion(o.value)}
+                  className={`min-h-11 rounded-2xl border p-5 text-left transition ${
+                    occasion === o.value
+                      ? "border-primary bg-primary/5 shadow-card"
+                      : "border-border hover:border-primary/40 hover:bg-muted/40"
                   }`}
-                />
-              );
-            })}
-          </div>
-        </DialogHeader>
-
-        {step === 1 && (
-          <div className="grid grid-cols-2 gap-3 py-4" data-testid="wizard-step-1">
-            {OCCASIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                data-testid={`wizard-occasion-${o.value}`}
-                onClick={() => selectOccasion(o.value)}
-                className={`min-h-11 rounded-2xl border p-5 text-left transition ${
-                  occasion === o.value
-                    ? "border-primary bg-primary/5 shadow-card"
-                    : "border-border hover:border-primary/40 hover:bg-muted/40"
-                }`}
-              >
-                <div className="text-2xl">{o.emoji}</div>
-                <div className="mt-2 font-medium text-secondary">{o.label}</div>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="grid gap-4 py-4" data-testid="wizard-step-2">
-            {occasion === "holiday" && (
-              <fieldset
-                aria-label="Holiday starter"
-                className="rounded-2xl border border-border bg-muted/30 p-3"
-              >
-                <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Starter (optional)
-                </legend>
-                <p className="mb-2 px-1 text-xs text-muted-foreground">
-                  Pre-fills a name, checklist, and bring board. Everything stays editable.
-                </p>
-                <div
-                  role="radiogroup"
-                  aria-label="Holiday starter choices"
-                  className="flex flex-wrap gap-2"
                 >
-                  {HOLIDAY_STARTERS.map((s) => {
-                    const active = holidayStarter === s.id;
+                  <div className="text-2xl">{o.emoji}</div>
+                  <div className="mt-2 font-medium text-secondary">{o.label}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {step === 2 && (
+            <form
+              className="grid gap-4 py-4"
+              data-testid="wizard-step-2"
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                goNext();
+              }}
+            >
+              {occasion === "holiday" && (
+                <fieldset
+                  aria-label="Holiday starter"
+                  className="rounded-2xl border border-border bg-muted/30 p-3"
+                >
+                  <legend className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Starter (optional)
+                  </legend>
+                  <p className="mb-2 px-1 text-xs text-muted-foreground">
+                    Pre-fills a name, checklist, and bring board. Everything stays editable.
+                  </p>
+                  <div
+                    role="radiogroup"
+                    aria-label="Holiday starter choices"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {HOLIDAY_STARTERS.map((s) => {
+                      const active = holidayStarter === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          data-testid={`wizard-starter-${s.id}`}
+                          onClick={() => pickStarter(s.id)}
+                          className={`inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition ${
+                            active
+                              ? "border-primary bg-primary/10 text-secondary shadow-sm"
+                              : "border-border bg-background text-secondary hover:border-primary/40"
+                          }`}
+                        >
+                          <span aria-hidden>{s.emoji}</span>
+                          <span>{s.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              <FieldRow label="Party name" htmlFor="name" error={errors.name}>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  aria-invalid={!!errors.name}
+                  aria-describedby={errors.name ? "name-err" : undefined}
+                  placeholder={
+                    occasion ? `e.g. Sam's ${OCCASION_LABELS[occasion]}` : "Give it a name"
+                  }
+                />
+              </FieldRow>
+              <FieldRow label="Date" htmlFor="date" error={errors.date}>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  aria-invalid={!!errors.date}
+                  aria-describedby={errors.date ? "date-err" : undefined}
+                />
+              </FieldRow>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FieldRow
+                  label="Start time (optional)"
+                  htmlFor="start-time"
+                  error={errors.startTime}
+                >
+                  <Input
+                    id="start-time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    aria-invalid={!!errors.startTime}
+                    aria-describedby={errors.startTime ? "startTime-err" : undefined}
+                    placeholder="e.g. 2:00 PM"
+                  />
+                </FieldRow>
+                <FieldRow label="Location (optional)" htmlFor="location" error={errors.location}>
+                  <Input
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    aria-invalid={!!errors.location}
+                    aria-describedby={errors.location ? "location-err" : undefined}
+                    placeholder="e.g. Our backyard"
+                  />
+                </FieldRow>
+              </div>
+              <FieldRow label="Time zone" htmlFor="time-zone" error={errors.timeZone}>
+                <select
+                  id="time-zone"
+                  value={timeZone}
+                  onChange={(e) => setTimeZone(e.target.value)}
+                  aria-invalid={!!errors.timeZone}
+                  aria-describedby={errors.timeZone ? "timeZone-err" : "time-zone-hint"}
+                  className="flex h-10 w-full min-h-11 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {zones.includes(timeZone) ? null : <option value={timeZone}>{timeZone}</option>}
+                  {zones.map((z) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                </select>
+                <p id="time-zone-hint" className="mt-1 text-xs text-muted-foreground">
+                  Shown to guests near the date on invites and calendar files.
+                </p>
+              </FieldRow>
+              <div className="grid grid-cols-2 gap-3">
+                <FieldRow label="Guests (est.)" htmlFor="guests" error={errors.guests}>
+                  <Input
+                    id="guests"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={500}
+                    value={guestEstimate}
+                    onChange={(e) => setGuestEstimate(e.target.value)}
+                    aria-invalid={!!errors.guests}
+                    aria-describedby={errors.guests ? "guests-err" : undefined}
+                  />
+                </FieldRow>
+                <FieldRow label="Budget ($)" htmlFor="budget" error={errors.budget}>
+                  <Input
+                    id="budget"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={1_000_000}
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    aria-invalid={!!errors.budget}
+                    aria-describedby={errors.budget ? "budget-err" : undefined}
+                  />
+                </FieldRow>
+              </div>
+              {formError && (
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                >
+                  {formError}
+                </div>
+              )}
+              {/* Enable Enter-to-continue */}
+              <button type="submit" className="sr-only" aria-hidden tabIndex={-1}>
+                Continue
+              </button>
+            </form>
+          )}
+
+          {step === 3 && (
+            <div className="py-4" data-testid="wizard-step-3">
+              {themeOptions.length === 0 ? (
+                <div className="rounded-2xl border border-border bg-muted/30 p-4 text-sm text-secondary">
+                  <div className="font-medium">No preset themes for this occasion yet.</div>
+                  <p className="mt-1 text-muted-foreground">
+                    You can create an un-themed plan now and add your own look later.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {themeOptions.map((t) => {
+                    const selected = theme?.id === t.id;
                     return (
                       <button
-                        key={s.id}
+                        key={t.id}
                         type="button"
-                        role="radio"
-                        aria-checked={active}
-                        data-testid={`wizard-starter-${s.id}`}
-                        onClick={() => pickStarter(s.id)}
-                        className={`inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition ${
-                          active
-                            ? "border-primary bg-primary/10 text-secondary shadow-sm"
-                            : "border-border bg-background text-secondary hover:border-primary/40"
+                        data-testid={`wizard-theme-${t.id}`}
+                        onClick={(e) => {
+                          if (theme?.id !== t.id) celebrateAtEvent("small", e);
+                          setTheme(t);
+                        }}
+                        className={`group min-h-11 overflow-hidden rounded-2xl border text-left transition ${
+                          selected
+                            ? "border-primary shadow-card ring-2 ring-primary/30"
+                            : "border-border hover:border-primary/40"
                         }`}
                       >
-                        <span aria-hidden>{s.emoji}</span>
-                        <span>{s.label}</span>
+                        <div className="relative aspect-[16/10] overflow-hidden bg-muted">
+                          <img
+                            src={t.heroImage}
+                            alt={t.name}
+                            loading="lazy"
+                            className="h-full w-full object-cover transition group-hover:scale-105"
+                          />
+                          {selected && (
+                            <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card">
+                              <Check className="h-4 w-4" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <div className="font-display text-base font-semibold text-secondary">
+                            {t.name}
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                            {t.vibe}
+                          </p>
+                          <div className="mt-2 flex gap-1">
+                            {t.palette.map((c, i) => (
+                              <span
+                                key={i}
+                                className="h-4 w-4 rounded-full border border-border"
+                                style={{ backgroundColor: c }}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       </button>
                     );
                   })}
                 </div>
-              </fieldset>
-            )}
-            <div>
-              <Label htmlFor="name">Party name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={
-                  occasion ? `e.g. Sam's ${OCCASION_LABELS[occasion]}` : "Give it a name"
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="start-time">Start time (optional)</Label>
-                <Input
-                  id="start-time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  placeholder="e.g. 2:00 PM"
-                />
-              </div>
-              <div>
-                <Label htmlFor="location">Location (optional)</Label>
-                <Input
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Our backyard"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="guests">Guests (est.)</Label>
-                <Input
-                  id="guests"
-                  type="number"
-                  min={1}
-                  value={guestEstimate}
-                  onChange={(e) => setGuestEstimate(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="budget">Budget ($)</Label>
-                <Input
-                  id="budget"
-                  type="number"
-                  min={0}
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="py-4" data-testid="wizard-step-3">
-            {themeOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No themes yet for this occasion. You can still create the party and pick one later.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {themeOptions.map((t) => {
-                  const selected = theme?.id === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      data-testid={`wizard-theme-${t.id}`}
-                      onClick={(e) => {
-                        if (theme?.id !== t.id) celebrateAtEvent("small", e);
-                        setTheme(t);
-                      }}
-                      className={`group min-h-11 overflow-hidden rounded-2xl border text-left transition ${
-                        selected
-                          ? "border-primary shadow-card ring-2 ring-primary/30"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                        <img
-                          src={t.heroImage}
-                          alt={t.name}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition group-hover:scale-105"
-                        />
-                        {selected && (
-                          <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card">
-                            <Check className="h-4 w-4" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <div className="font-display text-base font-semibold text-secondary">
-                          {t.name}
-                        </div>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                          {t.vibe}
-                        </p>
-                        <div className="mt-2 flex gap-1">
-                          {t.palette.map((c, i) => (
-                            <span
-                              key={i}
-                              className="h-4 w-4 rounded-full border border-border"
-                              style={{ backgroundColor: c }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === "done" && createdParty && (
-          <div className="py-4 text-center">
-            <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
-              <div
-                className="absolute inset-0 animate-ping rounded-full bg-primary/30"
-                aria-hidden
-              />
-              <PartyPopper className="h-10 w-10 animate-scale-in" />
-              <ConfettiBurst active count={22} spread={130} />
-            </div>
-            <h3 className="mt-5 font-display text-2xl font-semibold text-secondary">
-              {createdParty.name}
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Everything's seeded. Open the plan whenever you're ready.
-            </p>
-            <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
-              <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
-              <PlanStat label="Shopping items" value={createdParty.shoppingItems.length} />
-              <PlanStat label="Theme applied" value={createdParty.theme} />
-              <PlanStat label="Budget set" value={`$${createdParty.budget}`} />
-            </div>
-          </div>
-        )}
-
-        <DialogFooter className="flex-row justify-between sm:justify-between">
-          {step === "done" ? (
-            <>
-              <Button
-                variant="ghost"
-                data-testid="wizard-close"
-                className="min-h-[45px]"
-                onClick={() => {
-                  onOpenChange(false);
-                  reset();
-                }}
-              >
-                Close
-              </Button>
-              <Button
-                variant="festive"
-                data-testid="wizard-open-plan"
-                className="min-h-[45px]"
-                onClick={openPlan}
-              >
-                <Sparkles /> Open your party plan
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                data-testid="wizard-back"
-                className="min-h-[45px]"
-                onClick={() =>
-                  step === 1 ? onOpenChange(false) : setStep(((step as number) - 1) as 1 | 2)
-                }
-              >
-                {step === 1 ? "Cancel" : "Back"}
-              </Button>
-              {(step as number) < 3 ? (
-                <Button
-                  variant="festive"
-                  data-testid="wizard-continue"
-                  className="min-h-[45px]"
-                  disabled={(step === 1 && !occasion) || (step === 2 && (!date || !name))}
-                  onClick={() => setStep(((step as number) + 1) as 2 | 3)}
-                >
-                  Continue <ArrowRight />
-                </Button>
-              ) : (
-                <Button
-                  variant="festive"
-                  data-testid="wizard-create"
-                  className="min-h-[45px]"
-                  disabled={!theme}
-                  onClick={finish}
-                >
-                  <PartyPopper /> Create party
-                </Button>
               )}
-            </>
+              {formError && (
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                >
+                  {formError}
+                </div>
+              )}
+            </div>
           )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+
+          {step === "done" && createdParty && (
+            <div className="py-4 text-center">
+              <div className="relative mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-festive text-primary-foreground shadow-elevated">
+                <div
+                  className="absolute inset-0 animate-ping rounded-full bg-primary/30"
+                  aria-hidden
+                />
+                <PartyPopper className="h-10 w-10 animate-scale-in" />
+                <ConfettiBurst active count={22} spread={130} />
+              </div>
+              <h3 className="mt-5 font-display text-2xl font-semibold text-secondary">
+                {createdParty.name}
+              </h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Everything's seeded. Open the plan whenever you're ready.
+              </p>
+              {formError && (
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="mx-auto mt-3 max-w-md rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-700"
+                >
+                  {formError}
+                </div>
+              )}
+              <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
+                <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
+                <PlanStat label="Shopping items" value={createdParty.shoppingItems.length} />
+                <PlanStat label="Theme applied" value={createdParty.theme} />
+                <PlanStat label="Budget set" value={`$${createdParty.budget}`} />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-row justify-between sm:justify-between">
+            {step === "done" ? (
+              <>
+                <Button
+                  variant="ghost"
+                  data-testid="wizard-close"
+                  className="min-h-[45px]"
+                  onClick={() => tryClose(false)}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="festive"
+                  data-testid="wizard-open-plan"
+                  className="min-h-[45px]"
+                  onClick={openPlan}
+                >
+                  <Sparkles /> Open your party plan
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  data-testid="wizard-back"
+                  className="min-h-[45px]"
+                  onClick={() =>
+                    step === 1 ? tryClose(false) : setStep(((step as number) - 1) as 1 | 2)
+                  }
+                >
+                  {step === 1 ? "Cancel" : "Back"}
+                </Button>
+                {(step as number) < 3 ? (
+                  <Button
+                    variant="festive"
+                    data-testid="wizard-continue"
+                    className="min-h-[45px]"
+                    disabled={step === 1 && !occasion}
+                    onClick={goNext}
+                  >
+                    Continue <ArrowRight />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="festive"
+                    data-testid="wizard-create"
+                    className="min-h-[45px]"
+                    disabled={submitting}
+                    onClick={() => void finish()}
+                  >
+                    <PartyPopper /> {submitting ? "Creating…" : "Create party"}
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Discard this draft?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Your entries on this wizard will be cleared. You can start again anytime.
+          </p>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button
+              variant="ghost"
+              className="min-h-[45px]"
+              onClick={() => setConfirmClose(false)}
+            >
+              Keep editing
+            </Button>
+            <Button
+              variant="destructive"
+              className="min-h-[45px]"
+              onClick={() => {
+                setConfirmClose(false);
+                onOpenChange(false);
+                reset();
+              }}
+            >
+              Discard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function FieldRow({
+  label,
+  htmlFor,
+  error,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <Label htmlFor={htmlFor}>{label}</Label>
+      {children}
+      {error && (
+        <p
+          id={`${htmlFor.replace(/-/g, "")}-err`}
+          role="alert"
+          aria-live="polite"
+          className="mt-1 text-xs text-destructive"
+        >
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

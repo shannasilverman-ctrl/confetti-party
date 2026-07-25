@@ -90,6 +90,7 @@ export type Database = {
           tasks: Json
           theme: string
           theme_id: string | null
+          time_zone: string | null
           timeline: Json
           updated_at: string
           user_id: string
@@ -121,6 +122,7 @@ export type Database = {
           tasks?: Json
           theme?: string
           theme_id?: string | null
+          time_zone?: string | null
           timeline?: Json
           updated_at?: string
           user_id: string
@@ -152,6 +154,7 @@ export type Database = {
           tasks?: Json
           theme?: string
           theme_id?: string | null
+          time_zone?: string | null
           timeline?: Json
           updated_at?: string
           user_id?: string
