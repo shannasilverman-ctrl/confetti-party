@@ -19,9 +19,14 @@ export function withKeyedLock<T>(key: string, fn: () => Promise<T>): Promise<T> 
   // Never let a prior rejection poison the next task.
   const gated = prev.catch(() => undefined).then(fn);
   // Store the SAME promise we'll compare against in cleanup.
-  const tracked: Promise<unknown> = gated.finally(() => {
-    if (registry.get(key) === tracked) registry.delete(key);
-  });
+  const tracked: Promise<unknown> = gated
+    .finally(() => {
+      if (registry.get(key) === tracked) registry.delete(key);
+    })
+    // Prevent unhandled-rejection noise when the caller has already
+    // attached its own catch to `gated`. This does not swallow errors
+    // for the caller — `gated` still rejects.
+    .catch(() => undefined);
   registry.set(key, tracked);
   return gated;
 }
