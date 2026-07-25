@@ -735,7 +735,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                 Save the date
               </p>
               <div className="flex justify-center">
-                <CalendarAndDirections party={party} />
+                <CalendarAndDirections token={token} party={party} />
               </div>
             </div>
 
@@ -842,7 +842,7 @@ function SuccessCard({
       </div>
       {choice !== "no" && (
         <div className="flex justify-center">
-          <CalendarAndDirections party={party} />
+          <CalendarAndDirections token={token} party={party} />
         </div>
       )}
       <div className="pt-1">
