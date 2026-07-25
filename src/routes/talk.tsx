@@ -74,7 +74,7 @@ function TalkRoute() {
   // transcribes what the user says into the text box, then the normal text
   // brain replies. Availability is browser-specific (Chrome/Edge/Safari).
   const [dictating, setDictating] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const speechSupported =
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
