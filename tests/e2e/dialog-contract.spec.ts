@@ -117,9 +117,7 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
 });
 
 test.describe("Holiday starter → editable workspace", () => {
-  test("picking a starter prefills a name and produces an editable workspace", async ({
-    page,
-  }) => {
+  test("picking a starter prefills a name and produces an editable workspace", async ({ page }) => {
     await page.goto("/app");
     await page.waitForLoadState("networkidle");
     const trigger = page.getByTestId("new-party-trigger");

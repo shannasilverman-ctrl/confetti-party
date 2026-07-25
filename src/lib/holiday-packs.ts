@@ -661,4 +661,3 @@ export function starterPack(id: HolidayStarterId | undefined | null): HolidayPac
   if (!id) return undefined;
   return PACKS[id];
 }
-

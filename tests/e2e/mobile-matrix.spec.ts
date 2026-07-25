@@ -59,6 +59,9 @@ test.describe("mobile matrix — no horizontal overflow", () => {
   test.afterAll(() => {
     if (!measurements.length) return;
     const out = path.join(process.cwd(), "PHASE4_QA_evidence.json");
-    fs.writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), measurements }, null, 2));
+    fs.writeFileSync(
+      out,
+      JSON.stringify({ generatedAt: new Date().toISOString(), measurements }, null, 2),
+    );
   });
 });

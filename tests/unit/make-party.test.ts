@@ -47,10 +47,7 @@ describe("makeParty", () => {
     const extra: Task[] = [
       { id: "x1", title: "Sharpen carving knife", bucket: "Party week", done: false },
     ];
-    const p = makeParty(
-      { ...baseInput, holidayPackId: "thanksgiving", extraTasks: extra },
-      "id-5",
-    );
+    const p = makeParty({ ...baseInput, holidayPackId: "thanksgiving", extraTasks: extra }, "id-5");
     const matches = p.tasks.filter((t) => t.id === "x1");
     expect(matches.length).toBe(1);
   });

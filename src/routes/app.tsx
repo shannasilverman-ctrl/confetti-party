@@ -421,8 +421,7 @@ function NewPartyWizard({
       theme: theme.name,
       themeId: theme.id,
       extraTasks,
-      holidayPackId:
-        occasion === "holiday" && holidayStarter ? holidayStarter : undefined,
+      holidayPackId: occasion === "holiday" && holidayStarter ? holidayStarter : undefined,
     });
     setCreatedId(id);
     setStep("done");
