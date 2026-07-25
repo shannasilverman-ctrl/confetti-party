@@ -15,6 +15,7 @@ import {
   parseWallClockTime,
   combineDateAndTime,
   toLocalCalendarStamp,
+  toUtcCalendarStamp,
 } from "@/lib/date-only";
 
 // Node's Intl runs in the *process* time zone. We can't switch TZ mid-test
@@ -158,6 +159,8 @@ describe("time helpers", () => {
     expect(parseWallClockTime("6:30 PM")).toEqual({ h: 18, m: 30 });
     expect(parseWallClockTime("12:00 AM")).toEqual({ h: 0, m: 0 });
     expect(parseWallClockTime("12:00 PM")).toEqual({ h: 12, m: 0 });
+    expect(parseWallClockTime("13:00 PM")).toBeNull();
+    expect(parseWallClockTime("00:30 AM")).toBeNull();
     expect(parseWallClockTime("garbage")).toBeNull();
     expect(parseWallClockTime(null)).toBeNull();
   });
@@ -172,5 +175,8 @@ describe("time helpers", () => {
   it("toLocalCalendarStamp encodes local wall clock", () => {
     const d = combineDateAndTime("2027-05-22", { h: 18, m: 30 });
     expect(toLocalCalendarStamp(d)).toBe("20270522T183000");
+  });
+  it("toUtcCalendarStamp encodes an absolute UTC timestamp", () => {
+    expect(toUtcCalendarStamp(new Date("2027-05-22T18:30:45.000Z"))).toBe("20270522T183045Z");
   });
 });

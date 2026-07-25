@@ -95,13 +95,16 @@ export function isoDateInDaysLocal(days: number, base: Date = new Date()): strin
  * local components so DST does not distort the count.
  */
 export function calendarDaysBetween(aISO: string, bISO: string): number {
-  const a = dateOnlyToLocalDate(aISO);
-  const b = dateOnlyToLocalDate(bISO);
-  // Anchor to noon to eliminate any DST shift when subtracting ms; the
-  // difference divided by 24h is then exact.
-  const aN = new Date(a.getFullYear(), a.getMonth(), a.getDate(), 12).getTime();
-  const bN = new Date(b.getFullYear(), b.getMonth(), b.getDate(), 12).getTime();
-  return Math.round((bN - aN) / (1000 * 60 * 60 * 24));
+  const a = parseDateOnly(aISO);
+  const b = parseDateOnly(bISO);
+  if (!a) throw new Error(`Invalid date-only value: ${JSON.stringify(aISO)}`);
+  if (!b) throw new Error(`Invalid date-only value: ${JSON.stringify(bISO)}`);
+  // UTC is used only as a stable calendar ordinal. These are not instants and
+  // are never shown to the user, so DST and the viewer's time zone cannot
+  // distort the number of crossed calendar boundaries.
+  const aOrdinal = Date.UTC(a.y, a.m - 1, a.d) / 86_400_000;
+  const bOrdinal = Date.UTC(b.y, b.m - 1, b.d) / 86_400_000;
+  return bOrdinal - aOrdinal;
 }
 
 /** Local-calendar days until a date-only string, from `now` (default today). */
@@ -147,6 +150,7 @@ export function parseWallClockTime(t: string | null | undefined): { h: number; m
   let h = Number(match[1]);
   const m = Number(match[2]);
   const ap = match[3]?.toUpperCase();
+  if (ap && (h < 1 || h > 12)) return null;
   if (ap === "PM" && h < 12) h += 12;
   if (ap === "AM" && h === 12) h = 0;
   if (h > 23 || m > 59) return null;
@@ -173,4 +177,15 @@ export function toLocalCalendarStamp(d: Date): string {
   const h = pad2(d.getHours());
   const mi = pad2(d.getMinutes());
   return `${y}${mo}${da}T${h}${mi}00`;
+}
+
+/** `YYYYMMDDTHHMMSSZ` UTC stamp for ICS metadata such as DTSTAMP. */
+export function toUtcCalendarStamp(d: Date): string {
+  const y = d.getUTCFullYear();
+  const mo = pad2(d.getUTCMonth() + 1);
+  const da = pad2(d.getUTCDate());
+  const h = pad2(d.getUTCHours());
+  const mi = pad2(d.getUTCMinutes());
+  const s = pad2(d.getUTCSeconds());
+  return `${y}${mo}${da}T${h}${mi}${s}Z`;
 }

@@ -28,14 +28,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
-import {
-  formatDateOnly,
-  parseWallClockTime,
-  combineDateAndTime,
-  toLocalCalendarStamp,
-  toAllDayStamp,
-  allDayStampPlusDays,
-} from "@/lib/date-only";
+import { formatDateOnly } from "@/lib/date-only";
+import { buildIcs, googleCalUrl } from "@/lib/calendar-export";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
@@ -184,73 +178,6 @@ function PublicRsvpPage() {
   if (status === "temporarily_unavailable") return <UnavailableInvite />;
   if (!party) return <InvalidInvite />;
   return <RsvpForm token={token} party={party} />;
-}
-
-/* ---------- Calendar helpers ---------- */
-
-function buildCalendarPayload(party: PartyView) {
-  // Wall-clock semantics: host-entered start_time is treated as floating
-  // local time. If host time zone becomes a first-class field, wire it in
-  // here — do NOT silently convert to UTC.
-  const time = parseWallClockTime(party.start_time);
-  if (time) {
-    const start = combineDateAndTime(party.date, time);
-    const end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
-    return {
-      allDay: false as const,
-      start,
-      end,
-      googleDates: `${toLocalCalendarStamp(start)}/${toLocalCalendarStamp(end)}`,
-      icsStart: toLocalCalendarStamp(start),
-      icsEnd: toLocalCalendarStamp(end),
-      icsAllDay: false,
-    };
-  }
-  const startStamp = toAllDayStamp(party.date);
-  const endStamp = allDayStampPlusDays(party.date, 1);
-  return {
-    allDay: true as const,
-    googleDates: `${startStamp}/${endStamp}`,
-    icsStart: startStamp,
-    icsEnd: endStamp,
-    icsAllDay: true,
-  };
-}
-
-function googleCalUrl(party: PartyView) {
-  const p = buildCalendarPayload(party);
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: party.name,
-    dates: p.googleDates,
-    details: "See you there — sent via Confetti.",
-  });
-  if (party.location) params.set("location", party.location);
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
-}
-
-function buildIcs(party: PartyView): string {
-  const p = buildCalendarPayload(party);
-  const uid = `${(party.name || "party").replace(/\W+/g, "-")}-${Date.now()}@confetti-party.lovable.app`;
-  const now = toLocalCalendarStamp(new Date());
-  const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Confetti//RSVP//EN",
-    "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${uid}`,
-    `DTSTAMP:${now}`,
-    p.icsAllDay ? `DTSTART;VALUE=DATE:${p.icsStart}` : `DTSTART:${p.icsStart}`,
-    p.icsAllDay ? `DTEND;VALUE=DATE:${p.icsEnd}` : `DTEND:${p.icsEnd}`,
-    `SUMMARY:${esc(party.name)}`,
-    party.location ? `LOCATION:${esc(party.location)}` : "",
-    "DESCRIPTION:See you there — sent via Confetti.",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].filter(Boolean);
-  return lines.join("\r\n");
 }
 
 function downloadIcs(party: PartyView) {
