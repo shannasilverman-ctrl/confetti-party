@@ -12,6 +12,12 @@ import { resolve } from "node:path";
  */
 
 const REQUIRED_PUBLIC_FILES = ["public/brand/confetti-hero.jpg", "public/brand/ava-liam.jpg"];
+const MANIFEST_PATH = "public/manifest.webmanifest";
+const APP_ICON_FILES = [
+  "public/apple-touch-icon.png",
+  "public/app-icon-192.png",
+  "public/app-icon-512.png",
+];
 
 // Performance contract: enforce upper-bound sizes on branded imagery so
 // we do not silently regress LCP. Values are generous ceilings above the
@@ -34,6 +40,90 @@ test.describe("first-party image asset contract", () => {
           `${rel} must stay under ${Math.round(cap / 1024)} kB (was ${Math.round(s.size / 1024)} kB)`,
         ).toBeLessThanOrEqual(cap);
       }
+    }
+  });
+
+  test("installable app manifest has stable branded launch metadata", async ({ request }) => {
+    test.skip(test.info().project.name !== "desktop", "manifest contract runs once");
+
+    const manifestFile = statSync(resolve(process.cwd(), MANIFEST_PATH));
+    expect(manifestFile.isFile(), `${MANIFEST_PATH} must exist as a file`).toBe(true);
+
+    const response = await request.get("/manifest.webmanifest");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/manifest+json");
+
+    const manifest = (await response.json()) as {
+      name?: string;
+      short_name?: string;
+      start_url?: string;
+      scope?: string;
+      display?: string;
+      theme_color?: string;
+      icons?: Array<{ src?: string; sizes?: string; purpose?: string }>;
+      shortcuts?: Array<{ url?: string }>;
+    };
+
+    expect(manifest.name).toContain("Confetti");
+    expect(manifest.short_name).toBe("Confetti");
+    expect(manifest.start_url).toBe("/app");
+    expect(manifest.scope).toBe("/");
+    expect(manifest.display).toBe("standalone");
+    expect(manifest.theme_color).toBe("#3B1E5E");
+    expect(manifest.icons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          src: "/app-icon-192.png",
+          sizes: "192x192",
+          purpose: expect.stringContaining("maskable"),
+        }),
+        expect.objectContaining({
+          src: "/app-icon-512.png",
+          sizes: "512x512",
+          purpose: expect.stringContaining("maskable"),
+        }),
+      ]),
+    );
+    expect(manifest.shortcuts?.map((shortcut) => shortcut.url)).toEqual(
+      expect.arrayContaining(["/app", "/talk"]),
+    );
+  });
+
+  test("document advertises the manifest and mobile app identity", async ({ page }) => {
+    test.skip(test.info().project.name !== "desktop", "head contract runs once");
+
+    await page.goto("/");
+
+    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
+      "href",
+      "/manifest.webmanifest",
+    );
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
+      "href",
+      "/apple-touch-icon.png",
+    );
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#3B1E5E");
+    await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute(
+      "content",
+      "yes",
+    );
+    await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute(
+      "content",
+      "Confetti",
+    );
+  });
+
+  test("install icons exist and resolve as PNG assets", async ({ request }) => {
+    test.skip(test.info().project.name !== "desktop", "icon contract runs once");
+
+    for (const relativePath of APP_ICON_FILES) {
+      const iconFile = statSync(resolve(process.cwd(), relativePath));
+      expect(iconFile.isFile(), `${relativePath} must exist as a file`).toBe(true);
+      expect(iconFile.size, `${relativePath} must be non-empty`).toBeGreaterThan(1024);
+
+      const response = await request.get(`/${relativePath.replace("public/", "")}`);
+      expect(response.status()).toBe(200);
+      expect(response.headers()["content-type"]).toContain("image/png");
     }
   });
 

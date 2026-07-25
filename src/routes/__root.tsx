@@ -92,6 +92,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Confetti is your calm co-host for any gathering — from the first idea through the final toast. Guests, checklist, budget, day-of, and memories in one warm little app.",
       },
       { name: "author", content: "Confetti" },
+      { name: "application-name", content: "Confetti" },
+      { name: "theme-color", content: "#3B1E5E" },
+      { name: "color-scheme", content: "light" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Confetti" },
       { property: "og:title", content: "Confetti — Plan unforgettable gatherings" },
       {
         property: "og:description",
@@ -104,6 +111,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

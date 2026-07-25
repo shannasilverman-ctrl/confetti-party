@@ -1,0 +1,40 @@
+{
+  "id": "/app",
+  "name": "Confetti — Your calm co-host",
+  "short_name": "Confetti",
+  "description": "Plan gatherings from the first idea through the final toast.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#FBF7EE",
+  "theme_color": "#3B1E5E",
+  "categories": ["lifestyle", "productivity"],
+  "icons": [
+    {
+      "src": "/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My parties",
+      "short_name": "Parties",
+      "description": "Open your Confetti party dashboard",
+      "url": "/app"
+    },
+    {
+      "name": "Talk out a party",
+      "short_name": "Talk",
+      "description": "Plan a gathering with your calm AI co-host",
+      "url": "/talk"
+    }
+  ]
+}

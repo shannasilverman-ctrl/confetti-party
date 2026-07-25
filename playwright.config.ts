@@ -13,9 +13,10 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
-  // Two workers keeps the local Cloudflare runtime stable under the same
-  // constrained Linux runners used by CI while preserving parallel coverage.
-  workers: process.env.CI ? 2 : undefined,
+  // Keep the production Worker and Chromium inside the constrained GitHub
+  // runner's memory envelope. Two workers can outlive the local Worker and
+  // turn otherwise-valid routes into a cascade of ERR_CONNECTION_REFUSED.
+  workers: process.env.CI ? 1 : undefined,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
