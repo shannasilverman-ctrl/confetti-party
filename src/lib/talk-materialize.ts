@@ -581,8 +581,13 @@ export function materializeDraft(
 }
 
 export function summarize(merged: DraftPatch, options: MaterializeOptions = {}): ReviewSummary {
-  const { party, assumptions, openQuestions } = materializeDraft(merged, options);
+  const { party, assumptions, openQuestions, blockingUnknowns, optionalUnknowns } =
+    materializeDraft(merged, options);
   const pack = getPack(party.holidayPackId ?? undefined);
+  const palette = (merged.vibe?.creativeDirection?.palette ?? [])
+    .map((p) => String(p).trim())
+    .filter(Boolean)
+    .slice(0, 8);
   return {
     essentials: {
       name: party.name,
@@ -595,6 +600,11 @@ export function summarize(merged: DraftPatch, options: MaterializeOptions = {}):
       budget: party.budget,
       hostReadyTarget: merged.effort?.hostReadyTarget ?? null,
       foodApproach: merged.food?.approach ?? null,
+      effortLevel: merged.effort?.level ?? null,
+      tone: merged.identity?.tone?.trim() || null,
+      palette,
+      budgetStance: merged.budget?.stance ?? null,
+      contributionMode: merged.contributions?.mode ?? null,
     },
     counts: {
       tasks: party.tasks.length,
@@ -605,6 +615,8 @@ export function summarize(merged: DraftPatch, options: MaterializeOptions = {}):
     },
     assumptions,
     openQuestions,
+    blockingUnknowns,
+    optionalUnknowns,
   };
 }
 
