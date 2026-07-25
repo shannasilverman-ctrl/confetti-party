@@ -13,12 +13,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 
 const WIDTHS = [320, 375, 390, 430] as const;
 
-async function measureTargets(
-  scope: Locator,
-  selector: string,
-  width: number,
-  stepLabel: string,
-) {
+async function measureTargets(scope: Locator, selector: string, width: number, stepLabel: string) {
   const items = scope.locator(selector);
   const n = await items.count();
   let measured = 0;
