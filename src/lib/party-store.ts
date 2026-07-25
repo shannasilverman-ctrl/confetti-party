@@ -195,6 +195,8 @@ export class PartyStore {
     e.latest = merged;
     e.pendingConflict = null;
     e.attempts = 0;
+    // Clear conflict state so kick() proceeds.
+    this.setState(id, "idle");
     void this.kick(id);
   }
 
