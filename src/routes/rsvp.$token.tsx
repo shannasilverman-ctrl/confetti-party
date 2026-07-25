@@ -495,19 +495,26 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
       ...(allergensOther.trim() ? [allergensOther.trim().slice(0, 60)] : []),
     ];
 
-    const { error: rpcError } = await supabase.rpc("submit_rsvp", {
-      token,
-      guest_name: trimmedName,
-      rsvp,
-      adults: rsvp === "yes" ? adults : 0,
-      kids: rsvp === "yes" ? kids : 0,
-      household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
-      dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
-      allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
-    });
+    let rpcError: unknown = null;
+    try {
+      const res = await supabase.rpc("submit_rsvp", {
+        token,
+        guest_name: trimmedName,
+        rsvp,
+        adults: rsvp === "yes" ? adults : 0,
+        kids: rsvp === "yes" ? kids : 0,
+        household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
+        dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
+        allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
+      });
+      rpcError = res.error;
+    } catch (thrown) {
+      rpcError = thrown;
+    }
     setSubmitting(false);
     if (rpcError) {
-      setError("Something went wrong. Please try again.");
+      // Preserve form inputs so the guest can retry without re-entering.
+      setError("We couldn't send your RSVP. Check your connection and try again.");
       return;
     }
     setSubmittedChoice(rsvp);
