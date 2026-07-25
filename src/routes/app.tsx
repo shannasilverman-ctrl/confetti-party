@@ -508,7 +508,7 @@ function NewPartyWizard({
         )}
 
         {step === 2 && (
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4" data-testid="wizard-step-2">
             {occasion === "holiday" && (
               <fieldset
                 aria-label="Holiday starter"
@@ -533,8 +533,9 @@ function NewPartyWizard({
                         type="button"
                         role="radio"
                         aria-checked={active}
+                        data-testid={`wizard-starter-${s.id}`}
                         onClick={() => pickStarter(s.id)}
-                        className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition ${
+                        className={`inline-flex min-h-11 min-w-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition ${
                           active
                             ? "border-primary bg-primary/10 text-secondary shadow-sm"
                             : "border-border bg-background text-secondary hover:border-primary/40"
