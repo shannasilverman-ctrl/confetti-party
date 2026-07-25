@@ -815,11 +815,22 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [saveStates, setSaveStates] = useState<Record<string, SaveStateSnapshot>>({});
-  // Ids that have been deleted this session; blocks in-flight saves from
-  // resurrecting a row after deleteParty() completed.
+  const [conflicts, setConflicts] = useState<
+    Record<string, import("./party-persistence").PendingConflict>
+  >({});
+  const [insertRejected, setInsertRejected] = useState<Record<string, boolean>>({});
+  // Authoritative synchronous parties reference so updateParty is deterministic
+  // regardless of React batching. Kept in lock-step with the setParties calls.
+  const partiesRef = useRef<Party[]>([]);
   const tombstonesRef = useRef<Set<string>>(new Set());
   const [demoWarning, setDemoWarning] = useState<null | "corrupt" | "quota" | "oversized">(null);
   const warnedRef = useRef<Set<string>>(new Set());
+
+  const applyPartiesUpdate = useCallback((updater: (prev: Party[]) => Party[]) => {
+    const next = updater(partiesRef.current);
+    partiesRef.current = next;
+    setParties(next);
+  }, []);
 
   // Persistence store — deterministic queue with column-diffed writes,
   // optimistic concurrency, 3-way merges, and bounded retry.
@@ -831,8 +842,22 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       onEvent: (ev: StoreEvent) => {
         if (ev.type === "state") {
           setSaveStates((prev) => ({ ...prev, [ev.id]: ev.state }));
+          setConflicts((prev) => {
+            const next = { ...prev };
+            if (ev.conflict) next[ev.id] = ev.conflict;
+            else delete next[ev.id];
+            return next;
+          });
+          setInsertRejected((prev) => {
+            const rejected = storeRef.current!.getState(ev.id).insertRejected;
+            if (rejected === !!prev[ev.id]) return prev;
+            const next = { ...prev };
+            if (rejected) next[ev.id] = true;
+            else delete next[ev.id];
+            return next;
+          });
         } else if (ev.type === "server-row") {
-          setParties((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
+          applyPartiesUpdate((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
         } else if (ev.type === "toast") {
           if (ev.kind === "error") toast.error(ev.message);
           else toast.message(ev.message);
@@ -842,7 +867,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   }
   const store = storeRef.current;
 
-  // Online-recovery: flush queued saves when the browser regains network.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onOnline = () => store.flushAll();
@@ -850,15 +874,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("online", onOnline);
   }, [store]);
 
-  // Host focus/visibility refetch — keeps counts/claims fresh when a host
-  // returns from the guest link, but never overwrites in-flight edits.
   const lastFocusRefetchRef = useRef(0);
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (!user) return;
     const maybeRefresh = () => {
       if (document.visibilityState !== "visible") return;
-      // Skip while any party save is in a non-idle state.
       const dirty = Object.values(saveStates).some(
         (s) => s === "saving" || s === "conflict" || s === "offline" || s === "error",
       );
@@ -876,13 +897,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     };
   }, [user, saveStates]);
 
-  // Load data based on auth state.
   useEffect(() => {
     if (authLoading) return;
     let cancelled = false;
     if (!user) {
       const seeds = baseSeeds();
       const { parties: hydrated, warning } = _loadDemoState(seeds);
+      partiesRef.current = hydrated;
       setParties(hydrated);
       if (warning && !warnedRef.current.has(warning)) {
         warnedRef.current.add(warning);
@@ -899,17 +920,21 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          console.error("[parties] load failed", error);
+          // eslint-disable-next-line no-console
+          console.warn("[parties] load failed", {
+            code: (error as { code?: string }).code,
+            messagePreview: (error.message ?? "").slice(0, 80),
+          });
+          partiesRef.current = [];
           setParties([]);
           setStatus("error");
           return;
         }
         const loaded = (data ?? []).map((r) => rowToParty(r));
+        partiesRef.current = loaded;
         setParties(loaded);
-        // Seed baselines so subsequent updates diff against real server state.
         for (const p of loaded) store.seedBaseline(p, user.id);
         setStatus("ready");
-        // Signed in: demo storage is no longer authoritative.
         _clearDemoState();
       });
     return () => {
@@ -917,7 +942,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     };
   }, [user, authLoading, reloadKey, store]);
 
-  // Persist demo parties to localStorage whenever they change (signed-out only).
   useEffect(() => {
     if (authLoading || user) return;
     if (status !== "ready") return;
@@ -928,7 +952,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }
   }, [parties, user, authLoading, status]);
 
-  // Surface demo warnings once, non-blocking.
   useEffect(() => {
     if (!demoWarning) return;
     const msg =
@@ -947,30 +970,45 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       status,
       isDemo,
       saveStates,
+      conflicts,
+      insertRejected,
       retrySave: (id) => store.retry(id),
+      resolveConflict: (id, choice) => store.resolveConflict(id, choice),
+      discardLocalDraft: (id) => {
+        tombstonesRef.current.add(id);
+        store.discardLocalDraft(id);
+        applyPartiesUpdate((prev) => prev.filter((p) => p.id !== id));
+        setSaveStates((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
+        setInsertRejected((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
+      },
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
         const id =
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
         const p = makeParty(input, id);
-        setParties((prev) => [...prev, p]);
+        applyPartiesUpdate((prev) => [...prev, p]);
         if (user) store.enqueueInsert(p, user.id);
         return id;
       },
       updateParty: (id, updater) => {
-        let updated: Party | undefined;
-        setParties((prev) =>
-          prev.map((p) => {
-            if (p.id !== id) return p;
-            updated = updater(p);
-            return updated;
-          }),
-        );
-        if (user && updated) store.enqueueUpdate(updated, user.id);
+        // Deterministic: compute next from the authoritative ref, not from the
+        // React state closure. Two synchronous updateParty calls will both see
+        // the previous call's write.
+        const prev = partiesRef.current.find((p) => p.id === id);
+        if (!prev) return;
+        const next = updater(prev);
+        applyPartiesUpdate((cur) => cur.map((p) => (p.id === id ? next : p)));
+        if (user) store.enqueueUpdate(next, user.id);
       },
       cloneParty: (id, overrides) => {
-        const src = parties.find((x) => x.id === id);
+        const src = partiesRef.current.find((x) => x.id === id);
         if (!src) return null;
         const newId =
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
@@ -993,26 +1031,34 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         }));
         copy.budgetCategories = copy.budgetCategories.map((c) => ({ ...c, expenses: [] }));
         copy.shoppingItems = copy.shoppingItems.map((s) => ({ ...s, status: "needed" }));
-        setParties((prev) => [...prev, copy]);
+        applyPartiesUpdate((prev) => [...prev, copy]);
         if (user) store.enqueueInsert(copy, user.id);
         return newId;
       },
       deleteParty: async (id) => {
-        const target = parties.find((p) => p.id === id);
+        const target = partiesRef.current.find((p) => p.id === id);
         if (!target) return { error: null };
         tombstonesRef.current.add(id);
         store.drop(id);
-        setParties((list) => list.filter((p) => p.id !== id));
+        applyPartiesUpdate((list) => list.filter((p) => p.id !== id));
         setSaveStates((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
+        setInsertRejected((prev) => {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
         if (!user) return { error: null };
         const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
-          console.error("[parties] delete failed", error);
+          // eslint-disable-next-line no-console
+          console.warn("[parties] delete failed", {
+            code: (error as { code?: string }).code,
+            messagePreview: (error.message ?? "").slice(0, 80),
+          });
           tombstonesRef.current.delete(id);
-          setParties((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
+          applyPartiesUpdate((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
           return { error: "Couldn't delete this party. Try again." };
         }
         if (!data || data.length === 0) {
@@ -1021,7 +1067,17 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         return { error: null };
       },
     }),
-    [parties, status, isDemo, user, store, saveStates],
+    [
+      parties,
+      status,
+      isDemo,
+      user,
+      store,
+      saveStates,
+      conflicts,
+      insertRejected,
+      applyPartiesUpdate,
+    ],
   );
 
   return <PartyContext.Provider value={value}>{children}</PartyContext.Provider>;
