@@ -732,6 +732,8 @@ type Ctx = {
   resolveConflict: (id: string, choice: "mine" | "theirs") => void;
   /** Discard a locally-recoverable rejected draft. */
   discardLocalDraft: (id: string) => void;
+  /** Read the current user's recoverable draft from durable storage. */
+  loadRejectedDraftForUser: () => Promise<RejectedDraft | null>;
 };
 
 import {
