@@ -21,8 +21,12 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 | Build     | `bun run build` (`vite build`)                                                                                                                                                                                                |
 | E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, webServer via `scripts/wrangler-config-path.mjs` → `.output/server/wrangler.json` on CI / `dist/server/wrangler.json` in the Lovable sandbox; no `reuseExistingServer` in CI) |
 
-Latest local execution after the clean-CI review follow-up (pending SHA
-finalised on push; canonical CI-facing path now enforced strictly — see §5):
+Authoritative GitHub Actions run for commit `d19e7710a1e77276fe49a1ec0c5c6e668f586d19`:
+https://github.com/shannasilverman-ctrl/confetti-party/actions/runs/30147007946
+
+The job completed in **3m53s** with all stages green: frozen install, lint,
+typecheck, unit tests with coverage, build, Playwright browser install,
+webServer smoke, E2E, and Playwright artifact upload.
 
 | Gate                            | Result                                                       |
 | ------------------------------- | ------------------------------------------------------------ |
@@ -31,14 +35,18 @@ finalised on push; canonical CI-facing path now enforced strictly — see §5):
 | `bun run lint`                  | ESLint — 0 problems                                          |
 | `bun run typecheck`             | `tsc --noEmit` — 0 errors                                    |
 | `bun run test` (BEFORE build)   | Vitest — **127 passed / 18 files** (no repo-state deps)      |
-| `bun run build`                 | Vite + Nitro — ok; sandbox emits `dist/server/wrangler.json` |
-| `PW_PORT=4271 verify:webserver` | 200 OK, exit 0                                               |
-| `CI=1 … playwright test`        | **75 passed, 48 skipped, 0 failed, 1 flaky** (exit 0)        |
+| `bun run build`                 | Vite + Nitro — ok                                            |
+| `verify:webserver`              | 200 OK, exit 0                                               |
+| Playwright E2E + axe            | **76 passed, 48 skipped, 0 failed, 0 flaky** (2.1m)          |
 
-The one flaky test (`focus trap, labels, Escape returns focus to the exact
-trigger @ desktop`) passed on retry (retries=1 in CI).
+GitHub E2E log lines 2269–2270 show exactly `48 skipped` and `76 passed
+(2.1m)`, with zero failures. Searching the GitHub log for `flaky` returned
+0/0.
 
-GitHub Actions run URL: **pending observation of the new run after push**.
+Historical note: an earlier local sandbox run reported one flaky desktop
+focus test that passed on retry. That flake did **not** reproduce in the
+final GitHub Actions run above.
+
 Prior run #19 (SHA `2de1303`) was red at the Unit step because the
 `wrangler-config-path` unit test depended on repo-state build output that
 does not exist before the Build step. That contract is now proved with
