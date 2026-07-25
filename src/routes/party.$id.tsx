@@ -738,8 +738,8 @@ function CategoryCard({
                 <span className="font-medium text-secondary">${e.amount}</span>
                 <button
                   onClick={() => onRemove(e.id)}
-                  className="text-muted-foreground opacity-0 transition hover:text-destructive group-hover:opacity-100"
-                  aria-label="Remove expense"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center text-muted-foreground transition hover:text-destructive sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100"
+                  aria-label={`Remove expense ${e.label}`}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
