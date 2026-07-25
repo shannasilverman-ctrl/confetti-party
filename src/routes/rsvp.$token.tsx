@@ -21,6 +21,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
+import { PublicBringBoard } from "@/components/public-bring-board";
+import { PhotoDropCard } from "@/components/photo-drop-card";
+import { HostUpdatesFeed } from "@/components/host-updates-feed";
 
 type RSVPChoice = "yes" | "maybe" | "no";
 
