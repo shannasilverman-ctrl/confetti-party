@@ -41,7 +41,14 @@ function maskEmail(email: string): string {
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
-  const { user, signIn, signUp, resetPasswordForEmail, loading: authLoading } = useAuth();
+  const {
+    user,
+    signIn,
+    signUp,
+    resetPasswordForEmail,
+    resendSignupConfirmation,
+    loading: authLoading,
+  } = useAuth();
   const [mode, setMode] = useState<AuthMode>(search.mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -72,14 +79,22 @@ function AuthPage() {
   }
 
   async function submitSignUp() {
-    const { error } = await signUp(email, password);
-    if (error) {
-      toast.error(error);
+    const result = await signUp(email, password);
+    if (result.error) {
+      toast.error(result.error);
       return;
     }
-    // If email confirmation is required, no session is created and the user
-    // must confirm before signing in. Show a persistent state instead of an
-    // ambiguous toast.
+    // Clear the password from state as soon as signUp resolves. Resends must
+    // never reuse it.
+    setPassword("");
+    if (result.session) {
+      // Confirmation is disabled — Supabase returned an active session.
+      // Navigate straight into the app.
+      toast.success("Welcome to Confetti");
+      void navigate({ to: "/app", replace: true });
+      return;
+    }
+    // Confirmation required — show the persistent confirm-email state.
     setSentTo({ kind: "confirm", email });
     setResendCooldown(60);
   }
@@ -112,10 +127,13 @@ function AuthPage() {
     if (!sentTo || resendCooldown > 0) return;
     setSubmitting(true);
     try {
-      if (sentTo.kind === "reset") {
-        await resetPasswordForEmail(sentTo.email);
-      } else {
-        await signUp(sentTo.email, password || "TemporaryPass1!"); // resend confirmation
+      const { error } =
+        sentTo.kind === "reset"
+          ? await resetPasswordForEmail(sentTo.email)
+          : await resendSignupConfirmation(sentTo.email);
+      if (error) {
+        toast.error(error);
+        return;
       }
       toast.success("Sent again");
       setResendCooldown(60);
@@ -125,7 +143,11 @@ function AuthPage() {
   }
 
   const title =
-    mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset your password" : "Welcome back";
+    mode === "signup"
+      ? "Create your account"
+      : mode === "forgot"
+        ? "Reset your password"
+        : "Welcome back";
   const submitLabel =
     mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Sign in";
 
