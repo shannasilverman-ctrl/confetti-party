@@ -1,5 +1,7 @@
 // Public Bring Board component for the guest RSVP page.
 // Guests can claim/release items via SECURITY DEFINER RPCs (token-scoped).
+// Release now requires a per-claim secret returned by claim_bring_item and
+// stored in the guest's own localStorage — a shared name alone cannot un-claim.
 
 import { useState } from "react";
 import { toast } from "sonner";
@@ -16,10 +18,45 @@ type Props = {
   defaultName?: string;
 };
 
+const SECRET_STORAGE_KEY = (token: string) => `confetti.bring.secrets.${token}`;
+
+function loadSecrets(token: string): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SECRET_STORAGE_KEY(token));
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSecret(token: string, itemId: string, secret: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const map = loadSecrets(token);
+    map[itemId] = secret;
+    window.localStorage.setItem(SECRET_STORAGE_KEY(token), JSON.stringify(map));
+  } catch {
+    /* storage unavailable — release will fall back to name */
+  }
+}
+
+function clearSecret(token: string, itemId: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const map = loadSecrets(token);
+    delete map[itemId];
+    window.localStorage.setItem(SECRET_STORAGE_KEY(token), JSON.stringify(map));
+  } catch {
+    /* noop */
+  }
+}
+
 export function PublicBringBoard({ token, items, defaultName }: Props) {
   const [rows, setRows] = useState<PublicBringItem[]>(items);
   const [name, setName] = useState(defaultName ?? "");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [secrets, setSecrets] = useState<Record<string, string>>(() => loadSecrets(token));
 
   if (!rows.length) return null;
 
@@ -35,15 +72,20 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       return;
     }
     setBusyId(item.id);
-    const { error } = await supabase.rpc("claim_bring_item", {
+    const { data, error } = await supabase.rpc("claim_bring_item", {
       token,
       item_id: item.id,
       guest_name: who,
     });
     setBusyId(null);
-    if (error) {
+    if (error || (data && (data as { ok?: boolean }).ok === false)) {
       toast.error("Couldn't claim that — it may already be taken. Refresh?");
       return;
+    }
+    const secret = (data as { claimSecret?: string } | null)?.claimSecret;
+    if (secret) {
+      saveSecret(token, item.id, secret);
+      setSecrets((prev) => ({ ...prev, [item.id]: secret }));
     }
     setRows((prev) =>
       prev.map((r) =>
@@ -56,17 +98,25 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
 
   async function release(item: PublicBringItem) {
     const who = name.trim() || item.assigneeName || "";
+    const secret = secrets[item.id];
     setBusyId(item.id);
-    const { error } = await supabase.rpc("release_bring_item", {
+    const { data, error } = await supabase.rpc("release_bring_item", {
       token,
       item_id: item.id,
       guest_name: who,
+      claim_secret: secret ?? null,
     });
     setBusyId(null);
-    if (error) {
+    if (error || (data && (data as { ok?: boolean }).ok === false)) {
       toast.error("Couldn't release that item.");
       return;
     }
+    clearSecret(token, item.id);
+    setSecrets((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
     setRows((prev) =>
       prev.map((r) =>
         r.id === item.id ? { ...r, status: "open", assigneeName: null } : r,

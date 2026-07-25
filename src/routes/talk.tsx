@@ -171,7 +171,7 @@ function TalkRoute() {
       const { partyId } = await confirmDraft({ data: { draftId } });
       celebrate("big");
       toast.success("Plan created — welcome to your workspace.");
-      navigate({ to: "/party/$id", params: { id: partyId } });
+      navigate({ to: "/party/$id/reveal", params: { id: partyId } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Couldn't finalize the plan.";
       toast.error(msg);
