@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TalkRouteImport } from './routes/talk'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -22,6 +23,11 @@ import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/se
 const TalkRoute = TalkRouteImport.update({
   id: '/talk',
   path: '/talk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/talk': typeof TalkRoute
   '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/talk': typeof TalkRoute
   '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/talk': typeof TalkRoute
   '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/reset-password'
     | '/talk'
     | '/party/$id'
     | '/rsvp/$token'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/reset-password'
     | '/talk'
     | '/party/$id'
     | '/rsvp/$token'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/reset-password'
     | '/talk'
     | '/party/$id'
     | '/rsvp/$token'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TalkRoute: typeof TalkRoute
   PartyIdRoute: typeof PartyIdRouteWithChildren
   RsvpTokenRoute: typeof RsvpTokenRoute
@@ -152,6 +165,13 @@ declare module '@tanstack/react-router' {
       path: '/talk'
       fullPath: '/talk'
       preLoaderRoute: typeof TalkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -230,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TalkRoute: TalkRoute,
   PartyIdRoute: PartyIdRouteWithChildren,
   RsvpTokenRoute: RsvpTokenRoute,
