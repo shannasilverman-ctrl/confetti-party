@@ -14,7 +14,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { themeById } from "@/lib/themes";
-import { daysUntil } from "@/lib/party-context";
 import { BrandLockup } from "@/components/brand";
 import { LegalFooter } from "@/components/legal-footer";
 
@@ -26,7 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
-import { formatDateOnly } from "@/lib/date-only";
+import { daysUntilLocal, formatDateOnly } from "@/lib/date-only";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
@@ -276,7 +275,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const theme = themeById(party.theme_id ?? undefined);
-  const days = daysUntil(party.date);
+  const days = daysUntilLocal(party.date);
 
   // Form state — preserved across submit failures and change-response cycles.
   const [name, setName] = useState("");

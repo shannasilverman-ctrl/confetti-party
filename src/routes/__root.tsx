@@ -12,9 +12,11 @@ import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { Toaster } from "@/components/ui/sonner";
 import { routeProviderNeeds } from "@/lib/route-providers";
 
+const LazyToaster = lazy(() =>
+  import("@/components/ui/sonner").then((module) => ({ default: module.Toaster })),
+);
 const LazyAuthProvider = lazy(() =>
   import("../lib/auth").then((module) => ({ default: module.AuthProvider })),
 );
@@ -164,7 +166,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {outlet}
-      <Toaster />
+      <Suspense fallback={null}>
+        <LazyToaster />
+      </Suspense>
     </QueryClientProvider>
   );
 }
