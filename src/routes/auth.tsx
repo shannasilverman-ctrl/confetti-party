@@ -218,11 +218,7 @@ function AuthPage() {
                   ? `If an account exists for ${maskEmail(sentTo.email)}, we sent a password reset link.`
                   : `We sent a confirmation link to ${maskEmail(sentTo.email)}. Click it to activate your account.`}
               </p>
-              <div
-                role="status"
-                aria-live="polite"
-                className="min-h-[1.25rem] text-sm"
-              >
+              <div role="status" aria-live="polite" className="min-h-[1.25rem] text-sm">
                 {inlineError ? (
                   <span className="text-destructive">{inlineError}</span>
                 ) : inlineNotice ? (
@@ -323,12 +319,7 @@ function AuthPage() {
                 >
                   {inlineError}
                 </div>
-                <Button
-                  type="submit"
-                  variant="festive"
-                  className="min-h-11"
-                  disabled={submitting}
-                >
+                <Button type="submit" variant="festive" className="min-h-11" disabled={submitting}>
                   {submitting ? "Please wait…" : submitLabel}
                 </Button>
               </form>

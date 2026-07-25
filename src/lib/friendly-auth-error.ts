@@ -24,7 +24,10 @@ const FRIENDLY: Record<AuthErrorKind, string> = {
   unknown: "Something went wrong. Please try again shortly.",
 };
 
-export function friendlyAuthError(raw: unknown, fallback: AuthErrorKind = "unknown"): FriendlyAuthError {
+export function friendlyAuthError(
+  raw: unknown,
+  fallback: AuthErrorKind = "unknown",
+): FriendlyAuthError {
   const text = extractText(raw).toLowerCase();
   if (!text) return { kind: fallback, message: FRIENDLY[fallback] };
   if (/network|fetch|failed to fetch|timeout|offline/.test(text))

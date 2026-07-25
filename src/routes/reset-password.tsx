@@ -105,9 +105,7 @@ function ResetPasswordPage() {
     try {
       const { error } = await updatePassword(password);
       if (error) {
-        setInlineError(
-          "Couldn't update the password. Request a fresh reset link and try again.",
-        );
+        setInlineError("Couldn't update the password. Request a fresh reset link and try again.");
         return;
       }
       // Clear the recovery marker; from here on the user has a normal session.
@@ -202,12 +200,7 @@ function ResetPasswordPage() {
               >
                 {inlineError}
               </div>
-              <Button
-                type="submit"
-                variant="festive"
-                className="min-h-11"
-                disabled={submitting}
-              >
+              <Button type="submit" variant="festive" className="min-h-11" disabled={submitting}>
                 {submitting ? "Please wait…" : "Update password"}
               </Button>
             </form>
