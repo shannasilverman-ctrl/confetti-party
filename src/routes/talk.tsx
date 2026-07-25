@@ -624,21 +624,31 @@ function TalkRoute() {
                 <Card className="border-dashed p-5">
                   <h2 className="text-base font-semibold text-foreground">Voice mode (beta)</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Speech-to-speech uses OpenAI Realtime and requires an OPENAI_API_KEY on your
-                    project. Text mode always works.
+                    {isDemo
+                      ? "Real voice is authenticated so we can save your session. Try text mode as a demo, or sign up free to talk out loud."
+                      : "Speech-to-speech uses OpenAI Realtime. Text mode always works."}
                   </p>
                 </Card>
-                <Button
-                  variant="festive"
-                  size="lg"
-                  className="w-full"
-                  onClick={startVoice}
-                  disabled={connecting || !authReady}
-                >
-                  <Mic className="mr-2 h-5 w-5" /> Start voice session
-                </Button>
+                {isDemo ? (
+                  <Button asChild variant="festive" size="lg" className="w-full">
+                    <a href="/auth?mode=signup">
+                      <Mic className="mr-2 h-5 w-5" /> Sign up to unlock voice
+                    </a>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="festive"
+                    size="lg"
+                    className="w-full"
+                    onClick={startVoice}
+                    disabled={connecting || !authReady}
+                  >
+                    <Mic className="mr-2 h-5 w-5" /> Start voice session
+                  </Button>
+                )}
               </div>
             )}
+
             {(isLive || connecting) && (
               <div className="flex w-full max-w-md items-center justify-center gap-3">
                 <Button
