@@ -3,6 +3,7 @@
 //   - INSERT vs UPDATE split
 //   - column-diffed UPDATE with optimistic concurrency
 //   - refetch + 3-way merge for guest-mutated column contention
+//   - explicit conflict resolution API (Use mine / Keep theirs)
 //   - bounded retry with jittered backoff and online-event flush
 //   - per-party save state exposed via subscribe/getState
 //
@@ -16,12 +17,12 @@ import {
   type SaveError,
   type PendingConflict,
   type HostColumn,
+  HOST_COLUMNS,
   diffColumns,
   contendedColumns,
   mergeContendedColumns,
   partyToColumns,
   rowToParty,
-  MERGEABLE_COLUMNS,
   MAX_ATTEMPTS,
   nextBackoff,
 } from "./party-persistence";
@@ -33,6 +34,9 @@ type Entry = {
   attempts: number;
   state: SaveState;
   pendingConflict: PendingConflict | null;
+  /** Insert has hit a permanent (non-retriable) failure. UI shows a
+   * "Not saved" recovery card until the user retries or discards. */
+  insertRejected: boolean;
   userId: string;
 };
 
@@ -48,12 +52,24 @@ export interface PartyStoreOptions {
   onEvent: (ev: StoreEvent) => void;
   /** For online-recovery — inject in tests. */
   isOnline?: () => boolean;
+  /** Redacted logger (defaults to console.warn). */
+  logError?: (event: string, meta: Record<string, unknown>) => void;
 }
+
+// Generic, user-safe copy — never interpolate raw provider messages.
+const GENERIC_SAVE_ERROR = "Couldn't save your changes. Tap retry.";
+const GENERIC_OFFLINE = "You're offline. We'll retry when you're back.";
+const GENERIC_CONFLICT = "This party changed elsewhere. Choose which to keep.";
+const GENERIC_REJECTED = "This party couldn't be saved to the cloud. It's kept on this device.";
 
 export class PartyStore {
   private queue = new Map<string, Entry>();
-  private opts: Required<Omit<PartyStoreOptions, "onEvent" | "client" | "isTombstoned">> &
-    Pick<PartyStoreOptions, "onEvent" | "client" | "isTombstoned">;
+  private opts: Required<
+    Omit<PartyStoreOptions, "onEvent" | "client" | "isTombstoned" | "logError">
+  > &
+    Pick<PartyStoreOptions, "onEvent" | "client" | "isTombstoned"> & {
+      logError: NonNullable<PartyStoreOptions["logError"]>;
+    };
 
   constructor(opts: PartyStoreOptions) {
     this.opts = {
@@ -63,6 +79,12 @@ export class PartyStore {
       onEvent: opts.onEvent,
       client: opts.client,
       isTombstoned: opts.isTombstoned,
+      logError:
+        opts.logError ??
+        ((event, meta) => {
+          // eslint-disable-next-line no-console
+          console.warn(`[party-store] ${event}`, meta);
+        }),
     };
   }
 
@@ -79,13 +101,22 @@ export class PartyStore {
         attempts: 0,
         state: "idle",
         pendingConflict: null,
+        insertRejected: false,
         userId,
       });
   }
 
-  getState(id: string): { state: SaveState; conflict: PendingConflict | null } {
+  getState(id: string): {
+    state: SaveState;
+    conflict: PendingConflict | null;
+    insertRejected: boolean;
+  } {
     const e = this.queue.get(id);
-    return { state: e?.state ?? "idle", conflict: e?.pendingConflict ?? null };
+    return {
+      state: e?.state ?? "idle",
+      conflict: e?.pendingConflict ?? null,
+      insertRejected: e?.insertRejected ?? false,
+    };
   }
 
   enqueueInsert(party: Party, userId: string) {
@@ -93,6 +124,7 @@ export class PartyStore {
     if (e) {
       e.latest = party;
       e.userId = userId;
+      e.insertRejected = false;
     } else {
       this.queue.set(party.id, {
         latest: party,
@@ -101,6 +133,7 @@ export class PartyStore {
         attempts: 0,
         state: "idle",
         pendingConflict: null,
+        insertRejected: false,
         userId,
       });
     }
@@ -123,12 +156,52 @@ export class PartyStore {
     this.queue.delete(id);
   }
 
-  /** Retry a party whose last save errored. */
+  /** Retry a party stuck in transient error/offline (NOT a semantic conflict). */
   retry(id: string) {
     const e = this.queue.get(id);
     if (!e) return;
+    if (e.state === "conflict") {
+      // Semantic conflicts require an explicit Use mine / Keep theirs choice.
+      return;
+    }
+    e.attempts = 0;
+    e.insertRejected = false;
+    void this.kick(id);
+  }
+
+  /** Resolve a semantic (non-mergeable) conflict.
+   *  - "mine": overlay preserved local values onto the fresh baseline and enqueue.
+   *  - "theirs": discard local values; server state (already merged) becomes canonical.
+   */
+  resolveConflict(id: string, choice: "mine" | "theirs") {
+    const e = this.queue.get(id);
+    if (!e || !e.pendingConflict || !e.baseline) return;
+    if (choice === "theirs") {
+      // Server values already sit on `latest` and `baseline` from handleConflict.
+      e.pendingConflict = null;
+      e.attempts = 0;
+      this.setState(id, "saved");
+      return;
+    }
+    // "mine": overlay local values from the pending conflict record onto the
+    // fresh server baseline. This is deterministic — no dependency on React state.
+    const overlay = e.pendingConflict.localValues;
+    const merged: Party = rowToParty({
+      ...(e.baseline as PartyRow),
+      ...overlay,
+    } as PartyRow);
+    // Preserve local-only client fields carried on the current latest.
+    merged.heroImageUrl = e.latest.heroImageUrl;
+    e.latest = merged;
+    e.pendingConflict = null;
     e.attempts = 0;
     void this.kick(id);
+  }
+
+  /** Discard a locally-recoverable draft that failed permanent insert.
+   *  Removes from queue; caller should also remove local state and tombstone. */
+  discardLocalDraft(id: string) {
+    this.queue.delete(id);
   }
 
   /** Flush every queued party (called on `online` event). */
@@ -154,6 +227,8 @@ export class PartyStore {
       this.queue.delete(id);
       return;
     }
+    // Conflict must be resolved explicitly by the user.
+    if (e.state === "conflict") return;
     e.running = true;
     this.setState(id, "saving");
     try {
@@ -173,7 +248,6 @@ export class PartyStore {
         return;
       }
 
-      // Capture snapshot at start of this cycle for coalescing.
       const snapshot = e.latest;
       const userId = e.userId;
 
@@ -182,22 +256,22 @@ export class PartyStore {
         const row = partyToColumns(snapshot, userId);
         const { data, error } = await this.opts.client.insert(row);
         if (error) {
-          const done = await this.handleError(id, error);
+          const done = await this.handleInsertError(id, error);
           if (done) return;
           continue;
         }
         if (data) {
           e.baseline = data;
-          const merged: Party = { ...rowToParty(data), ...localOnlyFields(snapshot, data) };
+          e.insertRejected = false;
+          const merged: Party = { ...rowToParty(data), ...localOnlyFields(snapshot) };
           this.emit({ type: "server-row", id, party: merged });
         }
-        // If more edits came in during the insert, they land as updates now.
         if (this.queue.get(id)?.latest !== snapshot) continue;
         this.done(id);
         return;
       }
 
-      // UPDATE path — diff against baseline.
+      // UPDATE path.
       const nextRow = partyToColumns(snapshot, userId);
       const { patch, changed } = diffColumns(e.baseline, nextRow);
       if (changed.length === 0) {
@@ -217,18 +291,17 @@ export class PartyStore {
       }
       if (conflict) {
         const handled = await this.handleConflict(id, snapshot, nextRow, changed);
-        if (!handled) return; // gave up; state already set
+        if (!handled) return; // conflict awaits user resolution
         continue;
       }
       if (data) {
         e.baseline = data;
         const merged: Party = {
           ...rowToParty(data),
-          ...localOnlyFields(snapshot, data),
+          ...localOnlyFields(snapshot),
         };
         this.emit({ type: "server-row", id, party: merged });
       }
-      // If more edits arrived during the roundtrip, loop and diff again.
       if (this.queue.get(id)?.latest !== snapshot) continue;
       this.done(id);
       return;
@@ -240,6 +313,7 @@ export class PartyStore {
     if (!e) return;
     e.attempts = 0;
     e.pendingConflict = null;
+    e.insertRejected = false;
     this.setState(id, "saved");
   }
 
@@ -247,31 +321,55 @@ export class PartyStore {
     const e = this.queue.get(id);
     if (!e) return true;
     e.attempts += 1;
+    this.opts.logError("save_error", {
+      id,
+      kind: error.kind,
+      attempts: e.attempts,
+      // Only structural info — never emails/tokens/full payloads.
+      messagePreview: error.message.slice(0, 80),
+    });
     if (error.kind === "network" && !this.opts.isOnline()) {
       this.setState(id, "offline");
-      this.emit({
-        type: "toast",
-        kind: "error",
-        message: "You're offline. We'll retry when you're back.",
-      });
+      this.emit({ type: "toast", kind: "error", message: GENERIC_OFFLINE });
       return true;
     }
-    if (e.attempts >= MAX_ATTEMPTS) {
+    if (error.kind === "permission" || e.attempts >= MAX_ATTEMPTS) {
       this.setState(id, "error");
-      this.emit({
-        type: "toast",
-        kind: "error",
-        message: `Couldn't save changes: ${error.message}. Tap retry.`,
-      });
+      this.emit({ type: "toast", kind: "error", message: GENERIC_SAVE_ERROR });
       return true;
     }
     await this.opts.sleep(nextBackoff(e.attempts));
-    return false; // keep looping
+    return false;
+  }
+
+  private async handleInsertError(id: string, error: SaveError): Promise<boolean> {
+    const e = this.queue.get(id);
+    if (!e) return true;
+    e.attempts += 1;
+    this.opts.logError("insert_error", {
+      id,
+      kind: error.kind,
+      attempts: e.attempts,
+      messagePreview: error.message.slice(0, 80),
+    });
+    if (error.kind === "network" && !this.opts.isOnline()) {
+      this.setState(id, "offline");
+      this.emit({ type: "toast", kind: "error", message: GENERIC_OFFLINE });
+      return true;
+    }
+    if (error.kind === "permission" || e.attempts >= MAX_ATTEMPTS) {
+      e.insertRejected = true;
+      this.setState(id, "error");
+      this.emit({ type: "toast", kind: "error", message: GENERIC_REJECTED });
+      return true;
+    }
+    await this.opts.sleep(nextBackoff(e.attempts));
+    return false;
   }
 
   private async handleConflict(
     id: string,
-    _snapshot: Party,
+    snapshot: Party,
     nextRow: PartyRow,
     changedCols: HostColumn[],
   ): Promise<boolean> {
@@ -288,76 +386,60 @@ export class PartyStore {
     const contended = contendedColumns(e.baseline, nextRow, fresh).filter((c) =>
       changedCols.includes(c),
     );
-    const nonMergeable = contended.filter((c) => !MERGEABLE_COLUMNS.has(c));
 
-    const { merged } = mergeContendedColumns(e.baseline, nextRow, fresh, contended);
-    // Adopt server's value for columns we didn't touch — the diff on the
-    // next loop will only re-send our (merged) mergeable changes.
-    for (const col of HOST_COLUMNS_ALL) {
+    const { merged, unresolvedNonMergeable } = mergeContendedColumns(
+      e.baseline,
+      nextRow,
+      fresh,
+      contended,
+    );
+    // Adopt server value for columns we didn't touch.
+    for (const col of HOST_COLUMNS) {
       if (!changedCols.includes(col)) {
         (merged as Record<string, unknown>)[col] = (fresh as Record<string, unknown>)[col];
       }
     }
 
-    // New baseline is the fresh server row.
+    // New baseline is the fresh server row (with server metadata).
     e.baseline = fresh;
-    // `merged` is the authoritative post-conflict row: it has local values
-    // for columns we changed, server values for columns we didn't, and
-    // three-way merges for mergeable-column contention. Carry over the
-    // server's row metadata so the next update diffs against the fresh
-    // updated_at / rsvp_token / created_at.
     (merged as Record<string, unknown>).updated_at = fresh.updated_at;
     (merged as Record<string, unknown>).rsvp_token = fresh.rsvp_token;
     (merged as Record<string, unknown>).created_at = fresh.created_at;
     const mergedFull: Party = {
       ...rowToParty(merged),
-      ...localOnlyFields(_snapshot, fresh),
+      ...localOnlyFields(snapshot),
     };
     this.emit({ type: "server-row", id, party: mergedFull });
-    // The queue's latest becomes the merged local target so the next loop's
-    // diff sends only the still-pending host-owned changes.
     e.latest = mergedFull;
 
-    if (nonMergeable.length > 0) {
-      // Preserve BOTH: server data is already displayed; local edit lives on
-      // in the pending-conflict record and can be retried by the user.
+    if (unresolvedNonMergeable.length > 0) {
       const localValues: Partial<PartyRow> = {};
       const serverValues: Partial<PartyRow> = {};
-      for (const col of nonMergeable) {
+      for (const col of unresolvedNonMergeable) {
         (localValues as Record<string, unknown>)[col] = (nextRow as Record<string, unknown>)[col];
         (serverValues as Record<string, unknown>)[col] = (fresh as Record<string, unknown>)[col];
       }
       e.pendingConflict = {
-        columns: nonMergeable,
+        columns: unresolvedNonMergeable,
         localValues,
         serverValues,
         at: new Date().toISOString(),
       };
       this.setState(id, "conflict");
-      this.emit({
-        type: "toast",
-        kind: "error",
-        message: `Another change to ${nonMergeable.join(", ")} was saved elsewhere. Yours is preserved for retry.`,
-      });
+      this.emit({ type: "toast", kind: "error", message: GENERIC_CONFLICT });
       return false;
     }
     e.attempts += 1;
     if (e.attempts >= MAX_ATTEMPTS) {
       this.setState(id, "error");
+      this.emit({ type: "toast", kind: "error", message: GENERIC_SAVE_ERROR });
       return false;
     }
     return true;
   }
 }
 
-// Fields that live only on the client-side Party but never on the row shape
-// (e.g. heroImageUrl is seeded on demo parties, not stored server-side).
-function localOnlyFields(snapshot: Party, _row: PartyRow): Partial<Party> {
+// Fields that live only on the client-side Party but never on the row shape.
+function localOnlyFields(snapshot: Party): Partial<Party> {
   return { heroImageUrl: snapshot.heroImageUrl };
 }
-function localOnlyFieldsFromMerged(_merged: PartyRow, _row: PartyRow): Partial<Party> {
-  return {};
-}
-
-// Import at bottom to avoid cycle noise.
-import { HOST_COLUMNS as HOST_COLUMNS_ALL } from "./party-persistence";
