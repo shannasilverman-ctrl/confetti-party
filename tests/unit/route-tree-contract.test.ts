@@ -50,17 +50,15 @@ describe("route tree contract", () => {
 
   it("standalone modes wait for PartyProvider hydration before deciding not-found", () => {
     for (const source of [REVEAL, DAY_OF]) {
-      const loadingGuard = source.indexOf('status === "loading"');
-      const notFoundDecision = source.indexOf("throw notFound()");
-      expect(loadingGuard, "route must have an explicit provider loading guard").toBeGreaterThan(
-        -1,
-      );
-      expect(
-        notFoundDecision,
-        "route must retain a terminal not-found decision for unknown ids",
-      ).toBeGreaterThan(loadingGuard);
-      expect(source).toContain('status === "error"');
-      expect(source).toContain("onClick={refetch}");
+      // Standalone routes now delegate loading/missing/error rendering to the
+      // shared useResolvedParty hook + PartyMode* panels rather than throwing
+      // notFound() inline. This avoids CatchBoundary latching on transient
+      // hydration states.
+      expect(source).toContain("useResolvedParty");
+      expect(source).toContain("PartyModeMissing");
+      expect(source).toContain("PartyModeLoading");
+      // Must NOT synchronously throw notFound() on the render path.
+      expect(source).not.toMatch(/^\s*throw notFound\(\)/m);
     }
   });
 });
