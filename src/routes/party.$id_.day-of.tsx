@@ -22,8 +22,6 @@ function DayOfPage() {
   const party = parties.find((p) => p.id === id);
   const [note, setNote] = useState("");
   if (!party) throw notFound();
-
-  if (!party) throw notFound();
   const nextThree = useMemo(() => party.tasks.filter((t) => !t.done).slice(0, 3), [party.tasks]);
   const timeline = party.timeline ?? [];
   const yesGuests = party.guests.filter((g) => g.rsvp === "yes");
