@@ -340,11 +340,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
   };
 
   const displayYes = party.yes_count + (done && rsvp === "yes" ? 1 : 0);
-  const displayNames = useMemo(() => {
-    if (!done || rsvp !== "yes" || !name.trim()) return party.guest_first_names;
-    const first = name.trim().split(/\s+/)[0];
-    return [first, ...party.guest_first_names];
-  }, [done, rsvp, name, party.guest_first_names]);
+
 
   return (
     <div className="min-h-screen bg-background">
