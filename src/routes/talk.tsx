@@ -385,6 +385,23 @@ function TalkRoute() {
       await client.connect();
       setStatusAnnouncement("Voice connected.");
     } catch (err) {
+      // Best-effort cleanup: if the row was already reserved server-side,
+      // close it so the concurrency guard doesn't lock this user out.
+      // We only ever pass the sessionId this component owns — never an
+      // arbitrary id from the caller.
+      if (sessionId) {
+        try {
+          await endSession({
+            data: { sessionId, disconnectReason: "connect_failed" },
+          });
+        } catch (endErr) {
+          console.error("endSession failed", { reason: "connect_failed", ok: !endErr });
+        }
+        setSessionId(null);
+        startedAtRef.current = null;
+      }
+      clientRef.current?.close("connect_failed");
+      clientRef.current = null;
       const msg = friendlyTalkError("voice_connect", err);
       setVoiceError(msg);
       toast.error(msg);
@@ -392,7 +409,7 @@ function TalkRoute() {
     } finally {
       setConnecting(false);
     }
-  }, [handleVoiceEvent, navigate, isDemo, user]);
+  }, [handleVoiceEvent, navigate, isDemo, user, sessionId]);
 
   const stopVoice = useCallback(async () => {
     clientRef.current?.close("user_ended");
@@ -403,11 +420,24 @@ function TalkRoute() {
       try {
         await endSession({ data: { sessionId, durationS, disconnectReason: "user_ended" } });
       } catch (err) {
-        console.error("endSession failed", err);
+        console.error("endSession failed", { reason: "user_ended", ok: !err });
       }
     }
     setSessionId(null);
     startedAtRef.current = null;
+  }, [sessionId]);
+
+  // Best-effort cleanup when the tab is hidden (pagehide) or the app
+  // unmounts. Only ever operates on the sessionId this component owns.
+  useEffect(() => {
+    if (!sessionId) return;
+    const cleanup = () => {
+      const sid = sessionId;
+      // fire-and-forget; auth middleware attaches the bearer.
+      endSession({ data: { sessionId: sid, disconnectReason: "pagehide" } }).catch(() => {});
+    };
+    window.addEventListener("pagehide", cleanup);
+    return () => window.removeEventListener("pagehide", cleanup);
   }, [sessionId]);
 
   useEffect(
@@ -417,6 +447,8 @@ function TalkRoute() {
     },
     [],
   );
+
+
 
   const toggleMute = useCallback(() => {
     setMuted((m) => {
