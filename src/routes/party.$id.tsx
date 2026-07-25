@@ -65,6 +65,7 @@ export type TabKey =
   | "shopping"
   | "checklist"
   | "guests"
+  | "bring"
   | "budget"
   | "timeline";
 
