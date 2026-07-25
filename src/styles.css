@@ -39,7 +39,6 @@
   --font-display: "Fraunces", "Cormorant Garamond", ui-serif, Georgia, "Times New Roman", serif;
   --font-body: "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-body);
-  --font-rounded: "Baloo 2", "Baloo 2 Variable", ui-rounded, "Segoe UI", system-ui, sans-serif;
 }
 
 :root {
