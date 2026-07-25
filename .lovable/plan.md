@@ -1,76 +1,110 @@
-# Showroom Truth + Brand Continuity — execution plan
+# P0 Signup Continuity + Draft Import Batch
 
-This batch spans landing, guest RSVP, host workspace tabs, and shared vocabulary — ~4,500 lines across the highest-signal files plus tests. To ship it responsibly in one pass I want to confirm scope and sequencing before editing.
+Goal: no work is lost across the signed-out → signed-in boundary, and no other user's data is ever silently imported.
 
-## What I will implement in this batch
+## 1. Safe returnTo (auth)
 
-### 1. Sample guest invitation route (item 1) — new
+New `src/lib/safe-return-to.ts`:
+- `sanitizeReturnTo(input): string | null` — accept only same-origin, single-leading-slash paths from a fixed allowlist prefix set (`/talk`, `/app`, `/party/`, `/sample-invite`, `/reveal`, `/day-of`). Reject protocol-relative (`//x`), `\`, absolute URLs, `javascript:`, `data:`, `mailto:`, and any path containing `..`.
+- Unit tests for every rejection class + accepted cases.
 
-- Add `src/routes/sample-invite.tsx` (no `$token`) that renders the real `rsvp.$token` guest UI against a **local demo adapter** — no RPC, no token, no user record.
-- Extract the guest-facing view from `src/routes/rsvp.$token.tsx` into `src/components/guest-invite-view.tsx` so both routes share one presentation contract.
-- Create `src/lib/sample-invite-state.ts`: versioned, capped `localStorage` state for the demo's RSVP/claims, with a persistent “Sample — try it. Nothing is sent.” banner and a Reset button.
-- Point landing “Open a sample invite,” nav sample CTAs, and any other invite-preview links to `/sample-invite`. The host-workspace link to `/party/maya-8th` stays as “Peek at a sample workspace” (labeled truthfully).
+Wire into `src/routes/auth.tsx`:
+- Read `returnTo` from search params via TanStack search validator (Zod, string, max 512).
+- After successful sign-in / sign-up-with-session, `navigate({ to: sanitizeReturnTo(returnTo) ?? "/app", replace: true })`.
+- CTAs from `/talk` (signed-out) and `/app` link to `/auth?returnTo=…`.
 
-### 2. Domain / URL truth (item 2)
+## 2. Signed-out Talk handoff (local, versioned)
 
-- Replace every `confetti.app/rsvp/…` string with neutral copy (“Your private RSVP link,” “A link only your guests see”).
-- Remove any other unsupported domain/marketplace/production claims from landing, share dialogs, invite dialog, footers, and metadata.
+New `src/lib/talk-handoff.ts`:
+- Zod schema v1:
+  - `version: 1`
+  - `createdAt: number` (ms), TTL 24h
+  - `idempotencyKey: string` (uuid) — stable per handoff, regenerated only on new save
+  - `messages: Array<{ role: "user" | "assistant"; text: string }>` — cap 60 messages, each ≤ 2 KB UTF-8
+  - `patch: DraftPatch` (reuse existing Zod from `src/lib/talk-schemas.ts`)
+  - `summary: string` (≤ 500)
+- Byte cap: reject serialized payload > 32 KB. No audio, no provider blobs, no tokens.
+- API: `saveHandoff`, `readHandoff` (returns `null` on missing/expired/corrupt/oversized), `clearHandoff`, `markClaimedBy(userId)` (writes a sibling `claimedBy` marker so a later different sign-in cannot silently reuse an already-claimed handoff).
+- Signed-out `/talk` writes handoff on each turn (debounced) using the deterministic patch already produced by talk-brain.
 
-### 3. Vocabulary centralization (item 3)
+## 3. Post-signup Talk resume
 
-- Add `src/lib/vocab.ts` exporting `VOCAB = { guestInvite, bringBoard, photoDrop, dayOf, reveal, hostNotes }`.
-- Rewrite user-visible “Party Pass,” “Guest World,” “RSVP link,” and raw route/RPC names in `src/routes/index.tsx`, `party.$id.tsx`, `party.$id.day-of.tsx`, `party.$id.reveal.tsx`, `overview-tab.tsx`, `bring-board-editor.tsx`, `public-bring-board.tsx`, `invite-dialog.tsx`, `rsvp-share-button.tsx`.
+- `/talk` component: on mount, when signed in and `readHandoff()` returns fresh + unclaimed OR claimed-by-current-user, render `<ResumeHandoffCard>` before starting a new session.
+- Card actions: **Continue** and **Discard**.
+- Continue:
+  1. `markClaimedBy(currentUserId)` (idempotent — no-op if already claimed by same user).
+  2. Insert `gathering_drafts` row (RPC or direct insert under RLS) using an insert idempotency key derived from `idempotencyKey + userId`. Server-side unique index prevents double import across refresh/double-click. If a row with that key already exists, reuse it.
+  3. Validate + import capped messages/patch into that draft.
+  4. Only on canonical server success (row returned): `clearHandoff()`.
+  5. Resume the normal Talk flow rooted at that draft (existing preview/confirm path).
+- Discard: `clearHandoff()`, start fresh.
+- Cross-account rule: if handoff exists but `claimedBy` is a different user, hide the resume card entirely (never surface other-account work). Do not delete — leave until TTL, so the original claimer on the same device can still resume.
 
-### 4. Sample coherence (item 4)
+New DB migration:
+- `ALTER TABLE public.gathering_drafts ADD COLUMN IF NOT EXISTS import_idempotency_key text`.
+- `CREATE UNIQUE INDEX IF NOT EXISTS gathering_drafts_user_import_key_uniq ON public.gathering_drafts (user_id, import_idempotency_key) WHERE import_idempotency_key IS NOT NULL`.
+- No grant changes.
 
-- Rebuild Ava/Liam and Maya sample data so every surface agrees:
-  - Budget total = sum of category allocations (fix the $12,500 vs $600 contradiction).
-  - Shopping/Bring Board seeded to non-empty for showcased categories.
-  - RSVP counts, headcount, timeline, updates internally consistent with a date computed via the new date-only contract.
-  - Landing’s static "34 days out" and any mock date computed live from the seeded date via `daysUntilLocal`.
+## 4. Local planner import review
 
-### 5. Empty states (item 5) — bounded
+`src/lib/demo-storage.ts` → v2 schema (forward-only migration in-file):
+- Each stored party gains `origin: "curated" | "user"` and `edited: boolean`.
+- Curated seeds tagged `origin: "curated"`, `edited: false` at seed time. Any user edit flips `edited: true`. New parties created signed-out get `origin: "user"`.
+- v1 → v2 migration: mark existing parties `origin: "user"` only if their id is NOT in the known curated-seed id set (`ava-liam`, etc.); everything else becomes `curated, edited:false`.
 
-- Add branded, action-led empty states for: shopping, tasks, guests, bring, timeline, updates, photo drop, budget.
-- One shared `<EmptyState>` component in `src/components/empty-state.tsx` (icon slot, headline in Fraunces, one primary CTA, warm cream card).
-- Reuse across the 8 surfaces above.
+New `src/components/import-review-dialog.tsx`:
+- Shown once after signup on `/app` when `readImportCandidates()` returns any user-created or edited party.
+- Lists only `origin === "user"` OR `edited === true`. Curated samples never listed, never imported.
+- Per-row status: pending / importing / imported / failed(retry).
+- Uses the existing PartyStore queue (`enqueueInsert`) for canonical persistence; per-party idempotency key = `local:{localId}` stored server-side in a new column `parties.import_local_id text` with a partial unique index `(user_id, import_local_id)`.
+- ID collision: if server already has a row with that key, treat as success; drop local copy.
+- Success → remove from local storage; failure → keep local + surface Retry. "Discard" per row and "Discard all remaining" available.
+- Only after all successes is `clearDemoState` allowed to touch imported entries. Failures stay recoverable.
 
-### 6. Destructive-action safety + a11y labels (item 6)
+Remove the current unconditional `clearDemoState` on auth in `PartyProvider`; replace with "on identity change, open ImportReviewDialog if candidates exist, otherwise no-op."
 
-- Repeated rows (guest name, bring item, task, shopping row, expense): every editable input gets an `aria-label` derived from `row.name || row.id`; every icon-only delete gets `aria-label={\`Remove \${row.name}\`}`.
-- Delete affordance: `<ConfirmDelete>` wrapper.
-  - Guest/bring rows with RSVP or claim data → AlertDialog confirmation.
-  - Safe local rows (empty tasks, empty shopping) → immediate delete with undo toast (5s).
-- All destructive icon buttons `min-h-11 min-w-11`.
+## 5. Account isolation
 
-### 7. Hero motif carry (item 7) — bounded
+- Handoff is device-local and has no account identity until Continue. Cross-account safeguard = `claimedBy` marker (§3).
+- Local planner import candidates are device-local; the review dialog only offers import to the currently signed-in user. If user switches accounts before importing, the same dialog reappears for account B with the same candidates (still device-local work). Once a party is imported (server row exists with `import_local_id`), the local entry is removed and cannot be re-imported by anyone.
+- PartyStore reset-on-identity (already implemented) is unchanged.
 
-- Reuse existing `--gradient-*` and party-hands/sparkle motifs from landing on: workspace tab headers, empty states, and the Reveal/Day-of hero bands.
-- No new animation libraries. Respect `prefers-reduced-motion` on the existing `celebrate()` calls (already throttled).
-- Explicitly out of scope: redesigning individual form fields or reworking `theme-tab.tsx`.
+## 6. Auth UX preservation
 
-### 8. Tests (item 8)
+- `/auth` retains typed values across submission errors, visible focus rings, `aria-live="polite"` status region for success/error text.
+- Email-confirmation-required path: handoff/candidates persist locally (TTL 24h) and the resume/import surfaces trigger on the next successful signed-in session, not on the pre-confirmation state.
+- Cancel/back leaves local work intact — no destructive action fires until explicit Continue/Import.
 
-- Unit: sample-state isolation (no production writes), vocab constants, budget coherence invariant for seeded parties, empty-state renders.
-- Playwright: nav truth (`/sample-invite` reachable from every advertised CTA), destructive confirm/undo, axe on landing + `/sample-invite` + `/app`, 320/375/390/430 overflow.
-- Playwright is still unexecutable in-sandbox (missing `libglib-2.0.so.0`); specs will be added and lint-clean but I will report browser runs as not-executed-here.
+## 7. Tests
 
-### 9. Gates
+Unit (`tests/unit/`):
+- `safe-return-to.test.ts`: allowlist + all rejection classes.
+- `talk-handoff.test.ts`: save/read/expiry/oversized/corrupt JSON/version mismatch/claimedBy isolation.
+- `demo-storage.test.ts` additions: v1→v2 migration correctness, curated exclusion, edited flag flip.
+- `import-review.test.ts` (component): renders only user/edited entries; retry on failure; idempotency (double-click → single enqueue); discard.
 
-- Prettier, ESLint, tsgo, Vitest (with new tests), TZ-matrix, production build. Playwright as caveated in #8.
+E2E (`tests/e2e/`):
+- `talk-handoff.spec.ts`: signed-out Talk → simulated signup (auth stub via existing test harness) → resume card → Continue → exactly one draft row (assert via a debug-only server fn already in the harness, or via the RPC returning `already_confirmed`).
+- `local-import.spec.ts`: signed-out new party → signup → import review → Continue → exactly one party row; curated seeds absent from dialog; partial failure retry; discard; refresh mid-flow; double-click Continue.
+- `return-to.spec.ts`: malicious `returnTo` values fall back to `/app`.
+- `account-isolation.spec.ts`: sign in A, save handoff, sign out, sign in B → resume card hidden.
 
-## Explicitly NOT in this batch (call out for a follow-up)
+## 8. Copy + gate
 
-- Refactoring `theme-tab.tsx` or Shopify surfaces.
-- Any changes to auth flows, RLS, RPCs, or migrations.
-- New animation libs, new fonts, or logo changes.
-- Custom-domain wiring, publish, real messages, real analytics.
+- Update landing/`/talk`/legal copy: "Your in-progress notes are saved on this device for 24 hours so you can pick up after signing in. Nothing is sent to our servers until you sign in and choose Continue."
+- Run: `bun run format`, `lint`, `tsgo`, unit coverage, `build`, full Playwright.
+- Report SHA + totals + note that real auth email confirmation cannot be exercised end-to-end in CI (documented limitation).
 
-## Risk / size notes
+## Technical notes
 
-Total edited surface ≈ 4,500 lines across ~15 files, plus ~6 new files and ~5 new test files. This is the largest batch to date; I will do it in one pass but the empty-state and hero-motif items (5, 7) will be applied only to the surfaces listed — I won’t chase every card in the app.
+- Schema names: `TalkHandoffV1`, `DemoPartyV2`. Both live behind small readers that return `null` on any validation failure — never throw into UI.
+- No new secrets. No production data. No deploy. No domain changes.
+- Migration is additive (new nullable column + partial unique index); safe forward-only.
+- All new local writes wrapped in `try/catch` to survive Safari private mode / quota errors (return `false` from save; UI degrades to "not saved locally" note).
 
-## Confirm or adjust
+## Out of scope (explicit)
 
-- Any of the 8 items you’d rather I defer, or any additional surface you want in scope?
-- If “yes, proceed as written,” I’ll execute end-to-end and report SHA + gate totals.
+- Server-side pending-invite / cross-device handoff.
+- Importing curated samples.
+- Any change to RLS on `parties` or `gathering_drafts` beyond the two additive columns/indexes.
+- Auth provider changes (Google/etc.).

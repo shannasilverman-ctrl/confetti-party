@@ -59,15 +59,33 @@ const PartySchema = z
   // rely on them.
   .passthrough();
 
+const OriginZ = z.object({
+  origin: z.enum(["curated", "user"]),
+  edited: z.boolean().default(false),
+});
+
 const StoredShape = z.object({
   v: z.literal(2),
   samples: z.record(PartySchema).default({}),
   custom: z.array(PartySchema).default([]),
+  /**
+   * Per-party origin metadata used by the post-signup Import Review.
+   * Curated seeds must never appear in the import list, so we track which
+   * ids were shipped as samples vs. created by the user, plus whether the
+   * user has edited a curated sample in a meaningful way. Missing entries
+   * are inferred from the seed set at load time (forward-compat with v2
+   * data written before this field existed).
+   */
+  origins: z.record(OriginZ).default({}),
 });
+
+export type PartyOrigin = z.infer<typeof OriginZ>;
 
 export type DemoStoreResult = {
   /** In-memory party list ready to render (seeds + valid custom). */
   parties: Party[];
+  /** Origin/edited flag per party id — for the post-signup import review. */
+  origins: Record<string, PartyOrigin>;
   /**
    * Present only when we detected corrupt or oversize input; UI may surface
    * a non-blocking warning so the user isn't lied to.
@@ -102,23 +120,29 @@ export function loadDemoState(
   storage: StorageLike | null = getStorage(),
 ): DemoStoreResult {
   const seedIds = new Set(seeds.map((s) => s.id));
-  if (!storage) return { parties: seeds };
+  const baseOrigins = (extra: Party[] = []): Record<string, PartyOrigin> => {
+    const o: Record<string, PartyOrigin> = {};
+    for (const s of seeds) o[s.id] = { origin: "curated", edited: false };
+    for (const p of extra) o[p.id] = { origin: "user", edited: false };
+    return o;
+  };
+  if (!storage) return { parties: seeds, origins: baseOrigins() };
   let raw: string | null = null;
   try {
     raw = storage.getItem(DEMO_STORAGE_KEY);
   } catch {
-    return { parties: seeds };
+    return { parties: seeds, origins: baseOrigins() };
   }
-  if (!raw) return { parties: seeds };
+  if (!raw) return { parties: seeds, origins: baseOrigins() };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { parties: seeds, warning: "corrupt" };
+    return { parties: seeds, origins: baseOrigins(), warning: "corrupt" };
   }
   const outcome = StoredShape.safeParse(parsed);
   if (!outcome.success) {
-    return { parties: seeds, warning: "corrupt" };
+    return { parties: seeds, origins: baseOrigins(), warning: "corrupt" };
   }
   const store = outcome.data;
 
@@ -137,7 +161,19 @@ export function loadDemoState(
     .filter((p) => !seedIds.has(p.id))
     .slice(0, DEMO_MAX_PARTIES);
 
-  return { parties: [...merged, ...custom] };
+  // Origins: start from seed-inferred defaults, then overlay stored entries
+  // if present. Any stored id that is NOT a curated seed id is forced to
+  // origin: "user" (defense against tampering).
+  const origins: Record<string, PartyOrigin> = baseOrigins(custom);
+  for (const [id, o] of Object.entries(store.origins ?? {})) {
+    if (seedIds.has(id)) {
+      origins[id] = { origin: "curated", edited: !!o.edited };
+    } else {
+      origins[id] = { origin: "user", edited: !!o.edited };
+    }
+  }
+
+  return { parties: [...merged, ...custom], origins };
 }
 
 /**
@@ -150,6 +186,7 @@ export function saveDemoState(
   parties: Party[],
   seeds: Party[],
   storage: StorageLike | null = getStorage(),
+  origins: Record<string, PartyOrigin> = {},
 ): { ok: boolean; reason?: "quota" | "oversized" } {
   if (!storage) return { ok: false, reason: "quota" };
   const seedIds = new Set(seeds.map((s) => s.id));
@@ -166,10 +203,24 @@ export function saveDemoState(
     cappedSamples[id] = p;
     i++;
   }
+  // Filter origins to ids that are actually present after capping, so we
+  // don't accumulate stale metadata for deleted parties.
+  const keptIds = new Set<string>([
+    ...Object.keys(cappedSamples),
+    ...custom.slice(0, DEMO_MAX_PARTIES).map((p) => p.id),
+  ]);
+  const filteredOrigins: Record<string, PartyOrigin> = {};
+  for (const id of keptIds) {
+    const o = origins[id];
+    if (o) filteredOrigins[id] = o;
+    else if (seedIds.has(id)) filteredOrigins[id] = { origin: "curated", edited: false };
+    else filteredOrigins[id] = { origin: "user", edited: false };
+  }
   const payload = {
     v: 2 as const,
     samples: cappedSamples,
     custom: custom.slice(0, DEMO_MAX_PARTIES),
+    origins: filteredOrigins,
   };
   const json = JSON.stringify(payload);
   if (utf8Bytes(json) > DEMO_MAX_BYTES) {
@@ -181,6 +232,25 @@ export function saveDemoState(
   } catch {
     return { ok: false, reason: "quota" };
   }
+}
+
+/** IDs of parties that a signed-in Import Review should offer. Excludes
+ *  curated samples unless the user meaningfully edited them. */
+export function selectImportCandidateIds(
+  parties: Party[],
+  origins: Record<string, PartyOrigin>,
+  seedIds: ReadonlySet<string>,
+): string[] {
+  const out: string[] = [];
+  for (const p of parties) {
+    const o = origins[p.id] ?? {
+      origin: seedIds.has(p.id) ? ("curated" as const) : ("user" as const),
+      edited: false,
+    };
+    if (o.origin === "user") out.push(p.id);
+    else if (o.edited) out.push(p.id);
+  }
+  return out;
 }
 
 export function clearDemoState(storage: StorageLike | null = getStorage()): void {

@@ -24,6 +24,8 @@ import { sendTurn, confirmDraft, previewDraft } from "@/lib/talk-brain.functions
 import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
 import { createTalkLifecycle } from "@/lib/talk-lifecycle";
 import { celebrate } from "@/components/confetti-burst";
+import { readHandoff, saveHandoff, type TalkHandoffV1 } from "@/lib/talk-handoff";
+import { ResumeHandoffCard } from "@/components/resume-handoff-card";
 import {
   Dialog,
   DialogContent,
@@ -213,11 +215,28 @@ function TalkRoute() {
   // demo-limit reached, connection lifecycle.
   const [statusAnnouncement, setStatusAnnouncement] = useState("");
 
-  // Create a draft on first mount for signed-in users only.
-  // Belt-and-braces: never call the persistence mint on the signed-out
-  // demo path. `isDemo` is also gated below in sendMessage/startVoice.
+  // Signup-continuity: local handoff. When signed in and a fresh
+  // (unclaimed or self-claimed) handoff exists on this device, offer
+  // to resume it before starting a fresh session.
+  const [handoff, setHandoff] = useState<TalkHandoffV1 | null>(null);
+  const [handoffDismissed, setHandoffDismissed] = useState(false);
+  useEffect(() => {
+    if (!authReady || !user) {
+      setHandoff(null);
+      return;
+    }
+    setHandoff(readHandoff(user.id));
+  }, [authReady, user]);
+
+  // Stable idempotency key across debounced saves in the signed-out demo.
+  const handoffKeyRef = useRef<string | undefined>(undefined);
+
+  // Create a draft on first mount for signed-in users only, UNLESS a
+  // handoff is pending — in that case the ResumeHandoffCard's Continue
+  // path mints the draft server-side and assigns it here via onImported.
   useEffect(() => {
     if (!authReady || !user || isDemo || draftId) return;
+    if (handoff && !handoffDismissed) return;
     createDraft()
       .then((r) => setDraftId(r.id))
       .catch((err) => {
@@ -225,7 +244,7 @@ function TalkRoute() {
         toast.error(msg);
         setStatusAnnouncement(msg);
       });
-  }, [authReady, user, isDemo, draftId]);
+  }, [authReady, user, isDemo, draftId, handoff, handoffDismissed]);
 
   useEffect(() => {
     const el = chatScrollRef.current;
@@ -256,11 +275,21 @@ function TalkRoute() {
         // Bounded local demo — no network, no persistence, no server brain.
         await new Promise((r) => setTimeout(r, 500));
         const d = demoReply(demoTurn);
-        setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
+        const assistantMsg = { role: "assistant" as const, content: d.reply };
+        setMessages((prev) => [...prev, assistantMsg]);
         setOpenQs(d.openQuestions);
         setAssumptions(d.assumptions);
         setDemoTurn((n) => n + 1);
         if (d.complete) setReadyToConfirm(true);
+        // Persist a device-local handoff so a subsequent signup can resume.
+        // No network, no audio, no secrets — see src/lib/talk-handoff.ts.
+        const saved = saveHandoff({
+          messages: [...next, assistantMsg].map((m) => ({ role: m.role, text: m.content })),
+          patch: {},
+          summary: d.assumptions.join(" · ").slice(0, 500),
+          previousKey: handoffKeyRef.current,
+        });
+        if (saved) handoffKeyRef.current = saved.idempotencyKey;
       } else {
         const res = await sendTurn({ data: { draftId: draftId!, messages: next } });
         setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
@@ -572,6 +601,32 @@ function TalkRoute() {
         {mode === "text" ? (
           <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
             <section className="flex flex-col">
+              {authReady && user && handoff && !handoffDismissed && (
+                <div className="mb-3">
+                  <ResumeHandoffCard
+                    handoff={handoff}
+                    userId={user.id}
+                    onImported={(id) => {
+                      setDraftId(id);
+                      setHandoff(null);
+                      setHandoffDismissed(true);
+                      // Seed the visible transcript from the handoff so the
+                      // user sees continuity, not a blank canvas.
+                      setMessages(
+                        handoff.messages.map((m) => ({
+                          role: m.role,
+                          content: m.text,
+                        })),
+                      );
+                      toast.success("Picked up where you left off");
+                    }}
+                    onDiscard={() => {
+                      setHandoff(null);
+                      setHandoffDismissed(true);
+                    }}
+                  />
+                </div>
+              )}
               {isDemo && (
                 <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-primary/5 px-4 py-2.5 text-xs text-secondary">
                   <Badge variant="secondary" className="uppercase tracking-wide">
