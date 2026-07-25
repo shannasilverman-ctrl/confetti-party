@@ -60,6 +60,7 @@ import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
 
 export type TabKey =
@@ -204,6 +205,10 @@ function PartyWorkspace() {
                 sub={`${g.maybe} maybe · ${g.invited} pending`}
               />
               <Stat label="Budget" value={`$${spent}`} sub={`of $${party.budget}`} />
+            </div>
+
+            <div className="mt-4">
+              <SaveStatus partyId={party.id} />
             </div>
           </div>
 

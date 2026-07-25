@@ -20,6 +20,7 @@ import { partiesSummary } from "@/lib/parties-summary";
 import { BrandLockup } from "@/components/brand";
 import { DeletePartyButton } from "@/components/delete-party-button";
 import { AuthNav } from "@/components/auth-nav";
+import { AppSaveStatus } from "@/components/app-save-status";
 import { ConfettiBurst, celebrateAtEvent, celebrate } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +110,8 @@ function Dashboard() {
           </div>
         </div>
       </header>
+
+      <AppSaveStatus />
 
       {showBanner && (
         <div className="border-b border-border bg-primary/5">

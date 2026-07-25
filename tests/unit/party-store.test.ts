@@ -133,7 +133,7 @@ describe("mergeGuests", () => {
       { id: "g1", name: "Alice", kind: "adult" as const, rsvp: "yes" as const },
       { id: "g2", name: "Bob", kind: "adult" as const, rsvp: "invited" as const },
     ];
-    const merged = mergeGuests(baseline, local, server);
+    const merged = mergeGuests(baseline, local, server).items;
     expect(merged.find((g) => g.id === "g1")?.rsvp).toBe("yes");
     expect(merged.find((g) => g.id === "g2")?.name).toBe("Robert");
   });
@@ -170,7 +170,7 @@ describe("mergeBringBoard", () => {
       },
       baseline[1],
     ];
-    const merged = mergeBringBoard(baseline, local, server);
+    const merged = mergeBringBoard(baseline, local, server).items;
     expect(merged.find((i) => i.id === "b1")?.status).toBe("claimed");
     expect(merged.find((i) => i.id === "b1")?.assigneeName).toBe("Sam");
     expect(merged.find((i) => i.id === "b2")?.qty).toBe(12);
@@ -383,5 +383,160 @@ describe("PartyStore — data integrity", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     const [, patch] = spy.mock.calls[0];
     expect(Object.keys(patch)).toEqual(["budget"]);
+  });
+});
+
+describe("PartyStore — conflict resolution", () => {
+  it("resolveConflict('mine') overlays local values onto fresh baseline and saves", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty(), "u"));
+    const { store, events } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    fake.patchServer("p1", { name: "Server Name" });
+    store.enqueueUpdate({ ...party, name: "Local Name" }, "u");
+    await flush();
+    expect(store.getState("p1").state).toBe("conflict");
+    // Row currently reflects server, not local.
+    expect(fake.rows.get("p1")!.name).toBe("Server Name");
+
+    store.resolveConflict("p1", "mine");
+    await flush();
+    // Local value now persisted.
+    expect(fake.rows.get("p1")!.name).toBe("Local Name");
+    expect(store.getState("p1").state).toBe("saved");
+    expect(store.getState("p1").conflict).toBeNull();
+    // A server-row event was emitted with the local value merged in.
+    const lastServerRow = events.filter((e) => e.type === "server-row").at(-1) as
+      | Extract<StoreEvent, { type: "server-row" }>
+      | undefined;
+    expect(lastServerRow?.party.name).toBe("Local Name");
+  });
+
+  it("resolveConflict('theirs') discards local values and settles", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty(), "u"));
+    const { store } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    fake.patchServer("p1", { name: "Server Name" });
+    store.enqueueUpdate({ ...party, name: "Local Name" }, "u");
+    await flush();
+    expect(store.getState("p1").state).toBe("conflict");
+    store.resolveConflict("p1", "theirs");
+    // Server row stays canonical; no additional write.
+    expect(fake.rows.get("p1")!.name).toBe("Server Name");
+    expect(store.getState("p1").state).toBe("saved");
+    expect(store.getState("p1").conflict).toBeNull();
+  });
+
+  it("generic retry() does NOT resolve a semantic conflict", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty(), "u"));
+    const { store } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    fake.patchServer("p1", { name: "Server Name" });
+    store.enqueueUpdate({ ...party, name: "Local Name" }, "u");
+    await flush();
+    expect(store.getState("p1").state).toBe("conflict");
+    store.retry("p1");
+    await flush();
+    expect(store.getState("p1").state).toBe("conflict");
+    expect(fake.rows.get("p1")!.name).toBe("Server Name");
+  });
+
+  it("remove guest vs server RSVP change surfaces as semantic conflict", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty(), "u"));
+    const { store } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    // Server: guest g1 flips RSVP to yes.
+    fake.patchServer("p1", {
+      guests: [
+        { ...party.guests[0], rsvp: "yes" },
+        party.guests[1],
+      ] as unknown as PartyRow["guests"],
+    });
+    // Host: removes g1 locally.
+    store.enqueueUpdate({ ...party, guests: [party.guests[1]] }, "u");
+    await flush();
+    // Server claim survives; host removal is held as a conflict.
+    const row = fake.rows.get("p1")!;
+    const finalGuests = row.guests as typeof party.guests;
+    expect(finalGuests.find((g) => g.id === "g1")?.rsvp).toBe("yes");
+    expect(store.getState("p1").state).toBe("conflict");
+    expect(store.getState("p1").conflict?.columns).toContain("guests");
+  });
+
+  it("remove bring item vs server claim surfaces as semantic conflict", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty(), "u"));
+    const { store } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    // Server: guest claims b1.
+    fake.patchServer("p1", {
+      bring_board: [
+        {
+          ...(party.bringBoard ?? [])[0],
+          status: "claimed",
+          assigneeName: "Sam",
+          claimedAt: "2027-01-01T01:00:00Z",
+        },
+      ] as unknown as PartyRow["bring_board"],
+    });
+    // Host removes the item locally.
+    store.enqueueUpdate({ ...party, bringBoard: [] }, "u");
+    await flush();
+    const row = fake.rows.get("p1")!;
+    const board = row.bring_board as { id: string; status: string; assigneeName?: string }[];
+    // Claim survives — host removal did not erase it.
+    expect(board.length).toBe(1);
+    expect(board[0].status).toBe("claimed");
+    expect(store.getState("p1").state).toBe("conflict");
+    expect(store.getState("p1").conflict?.columns).toContain("bring_board");
+  });
+
+  it("insert permission failure marks the row insertRejected for recovery", async () => {
+    const fake = new FakeDb();
+    fake.errors.push({ message: "row-level security violated", kind: "permission" });
+    const { store, events } = mkStore(fake);
+    const party = mkParty({ id: "p-new" });
+    store.enqueueInsert(party, "u");
+    await flush();
+    const s = store.getState("p-new");
+    expect(s.state).toBe("error");
+    expect(s.insertRejected).toBe(true);
+    // Toast copy is generic — no raw provider error interpolation.
+    const toastEvt = events.find((e) => e.type === "toast") as
+      | Extract<StoreEvent, { type: "toast" }>
+      | undefined;
+    expect(toastEvt?.message).not.toMatch(/row-level security/i);
+  });
+
+  it("error toast copy is generic and does not leak provider messages", async () => {
+    const fake = new FakeDb();
+    fake.seed(partyToColumns(mkParty(), "u"));
+    // Push enough errors to exhaust retries.
+    for (let i = 0; i < 5; i++)
+      fake.errors.push({
+        message: "duplicate key value violates unique constraint xyz",
+        kind: "unknown",
+      });
+    const { store, events } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    store.enqueueUpdate({ ...party, name: "Nope" }, "u");
+    await flush();
+    const toastEvts = events.filter((e) => e.type === "toast") as Extract<
+      StoreEvent,
+      { type: "toast" }
+    >[];
+    for (const t of toastEvts) {
+      expect(t.message).not.toMatch(/duplicate key/i);
+      expect(t.message).not.toMatch(/xyz/);
+    }
   });
 });
