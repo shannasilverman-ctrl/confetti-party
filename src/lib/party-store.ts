@@ -195,6 +195,28 @@ export class PartyStore {
     void this.kick(party.id);
   }
 
+  /**
+   * Wait for the initial insert of `id` to settle (saved or insertRejected)
+   * or a hard timeout. Returns { ok, error? } describing the outcome.
+   * Callers should treat any non-ok result as recoverable — the entry
+   * remains in the queue for retry via `retry(id)`.
+   */
+  async waitForInitialSave(
+    id: string,
+    timeoutMs = 15000,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const start = Date.now();
+    const step = 40;
+    while (true) {
+      const e = this.queue.get(id);
+      if (!e) return { ok: false, error: "not-queued" };
+      if (e.state === "saved") return { ok: true };
+      if (e.insertRejected) return { ok: false, error: "rejected" };
+      if (Date.now() - start > timeoutMs) return { ok: false, error: "timeout" };
+      await this.opts.sleep(step);
+    }
+  }
+
   enqueueUpdate(party: Party, userId: string) {
     if (!this.acceptsUser(userId)) {
       this.refuseCrossUser("enqueueUpdate", party.id, userId);
