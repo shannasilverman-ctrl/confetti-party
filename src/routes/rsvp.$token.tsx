@@ -352,9 +352,20 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
     [theme],
   );
 
+  // Sequence guard: only the newest refresh may write into `party`. A slow
+  // response from an earlier fetch must never overwrite a newer canonical
+  // snapshot the user has already seen.
+  const refreshSeqRef = useRef(0);
+  useEffect(() => {
+    // Reset the sequence when the token changes so a slow prior fetch
+    // cannot land on a new invite's state.
+    refreshSeqRef.current = 0;
+  }, [token]);
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
     setRefreshing(true);
     const res = await refetchRsvpParty(token);
+    if (seq !== refreshSeqRef.current) return; // stale — a newer refresh started
     setRefreshing(false);
     if (!res.ok) {
       setRefreshError(res.error);
