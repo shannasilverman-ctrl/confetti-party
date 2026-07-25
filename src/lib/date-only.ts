@@ -8,20 +8,33 @@
  * string in the app must go through the helpers here so the rendered day
  * matches the value the host entered regardless of viewer time zone.
  *
+ * Supported year range: 1000..9999 inclusive (four-digit calendar years in
+ * the proleptic Gregorian calendar). Values outside that range are
+ * rejected by `parseDateOnly`. This range is enforced by the strict
+ * `YYYY-MM-DD` regex and validated in tests.
+ *
  * Rules enforced by this module:
- *   1. Strict `YYYY-MM-DD` validation (month 1-12, day 1-31, real calendar).
+ *   1. Strict `YYYY-MM-DD` validation (year 1000-9999, real calendar day).
  *   2. All Date construction goes through numeric local components:
  *      `new Date(y, m - 1, d)`.
- *   3. Calendar-day math uses local components, never rounded ms.
+ *   3. Calendar-day math uses a pure civil-date ordinal (Rata Die), so
+ *      DST transitions and historical UTC offset changes never distort
+ *      the count. No elapsed-ms rounding.
+ *   4. `addDaysDateOnly` requires a finite integer offset.
+ *   5. `localDateToDateOnly` rejects `Invalid Date`.
  */
 
 const RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+const MIN_YEAR = 1000;
+const MAX_YEAR = 9999;
 
 export type DateOnlyParts = { y: number; m: number; d: number };
 
 /**
  * Strictly validate a `YYYY-MM-DD` string and return numeric components.
- * Returns `null` for anything not a real calendar date.
+ * Returns `null` for anything not a real calendar date in [1000-01-01,
+ * 9999-12-31].
  */
 export function parseDateOnly(s: string | null | undefined): DateOnlyParts | null {
   if (!s || typeof s !== "string") return null;
@@ -30,18 +43,59 @@ export function parseDateOnly(s: string | null | undefined): DateOnlyParts | nul
   const y = Number(match[1]);
   const m = Number(match[2]);
   const d = Number(match[3]);
+  if (y < MIN_YEAR || y > MAX_YEAR) return null;
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-  // Reject invalid days (Feb 30, Apr 31, etc.) by round-tripping through a
-  // local Date and re-checking the components.
-  const probe = new Date(y, m - 1, d);
-  if (probe.getFullYear() !== y || probe.getMonth() !== m - 1 || probe.getDate() !== d) {
-    return null;
-  }
+  // Reject invalid days (Feb 30, Apr 31, etc.) using the civil-calendar
+  // month length table instead of a JS Date round-trip.
+  if (d > daysInMonth(y, m)) return null;
   return { y, m, d };
 }
 
 export function isValidDateOnly(s: string | null | undefined): boolean {
   return parseDateOnly(s) !== null;
+}
+
+function isLeapYear(y: number): boolean {
+  return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+}
+
+function daysInMonth(y: number, m: number): number {
+  switch (m) {
+    case 1:
+    case 3:
+    case 5:
+    case 7:
+    case 8:
+    case 10:
+    case 12:
+      return 31;
+    case 4:
+    case 6:
+    case 9:
+    case 11:
+      return 30;
+    case 2:
+      return isLeapYear(y) ? 29 : 28;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Proleptic-Gregorian civil-date ordinal (Rata Die). Returns the number of
+ * days since 0000-03-01. Purely arithmetic, so it is independent of any
+ * time zone, DST, or historical UTC offset change.
+ *
+ * Reference: Howard Hinnant, "chrono-Compatible Low-Level Date Algorithms."
+ */
+function civilOrdinal(y: number, m: number, d: number): number {
+  const yr = m <= 2 ? y - 1 : y;
+  const era = Math.floor(yr / 400);
+  const yoe = yr - era * 400; // [0, 399]
+  const monthOffset = m > 2 ? m - 3 : m + 9;
+  const doy = Math.floor((153 * monthOffset + 2) / 5) + d - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe;
 }
 
 /**
@@ -60,9 +114,22 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
-/** Format the current local Date's calendar day back into `YYYY-MM-DD`. */
+function pad4(n: number): string {
+  return n.toString().padStart(4, "0");
+}
+
+/**
+ * Format the current local Date's calendar day back into `YYYY-MM-DD`.
+ * Throws on `Invalid Date` — callers must pass a Date they trust.
+ */
 export function localDateToDateOnly(d: Date): string {
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+    throw new Error("localDateToDateOnly: Invalid Date");
+  }
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${pad4(y)}-${pad2(m)}-${pad2(day)}`;
 }
 
 /** Local calendar today as `YYYY-MM-DD`. */
@@ -71,13 +138,17 @@ export function todayDateOnly(now: Date = new Date()): string {
 }
 
 /**
- * Add `days` calendar days to a date-only string. Uses local components,
- * so DST transitions never off-by-one the result.
+ * Add `days` calendar days to a date-only string. Uses the pure civil-date
+ * ordinal so DST and historical offset changes never off-by-one the result.
+ * Requires `days` to be a finite integer.
  */
 export function addDaysDateOnly(s: string, days: number): string {
-  const { y, m, d } = parseDateOnly(s) ?? { y: 0, m: 0, d: 0 };
-  if (!m) throw new Error(`Invalid date-only value: ${JSON.stringify(s)}`);
-  const dt = new Date(y, m - 1, d + days);
+  const parts = parseDateOnly(s);
+  if (!parts) throw new Error(`Invalid date-only value: ${JSON.stringify(s)}`);
+  if (!Number.isFinite(days) || !Number.isInteger(days)) {
+    throw new Error(`addDaysDateOnly: days must be a finite integer, got ${String(days)}`);
+  }
+  const dt = new Date(parts.y, parts.m - 1, parts.d + days);
   return localDateToDateOnly(dt);
 }
 
@@ -86,22 +157,25 @@ export function addDaysDateOnly(s: string, days: number): string {
  * calendar. Returns `YYYY-MM-DD`.
  */
 export function isoDateInDaysLocal(days: number, base: Date = new Date()): string {
+  if (!Number.isFinite(days) || !Number.isInteger(days)) {
+    throw new Error(`isoDateInDaysLocal: days must be a finite integer, got ${String(days)}`);
+  }
   const dt = new Date(base.getFullYear(), base.getMonth(), base.getDate() + days);
   return localDateToDateOnly(dt);
 }
 
 /**
- * Difference between two date-only values in calendar days (b - a). Uses
- * local components so DST does not distort the count.
+ * Exact calendar-day difference between two date-only values (b - a).
+ * Computed from validated y/m/d components via the pure civil-date
+ * ordinal — no elapsed-milliseconds subtraction, no rounding, no
+ * dependence on the host time zone or DST.
  */
 export function calendarDaysBetween(aISO: string, bISO: string): number {
-  const a = dateOnlyToLocalDate(aISO);
-  const b = dateOnlyToLocalDate(bISO);
-  // Anchor to noon to eliminate any DST shift when subtracting ms; the
-  // difference divided by 24h is then exact.
-  const aN = new Date(a.getFullYear(), a.getMonth(), a.getDate(), 12).getTime();
-  const bN = new Date(b.getFullYear(), b.getMonth(), b.getDate(), 12).getTime();
-  return Math.round((bN - aN) / (1000 * 60 * 60 * 24));
+  const a = parseDateOnly(aISO);
+  const b = parseDateOnly(bISO);
+  if (!a) throw new Error(`Invalid date-only value: ${JSON.stringify(aISO)}`);
+  if (!b) throw new Error(`Invalid date-only value: ${JSON.stringify(bISO)}`);
+  return civilOrdinal(b.y, b.m, b.d) - civilOrdinal(a.y, a.m, a.d);
 }
 
 /** Local-calendar days until a date-only string, from `now` (default today). */
@@ -139,18 +213,38 @@ export function allDayStampPlusDays(s: string, days: number): string {
   return toAllDayStamp(addDaysDateOnly(s, days));
 }
 
-/** Parse `HH:MM` or `H:MM AM/PM` into 24h components; returns null if bad. */
+/**
+ * Parse a wall-clock time.
+ *
+ * - 24-hour form `HH:MM` (or `H:MM`) requires hour 0..23, minute 0..59.
+ * - 12-hour form `H:MM AM|PM` requires hour 1..12, minute 0..59.
+ *
+ * Combinations that mix the two conventions ("13:00 PM", "00:30 PM",
+ * "00:00 AM") are rejected. Leading/trailing whitespace is trimmed;
+ * any other whitespace inside the value is rejected.
+ */
 export function parseWallClockTime(t: string | null | undefined): { h: number; m: number } | null {
-  if (!t) return null;
-  const match = t.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (t == null || typeof t !== "string") return null;
+  const trimmed = t.trim();
+  if (!trimmed) return null;
+  const match = /^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i.exec(trimmed);
   if (!match) return null;
-  let h = Number(match[1]);
+  const rawH = Number(match[1]);
   const m = Number(match[2]);
-  const ap = match[3]?.toUpperCase();
-  if (ap === "PM" && h < 12) h += 12;
-  if (ap === "AM" && h === 12) h = 0;
-  if (h > 23 || m > 59) return null;
-  return { h, m };
+  const ap = match[3]?.toUpperCase() as "AM" | "PM" | undefined;
+  if (!Number.isInteger(rawH) || !Number.isInteger(m)) return null;
+  if (m < 0 || m > 59) return null;
+
+  if (ap) {
+    // 12-hour: hour must be 1..12, and the raw match must not be "00".
+    if (rawH < 1 || rawH > 12) return null;
+    const h = ap === "PM" ? (rawH === 12 ? 12 : rawH + 12) : rawH === 12 ? 0 : rawH;
+    return { h, m };
+  }
+
+  // 24-hour form: hour must be 0..23.
+  if (rawH < 0 || rawH > 23) return null;
+  return { h: rawH, m };
 }
 
 /**
@@ -159,18 +253,32 @@ export function parseWallClockTime(t: string | null | undefined): { h: number; m
  * swap this for a TZ-aware helper.
  */
 export function combineDateAndTime(dateISO: string, time: { h: number; m: number } | null): Date {
-  const { y, m, d } = parseDateOnly(dateISO) ?? { y: 0, m: 0, d: 0 };
-  if (!m) throw new Error(`Invalid date-only value: ${JSON.stringify(dateISO)}`);
+  const parts = parseDateOnly(dateISO);
+  if (!parts) throw new Error(`Invalid date-only value: ${JSON.stringify(dateISO)}`);
   const t = time ?? { h: 0, m: 0 };
-  return new Date(y, m - 1, d, t.h, t.m, 0, 0);
+  return new Date(parts.y, parts.m - 1, parts.d, t.h, t.m, 0, 0);
 }
 
 /** `YYYYMMDDTHHMMSS` local stamp for ICS/Google (floating local time). */
 export function toLocalCalendarStamp(d: Date): string {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+    throw new Error("toLocalCalendarStamp: Invalid Date");
+  }
   const y = d.getFullYear();
   const mo = pad2(d.getMonth() + 1);
   const da = pad2(d.getDate());
   const h = pad2(d.getHours());
   const mi = pad2(d.getMinutes());
-  return `${y}${mo}${da}T${h}${mi}00`;
+  return `${pad4(y)}${mo}${da}T${h}${mi}00`;
+}
+
+/** `YYYYMMDDTHHMMSSZ` UTC stamp — required for ICS DTSTAMP (RFC 5545). */
+export function toUtcIcsStamp(d: Date = new Date()): string {
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) {
+    throw new Error("toUtcIcsStamp: Invalid Date");
+  }
+  return (
+    `${pad4(d.getUTCFullYear())}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}` +
+    `T${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}${pad2(d.getUTCSeconds())}Z`
+  );
 }

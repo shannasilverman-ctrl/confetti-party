@@ -28,14 +28,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
-import {
-  formatDateOnly,
-  parseWallClockTime,
-  combineDateAndTime,
-  toLocalCalendarStamp,
-  toAllDayStamp,
-  allDayStampPlusDays,
-} from "@/lib/date-only";
+import { formatDateOnly, parseWallClockTime } from "@/lib/date-only";
+import { buildGoogleCalendarUrl, buildIcsDocument, icsFilename } from "@/lib/ics";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
@@ -177,7 +171,6 @@ function UnavailableInvite() {
     />
   );
 }
-
 function PublicRsvpPage() {
   const { token } = Route.useParams();
   const { party, status } = Route.useLoaderData();
@@ -188,82 +181,37 @@ function PublicRsvpPage() {
 
 /* ---------- Calendar helpers ---------- */
 
-function buildCalendarPayload(party: PartyView) {
-  // Wall-clock semantics: host-entered start_time is treated as floating
-  // local time. If host time zone becomes a first-class field, wire it in
-  // here — do NOT silently convert to UTC.
-  const time = parseWallClockTime(party.start_time);
-  if (time) {
-    const start = combineDateAndTime(party.date, time);
-    const end = new Date(start.getTime() + 3 * 60 * 60 * 1000);
-    return {
-      allDay: false as const,
-      start,
-      end,
-      googleDates: `${toLocalCalendarStamp(start)}/${toLocalCalendarStamp(end)}`,
-      icsStart: toLocalCalendarStamp(start),
-      icsEnd: toLocalCalendarStamp(end),
-      icsAllDay: false,
-    };
-  }
-  const startStamp = toAllDayStamp(party.date);
-  const endStamp = allDayStampPlusDays(party.date, 1);
+function calendarInput(token: string, party: PartyView) {
   return {
-    allDay: true as const,
-    googleDates: `${startStamp}/${endStamp}`,
-    icsStart: startStamp,
-    icsEnd: endStamp,
-    icsAllDay: true,
-  };
+    date: party.date,
+    startTime: party.start_time ?? null,
+    title: party.name,
+    location: party.location ?? null,
+    description: "See you there — sent via Confetti.",
+    uidSeed: token,
+  } as const;
 }
 
-function googleCalUrl(party: PartyView) {
-  const p = buildCalendarPayload(party);
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: party.name,
-    dates: p.googleDates,
-    details: "See you there — sent via Confetti.",
-  });
-  if (party.location) params.set("location", party.location);
-  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+function googleCalUrl(token: string, party: PartyView) {
+  return buildGoogleCalendarUrl(calendarInput(token, party));
 }
 
-function buildIcs(party: PartyView): string {
-  const p = buildCalendarPayload(party);
-  const uid = `${(party.name || "party").replace(/\W+/g, "-")}-${Date.now()}@confetti-party.lovable.app`;
-  const now = toLocalCalendarStamp(new Date());
-  const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Confetti//RSVP//EN",
-    "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${uid}`,
-    `DTSTAMP:${now}`,
-    p.icsAllDay ? `DTSTART;VALUE=DATE:${p.icsStart}` : `DTSTART:${p.icsStart}`,
-    p.icsAllDay ? `DTEND;VALUE=DATE:${p.icsEnd}` : `DTEND:${p.icsEnd}`,
-    `SUMMARY:${esc(party.name)}`,
-    party.location ? `LOCATION:${esc(party.location)}` : "",
-    "DESCRIPTION:See you there — sent via Confetti.",
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].filter(Boolean);
-  return lines.join("\r\n");
-}
-
-function downloadIcs(party: PartyView) {
-  const ics = buildIcs(party);
+function downloadIcs(token: string, party: PartyView) {
+  const ics = buildIcsDocument(calendarInput(token, party));
   const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${party.name.replace(/[^\w-]+/g, "_") || "party"}.ics`;
+  a.download = icsFilename(party.name);
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Whether the invite has a wall-clock time (vs all-day). */
+function hasTimedInvite(party: PartyView): boolean {
+  return parseWallClockTime(party.start_time ?? null) !== null;
 }
 
 /* ---------- Sub-components ---------- */
@@ -293,27 +241,36 @@ function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
   );
 }
 
-function CalendarAndDirections({ party }: { party: PartyView }) {
+function CalendarAndDirections({ token, party }: { token: string; party: PartyView }) {
+  const timed = hasTimedInvite(party);
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button asChild variant="outline" size="sm">
-        <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
-          <CalendarPlus /> Google Calendar
-        </a>
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => downloadIcs(party)}>
-        <CalendarPlus /> Apple / .ics
-      </Button>
-      {party.location && (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
         <Button asChild variant="outline" size="sm">
-          <a
-            href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Navigation /> Directions
+          <a href={googleCalUrl(token, party)} target="_blank" rel="noopener noreferrer">
+            <CalendarPlus /> Google Calendar
           </a>
         </Button>
+        <Button variant="outline" size="sm" onClick={() => downloadIcs(token, party)}>
+          <CalendarPlus /> Apple / .ics
+        </Button>
+        {party.location && (
+          <Button asChild variant="outline" size="sm">
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(party.location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Navigation /> Directions
+            </a>
+          </Button>
+        )}
+      </div>
+      {timed && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Times are shown as your host entered them and are added to your calendar as floating local
+          time — your calendar app won't convert between time zones.
+        </p>
       )}
     </div>
   );
@@ -568,6 +525,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 
         {done ? (
           <SuccessCard
+            token={token}
             party={party}
             choice={submittedChoice ?? "yes"}
             name={name.trim()}
@@ -777,7 +735,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                 Save the date
               </p>
               <div className="flex justify-center">
-                <CalendarAndDirections party={party} />
+                <CalendarAndDirections token={token} party={party} />
               </div>
             </div>
 
@@ -806,6 +764,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 /* ---------- Success card ---------- */
 
 function SuccessCard({
+  token,
   party,
   choice,
   name,
@@ -815,6 +774,7 @@ function SuccessCard({
   refreshing,
   relLabel,
 }: {
+  token: string;
   party: PartyView;
   choice: RSVPChoice;
   name: string;
@@ -884,7 +844,7 @@ function SuccessCard({
       </div>
       {choice !== "no" && (
         <div className="flex justify-center">
-          <CalendarAndDirections party={party} />
+          <CalendarAndDirections token={token} party={party} />
         </div>
       )}
       <div className="pt-1">
