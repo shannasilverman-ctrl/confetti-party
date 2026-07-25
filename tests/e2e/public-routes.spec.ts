@@ -12,11 +12,11 @@ const ROUTES = [
 
 for (const path of ROUTES) {
   test(`renders ${path} without horizontal overflow`, async ({ page }, testInfo) => {
-    const resp = await page.goto(path, { waitUntil: "domcontentloaded" });
+    const resp = await page.goto(path, { waitUntil: "networkidle" });
     expect(resp?.ok(), `HTTP status for ${path}`).toBeTruthy();
 
-    // Full "Confetti" wordmark visible in the shared brand lockup
-    await expect(page.locator("body").getByText("Confetti", { exact: true }).first()).toBeVisible();
+    // Full "Confetti" wordmark visible in the shared brand lockup (link with aria-label)
+    await expect(page.getByRole("link", { name: /confetti/i }).first()).toBeVisible();
 
     // Landmarks / structure — every page should have a semantic <main> or <h1>
     const hasMain = await page.locator("main").count();
