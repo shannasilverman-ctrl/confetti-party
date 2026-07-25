@@ -487,12 +487,14 @@ function NewPartyWizard({
         </DialogHeader>
 
         {step === 1 && (
-          <div className="grid grid-cols-2 gap-3 py-4">
+          <div className="grid grid-cols-2 gap-3 py-4" data-testid="wizard-step-1">
             {OCCASIONS.map((o) => (
               <button
                 key={o.value}
+                type="button"
+                data-testid={`wizard-occasion-${o.value}`}
                 onClick={() => selectOccasion(o.value)}
-                className={`rounded-2xl border p-5 text-left transition ${
+                className={`min-h-11 rounded-2xl border p-5 text-left transition ${
                   occasion === o.value
                     ? "border-primary bg-primary/5 shadow-card"
                     : "border-border hover:border-primary/40 hover:bg-muted/40"
