@@ -55,11 +55,16 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const navigate = useNavigate();
-  // Live countdown for the "chaos → calm" mock card, so the badge never
-  // contradicts today's actual calendar.
-  const sampleDays = useMemo(() => daysUntilLocal(SAMPLE_CARD_DATE), []);
+  // Live countdown for the "chaos → calm" mock card, using a rolling
+  // illustrative Saturday so the badge never contradicts the calendar.
+  const sampleCardDate = useMemo(() => nextIllustrativeSaturday(), []);
+  const sampleDays = useMemo(() => daysUntilLocal(sampleCardDate), [sampleCardDate]);
   const sampleCountdown =
-    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Just wrapped";
+    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Soon";
+  const sampleCardDateLabel = useMemo(
+    () => formatDateOnly(sampleCardDate, { weekday: "short", month: "short", day: "numeric" }),
+    [sampleCardDate],
+  );
   useEffect(() => {
     // Gentle cannon behind the headline once the wordmark letters have popped in.
     const t = setTimeout(() => {
