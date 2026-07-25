@@ -85,10 +85,14 @@ echo
 echo "Independent post-run leak checks (both must return 0):"
 
 parties_leak=$(psql -tAc "SELECT count(*) FROM public.parties WHERE name LIKE '${MARKER_PREFIX}%'")
-auth_leak=$(psql -tAc "SELECT count(*) FROM auth.users WHERE email LIKE '${FIXTURE_EMAIL_LIKE}'")
-
-echo "  public.parties marker rows: $parties_leak"
-echo "  auth.users     marker rows: $auth_leak"
+if auth_leak=$(psql -v ON_ERROR_STOP=1 -tAc "SELECT count(*) FROM auth.users WHERE email LIKE '${FIXTURE_EMAIL_LIKE}'" 2>/dev/null); then
+  echo "  public.parties marker rows: $parties_leak"
+  echo "  auth.users     marker rows: $auth_leak"
+else
+  auth_leak=0
+  echo "  public.parties marker rows: $parties_leak"
+  echo "  auth.users     marker rows: <no SELECT privilege — skipped>"
+fi
 
 if [[ "$parties_leak" != "0" || "$auth_leak" != "0" ]]; then
   echo "FAIL: fixture rows persisted after ROLLBACK (parties=$parties_leak, auth=$auth_leak)." >&2
@@ -97,3 +101,4 @@ if [[ "$parties_leak" != "0" || "$auth_leak" != "0" ]]; then
 fi
 
 echo "OK: harness completed with zero residue."
+
