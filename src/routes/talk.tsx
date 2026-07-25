@@ -20,10 +20,19 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TalkClient, type TalkEvent, type TalkState } from "@/lib/talk-client";
 import { endSession, createDraft } from "@/lib/talk.functions";
-import { sendTurn, confirmDraft } from "@/lib/talk-brain.functions";
+import { sendTurn, confirmDraft, previewDraft } from "@/lib/talk-brain.functions";
 import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
 import { createTalkLifecycle } from "@/lib/talk-lifecycle";
 import { celebrate } from "@/components/confetti-burst";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { ReviewSummary } from "@/lib/talk-materialize";
 
 export const Route = createFileRoute("/talk")({
   ssr: false,
@@ -96,6 +105,9 @@ function TalkRoute() {
   const [assumptions, setAssumptions] = useState<string[]>([]);
   const [readyToConfirm, setReadyToConfirm] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [review, setReview] = useState<ReviewSummary | null>(null);
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Browser dictation (Web Speech API). Not a realtime AI voice call — it
@@ -265,13 +277,43 @@ function TalkRoute() {
     }
   }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
 
-  const confirmAndCreate = useCallback(async () => {
+  const openReview = useCallback(async () => {
     if (!draftId || isDemo) return;
+    setReviewOpen(true);
+    setReviewLoading(true);
+    setReview(null);
+    try {
+      const res = await previewDraft({ data: { draftId } });
+      if (res.alreadyConfirmed && res.confirmedPartyId) {
+        // Idempotent: already materialized. Go straight to the workspace.
+        setReviewOpen(false);
+        navigate({ to: "/party/$id/reveal", params: { id: res.confirmedPartyId } });
+        return;
+      }
+      // Strip transport-only fields before storing summary.
+
+      const { alreadyConfirmed: _a, confirmedPartyId: _c, ...summary } = res;
+      void _a;
+      void _c;
+      setReview(summary);
+    } catch (err) {
+      const msg = friendlyTalkError("confirm", err);
+      toast.error(msg);
+      setStatusAnnouncement(msg);
+      setReviewOpen(false);
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [draftId, isDemo, navigate]);
+
+  const confirmAndCreate = useCallback(async () => {
+    if (!draftId || isDemo || confirming) return;
     setConfirming(true);
     try {
       const { partyId } = await confirmDraft({ data: { draftId } });
       celebrate("big");
       toast.success("Plan created — welcome to your workspace.");
+      setReviewOpen(false);
       navigate({ to: "/party/$id/reveal", params: { id: partyId } });
     } catch (err) {
       const msg = friendlyTalkError("confirm", err);
@@ -280,7 +322,7 @@ function TalkRoute() {
     } finally {
       setConfirming(false);
     }
-  }, [draftId, isDemo, navigate]);
+  }, [draftId, isDemo, confirming, navigate]);
 
   // ---------- Voice-mode handlers (unchanged behavior) ----------
 
@@ -688,16 +730,22 @@ function TalkRoute() {
                     variant="festive"
                     size="lg"
                     className="w-full"
-                    onClick={confirmAndCreate}
-                    disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
+                    onClick={openReview}
+                    disabled={
+                      !draftId ||
+                      confirming ||
+                      reviewLoading ||
+                      (!readyToConfirm && messages.length < 4)
+                    }
+                    data-testid="talk-open-review"
                   >
-                    {confirming ? (
+                    {reviewLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing review…
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Review &amp; create the plan
                       </>
                     )}
                   </Button>
@@ -784,7 +832,177 @@ function TalkRoute() {
           </main>
         )}
       </div>
+
+      <ReviewDialog
+        open={reviewOpen}
+        onOpenChange={(o) => {
+          if (!confirming) setReviewOpen(o);
+        }}
+        loading={reviewLoading}
+        review={review}
+        confirming={confirming}
+        onConfirm={confirmAndCreate}
+      />
     </div>
+  );
+}
+
+function ReviewDialog({
+  open,
+  onOpenChange,
+  loading,
+  review,
+  confirming,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  loading: boolean;
+  review: ReviewSummary | null;
+  confirming: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-lg sm:max-w-lg"
+        data-testid="talk-review-dialog"
+        aria-busy={loading || confirming}
+      >
+        <DialogHeader>
+          <DialogTitle>Review the plan</DialogTitle>
+          <DialogDescription>
+            Here's what Confetti will create. You can change anything after.
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading || !review ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Building your preview…
+          </div>
+        ) : (
+          <div
+            className="max-h-[60vh] space-y-4 overflow-y-auto pr-1"
+            data-testid="talk-review-body"
+          >
+            <section>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Essentials
+              </h3>
+              <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-2">
+                <DetailRow label="Name" value={review.essentials.name} />
+                <DetailRow
+                  label="Occasion"
+                  value={
+                    review.essentials.holidayPack ?? review.essentials.occasion.replace("-", " ")
+                  }
+                />
+                <DetailRow label="Date" value={review.essentials.date} />
+                <DetailRow label="Time" value={review.essentials.startTime ?? "—"} />
+                <DetailRow label="Location" value={review.essentials.location ?? "—"} />
+                <DetailRow label="Guests" value={String(review.essentials.guestEstimate)} />
+                <DetailRow label="Budget" value={`$${review.essentials.budget}`} />
+                {review.essentials.foodApproach && (
+                  <DetailRow label="Food" value={review.essentials.foodApproach} />
+                )}
+                {review.essentials.hostReadyTarget && (
+                  <DetailRow label="Host-ready by" value={review.essentials.hostReadyTarget} />
+                )}
+              </dl>
+            </section>
+
+            <section>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                What we'll create
+              </h3>
+              <ul className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                <CountChip label="Tasks" n={review.counts.tasks} />
+                <CountChip label="Shopping" n={review.counts.shoppingItems} />
+                <CountChip label="Bring items" n={review.counts.bringItems} />
+                <CountChip label="Timeline" n={review.counts.timeline} />
+                <CountChip label="Budget cats" n={review.counts.budgetCategories} />
+              </ul>
+            </section>
+
+            {review.assumptions.length > 0 && (
+              <section>
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Assumptions (edit anytime)
+                </h3>
+                <ul className="mt-2 space-y-1 text-sm text-foreground">
+                  {review.assumptions.map((a, i) => (
+                    <li key={i} className="rounded-lg bg-primary/5 px-2.5 py-1.5 text-secondary">
+                      {a}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {review.openQuestions.length > 0 && (
+              <section>
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Still open — becomes a checklist item
+                </h3>
+                <ul className="mt-2 space-y-1 text-sm text-foreground">
+                  {review.openQuestions.map((q, i) => (
+                    <li key={i} className="rounded-lg bg-muted/40 px-2.5 py-1.5">
+                      {q}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={confirming}
+            className="min-h-11"
+          >
+            Keep talking
+          </Button>
+          <Button
+            variant="festive"
+            onClick={onConfirm}
+            disabled={loading || confirming || !review}
+            data-testid="talk-confirm-create"
+            className="min-h-11"
+          >
+            {confirming ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" /> Create the party
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 border-b border-border/60 py-1 sm:border-b-0 sm:py-0">
+      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="text-right text-sm font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function CountChip({ label, n }: { label: string; n: number }) {
+  return (
+    <li className="flex items-center justify-between rounded-lg border border-border bg-background px-2.5 py-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-base font-semibold tabular-nums text-foreground">{n}</span>
+    </li>
   );
 }
 

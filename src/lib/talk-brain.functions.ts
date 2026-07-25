@@ -4,10 +4,46 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { detectPack, PACKS, packBringBoard, packTasks, type PackId } from "./holiday-packs";
+import { detectPack, type PackId } from "./holiday-packs";
 import { TALK_SYSTEM_PROMPT } from "./gathering-draft";
+import {
+  materializeDraft,
+  mergeDraftLog,
+  summarize,
+  type DraftPatch,
+  type ReviewSummary,
+} from "./talk-materialize";
 
 const MAX_TURNS_PER_HOUR = 40;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Rolling per-hour turn limit. Given the stored ai_turns counter and its
+ * hour-start anchor, compute what the next persisted values should be — or
+ * whether the caller has exceeded the cap in the current window.
+ *
+ * Extracted (and exported) so we can unit-test the exact windowing behavior
+ * without spinning up the whole server-fn stack.
+ *
+ * @internal exported for tests only.
+ */
+export function computeRateWindow(
+  input: { aiTurns: number | null | undefined; hourStartISO: string | null | undefined },
+  nowMs: number,
+): { allowed: boolean; nextTurns: number; nextHourStartISO: string } {
+  const hourStartMs = input.hourStartISO ? new Date(input.hourStartISO).getTime() : 0;
+  const withinWindow = nowMs - hourStartMs < RATE_WINDOW_MS;
+  const windowTurns = withinWindow ? (input.aiTurns ?? 0) : 0;
+  const nextTurns = windowTurns + 1;
+  const nextHourStartISO = withinWindow
+    ? (input.hourStartISO ?? new Date(nowMs).toISOString())
+    : new Date(nowMs).toISOString();
+  return {
+    allowed: nextTurns <= MAX_TURNS_PER_HOUR,
+    nextTurns,
+    nextHourStartISO,
+  };
+}
 
 const TurnInput = z.object({
   draftId: z.string().uuid(),
@@ -22,16 +58,6 @@ const TurnInput = z.object({
     .max(40),
 });
 
-type DraftPatch = {
-  identity?: { workingTitle?: string; occasion?: string; holidayPackId?: string };
-  when?: { date?: string; startTime?: string; dateCertainty?: "fixed" | "window" | "tbd" };
-  where?: { display?: string };
-  people?: { expectedCount?: number; households?: number; kids?: number };
-  budget?: { total?: number; stance?: "strict" | "flexible" | "no-limit" };
-  food?: { approach?: string };
-  hostNote?: string;
-};
-
 type TurnResult = {
   reply: string;
   draftPatch: DraftPatch;
@@ -44,12 +70,17 @@ type TurnResult = {
 const SCHEMA_HINT = `{
   "reply": "<= 3 short sentences, warm, ask ONE question at a time",
   "draftPatch": {
-    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year" },
-    "when": { "date"?: "YYYY-MM-DD", "startTime"?: "7:00 PM", "dateCertainty"?: "fixed"|"window"|"tbd" },
-    "where": { "display"?: string },
+    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string },
+    "when": { "date"?: "YYYY-MM-DD", "startTime"?: "7:00 PM", "dateCertainty"?: "fixed"|"window"|"tbd", "anchors"?: [{ "label": string, "at": "7:30 PM", "kind"?: "kickoff"|"toast"|"meal"|"activity" }] },
+    "where": { "display"?: string, "contingency"?: { "needed": true, "kind"?: "weather"|"backup-venue", "plan"?: string } },
     "people": { "expectedCount"?: number, "households"?: number, "kids"?: number },
+    "effort": { "level"?: "low"|"medium"|"high", "hostReadyTarget"?: "one hour before" },
     "budget": { "total"?: number, "stance"?: "strict"|"flexible"|"no-limit" },
-    "food": { "approach"?: "cook"|"catering"|"grocery-prepared"|"potluck"|"mix"|"snacks-only" },
+    "food": { "approach"?: "cook"|"catering"|"grocery-prepared"|"potluck"|"mix"|"snacks-only", "peakMoment"?: string },
+    "constraints": { "dietary"?: string[], "accessibility"?: string[], "observance"?: string[], "allergies"?: string[] },
+    "contributions": { "mode"?: "none"|"open-signup"|"assigned"|"potluck-list", "seeds"?: [{ "label": string, "qty"?: number, "category"?: string }] },
+    "vibe": { "activities"?: string[], "creativeDirection"?: { "palette"?: string[], "vibe"?: string }, "broadcast"?: { "source"?: "tv"|"stream"|"none", "channel"?: string, "needsSoundCheck"?: boolean } },
+    "rituals": [{ "label": string, "instruction"?: string }],
     "hostNote"?: string
   },
   "openQuestions": [ "one question the host still needs to answer" ],
@@ -128,10 +159,12 @@ function demoBrain(messages: TurnMessages): TurnResult {
     patch.identity = { workingTitle: "Backyard BBQ", occasion: "cookout" };
   } else if (/watch|game day|super bowl|world cup/i.test(allUser)) {
     patch.identity = { workingTitle: "Watch Party", occasion: "game-day" };
+    patch.vibe = { broadcast: { source: "tv", needsSoundCheck: true } };
   }
 
   if (/potluck|everyone brings|bring a dish/i.test(allUser)) {
     patch.food = { approach: "potluck" };
+    patch.contributions = { mode: "open-signup" };
   } else if (/caterer|catering/i.test(allUser)) {
     patch.food = { approach: "catering" };
   }
@@ -164,7 +197,6 @@ function demoBrain(messages: TurnMessages): TurnResult {
     );
   }
 
-  // Nudge based on the last message if it asked a direct thing.
   if (/help|stuck|overwhelm/i.test(lastUser)) {
     reply = "One step at a time. Let's lock the date first — do you have one in mind?";
   }
@@ -187,22 +219,26 @@ export const sendTurn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<TurnResult> => {
     const { supabase, userId } = context;
 
-    // Fetch draft + rate limit
+    // Fetch draft. Rate limit is windowed via ai_turns_hour_start so a lifetime
+    // count above the cap does NOT block a fresh hour (previous bug).
     const { data: draftRow, error: draftErr } = await supabase
       .from("gathering_drafts")
-      .select("id, draft, ai_turns, updated_at")
+      .select("id, draft, ai_turns, ai_turns_hour_start")
       .eq("id", data.draftId)
       .eq("user_id", userId)
       .maybeSingle();
     if (draftErr) throw new Error(draftErr.message);
     if (!draftRow) throw new Error("Draft not found");
 
-    const turns = (draftRow.ai_turns ?? 0) + 1;
-    const oneHourAgo = Date.now() - 60 * 60 * 1000;
-    const withinHour = new Date(draftRow.updated_at ?? 0).getTime() > oneHourAgo;
-    if (withinHour && turns > MAX_TURNS_PER_HOUR) {
+    const rate = computeRateWindow(
+      { aiTurns: draftRow.ai_turns, hourStartISO: draftRow.ai_turns_hour_start },
+      Date.now(),
+    );
+    if (!rate.allowed) {
       throw new Error("Slow down — that's a lot of turns in one hour. Try again in a bit.");
     }
+    const nextTurns = rate.nextTurns;
+    const newHourStartISO = rate.nextHourStartISO;
 
     let result: TurnResult;
     const canUseAi = !!process.env.LOVABLE_API_KEY;
@@ -215,11 +251,7 @@ export const sendTurn = createServerFn({ method: "POST" })
           openQuestions?: string[];
           assumptions?: string[];
           suggestedPackId?: PackId;
-        }>({
-          system: TALK_SYSTEM_PROMPT,
-          messages: data.messages,
-          schemaHint: SCHEMA_HINT,
-        });
+        }>({ system: TALK_SYSTEM_PROMPT, messages: data.messages, schemaHint: SCHEMA_HINT });
         if (parsed?.reply) {
           result = {
             reply: parsed.reply,
@@ -240,21 +272,27 @@ export const sendTurn = createServerFn({ method: "POST" })
       result = demoBrain(data.messages);
     }
 
-    // Merge patch into stored draft (shallow — draft body is jsonb).
+    // Merge patch into stored draft log.
     const existing = (draftRow.draft as Record<string, unknown>) ?? {};
     const merged = {
       ...existing,
       patch: mergePatchLog(existing.patch, result.draftPatch, result.usedDemo),
     };
-    await supabase
+    const { error: updateErr } = await supabase
       .from("gathering_drafts")
       .update({
         draft: merged,
-        ai_turns: turns,
+        ai_turns: nextTurns,
+        ai_turns_hour_start: newHourStartISO,
         open_questions: result.openQuestions as unknown as never,
         assumptions: result.assumptions as unknown as never,
       })
-      .eq("id", data.draftId);
+      .eq("id", data.draftId)
+      .eq("user_id", userId);
+    if (updateErr) {
+      // Surface persistence failures instead of silently pretending success.
+      throw new Error(`Failed to save draft: ${updateErr.message}`);
+    }
 
     return result;
   });
@@ -264,94 +302,107 @@ function mergePatchLog(prev: unknown, patch: DraftPatch, demo: boolean) {
   return [...arr, { at: new Date().toISOString(), demo, patch }].slice(-40);
 }
 
-// -------- Confirm draft -> materialize a Party row --------
+// -------- Merged patch helper (shared by preview + confirm) --------
+
+async function readMergedPatch(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  draftId: string,
+  userId: string,
+): Promise<{
+  merged: DraftPatch;
+  draftRow: { id: string; status: string; confirmed_party_id: string | null };
+}> {
+  const { data: draftRow, error } = await supabase
+    .from("gathering_drafts")
+    .select("id, draft, status, confirmed_party_id")
+    .eq("id", draftId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!draftRow) throw new Error("Draft not found");
+  const log = ((draftRow.draft as { patch?: Array<{ patch: DraftPatch }> })?.patch ?? []).map(
+    (l) => l.patch,
+  );
+  const merged = mergeDraftLog(log);
+  return {
+    merged,
+    draftRow: {
+      id: draftRow.id,
+      status: draftRow.status,
+      confirmed_party_id: draftRow.confirmed_party_id,
+    },
+  };
+}
+
+// -------- Preview draft (used by the review UI before confirm) --------
+
+const PreviewInput = z.object({ draftId: z.string().uuid() });
+
+export const previewDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => PreviewInput.parse(input))
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<ReviewSummary & { alreadyConfirmed: boolean; confirmedPartyId: string | null }> => {
+      const { supabase, userId } = context;
+      const { merged, draftRow } = await readMergedPatch(supabase, data.draftId, userId);
+      const summary = summarize(merged);
+      return {
+        ...summary,
+        alreadyConfirmed: draftRow.status === "confirmed" && !!draftRow.confirmed_party_id,
+        confirmedPartyId: draftRow.confirmed_party_id,
+      };
+    },
+  );
+
+// -------- Confirm draft -> materialize a Party row (idempotent) --------
 
 const ConfirmInput = z.object({ draftId: z.string().uuid() });
 
 export const confirmDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ConfirmInput.parse(input))
-  .handler(async ({ data, context }): Promise<{ partyId: string }> => {
+  .handler(async ({ data, context }): Promise<{ partyId: string; alreadyConfirmed: boolean }> => {
     const { supabase, userId } = context;
-    const { data: draftRow, error } = await supabase
-      .from("gathering_drafts")
-      .select("id, draft")
-      .eq("id", data.draftId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (error) throw new Error(error.message);
-    if (!draftRow) throw new Error("Draft not found");
+    const { merged, draftRow } = await readMergedPatch(supabase, data.draftId, userId);
 
-    // Rebuild the latest patch state from the log.
-    const log = ((draftRow.draft as { patch?: Array<{ patch: DraftPatch }> })?.patch ?? []).map(
-      (l) => l.patch,
-    );
-    const merged: DraftPatch = {};
-    for (const p of log) {
-      if (p.identity) merged.identity = { ...(merged.identity ?? {}), ...p.identity };
-      if (p.when) merged.when = { ...(merged.when ?? {}), ...p.when };
-      if (p.where) merged.where = { ...(merged.where ?? {}), ...p.where };
-      if (p.people) merged.people = { ...(merged.people ?? {}), ...p.people };
-      if (p.budget) merged.budget = { ...(merged.budget ?? {}), ...p.budget };
-      if (p.food) merged.food = { ...(merged.food ?? {}), ...p.food };
-      if (p.hostNote) merged.hostNote = p.hostNote;
+    // Idempotent fast path: if this draft is already confirmed, return the
+    // existing party id instead of inserting a duplicate.
+    if (draftRow.status === "confirmed" && draftRow.confirmed_party_id) {
+      return { partyId: draftRow.confirmed_party_id, alreadyConfirmed: true };
     }
-
-    const packId = merged.identity?.holidayPackId as PackId | undefined;
-    const pack = packId ? PACKS[packId] : undefined;
-    const occasion = (merged.identity?.occasion ?? (pack ? "holiday" : "other")) as string;
-    const name = merged.identity?.workingTitle ?? (pack ? pack.label : "Untitled gathering");
-    const dateISO = merged.when?.date ?? isoDateInDays(21);
-    const startTime = merged.when?.startTime ?? null;
-    const location = merged.where?.display ?? null;
-    const guestEstimate = merged.people?.expectedCount ?? 12;
-    const budget = merged.budget?.total ?? 300;
 
     const mkId = () =>
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID().slice(0, 8)
         : Math.random().toString(36).slice(2, 10);
 
-    const tasks = pack
-      ? packTasks(pack, mkId)
-      : [
-          { id: mkId(), title: "Confirm date and headcount", bucket: "3-5 weeks", done: false },
-          { id: mkId(), title: "Plan menu", bucket: "1-2 weeks", done: false },
-          { id: mkId(), title: "Shop and prep", bucket: "Party week", done: false },
-          { id: mkId(), title: "Set up on the day", bucket: "Day of", done: false },
-        ];
-
-    const bringBoard = pack ? packBringBoard(pack, mkId) : [];
-
-    const budgetCategories = [
-      { id: mkId(), name: "Food & Drink", planned: Math.round(budget * 0.55), expenses: [] },
-      { id: mkId(), name: "Decorations", planned: Math.round(budget * 0.15), expenses: [] },
-      { id: mkId(), name: "Supplies", planned: Math.round(budget * 0.15), expenses: [] },
-      { id: mkId(), name: "Extras", planned: Math.round(budget * 0.15), expenses: [] },
-    ];
+    const { party } = materializeDraft(merged, { mkId });
 
     const insertRow = {
       user_id: userId,
-      name,
-      occasion,
-      date: dateISO,
-      start_time: startTime,
-      location,
-      guest_estimate: guestEstimate,
-      budget,
-      theme: "",
-      theme_id: null as string | null,
-      tasks: tasks as unknown as never,
+      name: party.name,
+      occasion: party.occasion,
+      date: party.date,
+      start_time: party.startTime,
+      location: party.location,
+      guest_estimate: party.guestEstimate,
+      budget: party.budget,
+      theme: party.theme,
+      theme_id: party.themeId,
+      tasks: party.tasks as unknown as never,
       guests: [] as unknown as never,
-      budget_categories: budgetCategories as unknown as never,
-      shopping_items: [] as unknown as never,
-      timeline: [] as unknown as never,
+      budget_categories: party.budgetCategories as unknown as never,
+      shopping_items: party.shoppingItems as unknown as never,
+      timeline: party.timeline as unknown as never,
       pinned_inspiration: [] as unknown as never,
-      host_note: merged.hostNote ?? null,
+      host_note: party.hostNote,
       households: [] as unknown as never,
-      bring_board: bringBoard as unknown as never,
+      bring_board: party.bringBoard as unknown as never,
       host_updates: [] as unknown as never,
-      holiday_pack_id: packId ?? null,
+      holiday_pack_id: party.holidayPackId ?? null,
       checkins: {} as unknown as never,
     };
 
@@ -362,16 +413,35 @@ export const confirmDraft = createServerFn({ method: "POST" })
       .single();
     if (insertErr) throw new Error(insertErr.message);
 
-    await supabase
+    // Conditional update: only claim the draft if nobody else already did.
+    // Combined with the partial-unique index on confirmed_party_id, this is
+    // safe against double-click and retry races.
+    const { data: claimed, error: claimErr } = await supabase
       .from("gathering_drafts")
       .update({ status: "confirmed", confirmed_party_id: partyRow.id })
-      .eq("id", data.draftId);
+      .eq("id", data.draftId)
+      .eq("user_id", userId)
+      .is("confirmed_party_id", null)
+      .select("confirmed_party_id");
+    if (claimErr) {
+      // Roll back the party insert to avoid an orphan row.
+      await supabase.from("parties").delete().eq("id", partyRow.id).eq("user_id", userId);
+      throw new Error(`Failed to claim draft: ${claimErr.message}`);
+    }
+    if (!claimed || claimed.length === 0) {
+      // A concurrent confirm won. Delete our just-inserted party and return
+      // the winner's party id.
+      await supabase.from("parties").delete().eq("id", partyRow.id).eq("user_id", userId);
+      const { data: winner } = await supabase
+        .from("gathering_drafts")
+        .select("confirmed_party_id")
+        .eq("id", data.draftId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      const winnerId = winner?.confirmed_party_id;
+      if (!winnerId) throw new Error("Confirm race resolution failed");
+      return { partyId: winnerId, alreadyConfirmed: true };
+    }
 
-    return { partyId: partyRow.id };
+    return { partyId: partyRow.id, alreadyConfirmed: false };
   });
-
-function isoDateInDays(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
