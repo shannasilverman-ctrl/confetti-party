@@ -592,9 +592,12 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Can you make it?</Label>
+            {/* Native fieldset/legend gives the radio group a real accessible
+                name for screen readers and passes axe's radiogroup-name rule. */}
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-secondary">Can you make it?</legend>
               <RadioGroup
+                aria-label="Can you make it?"
                 value={rsvp}
                 onValueChange={(v) => {
                   const next = v as RSVPChoice;
@@ -617,7 +620,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                   </label>
                 ))}
               </RadioGroup>
-            </div>
+            </fieldset>
 
             {rsvp === "yes" && (
               <div className="grid grid-cols-2 gap-3">
