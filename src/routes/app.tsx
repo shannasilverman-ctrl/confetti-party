@@ -440,6 +440,14 @@ function NewPartyWizard({
   function selectOccasion(o: OccasionType) {
     setOccasion(o);
     setTheme(null);
+    if (o !== "holiday") setHolidayStarter(null);
+  }
+
+  function pickStarter(id: HolidayStarterId) {
+    setHolidayStarter(id);
+    const starter = getStarter(id);
+    // Prefill an editable name only when the field is empty, so we never overwrite the host's input.
+    if (starter && !name.trim()) setName(starter.suggestedName);
   }
 
   const createdParty = createdId ? getParty(createdId) : undefined;
