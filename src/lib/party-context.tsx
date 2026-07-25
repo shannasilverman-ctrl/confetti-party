@@ -19,6 +19,7 @@ import {
   type Retailer,
 } from "./shopping";
 import type { Theme } from "./themes";
+import { starterPack, packTasks, packBringBoard } from "./holiday-packs";
 
 export type OccasionType =
   | "birthday"
