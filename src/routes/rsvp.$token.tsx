@@ -149,7 +149,6 @@ function PublicRsvpPage() {
   return <RsvpForm token={token} party={party} />;
 }
 
-
 /* ---------- Calendar helpers ---------- */
 
 function parseTimeTo24h(t: string | null): { h: number; m: number } | null {

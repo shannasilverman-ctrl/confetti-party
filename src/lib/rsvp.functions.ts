@@ -144,4 +144,3 @@ export const getRsvpLoaderData = createServerFn({ method: "GET" })
       supabaseKey: process.env.SUPABASE_PUBLISHABLE_KEY,
     });
   });
-
