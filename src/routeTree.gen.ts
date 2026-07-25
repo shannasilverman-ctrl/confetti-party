@@ -15,6 +15,8 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
+import { Route as PartyIdRevealRouteImport } from './routes/party.$id.reveal'
+import { Route as PartyIdDayOfRouteImport } from './routes/party.$id.day-of'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
 
 const TalkRoute = TalkRouteImport.update({
@@ -47,6 +49,16 @@ const PartyIdRoute = PartyIdRouteImport.update({
   path: '/party/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PartyIdRevealRoute = PartyIdRevealRouteImport.update({
+  id: '/reveal',
+  path: '/reveal',
+  getParentRoute: () => PartyIdRoute,
+} as any)
+const PartyIdDayOfRoute = PartyIdDayOfRouteImport.update({
+  id: '/day-of',
+  path: '/day-of',
+  getParentRoute: () => PartyIdRoute,
+} as any)
 const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
   id: '/api/realtime/session',
   path: '/api/realtime/session',
@@ -58,18 +70,22 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/talk': typeof TalkRoute
-  '/party/$id': typeof PartyIdRoute
+  '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/party/$id/day-of': typeof PartyIdDayOfRoute
+  '/party/$id/reveal': typeof PartyIdRevealRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/talk': typeof TalkRoute
-  '/party/$id': typeof PartyIdRoute
+  '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/party/$id/day-of': typeof PartyIdDayOfRoute
+  '/party/$id/reveal': typeof PartyIdRevealRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,9 +93,11 @@ export interface FileRoutesById {
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
   '/talk': typeof TalkRoute
-  '/party/$id': typeof PartyIdRoute
+  '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/party/$id/day-of': typeof PartyIdDayOfRoute
+  '/party/$id/reveal': typeof PartyIdRevealRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +109,8 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/party/$id/day-of'
+    | '/party/$id/reveal'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +120,8 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/party/$id/day-of'
+    | '/party/$id/reveal'
   id:
     | '__root__'
     | '/'
@@ -109,6 +131,8 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/party/$id/day-of'
+    | '/party/$id/reveal'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,7 +140,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
   TalkRoute: typeof TalkRoute
-  PartyIdRoute: typeof PartyIdRoute
+  PartyIdRoute: typeof PartyIdRouteWithChildren
   RsvpTokenRoute: typeof RsvpTokenRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
 }
@@ -165,6 +189,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartyIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/party/$id/reveal': {
+      id: '/party/$id/reveal'
+      path: '/reveal'
+      fullPath: '/party/$id/reveal'
+      preLoaderRoute: typeof PartyIdRevealRouteImport
+      parentRoute: typeof PartyIdRoute
+    }
+    '/party/$id/day-of': {
+      id: '/party/$id/day-of'
+      path: '/day-of'
+      fullPath: '/party/$id/day-of'
+      preLoaderRoute: typeof PartyIdDayOfRouteImport
+      parentRoute: typeof PartyIdRoute
+    }
     '/api/realtime/session': {
       id: '/api/realtime/session'
       path: '/api/realtime/session'
@@ -175,12 +213,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface PartyIdRouteChildren {
+  PartyIdDayOfRoute: typeof PartyIdDayOfRoute
+  PartyIdRevealRoute: typeof PartyIdRevealRoute
+}
+
+const PartyIdRouteChildren: PartyIdRouteChildren = {
+  PartyIdDayOfRoute: PartyIdDayOfRoute,
+  PartyIdRevealRoute: PartyIdRevealRoute,
+}
+
+const PartyIdRouteWithChildren =
+  PartyIdRoute._addFileChildren(PartyIdRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
   TalkRoute: TalkRoute,
-  PartyIdRoute: PartyIdRoute,
+  PartyIdRoute: PartyIdRouteWithChildren,
   RsvpTokenRoute: RsvpTokenRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
 }
