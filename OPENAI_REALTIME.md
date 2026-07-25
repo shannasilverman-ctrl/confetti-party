@@ -6,15 +6,15 @@ server-side.
 
 ## Contract
 
-| Field | Value |
-| --- | --- |
-| Endpoint (mint) | `POST https://api.openai.com/v1/realtime/client_secrets` |
-| Endpoint (WebRTC SDP) | `POST https://api.openai.com/v1/realtime?model=<model>` |
-| Model | `gpt-realtime-2.1` |
-| Voice | `marin` (change only with a tested product reason) |
-| Transport | WebRTC from the browser |
-| Beta header | **Not sent.** `OpenAI-Beta: realtime=v1` is removed. |
-| Deprecated | `POST /v1/realtime/sessions` and `gpt-4o-realtime-preview-*` are not used. |
+| Field                 | Value                                                                      |
+| --------------------- | -------------------------------------------------------------------------- |
+| Endpoint (mint)       | `POST https://api.openai.com/v1/realtime/client_secrets`                   |
+| Endpoint (WebRTC SDP) | `POST https://api.openai.com/v1/realtime?model=<model>`                    |
+| Model                 | `gpt-realtime-2.1`                                                         |
+| Voice                 | `marin` (change only with a tested product reason)                         |
+| Transport             | WebRTC from the browser                                                    |
+| Beta header           | **Not sent.** `OpenAI-Beta: realtime=v1` is removed.                       |
+| Deprecated            | `POST /v1/realtime/sessions` and `gpt-4o-realtime-preview-*` are not used. |
 
 The mint request body follows the current nested schema, built by
 `buildRealtimeSessionBody` in `src/lib/realtime-session.ts`:
@@ -74,14 +74,14 @@ insert path.
 
 The server returns sanitized errors — never the raw OpenAI response body:
 
-| Condition | Status | `error` code |
-| --- | --- | --- |
-| Missing `OPENAI_API_KEY` | 503 | `voice_unavailable` |
-| Missing/invalid bearer | 401 | (plain body) |
-| Rate limit hit | 429 | `rate_limited` / `too_many_concurrent` |
-| Upstream network error | 502 | `upstream_unreachable` |
-| Upstream non-2xx | 502 | `upstream_error` |
-| Unexpected upstream shape | 502 | `upstream_error` |
+| Condition                 | Status | `error` code                           |
+| ------------------------- | ------ | -------------------------------------- |
+| Missing `OPENAI_API_KEY`  | 503    | `voice_unavailable`                    |
+| Missing/invalid bearer    | 401    | (plain body)                           |
+| Rate limit hit            | 429    | `rate_limited` / `too_many_concurrent` |
+| Upstream network error    | 502    | `upstream_unreachable`                 |
+| Upstream non-2xx          | 502    | `upstream_error`                       |
+| Unexpected upstream shape | 502    | `upstream_error`                       |
 
 Upstream details are logged server-side (truncated to 500 chars) but not
 surfaced to the client.

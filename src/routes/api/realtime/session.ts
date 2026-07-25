@@ -115,9 +115,7 @@ export const Route = createFileRoute("/api/realtime/session")({
               "Content-Type": "application/json",
               "OpenAI-Safety-Identifier": safetyId,
             },
-            body: JSON.stringify(
-              buildRealtimeSessionBody({ instructions: TALK_SYSTEM_PROMPT }),
-            ),
+            body: JSON.stringify(buildRealtimeSessionBody({ instructions: TALK_SYSTEM_PROMPT })),
           });
         } catch (err) {
           console.error("[realtime] mint fetch failed", { userId, err: (err as Error).message });

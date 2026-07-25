@@ -11,8 +11,7 @@
 
 export const REALTIME_MODEL = "gpt-realtime-2.1";
 export const REALTIME_VOICE = "marin";
-export const REALTIME_CLIENT_SECRETS_URL =
-  "https://api.openai.com/v1/realtime/client_secrets";
+export const REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets";
 
 export interface BuildSessionBodyInput {
   instructions: string;
@@ -92,9 +91,7 @@ export interface ClientSecretResponse {
   session?: { id?: string; model?: string };
 }
 
-export function parseClientSecretResponse(
-  raw: unknown,
-): ClientSecretResponse | null {
+export function parseClientSecretResponse(raw: unknown): ClientSecretResponse | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   if (typeof r.value !== "string" || typeof r.expires_at !== "number") {

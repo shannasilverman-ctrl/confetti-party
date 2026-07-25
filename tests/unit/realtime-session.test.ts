@@ -10,9 +10,7 @@ import {
 
 describe("realtime-session contract", () => {
   it("targets the current client_secrets endpoint (not the deprecated one)", () => {
-    expect(REALTIME_CLIENT_SECRETS_URL).toBe(
-      "https://api.openai.com/v1/realtime/client_secrets",
-    );
+    expect(REALTIME_CLIENT_SECRETS_URL).toBe("https://api.openai.com/v1/realtime/client_secrets");
     expect(REALTIME_CLIENT_SECRETS_URL).not.toContain("/v1/realtime/sessions");
   });
 

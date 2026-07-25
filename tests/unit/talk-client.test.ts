@@ -37,9 +37,7 @@ const originalFetch = global.fetch;
 const originalRTC = (globalThis as { RTCPeerConnection?: unknown }).RTCPeerConnection;
 
 beforeEach(() => {
-  (
-    globalThis as unknown as { RTCPeerConnection: new () => FakePC }
-  ).RTCPeerConnection = FakePC;
+  (globalThis as unknown as { RTCPeerConnection: new () => FakePC }).RTCPeerConnection = FakePC;
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {
@@ -59,9 +57,7 @@ afterEach(() => {
 
 describe("TalkClient handshake", () => {
   it("posts SDP to /v1/realtime without the deprecated OpenAI-Beta header", async () => {
-    const fetchMock = vi.fn(
-      async () => new Response("ANSWER_SDP", { status: 200 }),
-    );
+    const fetchMock = vi.fn(async () => new Response("ANSWER_SDP", { status: 200 }));
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const audioEl = { srcObject: null } as unknown as HTMLAudioElement;
@@ -101,9 +97,7 @@ describe("TalkClient handshake", () => {
 
     // Reach in to the created data channel via the fake PC we installed.
     const pc = (client as unknown as { pc: FakePC }).pc;
-    pc.dc.emit(
-      JSON.stringify({ type: "response.audio_transcript.delta", delta: "hel" }),
-    );
+    pc.dc.emit(JSON.stringify({ type: "response.audio_transcript.delta", delta: "hel" }));
     pc.dc.emit(
       JSON.stringify({
         type: "conversation.item.input_audio_transcription.completed",
@@ -114,8 +108,6 @@ describe("TalkClient handshake", () => {
     const types = events.map((e) => e.type);
     expect(types).toContain("assistant_transcript_delta");
     expect(types).toContain("user_transcript_done");
-    expect(events.find((e) => e.type === "user_transcript_done")?.text).toBe(
-      "hi there",
-    );
+    expect(events.find((e) => e.type === "user_transcript_done")?.text).toBe("hi there");
   });
 });
