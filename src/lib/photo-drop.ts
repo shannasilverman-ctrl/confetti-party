@@ -17,6 +17,14 @@ export type PhotoDrop = {
   updatedAt: string;
 };
 
+export type SanitizedPublicPhotoDrop = {
+  provider: PhotoDropProvider;
+  url: string;
+  label?: string;
+  notes?: string;
+  hostname: string;
+};
+
 export const PROVIDERS: Record<
   PhotoDropProvider,
   { label: string; help: string; hosts: string[] }
@@ -70,4 +78,43 @@ export function validatePhotoDropUrl(
     };
   }
   return { ok: true, url: u.toString() };
+}
+
+/**
+ * Treat the public RSVP projection as untrusted. Older rows and direct API
+ * clients may bypass the host editor, so guest-facing links must be validated
+ * again before they reach an anchor, QR code, clipboard, or share sheet.
+ */
+export function sanitizePublicPhotoDrop(value: unknown): SanitizedPublicPhotoDrop | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.provider !== "string" || !(record.provider in PROVIDERS)) return null;
+  if (typeof record.url !== "string") return null;
+
+  const provider = record.provider as PhotoDropProvider;
+  const result = validatePhotoDropUrl(provider, record.url);
+  if (!result.ok) return null;
+  const parsed = new URL(result.url);
+  if (parsed.username || parsed.password) return null;
+
+  const cleanText = (candidate: unknown, max: number): string | undefined => {
+    if (typeof candidate !== "string") return undefined;
+    const normalized = Array.from(candidate, (character) => {
+      const code = character.charCodeAt(0);
+      return code <= 31 || code === 127 ? " " : character;
+    })
+      .join("")
+      .trim();
+    return normalized ? normalized.slice(0, max) : undefined;
+  };
+
+  return {
+    provider,
+    url: result.url,
+    label: cleanText(record.label, 80),
+    // The app historically stored `note`; the public RPC exposes `notes`.
+    // Accept both while migrations converge on the public `notes` contract.
+    notes: cleanText(record.notes ?? record.note, 160),
+    hostname: parsed.hostname,
+  };
 }

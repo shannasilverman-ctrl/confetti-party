@@ -8,14 +8,17 @@ import { Camera, Copy, ExternalLink, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { celebrate } from "@/components/confetti-burst";
 import type { PublicPhotoDrop } from "@/lib/rsvp.functions";
+import { sanitizePublicPhotoDrop } from "@/lib/photo-drop";
 
 export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
   const [showQr, setShowQr] = useState(false);
-  const label = drop?.label || "Photo Drop";
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const safeDrop = useMemo(() => sanitizePublicPhotoDrop(drop), [drop]);
+  const label = safeDrop?.label || "Photo Drop";
 
   const providerLabel = useMemo(() => {
-    if (!drop) return "";
-    switch (drop.provider) {
+    if (!safeDrop) return "";
+    switch (safeDrop.provider) {
       case "dropbox_request":
         return "Dropbox File Request";
       case "google_photos":
@@ -27,26 +30,30 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
       default:
         return "external upload link";
     }
-  }, [drop]);
+  }, [safeDrop]);
 
-  if (!drop) return null;
+  if (!safeDrop) return null;
 
   async function copyLink(evt: React.MouseEvent) {
-    if (!drop) return;
+    const activeDrop = safeDrop;
+    if (!activeDrop) return;
     try {
-      await navigator.clipboard.writeText(drop.url);
+      await navigator.clipboard.writeText(activeDrop.url);
       celebrate("micro", { x: evt.clientX, y: evt.clientY });
+      setFeedback("Photo Drop link copied.");
       toast.success("Photo Drop link copied.");
     } catch {
+      setFeedback("Couldn't copy the link. Open the uploader and copy it from your browser.");
       toast.error("Couldn't copy — long-press to copy the link.");
     }
   }
 
   async function nativeShare() {
-    if (!drop) return;
+    const activeDrop = safeDrop;
+    if (!activeDrop) return;
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
-        await navigator.share({ title: label, url: drop.url });
+        await navigator.share({ title: label, url: activeDrop.url });
       } catch {
         /* user cancel */
       }
@@ -70,10 +77,13 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
           </p>
         </div>
       </div>
-      {drop.notes && <p className="mt-2 text-sm text-foreground">{drop.notes}</p>}
+      {safeDrop.notes && <p className="mt-2 text-sm text-foreground">{safeDrop.notes}</p>}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Opens securely on {safeDrop.hostname}.
+      </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button asChild size="sm" variant="festive">
-          <a href={drop.url} target="_blank" rel="noopener noreferrer">
+          <a href={safeDrop.url} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="mr-1 h-4 w-4" /> Open uploader
           </a>
         </Button>
@@ -89,9 +99,17 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
           {showQr ? "Hide QR" : "Show QR"}
         </Button>
       </div>
+      {feedback && (
+        <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+          {feedback}
+        </p>
+      )}
       {showQr && (
-        <div className="mt-4 flex justify-center rounded-xl border border-dashed border-border bg-white p-4">
-          <QRCodeSVG value={drop.url} size={168} includeMargin />
+        <div
+          className="mt-4 flex justify-center rounded-xl border border-dashed border-border bg-white p-4"
+          aria-label={`QR code for ${label}`}
+        >
+          <QRCodeSVG value={safeDrop.url} size={168} includeMargin title={`${label} QR code`} />
         </div>
       )}
     </section>

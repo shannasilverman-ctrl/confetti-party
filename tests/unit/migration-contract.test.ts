@@ -104,4 +104,18 @@ describe("migration contract: DB hardening batch", () => {
     expect(latest).not.toMatch(/RAISE EXCEPTION 'invalid name'/);
     expect(latest).not.toMatch(/RAISE EXCEPTION 'invalid date'/);
   });
+
+  test("public Photo Drop projection is HTTPS-only and preserves the host note", () => {
+    const projectionMigration = readFileSync(
+      join(MIG_DIR, "20260725083900_7e21e11d-6dd1-4d09-bc58-dc4776b603c9.sql"),
+      "utf8",
+    );
+    expect(projectionMigration).toMatch(/photo_url ~\* '\^https:\/\//);
+    expect(projectionMigration).toMatch(
+      /COALESCE\(p\.photo_drop->>'notes', p\.photo_drop->>'note'\)/,
+    );
+    expect(projectionMigration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.get_rsvp_party\(uuid\) FROM PUBLIC/,
+    );
+  });
 });
