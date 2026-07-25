@@ -220,6 +220,12 @@ function PartyWorkspace() {
         {tab === "shopping" && <ShoppingTab partyId={party.id} />}
         {tab === "checklist" && <ChecklistTab partyId={party.id} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
+        {tab === "bring" && (
+          <div className="space-y-10">
+            <BringBoardEditor partyId={party.id} />
+            <PhotoDropEditor partyId={party.id} />
+          </div>
+        )}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
         {tab === "timeline" && <TimelineTab partyId={party.id} />}
 
