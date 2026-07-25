@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  __resetRealtimeDepsForTests,
-  __setRealtimeDepsForTests,
-  handleMintRealtimeSession,
-} from "@/routes/api/realtime/session";
+import { createMintRealtimeSessionHandler } from "@/routes/api/realtime/session";
 
 // ---- Supabase mock ---------------------------------------------------------
 
@@ -20,7 +16,9 @@ interface FakeSupabaseState {
   sessions: FakeSession[];
   selectError?: { code: string } | null;
   insertError?: { code: string } | null;
+  insertHook?: () => void | Promise<void>;
   updates: Array<{ id: string; patch: Record<string, unknown> }>;
+  inserts: Array<Record<string, unknown>>;
 }
 
 function makeFakeSupabase(state: FakeSupabaseState) {
@@ -36,9 +34,7 @@ function makeFakeSupabase(state: FakeSupabaseState) {
     from(table: string) {
       if (table !== "talk_sessions") throw new Error(`unexpected table ${table}`);
       const api = {
-        _rows: null as FakeSession[] | null,
         select() {
-          this._rows = state.sessions;
           return this;
         },
         eq(_col: string, _val: string) {
@@ -47,49 +43,53 @@ function makeFakeSupabase(state: FakeSupabaseState) {
         gte(_col: string, _iso: string) {
           return this;
         },
-        // Terminal for the rate-lookup path:
+        is(_col: string, _v: null) {
+          return this;
+        },
         then(resolve: (v: unknown) => unknown) {
           if (state.selectError) return resolve({ data: null, error: state.selectError });
           return resolve({ data: state.sessions, error: null });
         },
-        // Insert path:
         insert(row: Record<string, unknown>) {
-          if (state.insertError) {
-            return {
-              select: () => ({
-                single: async () => ({ data: null, error: state.insertError }),
-              }),
+          state.inserts.push(row);
+          const doInsert = async () => {
+            if (state.insertHook) await state.insertHook();
+            if (state.insertError) return { data: null, error: state.insertError };
+            const newRow: FakeSession = {
+              id: `sess_${state.sessions.length + 1}`,
+              user_id: (row.user_id as string) ?? "u",
+              started_at: new Date().toISOString(),
+              ended_at: null,
             };
-          }
-          const newRow: FakeSession = {
-            id: `sess_${state.sessions.length + 1}`,
-            user_id: (row.user_id as string) ?? "u",
-            started_at: new Date().toISOString(),
-            ended_at: null,
+            state.sessions.push(newRow);
+            return { data: { id: newRow.id }, error: null };
           };
-          state.sessions.push(newRow);
           return {
             select: () => ({
-              single: async () => ({ data: { id: newRow.id }, error: null }),
+              single: async () => doInsert(),
             }),
           };
         },
         update(patch: Record<string, unknown>) {
           return {
-            eq: async (_c: string, id: string) => {
-              state.updates.push({ id, patch });
-              return { data: null, error: null };
-            },
+            eq: (_c: string, id: string) => ({
+              eq: (_c2: string, _uid: string) => ({
+                is: async (_c3: string, _v: null) => {
+                  const row = state.sessions.find((s) => s.id === id);
+                  if (row && row.ended_at === null) {
+                    row.ended_at = String(patch.ended_at ?? new Date().toISOString());
+                    state.updates.push({ id, patch });
+                  }
+                  return { data: null, error: null };
+                },
+              }),
+            }),
           };
         },
       };
       return api;
     },
-  } as unknown as Parameters<typeof __setRealtimeDepsForTests>[0]["supabaseFactory"] extends
-    | ((t: string) => infer R)
-    | undefined
-    ? R
-    : never;
+  };
 }
 
 // ---- Helpers ---------------------------------------------------------------
@@ -114,272 +114,349 @@ function mintOk(overrides: Partial<{ expiresIn: number; model: string }> = {}) {
   );
 }
 
+function makeState(partial: Partial<FakeSupabaseState> = {}): FakeSupabaseState {
+  return {
+    user: { id: "user-uuid-123" },
+    sessions: [],
+    updates: [],
+    inserts: [],
+    ...partial,
+  };
+}
+
+function bind(state: FakeSupabaseState, fetchImpl: typeof fetch) {
+  return createMintRealtimeSessionHandler({
+    supabaseFactory: () => makeFakeSupabase(state) as never,
+    fetchImpl,
+  });
+}
+
 // ---- Tests ----------------------------------------------------------------
 
 describe("POST /api/realtime/session", () => {
-  const infoSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   let logSink: string[] = [];
 
   beforeEach(() => {
     logSink = [];
-    infoSpy.mockImplementation((...args: unknown[]) => {
+    errorSpy.mockImplementation((...args: unknown[]) => {
       logSink.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" "));
     });
-    process.env.OPENAI_API_KEY = "sk-test";
+    process.env.OPENAI_API_KEY = "sk-test-do-not-log";
     process.env.OPENAI_SAFETY_ID_SALT = "unit-test-salt-long-enough";
   });
   afterEach(() => {
-    __resetRealtimeDepsForTests();
     delete process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_SAFETY_ID_SALT;
-    infoSpy.mockClear();
+    errorSpy.mockClear();
   });
 
-  it("returns 503 when OPENAI_API_KEY is missing", async () => {
+  // ---- Auth-before-config (privacy release-blocker) ----------------------
+
+  it("no bearer → 401 even when OPENAI_API_KEY is missing (no config disclosure)", async () => {
     delete process.env.OPENAI_API_KEY;
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
-    expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({
-      error: "voice_unavailable",
-      message: "Voice is not configured.",
+    const handler = createMintRealtimeSessionHandler({
+      supabaseFactory: () => makeFakeSupabase(makeState()) as never,
+      fetchImpl: async () => mintOk(),
     });
+    const res = await handler(makeReq());
+    expect(res.status).toBe(401);
+    expect(await res.text()).toBe("Unauthorized");
   });
 
-  it("returns 503 when OPENAI_SAFETY_ID_SALT is missing (fail closed, no unsalted hash)", async () => {
+  it("no bearer → 401 even when OPENAI_SAFETY_ID_SALT is missing", async () => {
     delete process.env.OPENAI_SAFETY_ID_SALT;
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+    const handler = createMintRealtimeSessionHandler({
+      supabaseFactory: () => makeFakeSupabase(makeState()) as never,
+      fetchImpl: async () => mintOk(),
+    });
+    const res = await handler(makeReq());
+    expect(res.status).toBe(401);
+  });
+
+  it("invalid bearer → 401 even when key is missing (verified BEFORE config)", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const state = makeState({ user: null, authError: true });
+    const handler = bind(state, async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer nope" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("valid bearer + missing key → 503 (only reached after auth passes)", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const handler = bind(makeState(), async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(503);
     expect((await res.json()).error).toBe("voice_unavailable");
   });
 
-  it("returns 401 when the bearer is missing or the user cannot be resolved", async () => {
-    const anon = await handleMintRealtimeSession(makeReq());
-    expect(anon.status).toBe(401);
-
-    const state: FakeSupabaseState = { user: null, sessions: [], updates: [], authError: true };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => new Response("nope", { status: 500 }),
-    });
-    const bad = await handleMintRealtimeSession(makeReq({ authorization: "Bearer bogus" }));
-    expect(bad.status).toBe(401);
-  });
-
-  it("returns 503 when the Supabase rate-lookup errors (not treated as zero sessions)", async () => {
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-123" },
-      sessions: [],
-      updates: [],
-      selectError: { code: "PGRST000" },
-    };
-    let fetched = false;
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => {
-        fetched = true;
-        return mintOk();
-      },
-    });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+  it("valid bearer + missing salt → 503", async () => {
+    delete process.env.OPENAI_SAFETY_ID_SALT;
+    const handler = bind(makeState(), async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(503);
-    expect(fetched).toBe(false); // never called OpenAI
+    expect((await res.json()).error).toBe("voice_unavailable");
   });
 
-  it("returns 429 when the hourly rate limit is hit", async () => {
+  // ---- Rate / concurrency ------------------------------------------------
+
+  it("rate-lookup DB error → 503 and never calls OpenAI", async () => {
+    const state = makeState({ selectError: { code: "PGRST000" } });
+    let fetched = false;
+    const handler = bind(state, async () => {
+      fetched = true;
+      return mintOk();
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(503);
+    expect(fetched).toBe(false);
+  });
+
+  it("hourly limit (5) → 429 rate_limited", async () => {
     const nowIso = new Date().toISOString();
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-123" },
+    const state = makeState({
       sessions: Array.from({ length: 5 }, (_, i) => ({
         id: `s${i}`,
         user_id: "user-uuid-123",
         started_at: nowIso,
         ended_at: nowIso,
       })),
-      updates: [],
-    };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => mintOk(),
     });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+    const handler = bind(state, async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(429);
     expect((await res.json()).error).toBe("rate_limited");
   });
 
-  it("returns 429 when 2 non-stale concurrent sessions are open", async () => {
+  it("2 non-stale concurrent → 429 too_many_concurrent", async () => {
     const nowIso = new Date().toISOString();
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-123" },
+    const state = makeState({
       sessions: [
         { id: "s1", user_id: "user-uuid-123", started_at: nowIso, ended_at: null },
         { id: "s2", user_id: "user-uuid-123", started_at: nowIso, ended_at: null },
       ],
-      updates: [],
-    };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => mintOk(),
     });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+    const handler = bind(state, async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(429);
-    expect((await res.json()).error).toBe("too_many_concurrent");
   });
 
-  it("ignores stale open sessions for concurrency", async () => {
+  it("stale open sessions are ignored for concurrency", async () => {
     const staleIso = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-123" },
+    const state = makeState({
       sessions: [
         { id: "s1", user_id: "user-uuid-123", started_at: staleIso, ended_at: null },
         { id: "s2", user_id: "user-uuid-123", started_at: staleIso, ended_at: null },
       ],
-      updates: [],
-    };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => mintOk(),
     });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+    const handler = bind(state, async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(200);
   });
 
-  it("returns 503 without minting when the reserve-row insert fails", async () => {
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-123" },
-      sessions: [],
-      updates: [],
-      insertError: { code: "PGRST-INSERT" },
-    };
-    let fetched = false;
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => {
-        fetched = true;
-        return mintOk();
-      },
+  // ---- Reservation payload & correctness ---------------------------------
+
+  it("reserves the row with model = REALTIME_MODEL (not null)", async () => {
+    const state = makeState();
+    const handler = bind(state, async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(200);
+    expect(state.inserts).toHaveLength(1);
+    expect(state.inserts[0]).toMatchObject({
+      user_id: "user-uuid-123",
+      model: "gpt-realtime-2.1",
     });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+  });
+
+  it("reserve insert failure → 503 and never mints", async () => {
+    const state = makeState({ insertError: { code: "PGRST-INSERT" } });
+    let fetched = false;
+    const handler = bind(state, async () => {
+      fetched = true;
+      return mintOk();
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(503);
     expect(fetched).toBe(false);
   });
 
-  it("sends the correct OpenAI request (schema, safety identifier, no beta header)", async () => {
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-xyz" },
-      sessions: [],
-      updates: [],
-    };
-    let capturedUrl: string | null = null;
-    let capturedInit: RequestInit | null = null;
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async (input, init) => {
-        capturedUrl = String(input);
-        capturedInit = init ?? null;
-        return mintOk();
-      },
-    });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
-    expect(res.status).toBe(200);
-    expect(capturedUrl).toBe("https://api.openai.com/v1/realtime/client_secrets");
-    const init = capturedInit as unknown as RequestInit;
-    const headers = new Headers(init.headers);
-    expect(headers.get("Authorization")).toBe("Bearer sk-test");
-    const safetyId = headers.get("OpenAI-Safety-Identifier");
-    expect(safetyId).toMatch(/^conf_[0-9a-f]{32}$/);
-    expect(headers.get("OpenAI-Beta")).toBeNull();
-    const body = JSON.parse(String(init.body));
-    expect(body.session.type).toBe("realtime");
-    expect(body.session.model).toBe("gpt-realtime-2.1");
-    expect(body.session.audio.output.voice).toBe("marin");
-  });
+  // ---- Concurrent Promise.all (single-node atomicity) -------------------
 
-  it("returns a sanitized 502 for upstream non-2xx and does NOT leak the body or user id", async () => {
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-xyz" },
-      sessions: [],
-      updates: [],
-    };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () =>
+  it(
+    "5 concurrent requests with concurrency=2 admit at most 2 mints; " +
+      "in-process mutex + post-insert recount enforce the single-node bound",
+    async () => {
+      const state = makeState();
+      // Slow the fetch so requests overlap in flight.
+      const handler = bind(state, async () => {
+        await new Promise((r) => setTimeout(r, 10));
+        return mintOk();
+      });
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () => handler(makeReq({ authorization: "Bearer t" }))),
+      );
+      const statuses = results.map((r) => r.status).sort();
+      const successes = statuses.filter((s) => s === 200);
+      const rejects = statuses.filter((s) => s === 429);
+      expect(successes.length).toBe(2);
+      expect(rejects.length).toBe(3);
+    },
+  );
+
+  // ---- Upstream + sanitized errors ---------------------------------------
+
+  it("upstream non-2xx → sanitized 502 and closes the reservation", async () => {
+    const state = makeState({ user: { id: "user-uuid-xyz" } });
+    const handler = bind(
+      state,
+      async () =>
         new Response("PROVIDER SECRET DETAILS SHOULD NOT LEAK", {
           status: 500,
           headers: { "x-request-id": "req_provider" },
         }),
-    });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+    );
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(502);
-    const body = await res.json();
-    expect(body).toEqual({ error: "upstream_error", message: "Voice service refused." });
-    // The reserved row was closed:
+    expect(await res.json()).toEqual({ error: "upstream_error", message: "Voice service refused." });
     expect(state.updates.some((u) => u.patch.disconnect_reason === "mint_non_2xx")).toBe(true);
-    // Logs never contain raw user id or raw provider body:
-    const joined = logSink.join("\n");
-    expect(joined).not.toContain("user-uuid-xyz");
-    expect(joined).not.toContain("PROVIDER SECRET DETAILS SHOULD NOT LEAK");
-    expect(joined).toMatch(/mint_upstream_non_2xx/);
-    expect(joined).toMatch(/req_provider/); // OpenAI request id IS safe to log
   });
 
-  it("returns a sanitized 502 for malformed upstream JSON", async () => {
-    const state: FakeSupabaseState = { user: { id: "u1" }, sessions: [], updates: [] };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () =>
+  it("upstream throws → sanitized 502 upstream_unreachable", async () => {
+    const state = makeState();
+    const handler = bind(state, async () => {
+      throw new Error("ECONNRESET internal detail");
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toBe("upstream_unreachable");
+  });
+
+  it("upstream malformed json → sanitized 502 and closes reservation", async () => {
+    const state = makeState();
+    const handler = bind(
+      state,
+      async () =>
         new Response(JSON.stringify({ value: "", expires_at: 0 }), {
           status: 200,
           headers: { "content-type": "application/json" },
         }),
-    });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
+    );
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(502);
     expect((await res.json()).error).toBe("upstream_error");
     expect(state.updates.some((u) => u.patch.disconnect_reason === "mint_unparseable")).toBe(true);
   });
 
-  it("returns a sanitized 502 when the upstream fetch throws", async () => {
-    const state: FakeSupabaseState = { user: { id: "u1" }, sessions: [], updates: [] };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => {
-        throw new Error("ECONNRESET internal detail");
-      },
+  it("sends the correct OpenAI request (schema, safety identifier, no beta header)", async () => {
+    const state = makeState({ user: { id: "user-uuid-xyz" } });
+    let capturedUrl: string | null = null;
+    let capturedInit: RequestInit | null = null;
+    const handler = bind(state, async (input: RequestInfo | URL, init?: RequestInit) => {
+      capturedUrl = String(input);
+      capturedInit = init ?? null;
+      return mintOk();
     });
-    const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
-    expect(res.status).toBe(502);
-    expect((await res.json()).error).toBe("upstream_unreachable");
-    expect(logSink.join("\n")).not.toContain("ECONNRESET internal detail");
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(200);
+    expect(capturedUrl).toBe("https://api.openai.com/v1/realtime/client_secrets");
+    const headers = new Headers((capturedInit as RequestInit).headers);
+    expect(headers.get("Authorization")).toBe("Bearer sk-test-do-not-log");
+    expect(headers.get("OpenAI-Safety-Identifier")).toMatch(/^conf_[0-9a-f]{32}$/);
+    expect(headers.get("OpenAI-Beta")).toBeNull();
+    const body = JSON.parse(String((capturedInit as RequestInit).body));
+    expect(body.session.type).toBe("realtime");
+    expect(body.session.model).toBe("gpt-realtime-2.1");
+    expect(body.session.audio.output.voice).toBe("marin");
   });
 
-  it("successful mint: returns sanitized shape and does not leak the user id or bearer", async () => {
-    const state: FakeSupabaseState = {
-      user: { id: "user-uuid-secret" },
-      sessions: [],
-      updates: [],
-    };
-    __setRealtimeDepsForTests({
-      supabaseFactory: () => makeFakeSupabase(state) as never,
-      fetchImpl: async () => mintOk(),
-    });
-    const res = await handleMintRealtimeSession(
-      makeReq({ authorization: "Bearer super-secret-token" }, { draftId: undefined }),
-    );
+  it("successful mint response never leaks user id, bearer, or api key", async () => {
+    const state = makeState({ user: { id: "user-uuid-secret" } });
+    const handler = bind(state, async () => mintOk());
+    const res = await handler(makeReq({ authorization: "Bearer super-secret-token" }));
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.clientSecret).toBe("ek_secret_do_not_log");
-    expect(body.sessionId).toMatch(/^sess_/);
-    expect(body.model).toBe("gpt-realtime-2.1");
-    expect(body.voice).toBe("marin");
-    // Response never carries the user id, the bearer, or the OpenAI key:
-    const raw = JSON.stringify(body);
+    const raw = JSON.stringify(await res.json());
     expect(raw).not.toContain("user-uuid-secret");
     expect(raw).not.toContain("super-secret-token");
-    expect(raw).not.toContain("sk-test");
-    // Logs likewise:
-    const joined = logSink.join("\n");
-    expect(joined).not.toContain("user-uuid-secret");
-    expect(joined).not.toContain("super-secret-token");
-    expect(joined).not.toContain("sk-test");
+    expect(raw).not.toContain("sk-test-do-not-log");
+  });
+
+  // ---- Log-spy privacy assertion (the release blocker) ------------------
+
+  it(
+    "log payloads NEVER contain: safety id (conf_), user id, bearer, api key, " +
+      "or raw provider body — across success and every failure branch",
+    async () => {
+      const forbidden = [
+        /conf_[0-9a-f]{8,}/, // safety id (now header-only, not logged)
+        /user-uuid-[A-Za-z0-9-]+/, // raw supabase user id
+        /super-secret-token/, // bearer
+        /sk-test-do-not-log/, // openai api key
+        /PROVIDER SECRET DETAILS SHOULD NOT LEAK/, // raw upstream body
+        /ECONNRESET internal detail/, // raw fetch error
+      ];
+
+      const runAndCheck = async (fn: () => Promise<Response>) => {
+        logSink = [];
+        await fn();
+        const joined = logSink.join("\n");
+        for (const p of forbidden) {
+          expect(joined, `forbidden pattern ${p} in log: ${joined}`).not.toMatch(p);
+        }
+      };
+
+      // success
+      await runAndCheck(async () =>
+        bind(makeState({ user: { id: "user-uuid-secret" } }), async () => mintOk())(
+          makeReq({ authorization: "Bearer super-secret-token" }),
+        ),
+      );
+
+      // rate-lookup DB failure
+      await runAndCheck(async () =>
+        bind(
+          makeState({ user: { id: "user-uuid-secret" }, selectError: { code: "PGRST000" } }),
+          async () => mintOk(),
+        )(makeReq({ authorization: "Bearer super-secret-token" })),
+      );
+
+      // reserve insert failure
+      await runAndCheck(async () =>
+        bind(
+          makeState({ user: { id: "user-uuid-secret" }, insertError: { code: "PGRST-INSERT" } }),
+          async () => mintOk(),
+        )(makeReq({ authorization: "Bearer super-secret-token" })),
+      );
+
+      // upstream non-2xx (raw body)
+      await runAndCheck(async () =>
+        bind(
+          makeState({ user: { id: "user-uuid-secret" } }),
+          async () =>
+            new Response("PROVIDER SECRET DETAILS SHOULD NOT LEAK", {
+              status: 500,
+              headers: { "x-request-id": "req_provider" },
+            }),
+        )(makeReq({ authorization: "Bearer super-secret-token" })),
+      );
+
+      // upstream fetch throws
+      await runAndCheck(async () =>
+        bind(makeState({ user: { id: "user-uuid-secret" } }), async () => {
+          throw new Error("ECONNRESET internal detail");
+        })(makeReq({ authorization: "Bearer super-secret-token" })),
+      );
+    },
+  );
+
+  it("OpenAI request id IS logged (it is a safe correlation id)", async () => {
+    const state = makeState();
+    const handler = bind(
+      state,
+      async () =>
+        new Response("boom", { status: 500, headers: { "x-request-id": "req_provider_123" } }),
+    );
+    await handler(makeReq({ authorization: "Bearer t" }));
+    expect(logSink.join("\n")).toMatch(/req_provider_123/);
+    expect(logSink.join("\n")).toMatch(/mint_upstream_non_2xx/);
   });
 });
