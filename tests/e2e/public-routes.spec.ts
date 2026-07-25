@@ -75,9 +75,19 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
-// Axe scans for stable public pages. Fails on any serious/critical violation
-// including color-contrast — no rule exemptions.
-for (const path of ["/", "/talk"]) {
+// Axe scans across the stable public + demo workspace surface. Fails on any
+// serious/critical violation including color-contrast — no rule exemptions.
+const AXE_ROUTES = [
+  "/",
+  "/talk",
+  "/app",
+  "/party/ava-liam-wedding",
+  "/party/ava-liam-wedding/reveal",
+  "/party/ava-liam-wedding/day-of",
+  "/rsvp/00000000-0000-0000-0000-000000000000",
+  "/rsvp/not-a-uuid",
+];
+for (const path of AXE_ROUTES) {
   test(`axe: no serious/critical a11y violations on ${path}`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "run a11y once per route");
     await page.goto(path, { waitUntil: "domcontentloaded" });

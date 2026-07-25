@@ -50,6 +50,32 @@ export const Route = createFileRoute("/talk")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 type Line = { role: "user" | "assistant"; text: string; partial: boolean };
 
+// Stable friendly copy. Raw caught error / provider messages must never
+// reach the toast or DOM — they can leak upstream identifiers, stack
+// frames, or user-controlled text. Internal category is logged, external
+// copy is fixed per surface.
+type TalkErrorCategory =
+  | "draft_create"
+  | "send_turn"
+  | "confirm"
+  | "voice_connect"
+  | "voice_runtime";
+
+const TALK_ERROR_COPY: Record<TalkErrorCategory, string> = {
+  draft_create: "Couldn't start a fresh draft. Please retry.",
+  send_turn: "Confetti couldn't reply just now. Try that again in a moment.",
+  confirm: "Couldn't finalize the plan. Please try again.",
+  voice_connect: "Couldn't connect to voice. Try again, or switch to text.",
+  voice_runtime: "The voice service hit a snag. End and reconnect to continue.",
+};
+
+function friendlyTalkError(category: TalkErrorCategory, err: unknown): string {
+  // Log the raw cause for developers; users only ever see the copy.
+
+  console.debug("[talk]", category, err instanceof Error ? err.name : typeof err);
+  return TALK_ERROR_COPY[category];
+}
+
 function TalkRoute() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -162,19 +188,38 @@ function TalkRoute() {
   const isDemo = authReady && !user;
   const [demoTurn, setDemoTurn] = useState(0);
   const demoLimitReached = isDemo && demoTurn >= DEMO_MAX_TURNS;
+  // Announcement region for screen readers: thinking, send/connect errors,
+  // demo-limit reached, connection lifecycle.
+  const [statusAnnouncement, setStatusAnnouncement] = useState("");
 
   // Create a draft on first mount for signed-in users only.
+  // Belt-and-braces: never call the persistence mint on the signed-out
+  // demo path. `isDemo` is also gated below in sendMessage/startVoice.
   useEffect(() => {
-    if (!authReady || !user || draftId) return;
+    if (!authReady || !user || isDemo || draftId) return;
     createDraft()
       .then((r) => setDraftId(r.id))
-      .catch(() => toast.error("Couldn't start a fresh draft. Please retry."));
-  }, [authReady, user, draftId]);
+      .catch((err) => {
+        const msg = friendlyTalkError("draft_create", err);
+        toast.error(msg);
+        setStatusAnnouncement(msg);
+      });
+  }, [authReady, user, isDemo, draftId]);
 
   useEffect(() => {
     const el = chatScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, thinking]);
+
+  useEffect(() => {
+    if (thinking) setStatusAnnouncement("Confetti is thinking.");
+  }, [thinking]);
+
+  useEffect(() => {
+    if (demoLimitReached) {
+      setStatusAnnouncement("Demo turns used. Sign up free to keep going and save your plan.");
+    }
+  }, [demoLimitReached]);
 
   const sendMessage = useCallback(async () => {
     const text = typed.trim();
@@ -187,7 +232,7 @@ function TalkRoute() {
     setThinking(true);
     try {
       if (isDemo) {
-        // Bounded local demo — no network, no persistence.
+        // Bounded local demo — no network, no persistence, no server brain.
         await new Promise((r) => setTimeout(r, 500));
         const d = demoReply(demoTurn);
         setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
@@ -203,15 +248,16 @@ function TalkRoute() {
         if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      const msg = friendlyTalkError("send_turn", err);
       toast.error(msg);
+      setStatusAnnouncement(msg);
     } finally {
       setThinking(false);
     }
   }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
 
   const confirmAndCreate = useCallback(async () => {
-    if (!draftId) return;
+    if (!draftId || isDemo) return;
     setConfirming(true);
     try {
       const { partyId } = await confirmDraft({ data: { draftId } });
@@ -219,12 +265,13 @@ function TalkRoute() {
       toast.success("Plan created — welcome to your workspace.");
       navigate({ to: "/party/$id/reveal", params: { id: partyId } });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Couldn't finalize the plan.";
+      const msg = friendlyTalkError("confirm", err);
       toast.error(msg);
+      setStatusAnnouncement(msg);
     } finally {
       setConfirming(false);
     }
-  }, [draftId, navigate]);
+  }, [draftId, isDemo, navigate]);
 
   // ---------- Voice-mode handlers (unchanged behavior) ----------
 
@@ -233,10 +280,16 @@ function TalkRoute() {
       case "state":
         setState(evt.state);
         break;
-      case "error":
-        setVoiceError(evt.message);
-        toast.error(evt.message);
+      case "error": {
+        // Never surface raw upstream / SDP text — TalkClient already emits
+        // sanitized copy, but be defensive here too.
+        const msg = friendlyTalkError("voice_runtime", evt.message);
+        setVoiceError(msg);
+        toast.error(msg);
+        setStatusAnnouncement(msg);
         break;
+      }
+
       case "assistant_transcript_delta":
         setVoiceLines((prev) => {
           const last = prev[prev.length - 1];
@@ -280,7 +333,15 @@ function TalkRoute() {
 
   const startVoice = useCallback(async () => {
     setVoiceError(null);
+    // Voice requires an authenticated session — never call the mint API
+    // from the signed-out demo path.
+    if (isDemo || !user) {
+      toast.error("Please sign in to talk with Confetti.");
+      navigate({ to: "/auth" });
+      return;
+    }
     setConnecting(true);
+    setStatusAnnouncement("Connecting to voice.");
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
@@ -295,12 +356,11 @@ function TalkRoute() {
         body: JSON.stringify({}),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const msg =
-          (body as { message?: string })?.message ??
-          `Voice unavailable (${res.status}). Use text mode.`;
+        // Discard the raw response body — never render provider text.
+        const msg = friendlyTalkError("voice_connect", new Error(`status_${res.status}`));
         setVoiceError(msg);
         toast.error(msg);
+        setStatusAnnouncement(msg);
         setConnecting(false);
         return;
       }
@@ -323,14 +383,16 @@ function TalkRoute() {
       setSessionId(sessionId);
       startedAtRef.current = Date.now();
       await client.connect();
+      setStatusAnnouncement("Voice connected.");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = friendlyTalkError("voice_connect", err);
       setVoiceError(msg);
       toast.error(msg);
+      setStatusAnnouncement(msg);
     } finally {
       setConnecting(false);
     }
-  }, [handleVoiceEvent, navigate]);
+  }, [handleVoiceEvent, navigate, isDemo, user]);
 
   const stopVoice = useCallback(async () => {
     clientRef.current?.close("user_ended");
@@ -375,6 +437,12 @@ function TalkRoute() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Polite screen-reader announcements: thinking, send/connect
+          errors, connection lifecycle, demo-limit reached. */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {statusAnnouncement}
+      </div>
+
       <div
         className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pt-4 md:pt-8"
         style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
