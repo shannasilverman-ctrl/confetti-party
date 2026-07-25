@@ -187,14 +187,25 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
 
           <div className="flex flex-wrap gap-2">
             <Button variant="festive" onClick={save}>
-              Save Photo Drop
+              {confirmingCustom ? "Confirm publish" : "Save Photo Drop"}
             </Button>
-            {existing && (
+            {confirmingCustom && (
+              <Button variant="ghost" onClick={() => setConfirmingCustom(false)}>
+                Cancel
+              </Button>
+            )}
+            {existing && !confirmingCustom && (
               <Button variant="outline" onClick={clear}>
                 Remove
               </Button>
             )}
           </div>
+          {confirmingCustom && (
+            <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
+              Guests will upload to <strong>{new URL(url.trim()).hostname}</strong>. Confirm to
+              publish this custom destination.
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground">
             Anyone with the QR / link can upload according to your provider's settings. Review your
