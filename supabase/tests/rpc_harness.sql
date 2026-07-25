@@ -493,6 +493,16 @@ BEGIN
   IF def !~ 'allowed_occasions' THEN
     RAISE EXCEPTION 'FAIL: confirm_gathering_draft missing occasion allowlist';
   END IF;
+  IF def !~ 'baby-shower' OR def !~ 'game-day' OR def !~ 'cookout'
+     OR def ~ 'watch-party' OR def ~ '''bbq''' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft occasion allowlist is out of sync with the app';
+  END IF;
+  IF def !~ '2\[0-3\]' OR def ~ '\[0-2\]\[0-9\]' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft accepts an invalid 24-hour time';
+  END IF;
+  IF def ~ 'to_jsonb\(clean_theme\)' THEN
+    RAISE EXCEPTION 'FAIL: text theme is still wrapped as jsonb';
+  END IF;
   IF def !~ '_validate_confirm_collection' THEN
     RAISE EXCEPTION 'FAIL: confirm_gathering_draft missing collection validation';
   END IF;
@@ -526,7 +536,7 @@ DO $phaseC_behavior$
 DECLARE
   synthetic_user_id uuid := gen_random_uuid();
   party_token uuid := gen_random_uuid();
-  party_id uuid;
+  fixture_party_id uuid;
   marker text := current_setting('confetti.fixture_marker_c');
   fixture_email text := marker || '@rpc-harness.invalid';
   created_synthetic_auth boolean := false;
@@ -534,7 +544,6 @@ DECLARE
   i int;
   denied boolean := false;
   raised boolean;
-  theme_val jsonb;
 BEGIN
   BEGIN
     INSERT INTO auth.users (id, email) VALUES (synthetic_user_id, fixture_email);
@@ -551,7 +560,7 @@ BEGIN
     tasks, guests, budget_categories, shopping_items, timeline, rsvp_token,
     pinned_inspiration, households, bring_board, host_updates, checkins
   ) VALUES (
-    synthetic_user_id, marker, 'birthday', current_date + 14, 10, 100, 'null'::jsonb,
+    synthetic_user_id, marker, 'birthday', current_date + 14, 10, 100, '',
     '[]'::jsonb,
     jsonb_build_array(
       jsonb_build_object('id','g_host1','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Kim'),
@@ -559,30 +568,41 @@ BEGIN
     ),
     '[]'::jsonb,'[]'::jsonb,'[]'::jsonb, party_token,
     '[]'::jsonb,'[]'::jsonb,'[]'::jsonb,'[]'::jsonb,'{}'::jsonb
-  ) RETURNING id INTO party_id;
+  ) RETURNING id INTO fixture_party_id;
 
   -- Deterministic matching: unique host-invited guest gets updated in place.
   UPDATE public.parties SET guests = jsonb_build_array(
     jsonb_build_object('id','g_unique','name','Rita Lopez','kind','adult','rsvp','maybe','source','host')
-  ) WHERE id = party_id;
+  ) WHERE id = fixture_party_id;
   res := public.submit_rsvp(party_token, 'Rita Lopez', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
   IF NOT (res->>'ok')::boolean THEN RAISE EXCEPTION 'FAIL: unique host match not accepted'; END IF;
   IF (res->>'ambiguous')::boolean THEN RAISE EXCEPTION 'FAIL: unique match marked ambiguous'; END IF;
-  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=party_id) <> 1 THEN
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=fixture_party_id) <> 1 THEN
     RAISE EXCEPTION 'FAIL: unique match duplicated the guest';
   END IF;
-  IF (SELECT guests->0->>'rsvp' FROM public.parties WHERE id=party_id) <> 'yes' THEN
+  IF (SELECT guests->0->>'rsvp' FROM public.parties WHERE id=fixture_party_id) <> 'yes' THEN
     RAISE EXCEPTION 'FAIL: unique match did not update rsvp in place';
+  END IF;
+
+  -- Resubmitting the same main guest must replace, then prune, the prior
+  -- generated +N rows rather than duplicating or stranding them.
+  res := public.submit_rsvp(party_token, 'Rita Lopez', 'yes', 2, 1, NULL, '[]'::jsonb, '[]'::jsonb);
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=fixture_party_id) <> 3 THEN
+    RAISE EXCEPTION 'FAIL: initial plus-one expansion has the wrong size';
+  END IF;
+  res := public.submit_rsvp(party_token, 'Rita Lopez', 'no', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=fixture_party_id) <> 1 THEN
+    RAISE EXCEPTION 'FAIL: RSVP resubmit stranded or duplicated plus-ones';
   END IF;
 
   -- Ambiguous names: without household → new ambiguous link entry, existing rows untouched.
   UPDATE public.parties SET guests = jsonb_build_array(
     jsonb_build_object('id','g_a','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Kim'),
     jsonb_build_object('id','g_b','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Park')
-  ) WHERE id = party_id;
+  ) WHERE id = fixture_party_id;
   res := public.submit_rsvp(party_token, 'Sam Kim', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
   IF NOT (res->>'ambiguous')::boolean THEN RAISE EXCEPTION 'FAIL: duplicate names not flagged ambiguous'; END IF;
-  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=party_id) <> 3 THEN
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=fixture_party_id) <> 3 THEN
     RAISE EXCEPTION 'FAIL: ambiguous submit did not append new marked entry';
   END IF;
 
@@ -590,13 +610,13 @@ BEGIN
   UPDATE public.parties SET guests = jsonb_build_array(
     jsonb_build_object('id','g_a','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Kim'),
     jsonb_build_object('id','g_b','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Park')
-  ) WHERE id = party_id;
+  ) WHERE id = fixture_party_id;
   res := public.submit_rsvp(party_token, 'Sam Kim', 'yes', 1, 0, 'Kim', '[]'::jsonb, '[]'::jsonb);
   IF (res->>'ambiguous')::boolean THEN RAISE EXCEPTION 'FAIL: household disambiguator ignored'; END IF;
-  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=party_id) <> 2 THEN
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=fixture_party_id) <> 2 THEN
     RAISE EXCEPTION 'FAIL: disambiguated update grew the guest list';
   END IF;
-  IF (SELECT guests->0->>'rsvp' FROM public.parties WHERE id=party_id) <> 'yes' THEN
+  IF (SELECT guests->0->>'rsvp' FROM public.parties WHERE id=fixture_party_id) <> 'yes' THEN
     RAISE EXCEPTION 'FAIL: household-disambiguated update did not flip Kim to yes';
   END IF;
 
@@ -604,8 +624,8 @@ BEGIN
   -- rows into the current bucket, then observe the next call denies.
   INSERT INTO public.rsvp_action_budget(party_id, action, bucket_start, count)
   VALUES (
-    party_id, 'submit_rsvp',
-    to_timestamp(floor(extract(epoch FROM now())/600)*600) AT TIME ZONE 'UTC',
+    fixture_party_id, 'submit_rsvp',
+    to_timestamp(floor(extract(epoch FROM now())/600)*600),
     60
   ) ON CONFLICT (party_id, action, bucket_start) DO UPDATE SET count = 60;
   BEGIN
@@ -617,14 +637,15 @@ BEGIN
   IF NOT raised THEN RAISE EXCEPTION 'FAIL: over-budget submit accepted'; END IF;
 
   -- Budget expiry: rows > 24h old are pruned on the next attempt.
-  DELETE FROM public.rsvp_action_budget WHERE party_id = party_id;
+  DELETE FROM public.rsvp_action_budget b WHERE b.party_id = fixture_party_id;
   INSERT INTO public.rsvp_action_budget(party_id, action, bucket_start, count)
-  VALUES (party_id, 'submit_rsvp', now() - interval '48 hours', 60);
+  VALUES (fixture_party_id, 'submit_rsvp', now() - interval '48 hours', 60);
   res := public.submit_rsvp(party_token, 'Fresh Name', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
   IF NOT (res->>'ok')::boolean THEN RAISE EXCEPTION 'FAIL: fresh submit after expiry denied'; END IF;
   IF EXISTS (
     SELECT 1 FROM public.rsvp_action_budget
-    WHERE party_id = party_id AND bucket_start < now() - interval '24 hours'
+    WHERE rsvp_action_budget.party_id = fixture_party_id
+      AND bucket_start < now() - interval '24 hours'
   ) THEN RAISE EXCEPTION 'FAIL: expired budget rows not pruned'; END IF;
 
   RAISE NOTICE 'PASS phaseC_behavior: matching, disambiguation, budget cap, budget expiry';
@@ -646,4 +667,3 @@ BEGIN
   RAISE NOTICE 'post_rollback phaseC: 0';
 END;
 $postchk_c$;
-

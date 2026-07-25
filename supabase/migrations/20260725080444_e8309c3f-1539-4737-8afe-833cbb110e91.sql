@@ -57,7 +57,7 @@ BEGIN
 
   bucket_ts := to_timestamp(
     floor(extract(epoch FROM now()) / _bucket_seconds) * _bucket_seconds
-  ) AT TIME ZONE 'UTC';
+  );
 
   INSERT INTO public.rsvp_action_budget (party_id, action, bucket_start, count)
     VALUES (_party_id, _action, bucket_ts, 1)
@@ -159,8 +159,8 @@ DECLARE
   guest_est int;
   budget_val int;
   allowed_occasions text[] := ARRAY[
-    'birthday','wedding','shabbat','holiday','bbq','watch-party',
-    'dinner-party','shower','graduation','custom','other'
+    'birthday','baby-shower','graduation','holiday',
+    'dinner-party','game-day','cookout','other'
   ];
 BEGIN
   IF auth.uid() IS NULL THEN
@@ -198,7 +198,7 @@ BEGIN
 
   clean_start_time := NULLIF(btrim(COALESCE(_party->>'startTime', '')), '');
   IF clean_start_time IS NOT NULL THEN
-    IF length(clean_start_time) > 10 OR clean_start_time !~ '^[0-2][0-9]:[0-5][0-9](:[0-5][0-9])?$' THEN
+    IF length(clean_start_time) > 8 OR clean_start_time !~ '^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$' THEN
       RAISE EXCEPTION 'invalid payload';
     END IF;
   END IF;
@@ -221,11 +221,13 @@ BEGIN
 
   -- Numerics: non-negative, bounded.
   BEGIN
-    guest_est := GREATEST(0, LEAST(COALESCE((_party->>'guestEstimate')::int, 0), 2000));
+    guest_est := COALESCE((_party->>'guestEstimate')::int, 0);
   EXCEPTION WHEN others THEN RAISE EXCEPTION 'invalid payload'; END;
+  IF guest_est < 0 OR guest_est > 2000 THEN RAISE EXCEPTION 'invalid payload'; END IF;
   BEGIN
-    budget_val := GREATEST(0, LEAST(COALESCE((_party->>'budget')::numeric, 0)::int, 1000000));
+    budget_val := COALESCE((_party->>'budget')::numeric, 0)::int;
   EXCEPTION WHEN others THEN RAISE EXCEPTION 'invalid payload'; END;
+  IF budget_val < 0 OR budget_val > 1000000 THEN RAISE EXCEPTION 'invalid payload'; END IF;
 
   -- JSON collections: must be arrays; bound counts and serialized size.
   PERFORM public._validate_confirm_collection(_party->'tasks', 200, 4000);
@@ -249,8 +251,9 @@ BEGIN
     clean_location,
     guest_est,
     budget_val,
-    -- theme column is jsonb; wrap the clean TEXT (or null) as a JSON string.
-    CASE WHEN clean_theme IS NULL THEN 'null'::jsonb ELSE to_jsonb(clean_theme) END,
+    -- parties.theme is TEXT. Store the clean label directly, without JSON
+    -- quotes or a jsonb-to-text coercion.
+    COALESCE(clean_theme, ''),
     clean_theme_id,
     clean_pack_id,
     clean_host_note,
@@ -285,11 +288,18 @@ LANGUAGE plpgsql
 IMMUTABLE
 SET search_path = public
 AS $$
+DECLARE
+  item jsonb;
 BEGIN
   IF _val IS NULL THEN RETURN; END IF;
   IF jsonb_typeof(_val) <> 'array' THEN RAISE EXCEPTION 'invalid payload'; END IF;
   IF jsonb_array_length(_val) > _max_items THEN RAISE EXCEPTION 'invalid payload'; END IF;
   IF octet_length(_val::text) > _max_bytes THEN RAISE EXCEPTION 'invalid payload'; END IF;
+  FOR item IN SELECT * FROM jsonb_array_elements(_val) LOOP
+    IF jsonb_typeof(item) <> 'object' OR octet_length(item::text) > 4000 THEN
+      RAISE EXCEPTION 'invalid payload';
+    END IF;
+  END LOOP;
 END;
 $$;
 
@@ -375,8 +385,11 @@ BEGIN
     END LOOP;
   END IF;
 
-  a := greatest(0, least(coalesce(adults,0), 20));
-  k := greatest(0, least(coalesce(kids,0), 20));
+  a := coalesce(adults, 0);
+  k := coalesce(kids, 0);
+  IF a < 0 OR a > 20 OR k < 0 OR k > 20 THEN
+    RAISE EXCEPTION 'invalid payload';
+  END IF;
   IF a + k = 0 AND rsvp = 'yes' THEN a := 1; END IF;
 
   SELECT * INTO p FROM public.parties WHERE rsvp_token = token FOR UPDATE;
@@ -430,16 +443,20 @@ BEGIN
   updated_kind := CASE WHEN a > 0 THEN 'adult' ELSE 'kid' END;
 
   IF matched_id IS NOT NULL AND NOT ambiguous THEN
-    -- Update in place.
+    -- Update in place and prune plus-ones from the prior submission so
+    -- resubmitting yes/no/maybe cannot duplicate or strand them.
     FOR g IN SELECT * FROM jsonb_array_elements(p.guests) LOOP
+      IF coalesce(g->>'source','') = 'link'
+         AND lower(regexp_replace(btrim(coalesce(g->>'name','')), '\s+', ' ', 'g')) LIKE norm_name || ' +%' THEN
+        CONTINUE;
+      END IF;
       IF g->>'id' = matched_id THEN
         new_guests := new_guests || jsonb_build_array(
           g || jsonb_build_object(
             'name', clean_name,
             'kind', updated_kind,
             'rsvp', rsvp,
-            'source', COALESCE(g->>'source', 'link'),
-            'household', clean_household,
+            'household', COALESCE(clean_household, g->>'household'),
             'dietary', clean_dietary,
             'allergens', clean_allergens
           )

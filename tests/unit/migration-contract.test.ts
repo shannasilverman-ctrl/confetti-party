@@ -27,12 +27,35 @@ describe("migration contract: DB hardening batch", () => {
   test("confirm_gathering_draft stores theme as text and validates payload", () => {
     // Theme must be read via ->> (text), never wrapped from raw ->'theme' jsonb.
     expect(allSql).toMatch(/_party->>'theme'/);
-    // Occasion enum enforced.
-    expect(allSql).toMatch(/allowed_occasions text\[\]/);
+    // Occasion enum is the exact product-domain union. Stale aliases such as
+    // watch-party/bbq would reject plans created by the TypeScript app.
+    expect(allSql).toMatch(
+      /'birthday','baby-shower','graduation','holiday',\s*'dinner-party','game-day','cookout','other'/,
+    );
+    expect(allSql).not.toMatch(
+      /allowed_occasions[\s\S]{0,200}'(?:wedding|shabbat|bbq|watch-party|shower|custom)'/,
+    );
     // Collection validator is invoked.
     expect(allSql).toMatch(/_validate_confirm_collection/);
-    // Wall-clock time syntax check.
-    expect(allSql).toMatch(/\^\[0-2\]\[0-9\]:\[0-5\]\[0-9\]/);
+    expect(allSql).toMatch(/jsonb_typeof\(item\) <> 'object'/);
+    // Wall-clock time is truly 00:00–23:59, not the former 00:00–29:59.
+    expect(allSql).toMatch(/\^\(\[01\]\[0-9\]\|2\[0-3\]\):\[0-5\]\[0-9\]/);
+    // parties.theme is text — never cast or wrap the value as jsonb.
+    expect(allSql).toMatch(/COALESCE\(clean_theme, ''\)/);
+    expect(allSql).not.toMatch(/to_jsonb\(clean_theme\)/);
+  });
+
+  test("RSVP resubmits prune plus-ones in both update and append paths", () => {
+    const latestMigration = readFileSync(
+      join(MIG_DIR, "20260725080444_e8309c3f-1539-4737-8afe-833cbb110e91.sql"),
+      "utf8",
+    );
+    const submitBody = latestMigration.match(
+      /CREATE OR REPLACE FUNCTION public\.submit_rsvp[\s\S]+?\$\$;/,
+    );
+    expect(submitBody).toBeTruthy();
+    const pruneOccurrences = submitBody![0].match(/LIKE norm_name \|\| ' \+%'/g) ?? [];
+    expect(pruneOccurrences).toHaveLength(2);
   });
 
   test("per-party abuse budget table is not exposed to anon/authenticated", () => {
