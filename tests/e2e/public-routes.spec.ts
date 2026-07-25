@@ -9,6 +9,8 @@ const ROUTES = [
   "/party/ava-liam-wedding",
   "/party/ava-liam-wedding/reveal",
   "/party/ava-liam-wedding/day-of",
+  "/rsvp/not-a-uuid",
+  "/rsvp/00000000-0000-0000-0000-000000000000",
 ];
 
 for (const path of ROUTES) {

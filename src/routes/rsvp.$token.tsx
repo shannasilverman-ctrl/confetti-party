@@ -124,7 +124,7 @@ function InviteShell({
   showRetry: boolean;
 }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
       <BrandLockup />
       <h1 className="mt-8 font-display text-2xl font-semibold text-secondary">{title}</h1>
       <p className="mt-2 max-w-sm text-sm text-muted-foreground">{body}</p>
@@ -145,7 +145,7 @@ function InviteShell({
         </Button>
       </div>
       <ConversionFooter />
-    </div>
+    </main>
   );
 }
 
