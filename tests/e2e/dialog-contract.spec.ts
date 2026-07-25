@@ -13,6 +13,7 @@ import { test, expect } from "@playwright/test";
 test.describe("New Party dialog — keyboard + focus contract", () => {
   test("focus trap, labels, Escape returns focus", async ({ page }) => {
     await page.goto("/app");
+    await page.waitForLoadState("networkidle");
     const trigger = page.getByRole("button", { name: /new party/i }).first();
     await expect(trigger).toBeVisible();
     await trigger.focus();
@@ -82,6 +83,7 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     for (const width of [320, 375, 390, 430]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/app");
+      await page.waitForLoadState("networkidle");
       await page
         .getByRole("button", { name: /new party/i })
         .first()
@@ -104,6 +106,7 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
 test.describe("Holiday starter → editable workspace", () => {
   test("picking a starter prefills a name and opens the party overview", async ({ page }) => {
     await page.goto("/app");
+    await page.waitForLoadState("networkidle");
     const trigger = page.getByRole("button", { name: /new party/i }).first();
     await expect(trigger).toBeVisible();
     await trigger.focus();
