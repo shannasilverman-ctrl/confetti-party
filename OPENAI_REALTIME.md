@@ -4,6 +4,11 @@ Confetti's "Talk it out" voice mode uses OpenAI's Realtime API over WebRTC
 from the browser, with a short-lived ephemeral client secret minted
 server-side.
 
+**Contract dated:** 2026-01 — verified against OpenAI's current
+`/v1/realtime/client_secrets` mint flow and `gpt-realtime-2.1` model.
+
+
+
 ## Contract
 
 | Field                 | Value                                                                      |
