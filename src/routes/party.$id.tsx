@@ -47,12 +47,17 @@ import {
   ShoppingCart,
   LayoutDashboard,
   Mail,
+  Gift,
+  Sparkle,
+  Timer,
 } from "lucide-react";
 import { ThemeTab } from "@/components/theme-tab";
 import { ShoppingTab } from "@/components/shopping-tab";
 import { OverviewTab } from "@/components/overview-tab";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
+import { BringBoardEditor } from "@/components/bring-board-editor";
+import { PhotoDropEditor } from "@/components/photo-drop-editor";
 
 export type TabKey =
   | "overview"
