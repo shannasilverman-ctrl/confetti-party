@@ -426,10 +426,25 @@ function TalkRoute() {
         {mode === "text" ? (
           <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
             <section className="flex flex-col">
+              {isDemo && (
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-primary/5 px-4 py-2.5 text-xs text-secondary">
+                  <Badge variant="secondary" className="uppercase tracking-wide">
+                    Demo
+                  </Badge>
+                  <span className="min-w-0 flex-1">
+                    You're chatting with a preview brain — {DEMO_MAX_TURNS} turns, no account
+                    needed. Sign up free to save the plan and unlock voice.
+                  </span>
+                  <Button asChild size="sm" variant="festive">
+                    <a href="/auth?mode=signup">Sign up free</a>
+                  </Button>
+                </div>
+              )}
               <Card className="flex h-[520px] flex-col md:h-[600px]">
                 <div className="border-b px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Conversation
                 </div>
+
                 <div
                   ref={chatScrollRef}
                   className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
