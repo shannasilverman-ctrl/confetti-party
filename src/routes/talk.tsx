@@ -868,8 +868,19 @@ function ReviewDialog({
   loading: boolean;
   review: ReviewSummary | null;
   confirming: boolean;
-  onConfirm: () => void;
+  onConfirm: (opts: { acknowledgePlaceholderDate?: boolean }) => void;
 }) {
+  const [ackDate, setAckDate] = useState(false);
+  // Reset acknowledgement whenever the dialog reopens with a new review.
+  useEffect(() => {
+    if (!open) setAckDate(false);
+  }, [open]);
+
+  const dateBlocked = !!review?.blockingUnknowns?.some((b) => b.field === "date");
+  const otherBlockers = (review?.blockingUnknowns ?? []).filter((b) => b.field !== "date");
+  const canCreate =
+    !!review && !loading && !confirming && otherBlockers.length === 0 && (!dateBlocked || ackDate);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -905,11 +916,25 @@ function ReviewDialog({
                     review.essentials.holidayPack ?? review.essentials.occasion.replace("-", " ")
                   }
                 />
-                <DetailRow label="Date" value={review.essentials.date} />
+                <DetailRow
+                  label="Date"
+                  value={dateBlocked ? "Not set" : review.essentials.date}
+                  tone={dateBlocked ? "warn" : undefined}
+                />
                 <DetailRow label="Time" value={review.essentials.startTime ?? "—"} />
                 <DetailRow label="Location" value={review.essentials.location ?? "—"} />
-                <DetailRow label="Guests" value={String(review.essentials.guestEstimate)} />
-                <DetailRow label="Budget" value={`$${review.essentials.budget}`} />
+                <DetailRow
+                  label="Guests"
+                  value={
+                    review.essentials.guestEstimate > 0
+                      ? String(review.essentials.guestEstimate)
+                      : "TBD"
+                  }
+                />
+                <DetailRow
+                  label="Budget"
+                  value={review.essentials.budget > 0 ? `$${review.essentials.budget}` : "TBD"}
+                />
                 {review.essentials.foodApproach && (
                   <DetailRow label="Food" value={review.essentials.foodApproach} />
                 )}
@@ -918,6 +943,29 @@ function ReviewDialog({
                 )}
               </dl>
             </section>
+
+            {dateBlocked && (
+              <section
+                className="rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-sm text-amber-950"
+                data-testid="talk-blocking-date"
+              >
+                <p className="font-medium">We don't have a real date yet.</p>
+                <p className="mt-1 text-amber-900/90">
+                  Guests shouldn't see a placeholder date on an invitation. Set the real date
+                  first, or check the box below to create the party now and pick a date later.
+                </p>
+                <label className="mt-2 flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={ackDate}
+                    onChange={(e) => setAckDate(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-amber-400"
+                    data-testid="talk-ack-date"
+                  />
+                  <span>I'll pick a real date later. Don't share invitations until I do.</span>
+                </label>
+              </section>
+            )}
 
             <section>
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -931,6 +979,24 @@ function ReviewDialog({
                 <CountChip label="Budget cats" n={review.counts.budgetCategories} />
               </ul>
             </section>
+
+            {review.optionalUnknowns?.length > 0 && (
+              <section>
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Left blank on purpose
+                </h3>
+                <ul className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                  {review.optionalUnknowns.map((u) => (
+                    <li
+                      key={u.field}
+                      className="rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-muted-foreground"
+                    >
+                      {u.label}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {review.assumptions.length > 0 && (
               <section>
@@ -975,8 +1041,8 @@ function ReviewDialog({
           </Button>
           <Button
             variant="festive"
-            onClick={onConfirm}
-            disabled={loading || confirming || !review}
+            onClick={() => onConfirm({ acknowledgePlaceholderDate: ackDate })}
+            disabled={!canCreate}
             data-testid="talk-confirm-create"
             className="min-h-11"
           >
