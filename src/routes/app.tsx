@@ -119,9 +119,12 @@ function Dashboard() {
       )}
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex items-end justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-semibold text-secondary">
+        <div className="mb-8 grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+              <Sparkles className="h-3 w-3" /> Your calm co-host
+            </div>
+            <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">
               Your parties
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -136,7 +139,38 @@ function Dashboard() {
                     : `${parties.length} in flight — pick one to keep planning.`}
             </p>
           </div>
+          {status === "ready" && parties.length > 0 && (() => {
+            const upcoming = [...parties]
+              .filter((p) => daysUntil(p.date) >= 0)
+              .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
+            if (!upcoming) return null;
+            const d = daysUntil(upcoming.date);
+            return (
+              <Link
+                to="/party/$id"
+                params={{ id: upcoming.id }}
+                className="group flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition hover:-translate-y-0.5 hover:shadow-elevated"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <CalendarDays className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Next up
+                  </div>
+                  <div className="truncate font-display text-base font-semibold text-secondary">
+                    {upcoming.name}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {d === 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`}
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 shrink-0 text-primary opacity-0 transition group-hover:opacity-100" />
+              </Link>
+            );
+          })()}
         </div>
+
 
         {status === "loading" ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
