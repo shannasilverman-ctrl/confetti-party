@@ -33,7 +33,7 @@ const CATEGORIES: BringCategory[] = [
 export function BringBoardEditor({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
-  const items = party.bringBoard ?? [];
+  const items = useMemo(() => party.bringBoard ?? [], [party.bringBoard]);
 
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState<BringCategory>("Sides");
