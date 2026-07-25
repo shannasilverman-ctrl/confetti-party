@@ -114,10 +114,24 @@ DECLARE
   before_board jsonb;
   raised boolean;
 BEGIN
-  -- Synthetic auth user (unique marker in email). auth.users defaults
-  -- cover everything except id; we set email defensively for legibility.
-  INSERT INTO auth.users (id, email)
-  VALUES (synthetic_user_id, fixture_email);
+  -- Owner FK strategy:
+  --   1. Try to create a synthetic auth.users row tagged with this run's
+  --      marker so leak checks can prove zero residue in BOTH tables.
+  --   2. If the harness role lacks INSERT on auth (typical for the
+  --      shared connected DB), fall back to reusing any existing owner
+  --      id purely as an internal FK. We do NOT print the id.
+  --   3. If neither is possible, error out — never skip Phase B.
+  BEGIN
+    INSERT INTO auth.users (id, email)
+    VALUES (synthetic_user_id, fixture_email);
+    created_synthetic_auth := true;
+  EXCEPTION WHEN insufficient_privilege THEN
+    SELECT user_id INTO synthetic_user_id FROM public.parties LIMIT 1;
+    IF synthetic_user_id IS NULL THEN
+      RAISE EXCEPTION 'FAIL: cannot create synthetic auth user and no existing owner to reuse';
+    END IF;
+    RAISE NOTICE 'phaseB: no auth.users INSERT privilege — reusing existing owner FK only (id not printed)';
+  END;
 
   INSERT INTO public.parties (
     user_id, name, occasion, date, guest_estimate, budget, theme, tasks,
@@ -126,6 +140,7 @@ BEGIN
     photo_drop
   ) VALUES (
     synthetic_user_id, marker, 'birthday', current_date + 14, 10, 100, 'default',
+
     '[]'::jsonb,
     jsonb_build_array(jsonb_build_object(
       'id','g_link','name','Alex Doe','kind','adult','rsvp','maybe','source','link'
