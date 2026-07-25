@@ -120,23 +120,29 @@ export function loadDemoState(
   storage: StorageLike | null = getStorage(),
 ): DemoStoreResult {
   const seedIds = new Set(seeds.map((s) => s.id));
-  if (!storage) return { parties: seeds };
+  const baseOrigins = (extra: Party[] = []): Record<string, PartyOrigin> => {
+    const o: Record<string, PartyOrigin> = {};
+    for (const s of seeds) o[s.id] = { origin: "curated", edited: false };
+    for (const p of extra) o[p.id] = { origin: "user", edited: false };
+    return o;
+  };
+  if (!storage) return { parties: seeds, origins: baseOrigins() };
   let raw: string | null = null;
   try {
     raw = storage.getItem(DEMO_STORAGE_KEY);
   } catch {
-    return { parties: seeds };
+    return { parties: seeds, origins: baseOrigins() };
   }
-  if (!raw) return { parties: seeds };
+  if (!raw) return { parties: seeds, origins: baseOrigins() };
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { parties: seeds, warning: "corrupt" };
+    return { parties: seeds, origins: baseOrigins(), warning: "corrupt" };
   }
   const outcome = StoredShape.safeParse(parsed);
   if (!outcome.success) {
-    return { parties: seeds, warning: "corrupt" };
+    return { parties: seeds, origins: baseOrigins(), warning: "corrupt" };
   }
   const store = outcome.data;
 
@@ -155,7 +161,19 @@ export function loadDemoState(
     .filter((p) => !seedIds.has(p.id))
     .slice(0, DEMO_MAX_PARTIES);
 
-  return { parties: [...merged, ...custom] };
+  // Origins: start from seed-inferred defaults, then overlay stored entries
+  // if present. Any stored id that is NOT a curated seed id is forced to
+  // origin: "user" (defense against tampering).
+  const origins: Record<string, PartyOrigin> = baseOrigins(custom);
+  for (const [id, o] of Object.entries(store.origins ?? {})) {
+    if (seedIds.has(id)) {
+      origins[id] = { origin: "curated", edited: !!o.edited };
+    } else {
+      origins[id] = { origin: "user", edited: !!o.edited };
+    }
+  }
+
+  return { parties: [...merged, ...custom], origins };
 }
 
 /**
