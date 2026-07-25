@@ -46,7 +46,7 @@ function DayOfPage() {
   const checkins = readyParty.checkins ?? {};
 
   function toggleTask(taskId: string, evt?: React.MouseEvent) {
-    updateParty(party!.id, (p) => ({
+    updateParty(readyParty.id, (p) => ({
       ...p,
       tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)),
     }));
@@ -55,7 +55,7 @@ function DayOfPage() {
 
   function toggleCheckin(guestId: string, evt?: React.MouseEvent) {
     const wasHere = !!checkins[guestId];
-    updateParty(party!.id, (p) => {
+    updateParty(readyParty.id, (p) => {
       const next = { ...(p.checkins ?? {}) };
       if (next[guestId]) delete next[guestId];
       else next[guestId] = new Date().toISOString();
@@ -67,7 +67,7 @@ function DayOfPage() {
   function postUpdate() {
     const text = note.trim();
     if (!text) return;
-    updateParty(party!.id, (p) => ({
+    updateParty(readyParty.id, (p) => ({
       ...p,
       hostUpdates: [
         { id: newId(), text, at: new Date().toISOString() },
@@ -98,7 +98,7 @@ function DayOfPage() {
 
         <section className="mt-4 rounded-3xl border border-border bg-card p-5 shadow-card">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Day of · {party.name}
+            Day of · {readyParty.name}
           </div>
           <h1 className="mt-1 font-display text-2xl font-semibold text-secondary">
             Next three actions
@@ -143,9 +143,9 @@ function DayOfPage() {
               Post update
             </Button>
           </div>
-          {(party.hostUpdates ?? []).length > 0 && (
+          {(readyParty.hostUpdates ?? []).length > 0 && (
             <ul className="mt-3 space-y-1.5">
-              {(party.hostUpdates ?? []).slice(0, 3).map((u) => (
+              {(readyParty.hostUpdates ?? []).slice(0, 3).map((u) => (
                 <li
                   key={u.id}
                   className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
