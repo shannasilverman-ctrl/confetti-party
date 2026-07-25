@@ -19,24 +19,12 @@
 //   1. Bearer header presence          → 401 if missing/malformed
 //   2. Bearer verification (Supabase)  → 401 if invalid/expired
 //   3. Server configuration            → 503 if key or salt missing
-//   4. Rate + concurrency read         → 503 on DB error, 429 on limits
-//   5. Reserve talk_sessions row       → 503 on insert failure
-//   6. Recount to detect single-node   → 429 + rollback if exceeded
-//      races that TOCTOU-slipped past  → race is single-node only; see
-//                                        RESIDUAL DISTRIBUTED RACE below
-//   7. Mint client secret              → 502 on upstream failure
+//   4. Atomic DB reservation RPC       → transaction advisory-locks per user,
+//                                        enforces 5/hour + 2 concurrent across
+//                                        every Worker, and inserts the row
+//   5. Mint client secret              → 502 on upstream failure
 //                                        (reservation is closed and the
 //                                        cleanup itself never leaks)
-//
-// RESIDUAL DISTRIBUTED RACE — voice not production-ready:
-//   The 2-concurrent / 5-hour limits are enforced by an in-process
-//   per-user mutex plus a post-insert recount. That guarantees single-
-//   node atomicity. Two Worker isolates running the mint at the same
-//   moment on different edges can each pass their own recount and admit
-//   a 3rd concurrent session. A true fix requires either a Postgres
-//   unique partial index / advisory lock RPC (schema change) or a
-//   dedicated reservation table. Publishing voice as a rate-limited
-//   production feature is BLOCKED until that lands.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -45,14 +33,12 @@ import { TALK_SYSTEM_PROMPT } from "@/lib/gathering-draft";
 import {
   REALTIME_CLIENT_SECRETS_URL,
   REALTIME_MODEL,
-  REALTIME_SESSION_STALE_MS,
   REALTIME_VOICE,
   buildRealtimeSessionBody,
   computeSafetyIdentifier,
   newCorrelationId,
   parseClientSecretResponse,
 } from "@/lib/realtime-session";
-import { withKeyedLock } from "@/lib/user-mutex";
 
 function isNewKey(k: string) {
   return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
@@ -91,17 +77,6 @@ const DEFAULT_DEPS: RealtimeDeps = {
   supabaseFactory: defaultSupabaseFactory,
   fetchImpl: (input, init) => fetch(input, init),
 };
-
-// ---- In-process per-user serialization -------------------------------------
-// Serializes SELECT-then-INSERT reservations on the same node so a single
-// isolate cannot admit more than the allowed concurrent count for one user.
-// Backed by `withKeyedLock` (see src/lib/user-mutex.ts) which guarantees
-// map entries are cleaned up after every task (success or rejection) and
-// that different users are not globally serialized.
-// Cross-node distributed race remains (documented above as a release blocker).
-
-const CONCURRENCY_LIMIT = 2;
-const HOURLY_LIMIT = 5;
 
 /**
  * Factory returning a Request→Response handler bound to explicit deps.
@@ -168,29 +143,31 @@ export function createMintRealtimeSessionHandler(
       /* empty body allowed */
     }
 
-    // ---- 4-6. Reservation, serialized per user on this node --------------
-    return withKeyedLock(userId, async () => {
-      const oneHourAgoISO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const staleCutoffISO = new Date(Date.now() - REALTIME_SESSION_STALE_MS).toISOString();
-
-      const { data: recent, error: recentErr } = await supabase
-        .from("talk_sessions")
-        .select("id, ended_at, started_at")
-        .eq("user_id", userId)
-        .gte("started_at", oneHourAgoISO);
-
-      if (recentErr) {
-        console.error("[realtime] rate_lookup_failed", {
-          cid,
-          code: recentErr.code ?? null,
-        });
-        return Response.json(
-          { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
-          { status: 503 },
-        );
-      }
-
-      if ((recent?.length ?? 0) >= HOURLY_LIMIT) {
+    // ---- 4. Atomic distributed reservation -------------------------------
+    const { data: reservationRaw, error: reservationError } = await supabase.rpc(
+      "reserve_talk_session",
+      {
+        _draft_id: bodyIn.draftId ?? undefined,
+        _model: REALTIME_MODEL,
+      },
+    );
+    if (reservationError) {
+      console.error("[realtime] session_reserve_failed", {
+        cid,
+        code: reservationError.code ?? null,
+      });
+      return Response.json(
+        { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
+        { status: 503 },
+      );
+    }
+    const reservation = reservationRaw as {
+      allowed?: boolean;
+      reason?: string;
+      session_id?: string;
+    } | null;
+    if (reservation?.allowed === false) {
+      if (reservation.reason === "rate_limited") {
         return Response.json(
           {
             error: "rate_limited",
@@ -199,137 +176,84 @@ export function createMintRealtimeSessionHandler(
           { status: 429 },
         );
       }
-      const concurrent = (recent ?? []).filter(
-        (r) => !r.ended_at && r.started_at >= staleCutoffISO,
-      ).length;
-      if (concurrent >= CONCURRENCY_LIMIT) {
-        return Response.json(
-          { error: "too_many_concurrent", message: "You already have a voice session open." },
-          { status: 429 },
-        );
-      }
+      return Response.json(
+        { error: "too_many_concurrent", message: "You already have a voice session open." },
+        { status: 429 },
+      );
+    }
+    if (!reservation?.session_id) {
+      console.error("[realtime] session_reserve_unparseable", { cid });
+      return Response.json(
+        { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
+        { status: 503 },
+      );
+    }
+    const sessionId = reservation.session_id;
 
-      // Reserve BEFORE minting. Insert the intended model so the DB row is
-      // meaningful even if the OpenAI response is missing session.model.
-      const { data: sessionRow, error: sessionErr } = await supabase
-        .from("talk_sessions")
-        .insert({
-          user_id: userId,
-          draft_id: bodyIn.draftId ?? null,
-          model: REALTIME_MODEL,
-        })
-        .select("id")
-        .single();
-
-      if (sessionErr || !sessionRow?.id) {
-        console.error("[realtime] session_reserve_failed", {
-          cid,
-          code: sessionErr?.code ?? null,
-        });
-        return Response.json(
-          { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
-          { status: 503 },
-        );
-      }
-      const sessionId = sessionRow.id;
-
-      // Recount AFTER insert to catch single-node races that raced past the
-      // pre-check. A DB failure here MUST NOT fail-open: we own a fresh
-      // reservation, so we close it (best-effort) and return sanitized 503
-      // without calling OpenAI. The distributed multi-worker race is still
-      // documented as a release blocker above.
-      const { data: postRecent, error: postRecentErr } = await supabase
-        .from("talk_sessions")
-        .select("id, ended_at, started_at")
-        .eq("user_id", userId)
-        .gte("started_at", oneHourAgoISO);
-      if (postRecentErr) {
-        console.error("[realtime] recount_failed", {
-          cid,
-          code: postRecentErr.code ?? null,
-        });
-        await closeReservedSession(supabase, sessionId, "recount_failed", cid);
-        return Response.json(
-          { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
-          { status: 503 },
-        );
-      }
-      const postConcurrent = (postRecent ?? []).filter(
-        (r) => !r.ended_at && r.started_at >= staleCutoffISO,
-      ).length;
-      if (postConcurrent > CONCURRENCY_LIMIT) {
-        await closeReservedSession(supabase, sessionId, "recount_overshoot", cid);
-        return Response.json(
-          { error: "too_many_concurrent", message: "You already have a voice session open." },
-          { status: 429 },
-        );
-      }
-
-      // ---- 7. Mint the ephemeral client secret ----------------------------
-      let openaiRes: Response;
-      try {
-        openaiRes = await deps.fetchImpl(REALTIME_CLIENT_SECRETS_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openaiKey}`,
-            "Content-Type": "application/json",
-            "OpenAI-Safety-Identifier": safetyId,
-          },
-          body: JSON.stringify(buildRealtimeSessionBody({ instructions: TALK_SYSTEM_PROMPT })),
-        });
-      } catch {
-        console.error("[realtime] mint_fetch_failed", { cid });
-        await closeReservedSession(supabase, sessionId, "mint_fetch_failed", cid);
-        return Response.json(
-          { error: "upstream_unreachable", message: "Voice service is unreachable." },
-          { status: 502 },
-        );
-      }
-
-      const openaiReqId =
-        openaiRes.headers.get("x-request-id") ?? openaiRes.headers.get("openai-request-id") ?? null;
-
-      if (!openaiRes.ok) {
-        await openaiRes.text().catch(() => "");
-        console.error("[realtime] mint_upstream_non_2xx", {
-          cid,
-          status: openaiRes.status,
-          openaiReqId,
-        });
-        await closeReservedSession(supabase, sessionId, "mint_non_2xx", cid);
-        return Response.json(
-          { error: "upstream_error", message: "Voice service refused." },
-          { status: 502 },
-        );
-      }
-
-      const rawJson = await openaiRes.json().catch(() => null);
-      const parsed = parseClientSecretResponse(rawJson);
-      if (!parsed) {
-        console.error("[realtime] mint_unparseable", { cid, openaiReqId });
-        await closeReservedSession(supabase, sessionId, "mint_unparseable", cid);
-        return Response.json(
-          { error: "upstream_error", message: "Voice service returned an unexpected response." },
-          { status: 502 },
-        );
-      }
-
-      if (parsed.session?.model && parsed.session.model !== REALTIME_MODEL) {
-        // Record the actual served model if OpenAI substituted one.
-        await supabase
-          .from("talk_sessions")
-          .update({ model: parsed.session.model })
-          .eq("id", sessionId)
-          .eq("user_id", userId);
-      }
-
-      return Response.json({
-        clientSecret: parsed.value,
-        expiresAt: parsed.expires_at,
-        model: parsed.session?.model ?? REALTIME_MODEL,
-        sessionId,
-        voice: REALTIME_VOICE,
+    // ---- 5. Mint the ephemeral client secret -----------------------------
+    let openaiRes: Response;
+    try {
+      openaiRes = await deps.fetchImpl(REALTIME_CLIENT_SECRETS_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+          "Content-Type": "application/json",
+          "OpenAI-Safety-Identifier": safetyId,
+        },
+        body: JSON.stringify(buildRealtimeSessionBody({ instructions: TALK_SYSTEM_PROMPT })),
       });
+    } catch {
+      console.error("[realtime] mint_fetch_failed", { cid });
+      await closeReservedSession(supabase, sessionId, "mint_fetch_failed", cid);
+      return Response.json(
+        { error: "upstream_unreachable", message: "Voice service is unreachable." },
+        { status: 502 },
+      );
+    }
+
+    const openaiReqId =
+      openaiRes.headers.get("x-request-id") ?? openaiRes.headers.get("openai-request-id") ?? null;
+
+    if (!openaiRes.ok) {
+      await openaiRes.text().catch(() => "");
+      console.error("[realtime] mint_upstream_non_2xx", {
+        cid,
+        status: openaiRes.status,
+        openaiReqId,
+      });
+      await closeReservedSession(supabase, sessionId, "mint_non_2xx", cid);
+      return Response.json(
+        { error: "upstream_error", message: "Voice service refused." },
+        { status: 502 },
+      );
+    }
+
+    const rawJson = await openaiRes.json().catch(() => null);
+    const parsed = parseClientSecretResponse(rawJson);
+    if (!parsed) {
+      console.error("[realtime] mint_unparseable", { cid, openaiReqId });
+      await closeReservedSession(supabase, sessionId, "mint_unparseable", cid);
+      return Response.json(
+        { error: "upstream_error", message: "Voice service returned an unexpected response." },
+        { status: 502 },
+      );
+    }
+
+    if (parsed.session?.model && parsed.session.model !== REALTIME_MODEL) {
+      // Record the actual served model if OpenAI substituted one.
+      await supabase
+        .from("talk_sessions")
+        .update({ model: parsed.session.model })
+        .eq("id", sessionId)
+        .eq("user_id", userId);
+    }
+
+    return Response.json({
+      clientSecret: parsed.value,
+      expiresAt: parsed.expires_at,
+      model: parsed.session?.model ?? REALTIME_MODEL,
+      sessionId,
+      voice: REALTIME_VOICE,
     });
   };
 }

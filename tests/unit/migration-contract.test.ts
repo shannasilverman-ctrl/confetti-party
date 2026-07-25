@@ -13,11 +13,24 @@ const allSql = readdirSync(MIG_DIR)
   .map((f) => readFileSync(join(MIG_DIR, f), "utf8"))
   .join("\n\n");
 
+function latestFunctionBody(name: string): string {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const matches = [
+    ...allSql.matchAll(
+      new RegExp(`CREATE OR REPLACE FUNCTION public\\.${escaped}\\b[\\s\\S]*?\\n\\$\\$;`, "g"),
+    ),
+  ];
+  const latest = matches.at(-1)?.[0];
+  if (!latest) throw new Error(`No migration definition found for ${name}`);
+  return latest;
+}
+
 describe("migration contract: DB hardening batch", () => {
   test("bump_ai_turn has server-fixed cap and window (1-arg signature)", () => {
-    expect(allSql).toMatch(/CREATE OR REPLACE FUNCTION public\.bump_ai_turn\(_draft_id uuid\)/);
-    expect(allSql).toMatch(/cap_const constant integer := 40/);
-    expect(allSql).toMatch(/window_ms_const constant integer := 3600000/);
+    const latest = latestFunctionBody("bump_ai_turn");
+    expect(latest).toMatch(/public\.bump_ai_turn\(_draft_id uuid\)/);
+    expect(latest).toMatch(/cap_const constant integer := 40/);
+    expect(latest).toMatch(/window_ms_const constant integer := 3600000/);
     // Old 3-arg overload must be explicitly dropped.
     expect(allSql).toMatch(
       /DROP FUNCTION IF EXISTS public\.bump_ai_turn\(uuid, integer, integer\)/,
@@ -69,19 +82,27 @@ describe("migration contract: DB hardening batch", () => {
   });
 
   test("public RSVP RPCs consult the budget helper", () => {
-    const bodies = allSql.split(
-      /CREATE OR REPLACE FUNCTION public\.(submit_rsvp|claim_bring_item|release_bring_item)/,
-    );
-    // Every one of the three most recent definitions must call the helper.
+    // The latest definition of every public mutation must call the helper.
+    // Looking only across the concatenated corpus can produce a false pass
+    // when an older safe function is followed by a newer unsafe replacement.
     for (const name of ["submit_rsvp", "claim_bring_item", "release_bring_item"]) {
-      const re = new RegExp(
-        `CREATE OR REPLACE FUNCTION public\\.${name}[\\s\\S]*?_bump_rsvp_budget`,
-      );
-      // last (latest) match is what will run — split-and-match is enough
-      // because migrations are forward-only and we grep the whole corpus.
-      expect(allSql).toMatch(re);
+      expect(latestFunctionBody(name)).toMatch(/_bump_rsvp_budget/);
     }
-    expect(bodies.length).toBeGreaterThan(1);
+  });
+
+  test("voice reservations are atomic across Worker isolates", () => {
+    const latest = latestFunctionBody("reserve_talk_session");
+    expect(latest).toMatch(/pg_advisory_xact_lock\(hashtextextended\(caller_id::text/);
+    expect(latest).toMatch(/hourly_count >= 5/);
+    expect(latest).toMatch(/concurrent_count >= 2/);
+    expect(latest).toMatch(/started_at >= now\(\) - interval '15 minutes'/);
+    expect(latest).toMatch(/INSERT INTO public\.talk_sessions/);
+    expect(allSql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.reserve_talk_session\(uuid, text\) FROM PUBLIC/,
+    );
+    expect(allSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.reserve_talk_session\(uuid, text\) TO authenticated/,
+    );
   });
 
   test("submit_rsvp uses deterministic normalized matching with ambiguous marker", () => {

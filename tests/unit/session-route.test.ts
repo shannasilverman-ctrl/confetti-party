@@ -25,6 +25,7 @@ interface FakeSupabaseState {
 }
 
 function makeFakeSupabase(state: FakeSupabaseState) {
+  let reservationTail = Promise.resolve();
   return {
     auth: {
       getUser: async () => {
@@ -33,6 +34,58 @@ function makeFakeSupabase(state: FakeSupabaseState) {
         }
         return { data: { user: state.user }, error: null };
       },
+    },
+    async rpc(name: string, args: { _draft_id?: string; _model?: string }) {
+      if (name !== "reserve_talk_session") throw new Error(`unexpected rpc ${name}`);
+
+      // Model Postgres's transaction-scoped per-user advisory lock so the
+      // concurrent route test proves behavior at the RPC contract boundary.
+      const previous = reservationTail;
+      let release!: () => void;
+      reservationTail = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await previous;
+      try {
+        if (state.selectError || state.recountError) {
+          return { data: null, error: state.selectError ?? state.recountError };
+        }
+        const now = Date.now();
+        const recent = state.sessions.filter(
+          (row) => new Date(row.started_at).getTime() >= now - 60 * 60 * 1000,
+        );
+        if (recent.length >= 5) {
+          return { data: { allowed: false, reason: "rate_limited" }, error: null };
+        }
+        const concurrent = recent.filter(
+          (row) =>
+            row.ended_at === null && new Date(row.started_at).getTime() >= now - 15 * 60 * 1000,
+        );
+        if (concurrent.length >= 2) {
+          return { data: { allowed: false, reason: "too_many_concurrent" }, error: null };
+        }
+        if (state.insertHook) await state.insertHook();
+        if (state.insertError) return { data: null, error: state.insertError };
+        const row = {
+          user_id: state.user?.id ?? "u",
+          draft_id: args._draft_id ?? null,
+          model: args._model ?? null,
+        };
+        state.inserts.push(row);
+        const newRow: FakeSession = {
+          id: `sess_${state.sessions.length + 1}`,
+          user_id: row.user_id,
+          started_at: new Date().toISOString(),
+          ended_at: null,
+        };
+        state.sessions.push(newRow);
+        return {
+          data: { allowed: true, session_id: newRow.id },
+          error: null,
+        };
+      } finally {
+        release();
+      }
     },
     from(table: string) {
       if (table !== "talk_sessions") throw new Error(`unexpected table ${table}`);
@@ -162,8 +215,9 @@ function makeState(partial: Partial<FakeSupabaseState> = {}): FakeSupabaseState 
 }
 
 function bind(state: FakeSupabaseState, fetchImpl: typeof fetch) {
+  const client = makeFakeSupabase(state);
   return createMintRealtimeSessionHandler({
-    supabaseFactory: () => makeFakeSupabase(state) as never,
+    supabaseFactory: () => client as never,
     fetchImpl,
   });
 }
@@ -300,7 +354,6 @@ describe("POST /api/realtime/session", () => {
     expect(res.status).toBe(200);
     expect(state.inserts).toHaveLength(1);
     expect(state.inserts[0]).toMatchObject({
-      user_id: "user-uuid-123",
       model: "gpt-realtime-2.1",
     });
   });
@@ -317,11 +370,11 @@ describe("POST /api/realtime/session", () => {
     expect(fetched).toBe(false);
   });
 
-  // ---- Concurrent Promise.all (single-node atomicity) -------------------
+  // ---- Concurrent Promise.all (distributed DB atomicity contract) -------
 
   it(
     "5 concurrent requests with concurrency=2 admit at most 2 mints; " +
-      "in-process mutex + post-insert recount enforce the single-node bound",
+      "the atomic reservation RPC enforces the cross-worker bound",
     async () => {
       const state = makeState();
       // Slow the fetch so requests overlap in flight.
@@ -500,9 +553,9 @@ describe("POST /api/realtime/session", () => {
     expect(logSink.join("\n")).toMatch(/mint_upstream_non_2xx/);
   });
 
-  // ---- Post-insert recount fail-closed (release blocker) ----------------
+  // ---- Atomic reservation RPC failures stay fail-closed -----------------
 
-  it("post-insert recount DB error → sanitized 503, closes reservation, never mints", async () => {
+  it("reservation RPC DB error → sanitized 503 and never mints", async () => {
     const state = makeState({ recountError: { code: "57P01" } });
     let openaiCalls = 0;
     const handler = bind(state, async () => {
@@ -515,17 +568,18 @@ describe("POST /api/realtime/session", () => {
     expect(body.error).toBe("voice_unavailable");
     // OpenAI is never called after fail-closed.
     expect(openaiCalls).toBe(0);
-    // Reservation was closed (best-effort cleanup succeeded).
-    expect(state.updates.length).toBe(1);
+    // The transaction failed before returning a reservation.
+    expect(state.inserts.length).toBe(0);
+    expect(state.updates.length).toBe(0);
     // Correlation-only log; DB code allowed, no user id / bearer / api key.
     const logs = logSink.join("\n");
-    expect(logs).toMatch(/recount_failed/);
+    expect(logs).toMatch(/session_reserve_failed/);
     expect(logs).toMatch(/57P01/);
     expect(logs).not.toMatch(/user-uuid-123/);
     expect(logs).not.toMatch(/sk-test-do-not-log/);
   });
 
-  it("post-insert recount error + cleanup failure → still 503, never mints, no sensitive logs", async () => {
+  it("reservation RPC failure remains sanitized even when unrelated cleanup errors exist", async () => {
     const state = makeState({
       recountError: { code: "40001" },
       updateError: { code: "40001" },
@@ -539,7 +593,7 @@ describe("POST /api/realtime/session", () => {
     expect(res.status).toBe(503);
     expect(openaiCalls).toBe(0);
     const logs = logSink.join("\n");
-    expect(logs).toMatch(/recount_failed/);
+    expect(logs).toMatch(/session_reserve_failed/);
     expect(logs).not.toMatch(/user-uuid-123/);
     expect(logs).not.toMatch(/Bearer /);
   });

@@ -65,11 +65,11 @@ voice_unavailable`; the route never falls back to hashing an unsalted
 
 ## Server logging
 
-Each mint call emits a per-request `req_<16 hex>` correlation id and the
-`conf_<32 hex>` safety id — nothing user-identifying. When available the
-OpenAI `x-request-id` is captured so support tickets can be cross-referenced
-without leaking payloads. Raw OpenAI response bodies are never logged and
-never proxied to the browser.
+Failures emit a per-request `req_<16 hex>` correlation id. The
+`conf_<32 hex>` safety id is header-only and is never logged. When available,
+the OpenAI `x-request-id` is captured so support tickets can be
+cross-referenced without leaking payloads. Raw OpenAI response bodies are
+never logged and never proxied to the browser.
 
 ## Rate limits and session lifecycle
 
@@ -86,13 +86,16 @@ Enforced server-side against `talk_sessions`:
   early. RLS scopes the `UPDATE` by `auth.uid()` so no user can end
   another user's session. Tests cover ownership + idempotency of the
   end path.
+- `reserve_talk_session` takes a transaction-scoped Postgres advisory lock
+  derived from the authenticated user id, checks both limits, and inserts the
+  reservation in that same transaction. The lock works across Worker
+  isolates, so two edge requests cannot both admit a third active session.
 
 Fail-closed ordering inside the mint route:
 
-1. Auth + config + rate/concurrency read. **A Supabase read error is
-   NEVER treated as "zero recent sessions"** — it returns `503`.
-2. Insert a reserving `talk_sessions` row. Insert failure → `503` and
-   no OpenAI call is made.
+1. Auth + config.
+2. Call the atomic reservation RPC. **A Supabase error is never treated as
+   capacity** — it returns `503` and no OpenAI call is made.
 3. Mint the client secret. Upstream failure → the reserved row is marked
    `ended` with a `disconnect_reason` and a sanitized `502` returned.
 4. The client secret is returned only after step 2 durably reserves the
@@ -117,7 +120,7 @@ The server returns sanitized errors — never the raw OpenAI response body:
 CI does **not** require `OPENAI_API_KEY` — all automated tests mock the
 upstream. To run a real end-to-end smoke:
 
-1. Set `OPENAI_API_KEY` (and optionally `OPENAI_SAFETY_ID_SALT`) in the
+1. Set `OPENAI_API_KEY` and `OPENAI_SAFETY_ID_SALT` in the
    staging environment's Project Settings → Secrets.
 2. Sign in as a test user.
 3. Visit `/talk`, switch to Voice mode, and start a session.

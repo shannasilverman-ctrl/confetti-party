@@ -325,6 +325,10 @@ export type Database = {
         }
         Returns: Json
       }
+      reserve_talk_session: {
+        Args: { _draft_id?: string; _model?: string }
+        Returns: Json
+      }
       submit_rsvp: {
         Args: {
           adults: number
