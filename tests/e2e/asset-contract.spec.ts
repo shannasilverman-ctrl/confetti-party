@@ -127,6 +127,28 @@ test.describe("first-party image asset contract", () => {
     }
   });
 
+  test("eligible browsers can discover and accept installation from the dashboard", async ({
+    page,
+  }) => {
+    await page.goto("/app");
+    await page.getByRole("button", { name: "Dismiss" }).click();
+
+    const installPrompt = await page.evaluateHandle(() => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      Object.assign(event, {
+        prompt: () => Promise.resolve(),
+        userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }),
+      });
+      window.dispatchEvent(event);
+      return event;
+    });
+
+    await expect(page.getByRole("region", { name: "Install Confetti" })).toBeVisible();
+    await page.getByRole("button", { name: "Install Confetti" }).click();
+    await expect(page.getByRole("region", { name: "Install Confetti" })).toBeHidden();
+    await installPrompt.dispose();
+  });
+
   test("landing + sample workspace image URLs return 2xx and no /__l5e/ refs", async ({
     page,
     request,

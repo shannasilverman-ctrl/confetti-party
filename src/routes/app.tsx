@@ -23,6 +23,7 @@ import { BrandLockup } from "@/components/brand";
 import { DeletePartyButton } from "@/components/delete-party-button";
 import { AuthNav } from "@/components/auth-nav";
 import { AppSaveStatus } from "@/components/app-save-status";
+import { InstallAppPrompt } from "@/components/install-app-prompt";
 import { ConfettiBurst, celebrate } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +140,7 @@ function Dashboard() {
       )}
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+        <InstallAppPrompt hidden={showBanner} />
         <section className="relative mb-8 overflow-hidden rounded-3xl border border-border bg-card/80 p-5 shadow-card sm:p-7">
           <div className="absolute inset-0 bg-confetti opacity-45" aria-hidden />
           <div className="relative grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
