@@ -1,5 +1,9 @@
 # Confetti RC audit — gap register (planning only, no edits)
 
+> Historical audit baseline. Items below may have since been resolved. See
+> `docs/release-signoff.md` for the current verified beta state and remaining
+> boundaries.
+
 Basis: HEAD at/after `da2d04a` (working tree also shows `2586169 WIP`). Signals combined: source read of routes, `party-context.tsx`, auth surface, RSVP RPC, session route, migrations list, `tests/e2e`, `tests/unit`. Assertions below are grounded in the files cited; any inference not directly shown is called out as "unverified".
 
 The bar: a stranger opens the app cold on a phone, hosts a real gathering end to end, invites guests, recovers from mistakes, and never feels the seams. Anything that breaks that promise is P0.

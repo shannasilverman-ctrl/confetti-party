@@ -102,8 +102,10 @@ full suite on `ubuntu-latest`.
 
 Detailed release-engineering docs live under `docs/`:
 
-- `docs/rc-audit.md` — release-candidate gap register (source of truth for
-  known blockers).
+- `docs/release-signoff.md` — current beta scope, verification evidence, and
+  explicit unverified boundaries.
+- `docs/rc-audit.md` — historical release-candidate gap register used to
+  drive the hardening work.
 - `docs/testing.md` — expanded test strategy (was root `TESTING.md`).
 - `docs/openai-realtime.md` — Talk voice pipeline notes (was root
   `OPENAI_REALTIME.md`).
