@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement } from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -15,14 +16,14 @@ import {
 /**
  * Confirm-before-delete affordance for destructive row actions.
  *
- * Two modes:
- *  - `mode="confirm"` shows an AlertDialog (used when the row carries
- *    meaningful state: a claim, an RSVP, a submitted expense).
- *  - `mode="undo"` deletes immediately but emits a toast with Undo
- *    (used for safe local rows: empty tasks, unpurchased shopping items).
+ * The trigger must be one focusable element. Radix Slot forwards behavior
+ * onto that element so we never create invalid button-inside-button markup.
  *
- * `trigger` should already carry an accessible name (e.g. `aria-label="Remove Ava Rossi"`).
+ * Confirm mode keeps its dialog open when an async mutation fails. Undo mode
+ * only offers Undo when the caller supplied a real restoring mutation.
  */
+export type ConfirmResult = { ok: true } | { ok: false; error: string };
+
 export function ConfirmDelete({
   mode,
   itemLabel,
@@ -31,43 +32,76 @@ export function ConfirmDelete({
   trigger,
   title,
   description,
+  impact,
 }: {
   mode: "confirm" | "undo";
   itemLabel: string;
-  onConfirm: () => void;
-  onUndo?: () => void;
-  trigger: ReactNode;
+  onConfirm: () => void | ConfirmResult | Promise<void | ConfirmResult>;
+  onUndo?: () => void | ConfirmResult | Promise<void | ConfirmResult>;
+  trigger: ReactElement;
   title?: string;
   description?: string;
+  impact?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runUndo() {
+    if (!onUndo) return;
+    try {
+      const result = await onUndo();
+      if (result && !result.ok) {
+        toast.error(`Couldn't restore ${itemLabel}`, {
+          description: result.error,
+          action: { label: "Retry", onClick: () => void runUndo() },
+        });
+      }
+    } catch (caught) {
+      toast.error(`Couldn't restore ${itemLabel}`, {
+        description: caught instanceof Error ? caught.message : "Please try again.",
+        action: { label: "Retry", onClick: () => void runUndo() },
+      });
+    }
+  }
 
   if (mode === "undo") {
-    return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          onConfirm();
+    const handleClick = () => {
+      void (async () => {
+        try {
+          const result = await onConfirm();
+          if (result && !result.ok) {
+            toast.error(`Couldn't remove ${itemLabel}`, { description: result.error });
+            return;
+          }
           if (onUndo) {
             toast(`Removed ${itemLabel}`, {
-              action: { label: "Undo", onClick: onUndo },
+              action: { label: "Undo", onClick: () => void runUndo() },
               duration: 5000,
             });
           } else {
             toast(`Removed ${itemLabel}`);
           }
-        }}
-        // Pass-through — the caller is expected to style its own trigger.
-        className="contents"
-      >
-        {trigger}
-      </button>
-    );
+        } catch (caught) {
+          toast.error(`Couldn't remove ${itemLabel}`, {
+            description: caught instanceof Error ? caught.message : "Please try again.",
+          });
+        }
+      })();
+    };
+
+    return <Slot onClick={handleClick}>{trigger}</Slot>;
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (pending) return;
+        setOpen(next);
+        if (!next) setError(null);
+      }}
+    >
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -76,17 +110,45 @@ export function ConfirmDelete({
             {description ??
               "This can't be undone from here. Any linked RSVPs or claims will be lost."}
           </AlertDialogDescription>
+          {impact ? (
+            <p className="mt-2 text-sm font-medium text-foreground" role="note">
+              {impact}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="mt-2 text-sm text-destructive" role="alert" aria-live="polite">
+              {error}
+            </p>
+          ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
+          <AlertDialogCancel className="min-h-11" disabled={pending}>
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
-              onConfirm();
-              setOpen(false);
+            disabled={pending}
+            onClick={(event) => {
+              event.preventDefault();
+              setError(null);
+              setPending(true);
+              void (async () => {
+                try {
+                  const result = await onConfirm();
+                  if (result && !result.ok) {
+                    setError(result.error);
+                    return;
+                  }
+                  setOpen(false);
+                } catch (caught) {
+                  setError(caught instanceof Error ? caught.message : "Please try again.");
+                } finally {
+                  setPending(false);
+                }
+              })();
             }}
             className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Remove
+            {pending ? "Removing…" : "Remove"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

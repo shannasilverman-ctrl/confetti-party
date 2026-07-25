@@ -8,10 +8,30 @@ import { z } from "zod";
 
 export const SAMPLE_STATE_STORAGE_KEY = "confetti:sample-invite:v1";
 const MAX_BYTES = 32 * 1024;
+const MAX_STRING_BYTES = 512;
+const DANGEROUS_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 
-const ShortText = z.string().trim().min(1).max(80);
+function utf8Bytes(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
+const BoundedString = (maxCharacters: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(maxCharacters)
+    .refine((value) => utf8Bytes(value) <= MAX_STRING_BYTES, "String too large");
+
+const ShortText = BoundedString(80);
 const ChoiceSchema = z.enum(["yes", "maybe", "no"]);
-const TagSchema = z.string().trim().min(1).max(60);
+const TagSchema = BoundedString(60);
+const SafeIdSchema = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[a-zA-Z0-9_-]+$/)
+  .refine((value) => !DANGEROUS_KEYS.has(value), "Reserved identifier");
 
 const SampleRsvpSchema = z
   .object({
@@ -34,18 +54,19 @@ const SampleRsvpSchema = z
     if (entry.choice !== "yes" && (entry.adults !== 0 || entry.kids !== 0)) {
       context.addIssue({ code: z.ZodIssueCode.custom, message: "Non-yes counts must be zero" });
     }
+    if (new Set(entry.dietary).size !== entry.dietary.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate dietary tag" });
+    }
+    if (new Set(entry.allergens).size !== entry.allergens.length) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate allergen" });
+    }
   });
 
 const SampleBringItemSchema = z
   .object({
-    id: z
-      .string()
-      .min(1)
-      .max(80)
-      .regex(/^[a-zA-Z0-9_-]+$/)
-      .refine((value) => !["__proto__", "prototype", "constructor"].includes(value)),
-    category: z.string().trim().min(1).max(40),
-    label: z.string().trim().min(1).max(120),
+    id: SafeIdSchema,
+    category: BoundedString(40),
+    label: BoundedString(120),
     qty: z.number().int().min(1).max(999),
     status: z.enum(["open", "claimed"]),
     claimedByMe: z.boolean().optional(),
@@ -104,10 +125,6 @@ function browserStorage(): SampleStorage | null {
   }
 }
 
-function bytes(value: string): number {
-  return new TextEncoder().encode(value).length;
-}
-
 function removeInvalid(storage: SampleStorage): void {
   try {
     storage.removeItem(SAMPLE_STATE_STORAGE_KEY);
@@ -116,25 +133,40 @@ function removeInvalid(storage: SampleStorage): void {
   }
 }
 
-export function loadSampleState(storage: SampleStorage | null = browserStorage()): SampleState {
-  if (!storage) return defaultSampleState();
+export type SampleStateCorruption = "oversize" | "invalid" | "parse";
+export type LoadSampleStateResult = {
+  state: SampleState;
+  corruption?: SampleStateCorruption;
+};
+
+export function loadSampleState(
+  storage: SampleStorage | null = browserStorage(),
+): LoadSampleStateResult {
+  if (!storage) return { state: defaultSampleState() };
+  let raw: string | null;
   try {
-    const raw = storage.getItem(SAMPLE_STATE_STORAGE_KEY);
-    if (!raw) return defaultSampleState();
-    if (bytes(raw) > MAX_BYTES) {
-      removeInvalid(storage);
-      return defaultSampleState();
-    }
-    const parsed = SampleStateSchema.safeParse(JSON.parse(raw) as unknown);
-    if (!parsed.success) {
-      removeInvalid(storage);
-      return defaultSampleState();
-    }
-    return parsed.data;
+    raw = storage.getItem(SAMPLE_STATE_STORAGE_KEY);
+  } catch {
+    return { state: defaultSampleState() };
+  }
+  if (!raw) return { state: defaultSampleState() };
+  if (utf8Bytes(raw) > MAX_BYTES) {
+    removeInvalid(storage);
+    return { state: defaultSampleState(), corruption: "oversize" };
+  }
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
   } catch {
     removeInvalid(storage);
-    return defaultSampleState();
+    return { state: defaultSampleState(), corruption: "parse" };
   }
+  const parsed = SampleStateSchema.safeParse(json);
+  if (!parsed.success) {
+    removeInvalid(storage);
+    return { state: defaultSampleState(), corruption: "invalid" };
+  }
+  return { state: parsed.data };
 }
 
 export function saveSampleState(
@@ -145,7 +177,7 @@ export function saveSampleState(
   if (!validated.success) return { ok: false, reason: "invalid" };
   if (!storage) return { ok: false, reason: "unavailable" };
   const payload = JSON.stringify(validated.data);
-  if (bytes(payload) > MAX_BYTES) return { ok: false, reason: "oversized" };
+  if (utf8Bytes(payload) > MAX_BYTES) return { ok: false, reason: "oversized" };
   try {
     storage.setItem(SAMPLE_STATE_STORAGE_KEY, payload);
     return { ok: true };

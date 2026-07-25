@@ -102,11 +102,22 @@ function SampleInvitePage() {
   const [state, setState] = useState<SampleState>(() => defaultSampleState());
   const [hydrated, setHydrated] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadNotice, setLoadNotice] = useState<string | null>(null);
   const [interactionKey, setInteractionKey] = useState(0);
 
   // Client-only load — never call localStorage during SSR.
   useEffect(() => {
-    setState(loadSampleState());
+    const { state: loaded, corruption } = loadSampleState();
+    setState(loaded);
+    if (corruption) {
+      setLoadNotice(
+        corruption === "oversize"
+          ? "The saved sample was too large and was safely reset."
+          : corruption === "parse"
+            ? "The saved sample was unreadable and was safely reset."
+            : "The saved sample didn't match what Confetti expected and was safely reset.",
+      );
+    }
     setHydrated(true);
   }, []);
 
@@ -116,7 +127,13 @@ function SampleInvitePage() {
     setSaveError(
       result.ok
         ? null
-        : "This browser couldn't save the sample. You can keep exploring, but it may reset when you leave.",
+        : result.reason === "quota"
+          ? "This browser is out of space for the sample. Your changes stay for this visit."
+          : result.reason === "oversized"
+            ? "The sample became too large to save. Some recent changes won't persist."
+            : result.reason === "invalid"
+              ? "Something is off with the sample data. Reset it to start fresh."
+              : "This browser can't save the sample, but you can keep exploring.",
     );
   }, [state, hydrated]);
 
@@ -128,6 +145,7 @@ function SampleInvitePage() {
     resetSampleState();
     setState(defaultSampleState());
     setSaveError(null);
+    setLoadNotice(null);
     setInteractionKey((value) => value + 1);
   }
 
@@ -140,8 +158,14 @@ function SampleInvitePage() {
     setState((prev) => ({ ...prev, rsvp: null }));
   }
 
-  function claim(itemId: string, guestName: string) {
-    if (!guestName.trim()) return;
+  function claim(itemId: string, guestName: string): { ok: true } | { ok: false; error: string } {
+    const trimmed = guestName.trim();
+    if (!trimmed) return { ok: false, error: "Please add your name first." };
+    const target = state.bring.find((item) => item.id === itemId);
+    if (!target) return { ok: false, error: "That item is no longer available." };
+    if (target.status !== "open") {
+      return { ok: false, error: "Someone else just claimed that item." };
+    }
     setState((prev) => ({
       ...prev,
       bring: prev.bring.map((b) =>
@@ -151,9 +175,15 @@ function SampleInvitePage() {
       ),
     }));
     celebrate("micro");
+    return { ok: true };
   }
 
-  function release(itemId: string) {
+  function release(itemId: string): { ok: true } | { ok: false; error: string } {
+    const target = state.bring.find((item) => item.id === itemId);
+    if (!target) return { ok: false, error: "That item is no longer here." };
+    if (!target.claimedByMe) {
+      return { ok: false, error: "You can only release your own claims." };
+    }
     setState((prev) => ({
       ...prev,
       bring: prev.bring.map((b) =>
@@ -162,6 +192,7 @@ function SampleInvitePage() {
           : b,
       ),
     }));
+    return { ok: true };
   }
 
   const heroStyle: React.CSSProperties = {
@@ -213,6 +244,15 @@ function SampleInvitePage() {
       </section>
 
       <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
+        {loadNotice && (
+          <div
+            className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-50 p-3 text-sm text-amber-900"
+            role="status"
+            aria-live="polite"
+          >
+            {loadNotice}
+          </div>
+        )}
         {saveError && (
           <div
             className="mb-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
@@ -547,10 +587,11 @@ function SampleBringBoard({
 }: {
   items: SampleBringItem[];
   defaultName: string;
-  onClaim: (id: string, name: string) => void;
-  onRelease: (id: string) => void;
+  onClaim: (id: string, name: string) => { ok: true } | { ok: false; error: string };
+  onRelease: (id: string) => { ok: true } | { ok: false; error: string };
 }) {
   const [name, setName] = useState(defaultName);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setName((prev) => prev || defaultName);
   }, [defaultName]);
@@ -589,6 +630,12 @@ function SampleBringBoard({
         />
       </div>
 
+      {error && (
+        <p className="mt-2 text-xs text-destructive" role="alert" aria-live="polite">
+          {error}
+        </p>
+      )}
+
       <div className="mt-4 space-y-4">
         {Object.entries(grouped).map(([cat, list]) => (
           <div key={cat}>
@@ -621,7 +668,10 @@ function SampleBringBoard({
                           type="button"
                           size="sm"
                           variant="ghost"
-                          onClick={() => onRelease(it.id)}
+                          onClick={() => {
+                            const result = onRelease(it.id);
+                            setError(result.ok ? null : result.error);
+                          }}
                           className="min-h-11"
                         >
                           Release
@@ -634,10 +684,9 @@ function SampleBringBoard({
                         type="button"
                         size="sm"
                         onClick={() => {
-                          if (!name.trim()) return;
-                          onClaim(it.id, name.trim());
+                          const result = onClaim(it.id, name);
+                          setError(result.ok ? null : result.error);
                         }}
-                        disabled={!name.trim()}
                         className="min-h-11"
                       >
                         I'll bring it

@@ -534,7 +534,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
           <EmptyState icon={Users} title="No guests yet" body="Add your first guest above." />
         ) : (
           <ul className="divide-y divide-border">
-            {party.guests.map((guest) => (
+            {party.guests.map((guest, guestIndex) => (
               <li key={guest.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
@@ -587,10 +587,22 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <ConfirmDelete
                   mode={guest.rsvp === "invited" ? "undo" : "confirm"}
                   itemLabel={guest.name || "guest"}
-                  onConfirm={() => remove(guest.id)}
-                  onUndo={() =>
-                    updateParty(partyId, (p) => ({ ...p, guests: [...p.guests, guest] }))
+                  impact={
+                    guest.rsvp === "yes"
+                      ? "This guest is going. Removing clears their RSVP."
+                      : guest.rsvp === "maybe"
+                        ? "This guest is a maybe. Removing clears their response."
+                        : undefined
                   }
+                  onConfirm={() => remove(guest.id)}
+                  onUndo={() => {
+                    updateParty(partyId, (p) => {
+                      if (p.guests.some((candidate) => candidate.id === guest.id)) return p;
+                      const guests = [...p.guests];
+                      guests.splice(Math.min(guestIndex, guests.length), 0, guest);
+                      return { ...p, guests };
+                    });
+                  }}
                   trigger={
                     <button
                       type="button"

@@ -26,27 +26,38 @@ describe("sample invite persistence", () => {
     const state = defaultSampleState();
     expect(saveSampleState(state, storage)).toEqual({ ok: true });
     expect(storage.setItem).toHaveBeenCalledWith(SAMPLE_STATE_STORAGE_KEY, expect.any(String));
-    expect(loadSampleState(storage)).toEqual(state);
+    expect(loadSampleState(storage)).toEqual({ state });
   });
 
   it.each([
-    "{",
-    JSON.stringify({ v: 1, bring: [], baseline: { yes: 1, maybe: 1 }, rsvp: null, extra: true }),
-    JSON.stringify({
-      v: 1,
-      bring: [{ id: "__proto__", category: "x", label: "x", qty: 1, status: "open" }],
-      baseline: { yes: 1, maybe: 1 },
-      rsvp: null,
-    }),
-    JSON.stringify({
-      v: 1,
-      bring: [{ id: "x", category: "x", label: "x", qty: 0, status: "claimed" }],
-      baseline: { yes: 1, maybe: 1 },
-      rsvp: null,
-    }),
-  ])("resets corrupt or out-of-contract state", (raw) => {
+    ["{", "parse"],
+    [
+      JSON.stringify({ v: 1, bring: [], baseline: { yes: 1, maybe: 1 }, rsvp: null, extra: true }),
+      "invalid",
+    ],
+    [
+      JSON.stringify({
+        v: 1,
+        bring: [{ id: "__proto__", category: "x", label: "x", qty: 1, status: "open" }],
+        baseline: { yes: 1, maybe: 1 },
+        rsvp: null,
+      }),
+      "invalid",
+    ],
+    [
+      JSON.stringify({
+        v: 1,
+        bring: [{ id: "x", category: "x", label: "x", qty: 0, status: "claimed" }],
+        baseline: { yes: 1, maybe: 1 },
+        rsvp: null,
+      }),
+      "invalid",
+    ],
+  ] as const)("reports %s corruption and resets out-of-contract state", (raw, corruption) => {
     const storage = memoryStorage(raw);
-    expect(loadSampleState(storage)).toEqual(defaultSampleState());
+    const result = loadSampleState(storage);
+    expect(result.state).toEqual(defaultSampleState());
+    expect(result.corruption).toBe(corruption);
     expect(storage.removeItem).toHaveBeenCalledWith(SAMPLE_STATE_STORAGE_KEY);
   });
 
@@ -66,8 +77,39 @@ describe("sample invite persistence", () => {
 
     const oversizedRaw = JSON.stringify({ ...state, padding: "🎉".repeat(10_000) });
     const storage = memoryStorage(oversizedRaw);
-    expect(loadSampleState(storage)).toEqual(defaultSampleState());
+    const result = loadSampleState(storage);
+    expect(result.state).toEqual(defaultSampleState());
+    expect(result.corruption).toBe("oversize");
     expect(storage.removeItem).toHaveBeenCalled();
+  });
+
+  it("rejects duplicate tags and duplicate bring IDs", () => {
+    const duplicateId = {
+      ...defaultSampleState(),
+      bring: [
+        { id: "same", category: "Sides", label: "Salad", qty: 1, status: "open" as const },
+        { id: "same", category: "Sides", label: "Bread", qty: 1, status: "open" as const },
+      ],
+    };
+    expect(saveSampleState(duplicateId, memoryStorage())).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
+
+    const duplicateTags = defaultSampleState();
+    duplicateTags.rsvp = {
+      name: "Rivera family",
+      choice: "yes",
+      adults: 1,
+      kids: 0,
+      dietary: ["vegan", "vegan"],
+      allergens: [],
+      at: "2027-01-01T00:00:00.000Z",
+    };
+    expect(saveSampleState(duplicateTags, memoryStorage())).toEqual({
+      ok: false,
+      reason: "invalid",
+    });
   });
 
   it("reports unavailable and quota failures instead of pretending persistence", () => {
