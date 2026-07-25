@@ -40,8 +40,11 @@ mobile-only project skipping desktop tests (and vice-versa) — expected.
 
 ## 2. Bundle byte counts (this commit)
 
-Measured after `bun run build` from `dist/client/assets/**` in Turn 1.
-Re-run `du -b dist/client/assets/*.{js,css}` to refresh.
+Measured after `bun run build`. Read from the build's public asset dir —
+`.output/public/assets/**` on GitHub / non-sandbox hosts, or
+`dist/client/assets/**` in the Lovable sandbox (see
+`scripts/wrangler-config-path.mjs` for the parallel convention). Refresh
+with `du -b "$(node -e 'import(\"./scripts/wrangler-config-path.mjs\").then(m=>console.log(m.resolveWranglerConfigPath().replace(\"server/wrangler.json\",\"\")))')"client/assets/*.{js,css}` or, equivalently, `du -b dist/client/assets/*.{js,css}` inside the sandbox.
 
 | Bucket           | Bytes         |
 | ---------------- | ------------- |
