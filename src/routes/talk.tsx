@@ -100,7 +100,11 @@ function TalkRoute() {
 
   const startDictation = useCallback(() => {
     if (typeof window === "undefined") return;
-    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
     if (!SR) {
       toast.error("Voice input isn't supported in this browser. Type instead.");
       return;
@@ -110,7 +114,7 @@ function TalkRoute() {
     rec.continuous = false;
     rec.interimResults = true;
     let finalText = "";
-    rec.onresult = (e: any) => {
+    rec.onresult = (e) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
