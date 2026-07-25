@@ -256,7 +256,7 @@ export type Database = {
     }
     Functions: {
       bump_ai_turn: {
-        Args: { _cap: number; _draft_id: string; _window_ms: number }
+        Args: { _cap?: number; _draft_id: string; _window_ms?: number }
         Returns: Json
       }
       claim_bring_item: {
