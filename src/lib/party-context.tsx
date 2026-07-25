@@ -43,7 +43,45 @@ export const BUCKETS: Bucket[] = [
 ];
 
 export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
-export type Guest = { id: string; name: string; kind: "adult" | "kid"; rsvp: RSVP; source?: "link" };
+export type Guest = {
+  id: string;
+  name: string;
+  kind: "adult" | "kid";
+  rsvp: RSVP;
+  source?: "link";
+  household?: string;
+  dietary?: string[];
+  allergens?: string[];
+};
+
+export type Household = { id: string; label: string; memberGuestIds: string[] };
+
+export type BringCategory =
+  | "Main"
+  | "Sides"
+  | "Dessert"
+  | "Drinks"
+  | "Ice / Serveware"
+  | "Kids"
+  | "Décor";
+
+export type BringItem = {
+  id: string;
+  category: BringCategory;
+  label: string;
+  qty: number;
+  unit?: string;
+  dietaryTags?: string[];
+  status: "open" | "claimed" | "done";
+  source: "host" | "guest";
+  assigneeName?: string;
+  assigneeHousehold?: string;
+  claimedAt?: string;
+  notes?: string;
+};
+
+export type HostUpdate = { id: string; text: string; at: string };
+export type PhotoDropInfo = import("./photo-drop").PhotoDrop;
 export type Expense = { id: string; label: string; amount: number };
 export type BudgetCategory = {
   id: string;
