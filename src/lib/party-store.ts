@@ -460,7 +460,10 @@ export class PartyStore {
   ): Promise<boolean> {
     const e = this.queue.get(id);
     if (!e || !e.baseline) return false;
+    const startEpoch = e.epoch;
     const { data: fresh, error } = await this.opts.client.fetch(id);
+    // Identity may have reset while awaiting the fresh row — drop silently.
+    if (!this.aliveAt(id, startEpoch)) return false;
     if (error || !fresh) {
       const done = await this.handleError(
         id,
@@ -468,6 +471,7 @@ export class PartyStore {
       );
       return !done ? true : false;
     }
+
     const contended = contendedColumns(e.baseline, nextRow, fresh).filter((c) =>
       changedCols.includes(c),
     );
