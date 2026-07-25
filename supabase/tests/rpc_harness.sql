@@ -446,9 +446,204 @@ $postchk$;
 
 SELECT 'post_rollback_parties' AS check,
        count(*) AS rows
-
-
-SELECT 'post_rollback_parties' AS check,
-       count(*) AS rows
 FROM public.parties
 WHERE name LIKE 'rpc_harness_fixture_%';
+
+-- ============================================================
+-- Phase C: DB-contract + abuse-hardening (post-batch)
+-- Runs in its own BEGIN/ROLLBACK so nothing leaks either.
+-- ============================================================
+BEGIN;
+
+\set fixture_marker_c 'rpc_harness_c_'`date +%s%N`
+SELECT set_config('confetti.fixture_marker_c', :'fixture_marker_c', true);
+
+DO $phaseC_static$
+DECLARE
+  def text;
+BEGIN
+  -- Old caller-configurable bump_ai_turn signature must be gone.
+  IF EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'bump_ai_turn' AND p.pronargs = 3
+  ) THEN
+    RAISE EXCEPTION 'FAIL: obsolete 3-arg bump_ai_turn still exists';
+  END IF;
+  -- New 1-arg signature must exist.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'bump_ai_turn' AND p.pronargs = 1
+  ) THEN
+    RAISE EXCEPTION 'FAIL: 1-arg bump_ai_turn missing';
+  END IF;
+  -- Body must contain the fixed constants, not caller args.
+  def := pg_get_functiondef('public.bump_ai_turn(uuid)'::regprocedure);
+  IF def !~ 'cap_const constant' OR def !~ 'window_ms_const constant' THEN
+    RAISE EXCEPTION 'FAIL: bump_ai_turn cap/window not server-fixed';
+  END IF;
+
+  -- confirm_gathering_draft must store theme via ->> (text), not raw ->'theme'.
+  def := pg_get_functiondef('public.confirm_gathering_draft(uuid,jsonb)'::regprocedure);
+  IF def ~ E'COALESCE\\(_party->''theme''' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft still persists raw JSON theme';
+  END IF;
+  IF def !~ E'_party->>''theme''' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft not reading theme as text';
+  END IF;
+  IF def !~ 'allowed_occasions' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft missing occasion allowlist';
+  END IF;
+  IF def !~ '_validate_confirm_collection' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft missing collection validation';
+  END IF;
+
+  -- Abuse budget table must not be reachable via anon/authenticated.
+  IF EXISTS (
+    SELECT 1 FROM information_schema.role_table_grants
+    WHERE table_schema='public' AND table_name='rsvp_action_budget'
+      AND grantee IN ('anon','authenticated')
+  ) THEN
+    RAISE EXCEPTION 'FAIL: rsvp_action_budget exposed to anon/authenticated';
+  END IF;
+
+  -- Each public RSVP RPC must call the budget helper.
+  FOR def IN
+    SELECT pg_get_functiondef(p.oid)
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname='public'
+      AND p.proname IN ('submit_rsvp','claim_bring_item','release_bring_item')
+  LOOP
+    IF def !~ '_bump_rsvp_budget' THEN
+      RAISE EXCEPTION 'FAIL: an RSVP RPC does not consult _bump_rsvp_budget';
+    END IF;
+  END LOOP;
+
+  RAISE NOTICE 'PASS phaseC_static: bump_ai_turn constants, theme-as-text, occasion enum, budget wiring';
+END;
+$phaseC_static$;
+
+DO $phaseC_behavior$
+DECLARE
+  synthetic_user_id uuid := gen_random_uuid();
+  party_token uuid := gen_random_uuid();
+  party_id uuid;
+  marker text := current_setting('confetti.fixture_marker_c');
+  fixture_email text := marker || '@rpc-harness.invalid';
+  created_synthetic_auth boolean := false;
+  res jsonb;
+  i int;
+  denied boolean := false;
+  raised boolean;
+  theme_val jsonb;
+BEGIN
+  BEGIN
+    INSERT INTO auth.users (id, email) VALUES (synthetic_user_id, fixture_email);
+    created_synthetic_auth := true;
+  EXCEPTION WHEN insufficient_privilege THEN
+    SELECT user_id INTO synthetic_user_id FROM public.parties LIMIT 1;
+    IF synthetic_user_id IS NULL THEN
+      RAISE EXCEPTION 'FAIL: cannot bootstrap owner for phaseC';
+    END IF;
+  END;
+
+  INSERT INTO public.parties (
+    user_id, name, occasion, date, guest_estimate, budget, theme,
+    tasks, guests, budget_categories, shopping_items, timeline, rsvp_token,
+    pinned_inspiration, households, bring_board, host_updates, checkins
+  ) VALUES (
+    synthetic_user_id, marker, 'birthday', current_date + 14, 10, 100, 'null'::jsonb,
+    '[]'::jsonb,
+    jsonb_build_array(
+      jsonb_build_object('id','g_host1','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Kim'),
+      jsonb_build_object('id','g_host2','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Park')
+    ),
+    '[]'::jsonb,'[]'::jsonb,'[]'::jsonb, party_token,
+    '[]'::jsonb,'[]'::jsonb,'[]'::jsonb,'[]'::jsonb,'{}'::jsonb
+  ) RETURNING id INTO party_id;
+
+  -- Deterministic matching: unique host-invited guest gets updated in place.
+  UPDATE public.parties SET guests = jsonb_build_array(
+    jsonb_build_object('id','g_unique','name','Rita Lopez','kind','adult','rsvp','maybe','source','host')
+  ) WHERE id = party_id;
+  res := public.submit_rsvp(party_token, 'Rita Lopez', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
+  IF NOT (res->>'ok')::boolean THEN RAISE EXCEPTION 'FAIL: unique host match not accepted'; END IF;
+  IF (res->>'ambiguous')::boolean THEN RAISE EXCEPTION 'FAIL: unique match marked ambiguous'; END IF;
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=party_id) <> 1 THEN
+    RAISE EXCEPTION 'FAIL: unique match duplicated the guest';
+  END IF;
+  IF (SELECT guests->0->>'rsvp' FROM public.parties WHERE id=party_id) <> 'yes' THEN
+    RAISE EXCEPTION 'FAIL: unique match did not update rsvp in place';
+  END IF;
+
+  -- Ambiguous names: without household → new ambiguous link entry, existing rows untouched.
+  UPDATE public.parties SET guests = jsonb_build_array(
+    jsonb_build_object('id','g_a','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Kim'),
+    jsonb_build_object('id','g_b','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Park')
+  ) WHERE id = party_id;
+  res := public.submit_rsvp(party_token, 'Sam Kim', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
+  IF NOT (res->>'ambiguous')::boolean THEN RAISE EXCEPTION 'FAIL: duplicate names not flagged ambiguous'; END IF;
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=party_id) <> 3 THEN
+    RAISE EXCEPTION 'FAIL: ambiguous submit did not append new marked entry';
+  END IF;
+
+  -- Ambiguous names with household disambiguator resolves to that unique host row.
+  UPDATE public.parties SET guests = jsonb_build_array(
+    jsonb_build_object('id','g_a','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Kim'),
+    jsonb_build_object('id','g_b','name','Sam Kim','kind','adult','rsvp','maybe','source','host','household','Park')
+  ) WHERE id = party_id;
+  res := public.submit_rsvp(party_token, 'Sam Kim', 'yes', 1, 0, 'Kim', '[]'::jsonb, '[]'::jsonb);
+  IF (res->>'ambiguous')::boolean THEN RAISE EXCEPTION 'FAIL: household disambiguator ignored'; END IF;
+  IF (SELECT jsonb_array_length(guests) FROM public.parties WHERE id=party_id) <> 2 THEN
+    RAISE EXCEPTION 'FAIL: disambiguated update grew the guest list';
+  END IF;
+  IF (SELECT guests->0->>'rsvp' FROM public.parties WHERE id=party_id) <> 'yes' THEN
+    RAISE EXCEPTION 'FAIL: household-disambiguated update did not flip Kim to yes';
+  END IF;
+
+  -- Per-party budget denial (60/bucket). Force to a small limit by pre-filling
+  -- rows into the current bucket, then observe the next call denies.
+  INSERT INTO public.rsvp_action_budget(party_id, action, bucket_start, count)
+  VALUES (
+    party_id, 'submit_rsvp',
+    to_timestamp(floor(extract(epoch FROM now())/600)*600) AT TIME ZONE 'UTC',
+    60
+  ) ON CONFLICT (party_id, action, bucket_start) DO UPDATE SET count = 60;
+  BEGIN
+    raised := true;
+    PERFORM public.submit_rsvp(party_token, 'Any Name', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
+    raised := false;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF NOT raised THEN RAISE EXCEPTION 'FAIL: over-budget submit accepted'; END IF;
+
+  -- Budget expiry: rows > 24h old are pruned on the next attempt.
+  DELETE FROM public.rsvp_action_budget WHERE party_id = party_id;
+  INSERT INTO public.rsvp_action_budget(party_id, action, bucket_start, count)
+  VALUES (party_id, 'submit_rsvp', now() - interval '48 hours', 60);
+  res := public.submit_rsvp(party_token, 'Fresh Name', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb);
+  IF NOT (res->>'ok')::boolean THEN RAISE EXCEPTION 'FAIL: fresh submit after expiry denied'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.rsvp_action_budget
+    WHERE party_id = party_id AND bucket_start < now() - interval '24 hours'
+  ) THEN RAISE EXCEPTION 'FAIL: expired budget rows not pruned'; END IF;
+
+  RAISE NOTICE 'PASS phaseC_behavior: matching, disambiguation, budget cap, budget expiry';
+END;
+$phaseC_behavior$;
+
+ROLLBACK;
+
+-- Post-rollback: prove phase-C fixtures did not leak.
+DO $postchk_c$
+DECLARE n int;
+BEGIN
+  SELECT count(*) INTO n FROM public.parties WHERE name LIKE 'rpc_harness_c_%';
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: phaseC parties persisted after ROLLBACK: %', n; END IF;
+  SELECT count(*) INTO n FROM public.rsvp_action_budget WHERE party_id IN (
+    SELECT id FROM public.parties WHERE name LIKE 'rpc_harness_c_%'
+  );
+  IF n <> 0 THEN RAISE EXCEPTION 'FAIL: phaseC budget rows persisted: %', n; END IF;
+  RAISE NOTICE 'post_rollback phaseC: 0';
+END;
+$postchk_c$;
+
