@@ -21,21 +21,34 @@ describe("resolveRsvpLoaderData", () => {
   });
 
   it("returns temporarily_unavailable on RPC error", async () => {
+    const failures: unknown[] = [];
     const r = await resolveRsvpLoaderData(T, {
       ...cfg,
-      rpc: async () => ({ data: null, error: { message: "boom" } }),
+      rpc: async () => ({
+        data: null,
+        error: { message: `secret invite ${T}`, code: "42501" },
+      }),
+      logFailure: (failure) => failures.push(failure),
     });
     expect(r.status).toBe("temporarily_unavailable");
+    expect(failures).toEqual([expect.objectContaining({ event: "rpc_failed", code: "42501" })]);
+    expect(JSON.stringify(failures)).not.toContain(T);
+    expect(JSON.stringify(failures)).not.toContain("secret invite");
   });
 
   it("returns temporarily_unavailable on thrown network error", async () => {
+    const failures: unknown[] = [];
     const r = await resolveRsvpLoaderData(T, {
       ...cfg,
       rpc: async () => {
-        throw new Error("net");
+        throw new Error(`network leaked ${T}`);
       },
+      logFailure: (failure) => failures.push(failure),
     });
     expect(r.status).toBe("temporarily_unavailable");
+    expect(failures).toEqual([expect.objectContaining({ event: "network_failed", code: null })]);
+    expect(JSON.stringify(failures)).not.toContain(T);
+    expect(JSON.stringify(failures)).not.toContain("network leaked");
   });
 
   it("returns not_found when RPC succeeds with no party", async () => {

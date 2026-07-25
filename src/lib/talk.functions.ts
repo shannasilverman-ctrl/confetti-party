@@ -17,22 +17,56 @@ const endSessionInput = z.object({
   disconnectReason: z.string().max(120).optional(),
 });
 
+type DraftWriteError = { message: string; code?: string } | null;
+
+type CreateDraftClient = {
+  from: (table: string) => {
+    insert: (row: Record<string, unknown>) => {
+      select: (columns: string) => {
+        single: () => Promise<{ data: { id: string } | null; error: DraftWriteError }>;
+      };
+    };
+  };
+};
+
+type DeleteDraftClient = {
+  from: (table: string) => {
+    delete: () => {
+      eq: (
+        column: string,
+        value: string,
+      ) => {
+        eq: (column: string, value: string) => Promise<{ error: DraftWriteError }>;
+      };
+    };
+  };
+};
+
+/** Create a user-owned draft without surfacing raw database errors. */
+export async function performCreateDraft(
+  supabase: CreateDraftClient,
+  userId: string,
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("gathering_drafts")
+    .insert({
+      user_id: userId,
+      draft: JSON.parse(JSON.stringify(emptyDraftBody())),
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    console.error("[talk] create_draft_failed", { code: error?.code ?? null });
+    throw new Error("create_draft_failed");
+  }
+  return { id: data.id };
+}
+
 /** Create a new gathering_drafts row for the current user. */
 export const createDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    const { data, error } = await supabase
-      .from("gathering_drafts")
-      .insert({
-        user_id: userId,
-        // Draft body is a nested plain-JSON object — safe cast for the typed client.
-        draft: JSON.parse(JSON.stringify(emptyDraftBody())),
-      })
-      .select("id")
-      .single();
-    if (error) throw new Error(error.message);
-    return { id: data.id };
+    return performCreateDraft(context.supabase as unknown as CreateDraftClient, context.userId);
   });
 
 /**
@@ -106,13 +140,32 @@ export const endSession = createServerFn({ method: "POST" })
     );
   });
 
+/** Delete only the current user's draft, with RLS as a second line of defense. */
+export async function performDeleteDraft(
+  supabase: DeleteDraftClient,
+  userId: string,
+  draftId: string,
+): Promise<{ ok: true }> {
+  const { error } = await supabase
+    .from("gathering_drafts")
+    .delete()
+    .eq("id", draftId)
+    .eq("user_id", userId);
+  if (error) {
+    console.error("[talk] delete_draft_failed", { code: error.code ?? null });
+    throw new Error("delete_draft_failed");
+  }
+  return { ok: true };
+}
+
 /** Hard-delete a draft and its transcripts (retention control). */
 export const deleteDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((input: unknown) => z.object({ draftId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
-    const { error } = await supabase.from("gathering_drafts").delete().eq("id", data.draftId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
+    return performDeleteDraft(
+      context.supabase as unknown as DeleteDraftClient,
+      context.userId,
+      data.draftId,
+    );
   });

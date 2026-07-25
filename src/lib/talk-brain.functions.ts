@@ -307,7 +307,8 @@ export const sendTurn = createServerFn({ method: "POST" })
       .eq("id", data.draftId)
       .eq("user_id", userId);
     if (updateErr) {
-      throw new Error(`Failed to save draft: ${updateErr.message}`);
+      console.error("[talk] save_draft_failed", { code: updateErr.code ?? null });
+      throw new Error("Failed to save draft");
     }
 
     return result;
@@ -336,7 +337,10 @@ async function readMergedPatch(
     .eq("id", draftId)
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("[talk] read_draft_failed", { code: error.code ?? null });
+    throw new Error("Failed to load draft");
+  }
   if (!draftRow) throw new Error("Draft not found");
   const log = ((draftRow.draft as { patch?: Array<{ patch: DraftPatch }> })?.patch ?? []).map(
     (l) => l.patch,

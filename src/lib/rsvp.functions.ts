@@ -52,6 +52,31 @@ export type RsvpLoaderData = {
   origin: string;
 };
 
+type RsvpFailure = {
+  event: "rpc_failed" | "network_failed";
+  correlationId: string;
+  code: string | null;
+};
+
+function correlationId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `rsvp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function safeErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== "object" || !("code" in error)) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? code.slice(0, 80) : null;
+}
+
+function defaultFailureLogger(failure: RsvpFailure): void {
+  // Never log the invite token, party payload, URL, or raw upstream message.
+  // The correlation ID gives operators something safe to trace.
+  console.error("[rsvp] loader_failed", failure);
+}
+
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
@@ -75,6 +100,7 @@ export async function resolveRsvpLoaderData(
     supabaseUrl: string | undefined;
     supabaseKey: string | undefined;
     rpc?: (t: string) => Promise<{ data: unknown; error: unknown }>;
+    logFailure?: (failure: RsvpFailure) => void;
   },
 ): Promise<RsvpLoaderData> {
   const { origin, supabaseUrl, supabaseKey } = deps;
@@ -126,6 +152,11 @@ export async function resolveRsvpLoaderData(
     const { data: partyData, error } = await rpc(token);
     if (error) {
       // RPC returned a transport/permission error — treat as outage.
+      (deps.logFailure ?? defaultFailureLogger)({
+        event: "rpc_failed",
+        correlationId: correlationId(),
+        code: safeErrorCode(error),
+      });
       return { party: null, status: "temporarily_unavailable", origin };
     }
     if (!partyData) {
@@ -133,8 +164,13 @@ export async function resolveRsvpLoaderData(
       return { party: null, status: "not_found", origin };
     }
     return { party: partyData as unknown as PartyView, status: "ok", origin };
-  } catch {
+  } catch (error) {
     // Network / thrown error — outage, never a bad link.
+    (deps.logFailure ?? defaultFailureLogger)({
+      event: "network_failed",
+      correlationId: correlationId(),
+      code: safeErrorCode(error),
+    });
     return { party: null, status: "temporarily_unavailable", origin };
   }
 }
