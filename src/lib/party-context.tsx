@@ -671,7 +671,7 @@ function partyToRow(p: Party, userId: string) {
   };
 }
 
-function makeParty(
+export function makeParty(
   input: {
     name: string;
     occasion: OccasionType;
