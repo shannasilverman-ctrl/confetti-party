@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       gathering_drafts: {
         Row: {
+          ai_turns: number
           assumptions: Json
           confirmed_party_id: string | null
           created_at: string
@@ -28,6 +29,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_turns?: number
           assumptions?: Json
           confirmed_party_id?: string | null
           created_at?: string
@@ -40,6 +42,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_turns?: number
           assumptions?: Json
           confirmed_party_id?: string | null
           created_at?: string
@@ -55,17 +58,23 @@ export type Database = {
       }
       parties: {
         Row: {
+          bring_board: Json
           budget: number
           budget_categories: Json
+          checkins: Json
           created_at: string
           date: string
           guest_estimate: number
           guests: Json
+          holiday_pack_id: string | null
           host_note: string | null
+          host_updates: Json
+          households: Json
           id: string
           location: string | null
           name: string
           occasion: string
+          photo_drop: Json | null
           pinned_inspiration: Json
           rsvp_token: string
           shopping_items: Json
@@ -78,17 +87,23 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bring_board?: Json
           budget?: number
           budget_categories?: Json
+          checkins?: Json
           created_at?: string
           date: string
           guest_estimate?: number
           guests?: Json
+          holiday_pack_id?: string | null
           host_note?: string | null
+          host_updates?: Json
+          households?: Json
           id?: string
           location?: string | null
           name: string
           occasion: string
+          photo_drop?: Json | null
           pinned_inspiration?: Json
           rsvp_token?: string
           shopping_items?: Json
@@ -101,17 +116,23 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bring_board?: Json
           budget?: number
           budget_categories?: Json
+          checkins?: Json
           created_at?: string
           date?: string
           guest_estimate?: number
           guests?: Json
+          holiday_pack_id?: string | null
           host_note?: string | null
+          host_updates?: Json
+          households?: Json
           id?: string
           location?: string | null
           name?: string
           occasion?: string
+          photo_drop?: Json | null
           pinned_inspiration?: Json
           rsvp_token?: string
           shopping_items?: Json
@@ -228,17 +249,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_rsvp_party: { Args: { token: string }; Returns: Json }
-      submit_rsvp: {
+      claim_bring_item: {
         Args: {
-          adults: number
           guest_name: string
-          kids: number
-          rsvp: string
+          household_label?: string
+          item_id: string
+          qty?: number
           token: string
         }
         Returns: Json
       }
+      get_rsvp_party: { Args: { token: string }; Returns: Json }
+      list_bring_board: { Args: { token: string }; Returns: Json }
+      release_bring_item: {
+        Args: { guest_name: string; item_id: string; token: string }
+        Returns: Json
+      }
+      submit_rsvp:
+        | {
+            Args: {
+              adults: number
+              guest_name: string
+              kids: number
+              rsvp: string
+              token: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              adults: number
+              allergens?: Json
+              dietary?: Json
+              guest_name: string
+              household_label?: string
+              kids: number
+              rsvp: string
+              token: string
+            }
+            Returns: Json
+          }
     }
     Enums: {
       [_ in never]: never
