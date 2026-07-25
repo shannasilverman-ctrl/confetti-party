@@ -2,7 +2,7 @@
 // from the intake conversation. Editable via the existing workspace.
 
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ArrowLeft, CalendarDays, MapPin, Users, Wallet, Clock, Sparkles, ListChecks, Package, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CalendarDays, MapPin, Users, Wallet, Clock, Sparkles, ListChecks, Package, AlertTriangle, NotebookPen } from "lucide-react";
 import { useParties, daysUntil, guestCounts, totalSpent, progressPct, OCCASION_LABELS } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
 import { PACKS } from "@/lib/holiday-packs";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { RetrospectiveDialog } from "@/components/retrospective-dialog";
 
 export const Route = createFileRoute("/party/$id/reveal")({
   component: RevealPage,
@@ -143,6 +144,43 @@ function RevealPage() {
             )}
           </Card>
         </div>
+
+        {(days < 0 || party.retrospective) && (
+          <Card className="mt-6 p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <NotebookPen className="h-4 w-4 text-primary" /> Post-event retrospective
+              </div>
+              <RetrospectiveDialog partyId={id} />
+            </div>
+            {party.retrospective ? (
+              <ul className="mt-3 space-y-2 text-sm">
+                {party.retrospective.worked && (
+                  <li className="rounded-lg bg-muted/40 px-3 py-2">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">What worked</div>
+                    <div className="mt-0.5 whitespace-pre-wrap">{party.retrospective.worked}</div>
+                  </li>
+                )}
+                {party.retrospective.ranOut && (
+                  <li className="rounded-lg bg-muted/40 px-3 py-2">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Ran out / fell short</div>
+                    <div className="mt-0.5 whitespace-pre-wrap">{party.retrospective.ranOut}</div>
+                  </li>
+                )}
+                {party.retrospective.changeNext && (
+                  <li className="rounded-lg bg-muted/40 px-3 py-2">
+                    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Change next time</div>
+                    <div className="mt-0.5 whitespace-pre-wrap">{party.retrospective.changeNext}</div>
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Capture what worked, what ran out, and what to change. It'll show up as suggestions the next time you clone this party.
+              </p>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );
