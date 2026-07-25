@@ -51,6 +51,9 @@ function makeFakeSupabase(state: FakeSupabaseState) {
         },
         then(resolve: (v: unknown) => unknown) {
           if (state.selectError) return resolve({ data: null, error: state.selectError });
+          if (state.recountError && state.inserts.length > 0) {
+            return resolve({ data: null, error: state.recountError });
+          }
           return resolve({ data: state.sessions, error: null });
         },
         insert(row: Record<string, unknown>) {
