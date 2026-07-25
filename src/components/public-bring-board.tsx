@@ -88,23 +88,25 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       setSecrets((prev) => ({ ...prev, [item.id]: secret }));
     }
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === item.id ? { ...r, status: "claimed", assigneeName: who } : r,
-      ),
+      prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)),
     );
     celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
     toast.success(`You're on ${item.label}. Thanks!`);
   }
 
   async function release(item: PublicBringItem) {
-    const who = name.trim() || item.assigneeName || "";
+    const who = name.trim();
     const secret = secrets[item.id];
+    if (!secret) {
+      toast.error("Only the guest who claimed this can release it.");
+      return;
+    }
     setBusyId(item.id);
     const { data, error } = await supabase.rpc("release_bring_item", {
       token,
       item_id: item.id,
       guest_name: who,
-      claim_secret: secret ?? null,
+      claim_secret: secret,
     });
     setBusyId(null);
     if (error || (data && (data as { ok?: boolean }).ok === false)) {
@@ -118,11 +120,10 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       return next;
     });
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === item.id ? { ...r, status: "open", assigneeName: null } : r,
-      ),
+      prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)),
     );
   }
+
 
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
