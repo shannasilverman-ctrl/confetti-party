@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TalkRouteImport } from './routes/talk'
+import { Route as SampleInviteRouteImport } from './routes/sample-invite'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -30,6 +31,11 @@ const TermsRoute = TermsRouteImport.update({
 const TalkRoute = TalkRouteImport.update({
   id: '/talk',
   path: '/talk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SampleInviteRoute = SampleInviteRouteImport.update({
+  id: '/sample-invite',
+  path: '/sample-invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
   '/party/$id': typeof PartyIdRouteWithChildren
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
   '/party/$id': typeof PartyIdRouteWithChildren
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
   '/party/$id': typeof PartyIdRouteWithChildren
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/privacy'
     | '/reset-password'
+    | '/sample-invite'
     | '/talk'
     | '/terms'
     | '/party/$id'
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/privacy'
     | '/reset-password'
+    | '/sample-invite'
     | '/talk'
     | '/terms'
     | '/party/$id'
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/privacy'
     | '/reset-password'
+    | '/sample-invite'
     | '/talk'
     | '/terms'
     | '/party/$id'
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SampleInviteRoute: typeof SampleInviteRoute
   TalkRoute: typeof TalkRoute
   TermsRoute: typeof TermsRoute
   PartyIdRoute: typeof PartyIdRouteWithChildren
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       path: '/talk'
       fullPath: '/talk'
       preLoaderRoute: typeof TalkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sample-invite': {
+      id: '/sample-invite'
+      path: '/sample-invite'
+      fullPath: '/sample-invite'
+      preLoaderRoute: typeof SampleInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -292,6 +312,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SampleInviteRoute: SampleInviteRoute,
   TalkRoute: TalkRoute,
   TermsRoute: TermsRoute,
   PartyIdRoute: PartyIdRouteWithChildren,

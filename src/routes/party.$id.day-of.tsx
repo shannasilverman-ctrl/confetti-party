@@ -59,7 +59,7 @@ function DayOfPage() {
       ].slice(0, 20),
     }));
     setNote("");
-    toast.success("Update posted to your Party Pass.");
+    toast.success("Update posted to your guest invite.");
   }
 
   const arrived = Object.keys(checkins).length;

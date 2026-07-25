@@ -68,7 +68,7 @@ export function InviteDialog({
   const isReal = !isDemo && !!party.rsvpToken;
   const url = isReal
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/rsvp/${party.rsvpToken}`
-    : "confettiplans.com/rsvp/preview";
+    : "Your private RSVP link";
 
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 

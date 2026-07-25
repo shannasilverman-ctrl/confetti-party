@@ -43,6 +43,7 @@ import {
   AFFILIATE_DISCLOSURE,
 } from "@/lib/affiliates";
 import { ProductTiles } from "@/components/product-tiles";
+import { EmptyState } from "@/components/empty-state";
 
 const RETAILERS: { key: Retailer; label: string }[] = [
   { key: "amazon", label: "Amazon" },
@@ -260,39 +261,47 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
       </section>
 
       {/* Groups */}
-      <div className="space-y-6">
-        {CATEGORY_NAMES.map((cat) => {
-          const items = grouped[cat] ?? [];
-          if (items.length === 0) return null;
-          const catRemaining = items
-            .filter((i) => i.status !== "purchased")
-            .reduce((s, i) => s + i.qty * i.estPrice, 0);
-          const catPurchased = items
-            .filter((i) => i.status === "purchased")
-            .reduce((s, i) => s + (i.actualPrice ?? 0), 0);
-          return (
-            <section key={cat}>
-              <div className="mb-3 flex items-baseline justify-between">
-                <h2 className="font-display text-lg font-semibold text-secondary">{cat}</h2>
-                <span className="text-xs text-muted-foreground">
-                  ${catPurchased} purchased · ${catRemaining} to go
-                </span>
-              </div>
-              <ul className="space-y-2">
-                {items.map((it) => (
-                  <ShoppingRow
-                    key={it.id}
-                    item={it}
-                    query={buildQuery(it, party)}
-                    onStatus={(s) => cycleStatus(it, s)}
-                    onRemove={() => removeItem(it.id)}
-                  />
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-      </div>
+      {party.shoppingItems.length === 0 ? (
+        <EmptyState
+          icon={ShoppingCart}
+          title="Nothing on the list yet"
+          body="Add a first item above — decorations, favors, drinks. We'll group by category and track spend against your budget."
+        />
+      ) : (
+        <div className="space-y-6">
+          {CATEGORY_NAMES.map((cat) => {
+            const items = grouped[cat] ?? [];
+            if (items.length === 0) return null;
+            const catRemaining = items
+              .filter((i) => i.status !== "purchased")
+              .reduce((s, i) => s + i.qty * i.estPrice, 0);
+            const catPurchased = items
+              .filter((i) => i.status === "purchased")
+              .reduce((s, i) => s + (i.actualPrice ?? 0), 0);
+            return (
+              <section key={cat}>
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="font-display text-lg font-semibold text-secondary">{cat}</h2>
+                  <span className="text-xs text-muted-foreground">
+                    ${catPurchased} purchased · ${catRemaining} to go
+                  </span>
+                </div>
+                <ul className="space-y-2">
+                  {items.map((it) => (
+                    <ShoppingRow
+                      key={it.id}
+                      item={it}
+                      query={buildQuery(it, party)}
+                      onStatus={(s) => cycleStatus(it, s)}
+                      onRemove={() => removeItem(it.id)}
+                    />
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
 
       {showDisclosure && (
         <p className="text-center text-xs text-muted-foreground">{AFFILIATE_DISCLOSURE}</p>
