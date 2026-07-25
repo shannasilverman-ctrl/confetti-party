@@ -89,8 +89,19 @@ function isBadIPv6(host: string): boolean {
   if (inner === "::" || inner === "::1") return true;
   if (inner.startsWith("fe80:") || inner.startsWith("fc") || inner.startsWith("fd")) return true;
   if (inner.startsWith("::ffff:")) {
-    const v4 = inner.slice("::ffff:".length);
-    if (isIPv4Literal(v4) && isPrivateIPv4(v4)) return true;
+    const tail = inner.slice("::ffff:".length);
+    if (isIPv4Literal(tail) && isPrivateIPv4(tail)) return true;
+    // Browser URL parsers normalize ::ffff:127.0.0.1 → ::ffff:7f00:1.
+    // Any hex-form ::ffff: mapping to 127.0.0.0/8 or 10/172.16/192.168 is bad.
+    const parts = tail.split(":");
+    if (parts.length === 2 && parts.every((p) => /^[0-9a-f]{1,4}$/.test(p))) {
+      const hi = parseInt(parts[0], 16);
+      const lo = parseInt(parts[1], 16);
+      const a = (hi >> 8) & 0xff;
+      const b = hi & 0xff;
+      const dotted = `${a}.${b}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+      if (isPrivateIPv4(dotted)) return true;
+    }
   }
   return false;
 }
