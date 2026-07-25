@@ -1,7 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
+// @ts-expect-error — plain .mjs helper shared with scripts/*.
+import { resolveWranglerConfigPath } from "./scripts/wrangler-config-path.mjs";
 
 const PORT = Number(process.env.PW_PORT ?? 4173);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+// Fail fast at Playwright config load time if the build output is missing.
+// Playwright's webServer.command is a string, so we must resolve the path
+// eagerly rather than at spawn time.
+const WRANGLER_CONFIG = resolveWranglerConfigPath();
 
 export default defineConfig({
   testDir: "./tests/e2e",
