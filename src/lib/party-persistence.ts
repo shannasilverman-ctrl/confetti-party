@@ -33,6 +33,7 @@ export type PartyRow = {
   occasion: string;
   date: string;
   start_time: string | null;
+  time_zone: string | null;
   location: string | null;
   guest_estimate: number;
   budget: number;
