@@ -732,6 +732,8 @@ type Ctx = {
   resolveConflict: (id: string, choice: "mine" | "theirs") => void;
   /** Discard a locally-recoverable rejected draft. */
   discardLocalDraft: (id: string) => void;
+  /** Read the current user's recoverable draft from durable storage. */
+  loadRejectedDraftForUser: () => Promise<RejectedDraft | null>;
 };
 
 import {
@@ -739,6 +741,12 @@ import {
   saveDemoState as _saveDemoState,
   clearDemoState as _clearDemoState,
 } from "./demo-storage";
+import {
+  saveRejectedDraft,
+  clearRejectedDraft,
+  loadRejectedDraft,
+  type RejectedDraft,
+} from "./rejected-draft-store";
 
 function baseSeeds(): Party[] {
   return [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()];
@@ -856,6 +864,30 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             else delete next[ev.id];
             return next;
           });
+          // Persist a minimal recoverable draft when insert permanently rejects,
+          // and clear it once the row is successfully persisted or removed.
+          const uid = user?.id;
+          if (uid) {
+            const rejected = storeRef.current!.getState(ev.id).insertRejected;
+            const target = partiesRef.current.find((p) => p.id === ev.id);
+            if (rejected && target) {
+              void saveRejectedDraft(uid, {
+                id: target.id,
+                name: target.name,
+                occasion: target.occasion,
+                date: target.date,
+                startTime: target.startTime,
+                location: target.location,
+                guestEstimate: target.guestEstimate,
+                budget: target.budget,
+                themeId: target.themeId,
+                holidayPackId: target.holidayPackId,
+                hostNote: target.hostNote,
+              });
+            } else if (!rejected && ev.state === "saved") {
+              void clearRejectedDraft(uid);
+            }
+          }
         } else if (ev.type === "server-row") {
           applyPartiesUpdate((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
         } else if (ev.type === "toast") {
@@ -1011,7 +1043,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
+        if (user?.id) void clearRejectedDraft(user.id);
       },
+      loadRejectedDraftForUser: user?.id
+        ? async () => loadRejectedDraft(user.id)
+        : async () => null,
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
@@ -1074,6 +1110,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
+        if (user?.id) void clearRejectedDraft(user.id);
         if (!user) return { error: null };
         const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
