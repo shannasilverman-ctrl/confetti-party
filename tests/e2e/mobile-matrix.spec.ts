@@ -45,14 +45,12 @@ const SCENARIOS: Scenario[] = [
     route: "/party/ava-liam-wedding",
     containers: ["main"],
     setup: async (page) => {
-      // Both a mobile bottom nav and desktop tab bar render into the DOM;
-      // CSS toggles visibility. Click whichever is currently visible.
-      const mobile = page.locator('[data-testid="party-tab-mobile-bring"]:visible').first();
-      if (await mobile.count()) {
-        await mobile.click();
-      } else {
-        await page.locator('[data-testid="party-tab-bring"]:visible').first().click();
-      }
+      // Mobile bottom nav is always rendered on mobile widths; wait for it
+      // to hydrate then click through it. Desktop tab is display:none here.
+      const tab = page.locator('[data-testid="party-tab-mobile-bring"]');
+      await tab.waitFor({ state: "visible", timeout: 15_000 });
+      await tab.scrollIntoViewIfNeeded();
+      await tab.click();
     },
   },
   { slug: "workspace-reveal", route: "/party/ava-liam-wedding/reveal", containers: ["main"] },
