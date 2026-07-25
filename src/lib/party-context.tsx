@@ -722,8 +722,16 @@ type Ctx = {
   deleteParty: (id: string) => Promise<{ error: string | null }>;
   /** Save state per party id (idle | saving | saved | offline | error | conflict). */
   saveStates: Record<string, SaveStateSnapshot>;
-  /** Manually retry a party stuck in error/offline/conflict. */
+  /** Conflict metadata (columns + local/server previews) per party. */
+  conflicts: Record<string, import("./party-persistence").PendingConflict>;
+  /** Ids whose initial insert permanently failed — recoverable local drafts. */
+  insertRejected: Record<string, boolean>;
+  /** Manually retry a party stuck in error/offline. Conflicts require resolveConflict. */
   retrySave: (id: string) => void;
+  /** Resolve a semantic conflict explicitly. */
+  resolveConflict: (id: string, choice: "mine" | "theirs") => void;
+  /** Discard a locally-recoverable rejected draft. */
+  discardLocalDraft: (id: string) => void;
 };
 
 import {
