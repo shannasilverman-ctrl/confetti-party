@@ -40,7 +40,7 @@ export type AccountExportEnvelope = {
  */
 export const exportMyData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<AccountExport> => {
+  .handler(async ({ context }): Promise<AccountExportEnvelope> => {
     const { supabase, userId, claims } = context;
 
     // Fetch in parallel; each query is RLS-scoped to auth.uid().
@@ -49,8 +49,9 @@ export const exportMyData = createServerFn({ method: "GET" })
       supabase.from("gathering_drafts").select("*").eq("user_id", userId),
       supabase
         .from("talk_sessions")
-        // Metadata only; transcript rows are excluded by design.
-        .select("id,draft_id,created_at,updated_at,status,duration_seconds")
+        // Metadata only; transcript rows are excluded by design. Uses the
+        // actual column set present on the table (no updated_at/status).
+        .select("id,draft_id,created_at,started_at,ended_at,duration_s,disconnect_reason")
         .eq("user_id", userId),
     ]);
 
@@ -66,9 +67,16 @@ export const exportMyData = createServerFn({ method: "GET" })
 
     const email = typeof claims?.email === "string" ? claims.email : null;
 
-    return {
+    const cleanedParties = (parties.data ?? []).map((row) =>
+      stripPartyClaimSecrets(row as Record<string, unknown>),
+    );
+    const draftRows = drafts.data ?? [];
+    const sessionRows = sessions.data ?? [];
+
+    const generatedAt = new Date().toISOString();
+    const doc = {
       schemaVersion: EXPORT_SCHEMA_VERSION,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       userId,
       email,
       source: {
@@ -87,9 +95,20 @@ export const exportMyData = createServerFn({ method: "GET" })
           "any row owned by another user",
         ],
       },
-      parties: (parties.data ?? []).map(stripPartyClaimSecrets),
-      gatheringDrafts: drafts.data ?? [],
-      talkSessions: sessions.data ?? [],
+      parties: cleanedParties,
+      gatheringDrafts: draftRows,
+      talkSessions: sessionRows,
+    };
+
+    return {
+      schemaVersion: EXPORT_SCHEMA_VERSION,
+      generatedAt,
+      userId,
+      email,
+      partyCount: cleanedParties.length,
+      draftCount: draftRows.length,
+      sessionCount: sessionRows.length,
+      json: JSON.stringify(doc, null, 2),
     };
   });
 
