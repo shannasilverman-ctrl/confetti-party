@@ -430,6 +430,86 @@ describe("PartyStore — conflict resolution", () => {
     expect(store.getState("p1").conflict).toBeNull();
   });
 
+  it("mine preserves safe local edits and auto-merges while resolving a semantic conflict", async () => {
+    const fake = new FakeDb();
+    const base = mkParty({
+      hostUpdates: [],
+      location: "Original venue",
+    });
+    fake.seed(partyToColumns(base, "u"));
+    const { store } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    fake.patchServer("p1", {
+      name: "Server Name",
+      host_updates: [{ id: "server-update", text: "Server note", at: "2027-01-01" }],
+    });
+
+    store.enqueueUpdate(
+      {
+        ...party,
+        name: "Local Name",
+        location: "Local venue",
+        hostUpdates: [{ id: "local-update", text: "Local note", at: "2027-01-02" }],
+      },
+      "u",
+    );
+    await flush();
+    expect(store.getState("p1").state).toBe("conflict");
+
+    store.resolveConflict("p1", "mine");
+    await flush();
+
+    const row = fake.rows.get("p1")!;
+    expect(row.name).toBe("Local Name");
+    expect(row.location).toBe("Local venue");
+    expect((row.host_updates as Array<{ id: string }>).map((u) => u.id).sort()).toEqual([
+      "local-update",
+      "server-update",
+    ]);
+    expect(store.getState("p1").state).toBe("saved");
+  });
+
+  it("theirs still persists safe local edits and auto-merges before reporting saved", async () => {
+    const fake = new FakeDb();
+    const base = mkParty({
+      hostUpdates: [],
+      location: "Original venue",
+    });
+    fake.seed(partyToColumns(base, "u"));
+    const { store } = mkStore(fake);
+    const party = rowToParty(fake.rows.get("p1")!);
+    store.seedBaseline(party, "u");
+    fake.patchServer("p1", {
+      name: "Server Name",
+      host_updates: [{ id: "server-update", text: "Server note", at: "2027-01-01" }],
+    });
+
+    store.enqueueUpdate(
+      {
+        ...party,
+        name: "Local Name",
+        location: "Local venue",
+        hostUpdates: [{ id: "local-update", text: "Local note", at: "2027-01-02" }],
+      },
+      "u",
+    );
+    await flush();
+    expect(store.getState("p1").state).toBe("conflict");
+
+    store.resolveConflict("p1", "theirs");
+    await flush();
+
+    const row = fake.rows.get("p1")!;
+    expect(row.name).toBe("Server Name");
+    expect(row.location).toBe("Local venue");
+    expect((row.host_updates as Array<{ id: string }>).map((u) => u.id).sort()).toEqual([
+      "local-update",
+      "server-update",
+    ]);
+    expect(store.getState("p1").state).toBe("saved");
+  });
+
   it("generic retry() does NOT resolve a semantic conflict", async () => {
     const fake = new FakeDb();
     fake.seed(partyToColumns(mkParty(), "u"));

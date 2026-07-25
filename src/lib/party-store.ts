@@ -126,9 +126,8 @@ export class PartyStore {
   private refuseCrossUser(op: string, id: string, userId: string) {
     this.opts.logError("cross_user_write_refused", {
       op,
-      id,
-      // Never log the raw ids — only lengths — to avoid painting auth ids
-      // into error surfaces.
+      // Never log raw party/auth ids.
+      partyIdLen: id.length,
       currentUserIdLen: this.currentUserId?.length ?? 0,
       incomingUserIdLen: userId.length,
     });
@@ -230,22 +229,21 @@ export class PartyStore {
   }
 
   /** Resolve a semantic (non-mergeable) conflict.
-   *  - "mine": overlay preserved local values onto the fresh baseline and enqueue.
-   *  - "theirs": discard local values; server state (already merged) becomes canonical.
+   *  - "mine": overlay preserved local values plus safe merges onto the fresh baseline.
+   *  - "theirs": keep server values for semantic columns, but still persist
+   *    independent local edits and deterministic auto-merges.
    */
   resolveConflict(id: string, choice: "mine" | "theirs") {
     const e = this.queue.get(id);
     if (!e || !e.pendingConflict || !e.baseline) return;
-    if (choice === "theirs") {
-      // Server values already sit on `latest` and `baseline` from handleConflict.
-      e.pendingConflict = null;
-      e.attempts = 0;
-      this.setState(id, "saved");
-      return;
-    }
-    // "mine": overlay local values from the pending conflict record onto the
-    // fresh server baseline. This is deterministic — no dependency on React state.
-    const overlay = e.pendingConflict.localValues;
+    const pending = e.pendingConflict;
+    // Start from the exact fresh server row, then carry forward every safe
+    // local/auto-merged column. "Mine" additionally overlays the unresolved
+    // semantic values; "theirs" deliberately leaves those server-owned.
+    const overlay: Partial<PartyRow> = {
+      ...pending.safeMergedValues,
+      ...(choice === "mine" ? pending.localValues : {}),
+    };
     const merged: Party = rowToParty({
       ...(e.baseline as PartyRow),
       ...overlay,
@@ -255,9 +253,17 @@ export class PartyStore {
     e.latest = merged;
     e.pendingConflict = null;
     e.attempts = 0;
-    // Clear conflict state so kick() proceeds.
-    this.setState(id, "idle");
-    void this.kick(id);
+    const { changed } = diffColumns(e.baseline, partyToColumns(merged, e.userId));
+    if (changed.length === 0) {
+      // No safe work remains (typical pure "Keep theirs"). Emit the exact
+      // canonical row so React cannot retain a speculative merged view.
+      this.emit({ type: "server-row", id, party: merged });
+      this.setState(id, "saved");
+    } else {
+      // Clear conflict state so kick() can persist the safe/selected result.
+      this.setState(id, "idle");
+      void this.kick(id);
+    }
   }
 
   /** Discard a locally-recoverable draft that failed permanent insert.
@@ -404,11 +410,9 @@ export class PartyStore {
     if (!e) return true;
     e.attempts += 1;
     this.opts.logError("save_error", {
-      id,
+      partyIdLen: id.length,
       kind: error.kind,
       attempts: e.attempts,
-      // Only structural info — never emails/tokens/full payloads.
-      messagePreview: error.message.slice(0, 80),
     });
     if (error.kind === "network" && !this.opts.isOnline()) {
       this.setState(id, "offline");
@@ -429,10 +433,9 @@ export class PartyStore {
     if (!e) return true;
     e.attempts += 1;
     this.opts.logError("insert_error", {
-      id,
+      partyIdLen: id.length,
       kind: error.kind,
       attempts: e.attempts,
-      messagePreview: error.message.slice(0, 80),
     });
     if (error.kind === "network" && !this.opts.isOnline()) {
       this.setState(id, "offline");
@@ -501,14 +504,24 @@ export class PartyStore {
     if (unresolvedNonMergeable.length > 0) {
       const localValues: Partial<PartyRow> = {};
       const serverValues: Partial<PartyRow> = {};
+      const safeMergedValues: Partial<PartyRow> = {};
       for (const col of unresolvedNonMergeable) {
         (localValues as Record<string, unknown>)[col] = (nextRow as Record<string, unknown>)[col];
         (serverValues as Record<string, unknown>)[col] = (fresh as Record<string, unknown>)[col];
+      }
+      for (const col of changedCols) {
+        if (unresolvedNonMergeable.includes(col)) continue;
+        const mergedValue = (merged as Record<string, unknown>)[col];
+        const freshValue = (fresh as Record<string, unknown>)[col];
+        if (JSON.stringify(mergedValue) !== JSON.stringify(freshValue)) {
+          (safeMergedValues as Record<string, unknown>)[col] = mergedValue;
+        }
       }
       e.pendingConflict = {
         columns: unresolvedNonMergeable,
         localValues,
         serverValues,
+        safeMergedValues,
         at: new Date().toISOString(),
       };
       this.setState(id, "conflict");

@@ -404,6 +404,9 @@ export type PendingConflict = {
   columns: HostColumn[];
   localValues: Partial<PartyRow>;
   serverValues: Partial<PartyRow>;
+  /** Non-conflicting local edits and deterministic auto-merges that still
+   * need to be written after the user resolves the semantic columns. */
+  safeMergedValues: Partial<PartyRow>;
   at: string;
 };
 

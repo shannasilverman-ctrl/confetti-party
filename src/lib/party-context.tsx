@@ -949,7 +949,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.warn("[parties] load failed", {
             code: (error as { code?: string }).code,
-            messagePreview: (error.message ?? "").slice(0, 80),
           });
           partiesRef.current = [];
           setParties([]);
@@ -1080,7 +1079,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.warn("[parties] delete failed", {
             code: (error as { code?: string }).code,
-            messagePreview: (error.message ?? "").slice(0, 80),
           });
           tombstonesRef.current.delete(id);
           applyPartiesUpdate((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
