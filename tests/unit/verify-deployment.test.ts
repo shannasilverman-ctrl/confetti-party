@@ -3,6 +3,7 @@ import {
   assertHtmlSecurityHeaders,
   normalizeDeploymentUrl,
   verifyDeployment,
+  verifyDeploymentWithRetry,
 } from "../../scripts/verify-deployment.mjs";
 
 function secureHeaders(overrides: Record<string, string> = {}) {
@@ -78,5 +79,61 @@ describe("deployment verification", () => {
       htmlRoutes: 3,
       assets: 4,
     });
+  });
+
+  it("retries a partial edge response and then verifies the deployment", async () => {
+    let calls = 0;
+    const retryAttempts: number[] = [];
+    const fetchImpl = async (input: string | URL | Request) => {
+      calls += 1;
+      if (calls === 1) return new Response("stale edge", { status: 503 });
+
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (["/", "/app", "/talk"].includes(url.pathname)) {
+        return new Response(
+          [
+            '<meta name="theme-color" content="#3B1E5E">',
+            '<link rel="manifest" href="/manifest.webmanifest">',
+            '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+          ].join(""),
+          { headers: secureHeaders({ "content-type": "text/html; charset=utf-8" }) },
+        );
+      }
+      if (url.pathname === "/manifest.webmanifest") {
+        return Response.json(
+          {
+            name: "Confetti — Your calm co-host",
+            short_name: "Confetti",
+            start_url: "/app",
+            display: "standalone",
+            icons: [
+              { src: "/app-icon-192.png", sizes: "192x192" },
+              { src: "/app-icon-512.png", sizes: "512x512" },
+            ],
+          },
+          { headers: { "content-type": "application/manifest+json" } },
+        );
+      }
+      return new Response("png", { headers: { "content-type": "image/png" } });
+    };
+
+    await expect(
+      verifyDeploymentWithRetry("https://preview.example.com", {
+        attempts: 2,
+        delayMs: 0,
+        fetchImpl,
+        onRetry: ({ attempt }) => retryAttempts.push(attempt),
+      }),
+    ).resolves.toMatchObject({ baseUrl: "https://preview.example.com" });
+    expect(retryAttempts).toEqual([1]);
+  });
+
+  it("validates retry configuration", async () => {
+    await expect(
+      verifyDeploymentWithRetry("https://preview.example.com", { attempts: 0 }),
+    ).rejects.toThrow(/positive integer/);
+    await expect(
+      verifyDeploymentWithRetry("https://preview.example.com", { delayMs: -1 }),
+    ).rejects.toThrow(/non-negative/);
   });
 });

@@ -35,8 +35,9 @@ values.
 1. Build and run the full automated suite from a clean commit.
 2. Deploy the exact green commit to
    `confetti-independent-preview.shannasilverman-apps.workers.dev`.
-3. Run `bun run verify:deployment`, then desktop and mobile acceptance against
-   that exact deployment.
+3. `bun run deploy:preview` automatically retries
+   `bun run verify:deployment` across normal edge propagation. Then run desktop
+   and mobile acceptance against that exact deployment.
 4. Add the production secrets to the Worker without printing or copying them
    into source control.
 5. Attach `www.confettiapp.ai` as a Cloudflare Worker custom domain only after
