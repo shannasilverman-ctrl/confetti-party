@@ -11,7 +11,7 @@ export function PartyModeLoading({ label = "Loading your party…" }: { label?: 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="flex flex-col items-center gap-3 text-center">
-        <BrandLockup size="sm" />
+        <BrandLockup />
         <div
           role="status"
           aria-live="polite"
@@ -33,7 +33,7 @@ export function PartyModeError({ retry }: { retry: () => void }) {
       className="flex min-h-screen items-center justify-center bg-background px-4"
     >
       <div className="max-w-sm text-center">
-        <BrandLockup size="sm" />
+        <BrandLockup />
         <h1 className="mt-4 font-display text-2xl text-secondary">
           We couldn’t load your party
         </h1>
@@ -65,7 +65,7 @@ export function PartyModeMissing({
       className="flex min-h-screen items-center justify-center bg-background px-4"
     >
       <div className="max-w-md text-center">
-        <BrandLockup size="sm" />
+        <BrandLockup />
         <h1 className="mt-4 font-display text-3xl text-secondary">
           We can’t find that party
         </h1>
