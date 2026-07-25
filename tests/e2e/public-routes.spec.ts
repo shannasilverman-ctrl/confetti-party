@@ -74,20 +74,28 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
-// Axe scans for stable public pages. Fails only on serious/critical violations.
+// Axe scans for stable public pages. Fails on any serious/critical violation
+// including color-contrast — no rule exemptions.
 for (const path of ["/", "/talk"]) {
   test(`axe: no serious/critical a11y violations on ${path}`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "run a11y once per route");
     await page.goto(path, { waitUntil: "domcontentloaded" });
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa"])
-      // Brand palette is fixed by workspace direction; contrast is tracked
-      // separately and not enforced by this smoke gate.
-      .disableRules(["color-contrast"])
-      .analyze();
+    // Wait for fonts + first paint so contrast is measured against final styles.
+    await page.evaluate(() => document.fonts?.ready);
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     const blocking = results.violations.filter(
       (v) => v.impact === "serious" || v.impact === "critical",
     );
-    expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join("\n")).toEqual([]);
+    const detail = blocking
+      .map((v) => {
+        const nodes = v.nodes
+          .slice(0, 5)
+          .map((n) => `  · ${n.target.join(" ")}\n    ${n.failureSummary?.split("\n").join(" ")}`)
+          .join("\n");
+        return `${v.id} (${v.impact}): ${v.help}\n${nodes}`;
+      })
+      .join("\n---\n");
+    expect(blocking, detail).toEqual([]);
   });
 }
+
