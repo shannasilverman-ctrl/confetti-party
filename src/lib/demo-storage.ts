@@ -59,15 +59,33 @@ const PartySchema = z
   // rely on them.
   .passthrough();
 
+const OriginZ = z.object({
+  origin: z.enum(["curated", "user"]),
+  edited: z.boolean().default(false),
+});
+
 const StoredShape = z.object({
   v: z.literal(2),
   samples: z.record(PartySchema).default({}),
   custom: z.array(PartySchema).default([]),
+  /**
+   * Per-party origin metadata used by the post-signup Import Review.
+   * Curated seeds must never appear in the import list, so we track which
+   * ids were shipped as samples vs. created by the user, plus whether the
+   * user has edited a curated sample in a meaningful way. Missing entries
+   * are inferred from the seed set at load time (forward-compat with v2
+   * data written before this field existed).
+   */
+  origins: z.record(OriginZ).default({}),
 });
+
+export type PartyOrigin = z.infer<typeof OriginZ>;
 
 export type DemoStoreResult = {
   /** In-memory party list ready to render (seeds + valid custom). */
   parties: Party[];
+  /** Origin/edited flag per party id — for the post-signup import review. */
+  origins: Record<string, PartyOrigin>;
   /**
    * Present only when we detected corrupt or oversize input; UI may surface
    * a non-blocking warning so the user isn't lied to.
