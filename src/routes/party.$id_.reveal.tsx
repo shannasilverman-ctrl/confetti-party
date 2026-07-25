@@ -26,6 +26,7 @@ import {
   totalSpent,
   progressPct,
   OCCASION_LABELS,
+  isSeededDemoPartyId,
   planningDetailIsOpen,
 } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
@@ -102,6 +103,7 @@ function RevealPage() {
   const openBring = (party.bringBoard ?? []).filter((b) => b.status === "open").length;
   const nextThree = party.tasks.filter((t) => !t.done).slice(0, 3);
   const canPlanNext = !dateTbd && (days! < 0 || !!party.retrospective);
+  const isSeededSample = isDemo && isSeededDemoPartyId(party.id);
 
   const risks: string[] = [];
   if (days != null && days >= 0 && days <= 7 && openBring > 0) {
@@ -156,10 +158,17 @@ function RevealPage() {
             role="note"
           >
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span>
-              <strong>Sample reveal.</strong> This fictional plan is safe to explore and never
-              changes a real event.
-            </span>
+            {isSeededSample ? (
+              <span>
+                <strong>Sample reveal.</strong> This fictional plan is safe to explore and never
+                changes a real event.
+              </span>
+            ) : (
+              <span>
+                <strong>Saved on this device.</strong> This is your local plan. Sign up to keep it
+                across devices and create shareable guest links.
+              </span>
+            )}
           </div>
         )}
 

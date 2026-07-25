@@ -164,6 +164,12 @@ test("/app distinguishes a real guest list from a planning goal", async ({ page 
   await expect(goalOnlyParty.getByText("12", { exact: true })).toBeVisible();
 });
 
+test("/app tells demo hosts where their parties are actually saved", async ({ page }) => {
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
+  await expect(page.getByText(/Sign up free to save your parties/i)).toHaveCount(0);
+});
+
 test("a date-TBD quick start never exposes its placeholder date to guests", async ({ page }) => {
   await page.goto("/app?new=1", { waitUntil: "domcontentloaded" });
   await page.getByLabel("Start with the idea").fill("Neighborhood potluck");
@@ -206,6 +212,22 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
   await expect(page).toHaveURL(/\/reveal$/);
   await expect(page.getByRole("heading", { level: 1, name: "Neighborhood potluck" })).toBeVisible();
   await expect(page.getByRole("main").getByText("Date to decide", { exact: true })).toBeVisible();
+  await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Sample reveal.", { exact: false })).toHaveCount(0);
+
+  const dayOfUrl = page.url().replace(/\/reveal$/, "/day-of");
+  await page.goto(dayOfUrl, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Next three actions" })).toBeVisible();
+  await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Sample Day-of Mode.", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Choose the party date", { exact: true })).toHaveCount(0);
+
+  await page
+    .getByRole("textbox", { name: /Running 15 minutes late/i })
+    .fill("Pizza will be here at six");
+  await page.getByRole("button", { name: "Save local update" }).click();
+  await expect(page.getByText(/saved on this device only/i)).toBeVisible();
+  await expect(page.getByText(/No guests were notified/i)).toBeVisible();
 });
 
 test("retrospective reveal can start the next gathering without setup friction", async ({

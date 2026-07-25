@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isSeededDemoPartyId,
   makeParty,
   openPlanningDetails,
   planningDetailForTask,
@@ -31,6 +32,12 @@ function partyWithOpenDate() {
 }
 
 describe("open planning details", () => {
+  it("distinguishes curated samples from a host's local demo party", () => {
+    expect(isSeededDemoPartyId("maya-8th")).toBe(true);
+    expect(isSeededDemoPartyId("ava-liam-wedding")).toBe(true);
+    expect(isSeededDemoPartyId("party-open-date")).toBe(false);
+  });
+
   it("identifies special planning tasks without treating ordinary tasks as details", () => {
     expect(planningDetailForTask(openDateTask)).toBe("date");
     expect(

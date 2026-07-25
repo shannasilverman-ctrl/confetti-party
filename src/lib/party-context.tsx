@@ -134,6 +134,17 @@ export const PLANNING_TASK_TITLES: Record<PlanningDetail, string> = {
   theme: "Choose the look and feel",
 };
 
+const SEEDED_DEMO_PARTY_IDS = [
+  "maya-8th",
+  "grad-bbq",
+  "world-cup-final-watch",
+  "ava-liam-wedding",
+] as const;
+
+export function isSeededDemoPartyId(id: string): boolean {
+  return (SEEDED_DEMO_PARTY_IDS as readonly string[]).includes(id);
+}
+
 const PLANNING_DETAILS = Object.keys(PLANNING_TASK_TITLES) as PlanningDetail[];
 
 export function planningDetailForTask(task: Pick<Task, "title">): PlanningDetail | undefined {
