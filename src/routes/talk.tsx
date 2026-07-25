@@ -50,6 +50,33 @@ export const Route = createFileRoute("/talk")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 type Line = { role: "user" | "assistant"; text: string; partial: boolean };
 
+// Stable friendly copy. Raw caught error / provider messages must never
+// reach the toast or DOM — they can leak upstream identifiers, stack
+// frames, or user-controlled text. Internal category is logged, external
+// copy is fixed per surface.
+type TalkErrorCategory =
+  | "draft_create"
+  | "send_turn"
+  | "confirm"
+  | "voice_connect"
+  | "voice_runtime";
+
+const TALK_ERROR_COPY: Record<TalkErrorCategory, string> = {
+  draft_create: "Couldn't start a fresh draft. Please retry.",
+  send_turn: "Confetti couldn't reply just now. Try that again in a moment.",
+  confirm: "Couldn't finalize the plan. Please try again.",
+  voice_connect: "Couldn't connect to voice. Try again, or switch to text.",
+  voice_runtime: "The voice service hit a snag. End and reconnect to continue.",
+};
+
+function friendlyTalkError(category: TalkErrorCategory, err: unknown): string {
+  // Log the raw cause for developers; users only ever see the copy.
+  // eslint-disable-next-line no-console
+  console.debug("[talk]", category, err instanceof Error ? err.name : typeof err);
+  return TALK_ERROR_COPY[category];
+}
+
+
 function TalkRoute() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
