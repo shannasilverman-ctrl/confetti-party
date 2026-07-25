@@ -306,23 +306,31 @@ function TalkRoute() {
     }
   }, [draftId, isDemo, navigate]);
 
-  const confirmAndCreate = useCallback(async () => {
-    if (!draftId || isDemo || confirming) return;
-    setConfirming(true);
-    try {
-      const { partyId } = await confirmDraft({ data: { draftId } });
-      celebrate("big");
-      toast.success("Plan created — welcome to your workspace.");
-      setReviewOpen(false);
-      navigate({ to: "/party/$id/reveal", params: { id: partyId } });
-    } catch (err) {
-      const msg = friendlyTalkError("confirm", err);
-      toast.error(msg);
-      setStatusAnnouncement(msg);
-    } finally {
-      setConfirming(false);
-    }
-  }, [draftId, isDemo, confirming, navigate]);
+  const confirmAndCreate = useCallback(
+    async (opts: { acknowledgePlaceholderDate?: boolean } = {}) => {
+      if (!draftId || isDemo || confirming) return;
+      setConfirming(true);
+      try {
+        const { partyId } = await confirmDraft({
+          data: {
+            draftId,
+            acknowledgePlaceholderDate: !!opts.acknowledgePlaceholderDate,
+          },
+        });
+        celebrate("big");
+        toast.success("Plan created — welcome to your workspace.");
+        setReviewOpen(false);
+        navigate({ to: "/party/$id/reveal", params: { id: partyId } });
+      } catch (err) {
+        const msg = friendlyTalkError("confirm", err);
+        toast.error(msg);
+        setStatusAnnouncement(msg);
+      } finally {
+        setConfirming(false);
+      }
+    },
+    [draftId, isDemo, confirming, navigate],
+  );
 
   // ---------- Voice-mode handlers (unchanged behavior) ----------
 
