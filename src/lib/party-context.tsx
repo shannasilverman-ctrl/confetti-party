@@ -99,6 +99,8 @@ export type Party = {
   occasion: OccasionType;
   date: string; // ISO date
   startTime?: string; // e.g. "2:00 PM"
+  /** Optional host IANA time zone (e.g. "America/New_York"). Undefined => "floating" local time. */
+  timeZone?: string;
   location?: string;
   guestEstimate: number;
   budget: number;
