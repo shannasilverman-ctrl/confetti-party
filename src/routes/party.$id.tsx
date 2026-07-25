@@ -596,12 +596,10 @@ function GuestsTab({ partyId }: { partyId: string }) {
                   }
                   onConfirm={() => remove(guest.id)}
                   onUndo={() => {
-                    const currentIndex = guests.findIndex((g) => g.id === guest.id);
-                    const insertAt = currentIndex === -1 ? index : currentIndex;
                     updateParty(partyId, (p) => {
                       if (p.guests.some((g) => g.id === guest.id)) return p;
                       const next = [...p.guests];
-                      next.splice(Math.min(insertAt, next.length), 0, guest);
+                      next.splice(Math.min(guestIndex, next.length), 0, guest);
                       return { ...p, guests: next };
                     });
                   }}
