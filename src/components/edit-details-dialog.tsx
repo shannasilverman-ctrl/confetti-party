@@ -52,7 +52,12 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        data-testid="edit-details-trigger"
+        onClick={() => setOpen(true)}
+      >
         <Pencil /> Edit details
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
