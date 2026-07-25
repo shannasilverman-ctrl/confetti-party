@@ -5,16 +5,16 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 
 ## 1. Quality gates (frozen install, exact commands)
 
-| Step        | Command                                     |
-| ----------- | ------------------------------------------- |
-| Install     | `bun install --frozen-lockfile`             |
-| Prettier    | `bun run format:check`                      |
-| Lint        | `bun run lint`                              |
-| Typecheck   | `bun run typecheck`  (→ `tsc --noEmit`)     |
-| Unit        | `bun run test`                              |
-| Coverage    | `bun run test:coverage`                     |
-| Build       | `bun run build`                             |
-| E2E + axe   | `bun run test:e2e` (Playwright)             |
+| Step      | Command                                |
+| --------- | -------------------------------------- |
+| Install   | `bun install --frozen-lockfile`        |
+| Prettier  | `bun run format:check`                 |
+| Lint      | `bun run lint`                         |
+| Typecheck | `bun run typecheck` (→ `tsc --noEmit`) |
+| Unit      | `bun run test`                         |
+| Coverage  | `bun run test:coverage`                |
+| Build     | `bun run build`                        |
+| E2E + axe | `bun run test:e2e` (Playwright)        |
 
 Results are recorded in the CI workflow run linked from the release PR.
 
@@ -26,29 +26,29 @@ does not ship `tsgo`; the actual typecheck binary is `tsc` from the pinned
 
 Measured after `bun run build` from `dist/client/assets/**`:
 
-| Bucket                | Bytes       |
-| --------------------- | ----------- |
-| Total client JS       | **1,134,256** |
-| Total client CSS      | **109,037**   |
+| Bucket           | Bytes         |
+| ---------------- | ------------- |
+| Total client JS  | **1,134,256** |
+| Total client CSS | **109,037**   |
 
 Largest client JS chunks:
 
-| Bytes    | File                                 |
-| -------- | ------------------------------------ |
-| 601,075  | `assets/index-*.js` (router + core)  |
-| 140,660  | `assets/party._id-*.js`              |
-|  79,062  | `assets/talk-*.js`                   |
-|  47,379  | `assets/button-*.js`                 |
-|  33,149  | `assets/dist-*.js` (Radix)           |
-|  26,402  | `assets/dist-*.js` (Radix)           |
-|  25,457  | `assets/routes-*.js`                 |
-|  24,676  | `assets/brand-*.js`                  |
+| Bytes   | File                                |
+| ------- | ----------------------------------- |
+| 601,075 | `assets/index-*.js` (router + core) |
+| 140,660 | `assets/party._id-*.js`             |
+| 79,062  | `assets/talk-*.js`                  |
+| 47,379  | `assets/button-*.js`                |
+| 33,149  | `assets/dist-*.js` (Radix)          |
+| 26,402  | `assets/dist-*.js` (Radix)          |
+| 25,457  | `assets/routes-*.js`                |
+| 24,676  | `assets/brand-*.js`                 |
 
 Largest CSS chunk:
 
-| Bytes    | File                     |
-| -------- | ------------------------ |
-| 109,037  | `assets/styles-*.css`    |
+| Bytes   | File                  |
+| ------- | --------------------- |
+| 109,037 | `assets/styles-*.css` |
 
 ### Fonts
 
@@ -61,10 +61,10 @@ fonts stream.
 
 Source file: `src/assets/confetti-hero.jpg` (managed asset).
 
-| Property       | Value          |
-| -------------- | -------------- |
-| Bytes          | 121,037        |
-| Content type   | `image/jpeg`   |
+| Property                | Value                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| Bytes                   | 121,037                                                                             |
+| Content type            | `image/jpeg`                                                                        |
 | `<img>` intrinsic attrs | `width={1600} height={900}` on the hero, `decoding="async"`, `fetchPriority="high"` |
 
 Below-fold theme thumbnails and workspace previews use `loading="lazy"` +
@@ -98,12 +98,12 @@ tolerances.
 
 `tests/e2e/dialog-contract.spec.ts` (Phase 4 correction):
 
-* Focus return is proven by **stable node identity**: before opening the
+- Focus return is proven by **stable node identity**: before opening the
   New Party dialog, the trigger is stamped with `data-focus-probe="trigger-a"`.
   After `Escape` closes the dialog, the assertion is
   `document.activeElement.getAttribute("data-focus-probe") === "trigger-a"`.
   Text-based checks are gone.
-* Tap-target check iterates **every visible `role=button`** inside the
+- Tap-target check iterates **every visible `role=button`** inside the
   dialog at 320 / 375 / 390 / 430 and asserts `width ≥ 44` and
   `height ≥ 44`. It fails per-button with the button's label, so a
   regression names the exact offending control.
@@ -113,10 +113,10 @@ tolerances.
 `tests/e2e/public-routes.spec.ts` (Phase 4 correction) now has two
 deterministic tests:
 
-* Malformed token (`/rsvp/not-a-uuid`) → HTTP 200 + strict
+- Malformed token (`/rsvp/not-a-uuid`) → HTTP 200 + strict
   `"This invite link doesn't look right"` copy, MUST NOT contain
   `"temporarily unavailable"`.
-* Well-formed unknown UUID → HTTP 200 + same not-found copy.
+- Well-formed unknown UUID → HTTP 200 + same not-found copy.
 
 Both assert the body contains no raw error strings (`JWT`, `PostgREST`,
 `SQLSTATE`, `500`, …).
@@ -130,15 +130,15 @@ without a real database outage.
 `tests/unit/holiday-starters.test.ts` and `tests/unit/make-party.test.ts`
 prove:
 
-* Every starter id resolves to a real `HolidayPack` (no orphans).
-* `"generic"` returns the tradition-neutral `GENERIC_HOLIDAY` pack with
+- Every starter id resolves to a real `HolidayPack` (no orphans).
+- `"generic"` returns the tradition-neutral `GENERIC_HOLIDAY` pack with
   non-empty `bringBoardSeeds` and `taskSeeds`, and none of its labels
   mention specific traditions (`turkey`, `latke`, `menorah`, …).
-* `toHolidayStarterId(x)` narrows unknown input to `undefined`
+- `toHolidayStarterId(x)` narrows unknown input to `undefined`
   (no unsafe `as never` cast anywhere in the create path).
-* `makeParty` returns a single, non-duplicated `tasks` array; pack
+- `makeParty` returns a single, non-duplicated `tasks` array; pack
   tasks + generated tasks + extra tasks appear exactly once each.
-* Unknown `holidayPackId` is dropped, no pack is applied,
+- Unknown `holidayPackId` is dropped, no pack is applied,
   `bringBoard` is empty.
 
 The E2E starter test (`Holiday starter → editable workspace`) walks the
@@ -152,12 +152,12 @@ tasks. This proves the workspace is not just visible but **editable**.
 `src/styles.css` retains exactly one declaration per token. Retained
 values and measured contrast ratios (values in comments in the file):
 
-| Token       | Value                | Foreground surface / bg                         | Ratio  |
-| ----------- | -------------------- | ----------------------------------------------- | ------ |
-| `--primary` | `hsl(10 78% 38%)`    | `text-primary-foreground` on `bg-primary`       | 7.14:1 |
-|             |                      | `text-primary` on `--background` cream          | 5.44:1 |
-| `--success` | `hsl(150 55% 26%)`   | `text-success-foreground` on `bg-success`       | 7.62:1 |
-|             |                      | `text-success` on `--background` cream          | 5.85:1 |
+| Token       | Value              | Foreground surface / bg                   | Ratio  |
+| ----------- | ------------------ | ----------------------------------------- | ------ |
+| `--primary` | `hsl(10 78% 38%)`  | `text-primary-foreground` on `bg-primary` | 7.14:1 |
+|             |                    | `text-primary` on `--background` cream    | 5.44:1 |
+| `--success` | `hsl(150 55% 26%)` | `text-success-foreground` on `bg-success` | 7.62:1 |
+|             |                    | `text-success` on `--background` cream    | 5.85:1 |
 
 Vibrant brand values are exposed as `--brand-coral` and `--brand-mint`
 for decorative gradients / logo art, so the landing hero still pops
