@@ -389,26 +389,19 @@ function TalkRoute() {
         onEvent: handleVoiceEvent,
       });
       clientRef.current = client;
-      setSessionId(sessionId);
-      startedAtRef.current = Date.now();
+      // Register the freshly reserved id with the lifecycle controller
+      // BEFORE connect() so a connect failure below still cleans up.
+      if (sessionId) {
+        lifecycleRef.current!.own(sessionId, Date.now());
+        setSessionId(sessionId);
+      }
       await client.connect();
       setStatusAnnouncement("Voice connected.");
     } catch (err) {
-      // Best-effort cleanup: if the row was already reserved server-side,
-      // close it so the concurrency guard doesn't lock this user out.
-      // We only ever pass the sessionId this component owns — never an
-      // arbitrary id from the caller.
-      if (sessionId) {
-        try {
-          await endSession({
-            data: { sessionId, disconnectReason: "connect_failed" },
-          });
-        } catch (endErr) {
-          console.error("endSession failed", { reason: "connect_failed", ok: !endErr });
-        }
-        setSessionId(null);
-        startedAtRef.current = null;
-      }
+      // Idempotent best-effort end: no-op if nothing is owned, exactly
+      // one end() otherwise. Never throws.
+      await lifecycleRef.current!.end("connect_failed");
+      setSessionId(null);
       clientRef.current?.close("connect_failed");
       clientRef.current = null;
       const msg = friendlyTalkError("voice_connect", err);
@@ -418,41 +411,34 @@ function TalkRoute() {
     } finally {
       setConnecting(false);
     }
-  }, [handleVoiceEvent, navigate, isDemo, user, sessionId]);
+  }, [handleVoiceEvent, navigate, isDemo, user]);
 
   const stopVoice = useCallback(async () => {
     clientRef.current?.close("user_ended");
     clientRef.current = null;
-    if (sessionId) {
-      const startedAt = startedAtRef.current;
-      const durationS = startedAt ? Math.round((Date.now() - startedAt) / 1000) : undefined;
-      try {
-        await endSession({ data: { sessionId, durationS, disconnectReason: "user_ended" } });
-      } catch (err) {
-        console.error("endSession failed", { reason: "user_ended", ok: !err });
-      }
-    }
+    await lifecycleRef.current!.end("user_ended");
     setSessionId(null);
-    startedAtRef.current = null;
-  }, [sessionId]);
+  }, []);
 
-  // Best-effort cleanup when the tab is hidden (pagehide) or the app
-  // unmounts. Only ever operates on the sessionId this component owns.
+  // pagehide fires on backgrounding / hard nav. SPA route changes fire
+  // the unmount effect below instead — both funnel through the same
+  // idempotent lifecycle.end() so at most one end() actually goes out
+  // per owned reservation. Uses a ref so we never capture a stale id.
   useEffect(() => {
-    if (!sessionId) return;
     const cleanup = () => {
-      const sid = sessionId;
-      // fire-and-forget; auth middleware attaches the bearer.
-      endSession({ data: { sessionId: sid, disconnectReason: "pagehide" } }).catch(() => {});
+      lifecycleRef.current?.end("pagehide");
     };
     window.addEventListener("pagehide", cleanup);
     return () => window.removeEventListener("pagehide", cleanup);
-  }, [sessionId]);
+  }, []);
 
   useEffect(
     () => () => {
       clientRef.current?.close("route_unmount");
       clientRef.current = null;
+      // SPA route unmount: pagehide does NOT fire here. Without this we
+      // would leak a reserved DB row until the stale-cutoff swept it.
+      lifecycleRef.current?.end("route_unmount");
     },
     [],
   );
