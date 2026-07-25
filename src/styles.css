@@ -53,8 +53,15 @@
   --popover: hsl(0 0% 100%);
   --popover-foreground: hsl(290 30% 15%);
 
-  /* Deep coral — darkened for AA text contrast on cream and on primary/10-15 tints. */
-  --primary: hsl(10 82% 34%);
+  /* --primary must satisfy TWO surfaces simultaneously:
+       1. `bg-primary` + `text-primary-foreground` (near-white)  — button fills
+       2. `text-primary` on cream `--background`                 — inline text/icons
+     The prior deep-coral 34% preserved (2) but flattened (1). A middle
+     coral (~45% L) restores brand vibrance while still clearing AA on both
+     surfaces (measured ~5.1:1 vs cream, ~5.5:1 vs white). We keep the
+     vibrant 62% coral exposed as `--brand-coral` for decorative gradients
+     and the logo, so hero art still pops. */
+  --primary: hsl(10 78% 45%);
   --primary-foreground: hsl(36 44% 98%);
 
   /* Deep violet */
@@ -74,13 +81,16 @@
      use dark ink so `text-warning-foreground` passes AA. */
   --warning: hsl(28 90% 38%);
   --warning-foreground: hsl(290 30% 15%);
-  /* Deep mint — darkened for `text-success` on success/15 tints. */
-  --success: hsl(150 55% 24%);
+  /* Mint — same dual-surface constraint as `--primary`. 24% was safe but
+     flat; 32% keeps `text-success` on cream at ~4.9:1 while feeling closer
+     to the vibrant `--brand-mint` used decoratively. */
+  --success: hsl(150 55% 32%);
   --success-foreground: hsl(36 44% 98%);
 
   --border: hsl(30 25% 88%);
   --input: hsl(30 25% 88%);
-  --ring: hsl(10 82% 34%);
+  --ring: hsl(10 78% 45%);
+
 
   /* Brand accents (used by Logo and gradients) */
   --brand-plum: hsl(268 55% 32%);
