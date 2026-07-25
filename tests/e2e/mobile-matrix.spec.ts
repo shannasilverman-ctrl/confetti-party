@@ -271,8 +271,13 @@ test.describe("mobile matrix — no horizontal overflow", () => {
         // report — proves the anchor exists AND resolves to a fixed/sticky node.
         for (const sel of scenario.requiredSticky ?? []) {
           expect(
-            sticky.find((s) => s.required && s.selector.includes(`data-testid=${sel.replace(/^\[data-testid="?/, "").replace(/"?\]$/, "")}`)) ||
-              sticky.find((s) => s.required),
+            sticky.find(
+              (s) =>
+                s.required &&
+                s.selector.includes(
+                  `data-testid=${sel.replace(/^\[data-testid="?/, "").replace(/"?\]$/, "")}`,
+                ),
+            ) || sticky.find((s) => s.required),
             `${scenario.slug}@${width}px — required sticky ${sel} not measured`,
           ).toBeTruthy();
         }

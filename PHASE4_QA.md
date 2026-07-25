@@ -108,13 +108,13 @@ Source is a managed asset pointer, `src/assets/confetti-hero.jpg.asset.json`.
 The pointer file itself is small JSON; the JPEG payload it references is
 much larger and lives in R2 behind the `/__l5e/...` URL.
 
-| Property                             | Value                                                                                             |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| Descriptor file (`*.asset.json`)     | **459 bytes on disk** (`wc -c src/assets/confetti-hero.jpg.asset.json`)                            |
-| Referenced JPEG payload (`size:` field) | **121,037 bytes** (declared in the pointer, served from R2 at the `url` field)                     |
-| Payload content type                 | `image/jpeg`                                                                                      |
-| Decoded pixel dimensions             | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker) |
-| `<img>` intrinsic attrs              | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"` |
+| Property                                | Value                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Descriptor file (`*.asset.json`)        | **459 bytes on disk** (`wc -c src/assets/confetti-hero.jpg.asset.json`)                           |
+| Referenced JPEG payload (`size:` field) | **121,037 bytes** (declared in the pointer, served from R2 at the `url` field)                    |
+| Payload content type                    | `image/jpeg`                                                                                      |
+| Decoded pixel dimensions                | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker) |
+| `<img>` intrinsic attrs                 | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"` |
 
 The intrinsic attrs and the decoded pixel dimensions agree. Any prior
 mention of `1600 × 900` was inherited from an earlier hero and is no

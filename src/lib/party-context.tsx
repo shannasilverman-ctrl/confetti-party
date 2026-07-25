@@ -552,9 +552,23 @@ function seedAvaLiam(): Party {
     ],
     shoppingItems: [],
     bringBoard: [
-      { id: uid(), category: "Sides", label: "Antipasti board", qty: 2, status: "open", source: "host" },
+      {
+        id: uid(),
+        category: "Sides",
+        label: "Antipasti board",
+        qty: 2,
+        status: "open",
+        source: "host",
+      },
       { id: uid(), category: "Dessert", label: "Tiramisu", qty: 1, status: "open", source: "host" },
-      { id: uid(), category: "Drinks", label: "Chianti bottles", qty: 6, status: "open", source: "host" },
+      {
+        id: uid(),
+        category: "Drinks",
+        label: "Chianti bottles",
+        qty: 6,
+        status: "open",
+        source: "host",
+      },
     ],
     pinnedInspiration: [],
     hostNote:
