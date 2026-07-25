@@ -117,10 +117,12 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
 });
 
 test.describe("Holiday starter → editable workspace", () => {
-  test("picking a starter prefills a name and opens the party overview", async ({ page }) => {
+  test("picking a starter prefills a name and produces an editable workspace", async ({
+    page,
+  }) => {
     await page.goto("/app");
     await page.waitForLoadState("networkidle");
-    const trigger = page.getByRole("button", { name: /new party/i }).first();
+    const trigger = page.getByTestId("new-party-trigger");
     await expect(trigger).toBeVisible();
     await trigger.focus();
     await trigger.press("Enter");
@@ -152,14 +154,41 @@ test.describe("Holiday starter → editable workspace", () => {
       .getByRole("button", { name: /winter wonderland|cozy cabin|sparkle and shine/i })
       .first()
       .click();
-    // Look for the finish/create button.
     await dialog
       .getByRole("button", { name: /create party/i })
       .first()
       .click();
 
-    // Success screen or auto-nav lands in the party workspace; loosely assert.
-    // Signed-out demo mode does not persist, but the workspace must render.
-    await expect(page.locator("body")).toContainText(/Friendsgiving/i, { timeout: 15_000 });
+    // Party card renders with the chosen name.
+    await expect(page.getByText("Friendsgiving @ Sam's", { exact: false })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Prove editability: open the party, then use Edit details to rename it,
+    // and assert the new name appears everywhere it should.
+    await page.getByText("Friendsgiving @ Sam's", { exact: false }).first().click();
+    await page.waitForLoadState("networkidle");
+
+    const editBtn = page.getByRole("button", { name: /edit details/i }).first();
+    await expect(editBtn).toBeVisible();
+    await editBtn.click();
+    const editDialog = page.getByRole("dialog");
+    await expect(editDialog).toBeVisible();
+    const editNameField = editDialog.getByLabel(/party name/i);
+    await editNameField.fill("Sam's Table 2026");
+    await editDialog.getByRole("button", { name: /save changes/i }).click();
+    await expect(editDialog).toBeHidden();
+
+    // The renamed workspace persists in the header/hero.
+    await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // At least one seeded Thanksgiving-flavored task is visible in the checklist.
+    const checklistTab = page.getByRole("tab", { name: /checklist|tasks/i }).first();
+    if (await checklistTab.count()) {
+      await checklistTab.click();
+      await expect(page.locator("body")).toContainText(/turkey|guest|invite/i);
+    }
   });
 });
