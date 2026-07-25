@@ -23,7 +23,6 @@ export default defineConfig({
         "src/lib/shopping.ts",
         "src/lib/talk-demo.ts",
         "src/components/logo.tsx",
-
       ],
       thresholds: {
         lines: 80,
@@ -32,7 +31,5 @@ export default defineConfig({
         branches: 75,
       },
     },
-
-
   },
 });

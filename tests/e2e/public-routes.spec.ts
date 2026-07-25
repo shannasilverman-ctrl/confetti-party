@@ -54,7 +54,6 @@ test("RSVP page renders a sanitized not-found state for an unknown token", async
   expect(body).not.toMatch(/JWT|PostgREST|SQLSTATE|stack|TypeError|500|internal server/i);
 });
 
-
 test("/talk renders a signed-out demo experience (no redirect to /auth)", async ({ page }) => {
   await page.goto("/talk", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/talk/);
@@ -100,4 +99,3 @@ for (const path of ["/", "/talk"]) {
     expect(blocking, detail).toEqual([]);
   });
 }
-
