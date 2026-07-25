@@ -676,9 +676,17 @@ function makeParty(
     theme: string;
     themeId?: string;
     extraTasks?: Task[];
+    holidayPackId?: string;
   },
   id: string,
 ): Party {
+  // Lazy-load holiday-packs to avoid a circular import at module scope.
+  // starterPack("generic") returns undefined by design.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { starterPack, packTasks, packBringBoard } = require("./holiday-packs") as typeof import("./holiday-packs");
+  const pack = starterPack(input.holidayPackId as never);
+  const packTaskEntries = pack ? packTasks(pack, () => newId()) : [];
+  const packBring = pack ? packBringBoard(pack, () => newId()) : [];
   return {
     id,
     name: input.name,
@@ -690,13 +698,19 @@ function makeParty(
     budget: input.budget,
     theme: input.theme,
     themeId: input.themeId,
-    tasks: [...generateTasks(input.occasion, input.date), ...(input.extraTasks ?? [])],
+    holidayPackId: pack?.id,
+    tasks: [
+      ...packTaskEntries,
+      ...generateTasks(input.occasion, input.date),
+      ...(input.extraTasks ?? []),
+    ],
     guests: [],
     budgetCategories: defaultCategoriesFor(input.occasion),
     timeline:
       input.occasion === "game-day" && input.startTime ? seedGameDayTimeline(input.startTime) : [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
     pinnedInspiration: [],
+    bringBoard: packBring,
   };
 }
 
