@@ -273,30 +273,19 @@ export type Database = {
         }
         Returns: Json
       }
-      submit_rsvp:
-        | {
-            Args: {
-              adults: number
-              guest_name: string
-              kids: number
-              rsvp: string
-              token: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              adults: number
-              allergens?: Json
-              dietary?: Json
-              guest_name: string
-              household_label?: string
-              kids: number
-              rsvp: string
-              token: string
-            }
-            Returns: Json
-          }
+      submit_rsvp: {
+        Args: {
+          adults: number
+          allergens?: Json
+          dietary?: Json
+          guest_name: string
+          household_label?: string
+          kids: number
+          rsvp: string
+          token: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
