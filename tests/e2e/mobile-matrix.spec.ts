@@ -25,7 +25,8 @@ type Scenario = {
 };
 
 const SCENARIOS: Scenario[] = [
-  { slug: "landing", route: "/", containers: ["main", "header", "footer"] },
+  // Landing does not render a <main>; header/footer are the durable landmarks.
+  { slug: "landing", route: "/", containers: ["header", "footer"] },
   { slug: "talk-signed-out", route: "/talk", containers: ["main"] },
   { slug: "app-dashboard", route: "/app", containers: ["main"] },
   {
