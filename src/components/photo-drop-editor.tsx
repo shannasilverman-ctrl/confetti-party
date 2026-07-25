@@ -242,7 +242,12 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
                   </Button>
                 )}
                 <Button size="sm" variant="outline" asChild>
-                  <a href={existing.url} target="_blank" rel="noopener noreferrer">
+                  <a
+                    href={existing.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    referrerPolicy="no-referrer"
+                  >
                     <ExternalLink className="h-4 w-4" /> Open
                   </a>
                 </Button>
