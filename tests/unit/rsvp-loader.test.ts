@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveRsvpLoaderData } from "@/lib/rsvp.functions";
 
 const cfg = { origin: "https://x", supabaseUrl: "https://u", supabaseKey: "sb_publishable_x" };
+const T = "00000000-0000-0000-0000-000000000001";
 
 describe("resolveRsvpLoaderData", () => {
   it("returns not_found for missing token", async () => {
