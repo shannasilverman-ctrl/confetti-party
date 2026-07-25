@@ -499,4 +499,48 @@ describe("POST /api/realtime/session", () => {
     expect(logSink.join("\n")).toMatch(/req_provider_123/);
     expect(logSink.join("\n")).toMatch(/mint_upstream_non_2xx/);
   });
+
+  // ---- Post-insert recount fail-closed (release blocker) ----------------
+
+  it("post-insert recount DB error → sanitized 503, closes reservation, never mints", async () => {
+    const state = makeState({ recountError: { code: "57P01" } });
+    let openaiCalls = 0;
+    const handler = bind(state, async () => {
+      openaiCalls++;
+      return okOpenAI();
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.error).toBe("voice_unavailable");
+    // OpenAI is never called after fail-closed.
+    expect(openaiCalls).toBe(0);
+    // Reservation was closed (best-effort cleanup succeeded).
+    expect(state.updates.length).toBe(1);
+    // Correlation-only log; DB code allowed, no user id / bearer / api key.
+    const logs = logSink.join("\n");
+    expect(logs).toMatch(/recount_failed/);
+    expect(logs).toMatch(/57P01/);
+    expect(logs).not.toMatch(/user-uuid-123/);
+    expect(logs).not.toMatch(/sk-test-do-not-log/);
+  });
+
+  it("post-insert recount error + cleanup failure → still 503, never mints, no sensitive logs", async () => {
+    const state = makeState({
+      recountError: { code: "40001" },
+      updateError: { code: "40001" },
+    });
+    let openaiCalls = 0;
+    const handler = bind(state, async () => {
+      openaiCalls++;
+      return okOpenAI();
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(503);
+    expect(openaiCalls).toBe(0);
+    const logs = logSink.join("\n");
+    expect(logs).toMatch(/recount_failed/);
+    expect(logs).not.toMatch(/user-uuid-123/);
+    expect(logs).not.toMatch(/Bearer /);
+  });
 });
