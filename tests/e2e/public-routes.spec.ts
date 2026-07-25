@@ -109,4 +109,3 @@ for (const path of AXE_ROUTES) {
     expect(blocking, detail).toEqual([]);
   });
 }
-

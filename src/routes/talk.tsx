@@ -71,11 +71,10 @@ const TALK_ERROR_COPY: Record<TalkErrorCategory, string> = {
 
 function friendlyTalkError(category: TalkErrorCategory, err: unknown): string {
   // Log the raw cause for developers; users only ever see the copy.
-  // eslint-disable-next-line no-console
+
   console.debug("[talk]", category, err instanceof Error ? err.name : typeof err);
   return TALK_ERROR_COPY[category];
 }
-
 
 function TalkRoute() {
   const { user, loading } = useAuth();
@@ -218,9 +217,7 @@ function TalkRoute() {
 
   useEffect(() => {
     if (demoLimitReached) {
-      setStatusAnnouncement(
-        "Demo turns used. Sign up free to keep going and save your plan.",
-      );
+      setStatusAnnouncement("Demo turns used. Sign up free to keep going and save your plan.");
     }
   }, [demoLimitReached]);
 
@@ -275,7 +272,6 @@ function TalkRoute() {
       setConfirming(false);
     }
   }, [draftId, isDemo, navigate]);
-
 
   // ---------- Voice-mode handlers (unchanged behavior) ----------
 
@@ -397,7 +393,6 @@ function TalkRoute() {
       setConnecting(false);
     }
   }, [handleVoiceEvent, navigate, isDemo, user]);
-
 
   const stopVoice = useCallback(async () => {
     clientRef.current?.close("user_ended");
