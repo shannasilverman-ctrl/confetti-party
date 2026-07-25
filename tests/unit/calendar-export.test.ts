@@ -26,7 +26,7 @@ describe("calendar export", () => {
     const second = buildIcs(PARTY, new Date("2027-02-03T04:05:06.000Z"));
     const uid = first.match(/^UID:(.+)$/m)?.[1];
 
-    expect(uid).toMatch(/^confetti-[0-9a-f]{8}@confetti-party\.lovable\.app\r?$/);
+    expect(uid).toMatch(/^confetti-[0-9a-f]{8}@confettiapp\.ai\r?$/);
     expect(second).toContain(`UID:${uid?.replace(/\r$/, "")}`);
     expect(first).toContain("DTSTAMP:20270102T030405Z\r\n");
     expect(first).toContain("DTSTART:20270522T183000\r\n");

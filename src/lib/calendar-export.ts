@@ -93,7 +93,7 @@ function stableUid(party: CalendarParty): string {
     hash ^= source.charCodeAt(index);
     hash = Math.imul(hash, 0x01000193);
   }
-  return `confetti-${(hash >>> 0).toString(16).padStart(8, "0")}@confetti-party.lovable.app`;
+  return `confetti-${(hash >>> 0).toString(16).padStart(8, "0")}@confettiapp.ai`;
 }
 
 export function buildIcs(party: CalendarParty, generatedAt: Date = new Date()): string {

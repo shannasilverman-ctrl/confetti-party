@@ -39,6 +39,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { formatDateOnly } from "@/lib/date-only";
+import { planningDetailIsOpen } from "@/lib/party-context";
 
 type NavTab =
   | "overview"
@@ -62,6 +63,7 @@ export function OverviewTab({
   const [inviteOpen, setInviteOpen] = useState(false);
 
   const days = daysUntil(party.date);
+  const dateTbd = planningDetailIsOpen(party, "date");
   const prog = progressPct(party);
   const g = guestCounts(party);
   const spent = totalSpent(party);
@@ -106,11 +108,13 @@ export function OverviewTab({
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-5 sm:p-7">
             <div className="min-w-0">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
-                {formatDateOnly(party.date, {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {dateTbd
+                  ? "Date to decide"
+                  : formatDateOnly(party.date, {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                 {party.startTime ? ` · ${party.startTime}` : ""}
               </div>
               <h2 className="mt-1 truncate font-display text-3xl font-semibold text-white sm:text-5xl">
@@ -138,11 +142,13 @@ export function OverviewTab({
             <div className="flex flex-wrap items-center gap-2">
               {theme && <Badge variant="accent">{theme.name}</Badge>}
               <Badge variant="soft">
-                {days > 0
-                  ? `${days} days to go`
-                  : days === 0
-                    ? "Today"
-                    : `${Math.abs(days)} days ago`}
+                {dateTbd
+                  ? "Date to decide"
+                  : days > 0
+                    ? `${days} days to go`
+                    : days === 0
+                      ? "Today"
+                      : `${Math.abs(days)} days ago`}
               </Badge>
               {!party.heroImageUrl && (
                 <div className="ml-auto">

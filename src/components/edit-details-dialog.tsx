@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useParties } from "@/lib/party-context";
+import { planningDetailIsOpen, resolvePlanningDetails, useParties } from "@/lib/party-context";
 import { Pencil } from "lucide-react";
 
 const HOST_NOTE_MAX = 280;
@@ -24,29 +24,45 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [location, setLocation] = useState("");
+  const [guestEstimate, setGuestEstimate] = useState("");
+  const [budget, setBudget] = useState("");
   const [hostNote, setHostNote] = useState("");
 
   useEffect(() => {
     if (!open || !party) return;
     setName(party.name);
-    setDate(party.date);
+    setDate(planningDetailIsOpen(party, "date") ? "" : party.date);
     setStartTime(party.startTime ?? "");
     setLocation(party.location ?? "");
+    setGuestEstimate(planningDetailIsOpen(party, "guests") ? "" : String(party.guestEstimate));
+    setBudget(planningDetailIsOpen(party, "budget") ? "" : String(party.budget));
     setHostNote(party.hostNote ?? "");
   }, [open, party]);
 
   if (!party) return null;
 
   const save = () => {
-    if (!name.trim() || !date) return;
-    updateParty(partyId, (p) => ({
-      ...p,
-      name: name.trim(),
-      date,
-      startTime: startTime.trim() || undefined,
-      location: location.trim() || undefined,
-      hostNote: hostNote.trim() ? hostNote.trim().slice(0, HOST_NOTE_MAX) : undefined,
-    }));
+    if (!name.trim()) return;
+    updateParty(partyId, (p) => {
+      const details = [
+        ...(date ? (["date"] as const) : []),
+        ...(guestEstimate ? (["guests"] as const) : []),
+        ...(budget ? (["budget"] as const) : []),
+      ];
+      return resolvePlanningDetails(
+        {
+          ...p,
+          name: name.trim(),
+          date: date || p.date,
+          startTime: startTime.trim() || undefined,
+          location: location.trim() || undefined,
+          guestEstimate: guestEstimate ? Number(guestEstimate) : p.guestEstimate,
+          budget: budget ? Number(budget) : p.budget,
+          hostNote: hostNote.trim() ? hostNote.trim().slice(0, HOST_NOTE_MAX) : undefined,
+        },
+        details,
+      );
+    });
     setOpen(false);
   };
 
@@ -104,6 +120,30 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
                 />
               </div>
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-guests">Guest estimate (optional)</Label>
+                <Input
+                  id="ed-guests"
+                  type="number"
+                  min={1}
+                  value={guestEstimate}
+                  onChange={(e) => setGuestEstimate(e.target.value)}
+                  placeholder="Decide later"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-budget">Budget (optional)</Label>
+                <Input
+                  id="ed-budget"
+                  type="number"
+                  min={0}
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="Decide later"
+                />
+              </div>
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="ed-host-note">Note to your guests (optional)</Label>
               <Textarea
@@ -126,7 +166,7 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button variant="festive" onClick={save} disabled={!name.trim() || !date}>
+            <Button variant="festive" onClick={save} disabled={!name.trim()}>
               Save changes
             </Button>
           </DialogFooter>

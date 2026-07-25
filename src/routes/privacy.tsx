@@ -74,11 +74,8 @@ function PrivacyPage() {
             <li>Supabase — database, authentication, and storage.</li>
             <li>Cloudflare — hosting and edge delivery.</li>
             <li>
-              OpenAI — Realtime API for the voice co-host, only when you start a voice session.
-            </li>
-            <li>
-              Lovable AI Gateway — processes text planning turns and plan generation when you use
-              the AI co-host.
+              OpenAI — processes text planning turns and, only when you start one, a short-lived
+              Realtime API voice session for the co-host.
             </li>
           </ul>
 

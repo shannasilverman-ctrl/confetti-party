@@ -22,9 +22,9 @@ Talk it out → Party Reveal → Next Three Things → Guest World / Bring Board
 
 ## Architecture
 
-TanStack Start (React 19 + Vite 7) rendered on Cloudflare Workers, with
-Supabase (Postgres + Auth) as the durable store. AI features run through
-the Lovable AI Gateway.
+TanStack Start (React 19 + Vite 8) rendered on Cloudflare Workers, with
+Supabase (Postgres + Auth) as the durable store. AI features call OpenAI
+directly from server-only handlers.
 
 ```text
 Browser ──▶ TanStack Router ──▶ Route loader ──▶ createServerFn (worker)
@@ -34,7 +34,7 @@ Browser ──▶ TanStack Router ──▶ Route loader ──▶ createServerF
                                                 DEFINER RPCs for tokens)
                                                         │
                                                         ▼
-                                                Lovable AI Gateway
+                                                OpenAI API
 ```
 
 - **UI**: `src/routes/*` (file-based), `src/components/*`, `src/lib/*`.
@@ -55,10 +55,10 @@ bun install --frozen-lockfile
 bun run dev            # http://localhost:8080
 ```
 
-Environment: the dev server injects Lovable Cloud secrets automatically. Do
-not add real Supabase or OpenAI keys to `.env`. Anything the client needs
-must be prefixed `VITE_`; secrets stay unprefixed and are read inside
-`.handler()` bodies only.
+Copy `.env.example` to a local `.env` and fill in development values. Never
+commit real Supabase or OpenAI keys. Anything the client needs must be
+prefixed `VITE_`; secrets stay unprefixed and are read inside `.handler()`
+bodies only.
 
 ## Tests
 

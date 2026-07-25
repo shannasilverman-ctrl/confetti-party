@@ -10,6 +10,8 @@ import {
   type OccasionType,
   type Task,
   newId,
+  planningDetailIsOpen,
+  PLANNING_TASK_TITLES,
 } from "@/lib/party-context";
 import { themeById, themesForOccasion, type Theme } from "@/lib/themes";
 import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
@@ -21,7 +23,7 @@ import { BrandLockup } from "@/components/brand";
 import { DeletePartyButton } from "@/components/delete-party-button";
 import { AuthNav } from "@/components/auth-nav";
 import { AppSaveStatus } from "@/components/app-save-status";
-import { ConfettiBurst, celebrateAtEvent, celebrate } from "@/components/confetti-burst";
+import { ConfettiBurst, celebrate } from "@/components/confetti-burst";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -41,7 +43,6 @@ import {
   Plus,
   ArrowRight,
   PartyPopper,
-  Check,
   Sparkles,
   X,
   RefreshCw,
@@ -49,7 +50,7 @@ import {
   Copy,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateOnly } from "@/lib/date-only";
+import { formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
 
 type AppSearch = { new?: boolean };
 
@@ -164,7 +165,7 @@ function Dashboard() {
               parties.length > 0 &&
               (() => {
                 const upcoming = [...parties]
-                  .filter((p) => daysUntil(p.date) >= 0)
+                  .filter((p) => !planningDetailIsOpen(p, "date") && daysUntil(p.date) >= 0)
                   .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0];
                 if (!upcoming) return null;
                 const d = daysUntil(upcoming.date);
@@ -236,8 +237,8 @@ function Dashboard() {
               Plan your first party
             </h3>
             <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
-              Answer a few quick questions and Confetti will set up your checklist, shopping list,
-              and day-of timeline.
+              One idea is enough. Confetti will build the starting plan and keep track of anything
+              you want to decide later.
             </p>
             <Button className="mt-6" variant="festive" onClick={() => setWizardOpen(true)}>
               <Plus /> Start a party
@@ -247,6 +248,9 @@ function Dashboard() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {parties.map((p) => {
               const days = daysUntil(p.date);
+              const dateTbd = planningDetailIsOpen(p, "date");
+              const guestsTbd = planningDetailIsOpen(p, "guests");
+              const budgetTbd = planningDetailIsOpen(p, "budget");
               const g = guestCounts(p);
               const spent = totalSpent(p);
               const prog = progressPct(p);
@@ -301,15 +305,21 @@ function Dashboard() {
                     </h3>
                     <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <CalendarDays className="h-3.5 w-3.5" />
-                      {formatDateOnly(p.date, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                      <span className="mx-1">·</span>
-                      <span className="font-medium text-primary">
-                        {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
-                      </span>
+                      {dateTbd ? (
+                        <span className="font-medium text-primary">Date to decide</span>
+                      ) : (
+                        <>
+                          {formatDateOnly(p.date, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                          <span className="mx-1">·</span>
+                          <span className="font-medium text-primary">
+                            {days > 0 ? `${days} days to go` : days === 0 ? "Today!" : "Past"}
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
@@ -318,7 +328,7 @@ function Dashboard() {
                           <Users className="h-3.5 w-3.5" /> Guests
                         </div>
                         <div className="mt-0.5 font-semibold text-secondary">
-                          {g.total || p.guestEstimate}
+                          {g.total || (!guestsTbd ? p.guestEstimate : "To decide")}
                         </div>
                       </div>
                       <div className="rounded-xl bg-muted/60 p-3">
@@ -326,7 +336,13 @@ function Dashboard() {
                           <Wallet className="h-3.5 w-3.5" /> Budget
                         </div>
                         <div className="mt-0.5 font-semibold text-secondary">
-                          ${spent} <span className="text-muted-foreground">/ ${p.budget}</span>
+                          {budgetTbd ? (
+                            "To decide"
+                          ) : (
+                            <>
+                              ${spent} <span className="text-muted-foreground">/ ${p.budget}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -409,39 +425,82 @@ function NewPartyWizard({
 }) {
   const { createParty, getParty } = useParties();
   const navigate = Route.useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3 | "done">(1);
+  const [step, setStep] = useState<"idea" | "done">("idea");
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [occasion, setOccasion] = useState<OccasionType | null>(null);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [location, setLocation] = useState("");
-  const [guestEstimate, setGuestEstimate] = useState(20);
-  const [budget, setBudget] = useState(500);
+  const [guestEstimate, setGuestEstimate] = useState("");
+  const [budget, setBudget] = useState("");
   const [theme, setTheme] = useState<Theme | null>(null);
   const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
 
   function reset() {
-    setStep(1);
+    setStep("idea");
     setCreatedId(null);
     setOccasion(null);
     setName("");
     setDate("");
     setStartTime("");
     setLocation("");
-    setGuestEstimate(20);
-    setBudget(500);
+    setGuestEstimate("");
+    setBudget("");
     setTheme(null);
     setHolidayStarter(null);
   }
 
   function finish() {
-    if (!occasion || !date || !theme) return;
+    const chosenOccasion = occasion ?? "other";
+    const chosenTheme = theme ?? themesForOccasion(chosenOccasion)[0] ?? null;
+    const planningTasks: Task[] = [
+      ...(!date
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.date,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(!guestEstimate
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.guests,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(!budget
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.budget,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(!theme
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.theme,
+              bucket: "3-5 weeks" as const,
+              done: false,
+            },
+          ]
+        : []),
+    ];
     // Seed a small set of theme decor tasks into the checklist.
     // Skip purely instructional ideas (estPrice 0) so seeded tasks are actionable items.
-    const extraTasks: Task[] = theme.decorIdeas
+    const themeTasks: Task[] = (chosenTheme?.decorIdeas ?? [])
       .filter((idea) => idea.estPrice > 0)
       .slice(0, 4)
       .map((idea) => ({
@@ -451,17 +510,20 @@ function NewPartyWizard({
         done: false,
       }));
     const id = createParty({
-      name: name || `New ${OCCASION_LABELS[occasion]}`,
-      occasion,
-      date,
+      name: name.trim() || `New ${OCCASION_LABELS[chosenOccasion]}`,
+      occasion: chosenOccasion,
+      // The data layer still requires a sortable date. A skipped date gets a
+      // neutral planning horizon and an explicit open task; UI surfaces treat
+      // that task as "Date TBD" rather than presenting the fallback as fact.
+      date: date || nextWeekdayDateOnly(6, 28),
       startTime: startTime.trim() || undefined,
       location: location.trim() || undefined,
-      guestEstimate,
-      budget,
-      theme: theme.name,
-      themeId: theme.id,
-      extraTasks,
-      holidayPackId: occasion === "holiday" && holidayStarter ? holidayStarter : undefined,
+      guestEstimate: Number(guestEstimate) || 0,
+      budget: Number(budget) || 0,
+      theme: chosenTheme?.name ?? "Make it yours",
+      themeId: chosenTheme?.id,
+      extraTasks: [...planningTasks, ...themeTasks],
+      holidayPackId: chosenOccasion === "holiday" && holidayStarter ? holidayStarter : undefined,
     });
     setCreatedId(id);
     setStep("done");
@@ -518,49 +580,55 @@ function NewPartyWizard({
       >
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-secondary">
-            {step === 1 && "What are you hosting?"}
-            {step === 2 && "The essentials"}
-            {step === 3 && "Pick your theme"}
+            {step === "idea" && "What are you thinking?"}
             {step === "done" && "Your plan is ready"}
           </DialogTitle>
-          <div className="mt-2 flex gap-1.5">
-            {[1, 2, 3].map((n) => {
-              const active = step === "done" ? true : n <= step;
-              return (
-                <div
-                  key={n}
-                  className={`h-1.5 flex-1 rounded-full transition ${
-                    active ? "bg-primary" : "bg-muted"
-                  }`}
-                />
-              );
-            })}
-          </div>
+          {step === "idea" && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Give us one thought or everything you know. Nothing here has to be final.
+            </p>
+          )}
         </DialogHeader>
 
-        {step === 1 && (
-          <div className="grid grid-cols-2 gap-3 py-4" data-testid="wizard-step-1">
-            {OCCASIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                data-testid={`wizard-occasion-${o.value}`}
-                onClick={() => selectOccasion(o.value)}
-                className={`min-h-11 rounded-2xl border p-5 text-left transition ${
-                  occasion === o.value
-                    ? "border-primary bg-primary/5 shadow-card"
-                    : "border-border hover:border-primary/40 hover:bg-muted/40"
-                }`}
-              >
-                <div className="text-2xl">{o.emoji}</div>
-                <div className="mt-2 font-medium text-secondary">{o.label}</div>
-              </button>
-            ))}
-          </div>
-        )}
+        {step === "idea" && (
+          <div className="grid gap-5 py-4" data-testid="wizard-step-1">
+            <div>
+              <Label htmlFor="name">Start with the idea</Label>
+              <Input
+                id="name"
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Sunday dinner, Maya's birthday, World Cup watch party…"
+                className="mt-1.5"
+              />
+            </div>
 
-        {step === 2 && (
-          <div className="grid gap-4 py-4" data-testid="wizard-step-2">
+            <fieldset>
+              <legend className="text-sm font-medium text-secondary">
+                What kind of gathering?{" "}
+                <span className="font-normal text-muted-foreground">Optional</span>
+              </legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {OCCASIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    data-testid={`wizard-occasion-${o.value}`}
+                    onClick={() => selectOccasion(o.value)}
+                    className={`inline-flex min-h-12 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm transition ${
+                      occasion === o.value
+                        ? "border-primary bg-primary/10 text-secondary shadow-sm"
+                        : "border-border bg-background text-secondary hover:border-primary/40"
+                    }`}
+                  >
+                    <span aria-hidden>{o.emoji}</span>
+                    <span>{o.label}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
             {occasion === "holiday" && (
               <fieldset
                 aria-label="Holiday starter"
@@ -601,124 +669,96 @@ function NewPartyWizard({
                 </div>
               </fieldset>
             )}
-            <div>
-              <Label htmlFor="name">Party name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={
-                  occasion ? `e.g. Sam's ${OCCASION_LABELS[occasion]}` : "Give it a name"
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="date">Date</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <Label htmlFor="start-time">Start time (optional)</Label>
-                <Input
-                  id="start-time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  placeholder="e.g. 2:00 PM"
-                />
+            <details className="group rounded-2xl border border-border bg-muted/20">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-secondary">
+                Add anything you already know
+                <span className="text-xs font-normal text-primary group-open:hidden">
+                  Date, place, guests, budget
+                </span>
+                <span className="hidden text-xs font-normal text-muted-foreground group-open:inline">
+                  All optional
+                </span>
+              </summary>
+              <div className="grid gap-4 border-t border-border p-4">
+                <div>
+                  <Label htmlFor="date">Date (optional)</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="start-time">Start time (optional)</Label>
+                    <Input
+                      id="start-time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      placeholder="e.g. 2:00 PM"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="location">Location (optional)</Label>
+                    <Input
+                      id="location"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="e.g. Our backyard"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="guests">Guests (optional)</Label>
+                    <Input
+                      id="guests"
+                      type="number"
+                      min={1}
+                      value={guestEstimate}
+                      onChange={(e) => setGuestEstimate(e.target.value)}
+                      placeholder="Not sure"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="budget">Budget (optional)</Label>
+                    <Input
+                      id="budget"
+                      type="number"
+                      min={0}
+                      value={budget}
+                      onChange={(e) => setBudget(e.target.value)}
+                      placeholder="Not sure"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="location">Location (optional)</Label>
-                <Input
-                  id="location"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Our backyard"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="guests">Guests (est.)</Label>
-                <Input
-                  id="guests"
-                  type="number"
-                  min={1}
-                  value={guestEstimate}
-                  onChange={(e) => setGuestEstimate(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="budget">Budget ($)</Label>
-                <Input
-                  id="budget"
-                  type="number"
-                  min={0}
-                  value={budget}
-                  onChange={(e) => setBudget(Number(e.target.value))}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+            </details>
 
-        {step === 3 && (
-          <div className="py-4" data-testid="wizard-step-3">
-            {themeOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No themes yet for this occasion. You can still create the party and pick one later.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {themeOptions.map((t) => {
-                  const selected = theme?.id === t.id;
-                  return (
+            {themeOptions.length > 0 && (
+              <div>
+                <div className="text-sm font-medium text-secondary">
+                  Pick a look{" "}
+                  <span className="font-normal text-muted-foreground">or leave it for later</span>
+                </div>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                  {themeOptions.slice(0, 4).map((t) => (
                     <button
                       key={t.id}
                       type="button"
                       data-testid={`wizard-theme-${t.id}`}
-                      onClick={(e) => {
-                        if (theme?.id !== t.id) celebrateAtEvent("small", e);
-                        setTheme(t);
-                      }}
-                      className={`group min-h-11 overflow-hidden rounded-2xl border text-left transition ${
-                        selected
-                          ? "border-primary shadow-card ring-2 ring-primary/30"
-                          : "border-border hover:border-primary/40"
+                      onClick={() => setTheme(theme?.id === t.id ? null : t)}
+                      className={`min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm transition ${
+                        theme?.id === t.id
+                          ? "border-primary bg-primary/10 text-secondary"
+                          : "border-border bg-background text-secondary"
                       }`}
                     >
-                      <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                        <img
-                          src={t.heroImage}
-                          alt={t.name}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition group-hover:scale-105"
-                        />
-                        {selected && (
-                          <div className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card">
-                            <Check className="h-4 w-4" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <div className="font-display text-base font-semibold text-secondary">
-                          {t.name}
-                        </div>
-                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                          {t.vibe}
-                        </p>
-                        <div className="mt-2 flex gap-1">
-                          {t.palette.map((c, i) => (
-                            <span
-                              key={i}
-                              className="h-4 w-4 rounded-full border border-border"
-                              style={{ backgroundColor: c }}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                      {t.name}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -749,13 +789,13 @@ function NewPartyWizard({
           </div>
         )}
 
-        <DialogFooter className="flex-row justify-between sm:justify-between">
+        <DialogFooter className="gap-2 min-[360px]:flex-row min-[360px]:justify-between">
           {step === "done" ? (
             <>
               <Button
                 variant="ghost"
                 data-testid="wizard-close"
-                className="min-h-[45px]"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
                 onClick={() => {
                   onOpenChange(false);
                   reset();
@@ -766,7 +806,7 @@ function NewPartyWizard({
               <Button
                 variant="festive"
                 data-testid="wizard-open-plan"
-                className="min-h-[45px]"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
                 onClick={openPlan}
               >
                 <Sparkles /> Open your party plan
@@ -777,34 +817,20 @@ function NewPartyWizard({
               <Button
                 variant="ghost"
                 data-testid="wizard-back"
-                className="min-h-[45px]"
-                onClick={() =>
-                  step === 1 ? onOpenChange(false) : setStep(((step as number) - 1) as 1 | 2)
-                }
+                className="min-h-[45px] w-full min-[360px]:w-auto"
+                onClick={() => onOpenChange(false)}
               >
-                {step === 1 ? "Cancel" : "Back"}
+                Cancel
               </Button>
-              {(step as number) < 3 ? (
-                <Button
-                  variant="festive"
-                  data-testid="wizard-continue"
-                  className="min-h-[45px]"
-                  disabled={(step === 1 && !occasion) || (step === 2 && (!date || !name))}
-                  onClick={() => setStep(((step as number) + 1) as 2 | 3)}
-                >
-                  Continue <ArrowRight />
-                </Button>
-              ) : (
-                <Button
-                  variant="festive"
-                  data-testid="wizard-create"
-                  className="min-h-[45px]"
-                  disabled={!theme}
-                  onClick={finish}
-                >
-                  <PartyPopper /> Create party
-                </Button>
-              )}
+              <Button
+                variant="festive"
+                data-testid="wizard-create"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
+                disabled={!name.trim() && !occasion}
+                onClick={finish}
+              >
+                <PartyPopper /> Build my starting plan
+              </Button>
             </>
           )}
         </DialogFooter>

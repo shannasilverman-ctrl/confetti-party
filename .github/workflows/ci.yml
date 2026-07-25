@@ -61,8 +61,14 @@ jobs:
           PW_PORT: "4271"
         run: bun run verify:webserver
 
-      - name: E2E tests
-        run: bun run test:e2e
+      # Run each responsive matrix in a fresh Wrangler process. The local
+      # Worker runtime can exit after a long mixed-device suite on constrained
+      # runners, which turns otherwise passing cases into connection errors.
+      - name: E2E tests — desktop
+        run: bun run test:e2e:desktop
+
+      - name: E2E tests — mobile
+        run: bun run test:e2e:mobile
 
       - name: Upload Playwright report
         if: always()

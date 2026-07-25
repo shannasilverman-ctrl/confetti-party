@@ -7,7 +7,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
  *  - Tab stays within the modal (focus trap)
  *  - form fields have accessible labels
  *  - Escape closes and focus returns to the exact trigger
- *  - Every visible primary action across ALL wizard steps renders ≥44×44 CSS px
+ *  - Every visible primary action on the one-canvas flow renders ≥44×44 CSS px
  * Signed-out demo mode is used (no auth flow required).
  */
 
@@ -73,9 +73,8 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     });
     expect(focusInsideDialog).toBe(true);
 
-    // Pick Holiday so step 2 renders inputs to tab through.
+    // Pick Holiday so the optional starter controls render.
     await dialog.getByTestId("wizard-occasion-holiday").click();
-    await dialog.getByTestId("wizard-continue").click();
 
     const dialogInputs = dialog.locator("input");
     const count = await dialogInputs.count();
@@ -115,48 +114,26 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
     expect(returnedProbe).toBe("trigger-a");
   });
 
-  test("every visible primary tap target across ALL wizard steps is ≥44×44 CSS px", async ({
+  test("every visible primary tap target on the frictionless canvas is ≥44×44 CSS px", async ({
     page,
   }) => {
     for (const width of WIDTHS) {
       await page.setViewportSize({ width, height: 900 });
       const dialog = await openWizard(page);
 
-      // -------- STEP 1: occasion picker + footer Cancel/Continue --------
+      // One canvas: idea, optional occasion/starter/details/theme, then create.
       let m = await measureTargets(dialog, '[data-testid^="wizard-occasion-"]', width, "step1");
       expect(m, `step 1 measured ≥1 occasion @${width}`).toBeGreaterThan(0);
-      // Footer buttons at step 1: Cancel + Continue (Continue is disabled but visible).
       await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step1-cancel");
-      await measureTargets(dialog, '[data-testid="wizard-continue"]', width, "step1-continue");
+      await measureTargets(dialog, '[data-testid="wizard-create"]', width, "step1-create");
 
-      // Select Holiday to enter step 2 with starter chips.
       await dialog.getByTestId("wizard-occasion-holiday").click();
-      await dialog.getByTestId("wizard-continue").click();
-      await expect(dialog.getByTestId("wizard-step-2")).toBeVisible();
-
-      // -------- STEP 2: starter chips + inputs + Back/Continue --------
-      m = await measureTargets(dialog, '[data-testid^="wizard-starter-"]', width, "step2-starter");
-      expect(m, `step 2 measured ≥1 starter chip @${width}`).toBeGreaterThan(0);
-      // Inputs (name/date/time/location) must also meet 44px.
-      await measureTargets(dialog, "input", width, "step2-inputs");
-      await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step2-back");
-      await measureTargets(dialog, '[data-testid="wizard-continue"]', width, "step2-continue");
-
-      // Pick a starter so name is prefilled, then fill date and advance.
+      m = await measureTargets(dialog, '[data-testid^="wizard-starter-"]', width, "starter");
+      expect(m, `measured ≥1 starter chip @${width}`).toBeGreaterThan(0);
       await dialog.getByTestId("wizard-starter-thanksgiving").click();
-      const future = new Date(Date.now() + 21 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-      await dialog.getByLabel(/date/i).fill(future);
-      await dialog.getByTestId("wizard-continue").click();
-      await expect(dialog.getByTestId("wizard-step-3")).toBeVisible();
-
-      // -------- STEP 3: Holiday themes are curated — require ≥1 --------
-      m = await measureTargets(dialog, '[data-testid^="wizard-theme-"]', width, "step3-theme");
-      expect(m, `step 3 measured ≥1 theme card @${width}`).toBeGreaterThan(0);
-      await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step3-back");
-      await measureTargets(dialog, '[data-testid="wizard-create"]', width, "step3-create");
-
-      // Winter Wonderland is a stable holiday theme id (see src/lib/themes.ts).
-      await dialog.getByTestId("wizard-theme-winter-wonderland").click();
+      await measureTargets(dialog, "input:visible", width, "inputs");
+      m = await measureTargets(dialog, '[data-testid^="wizard-theme-"]', width, "theme");
+      expect(m, `measured ≥1 optional theme @${width}`).toBeGreaterThan(0);
       await dialog.getByTestId("wizard-create").click();
 
       // -------- COMPLETION: Close + Open plan --------
@@ -175,21 +152,17 @@ test.describe("Holiday starter → editable workspace", () => {
   }) => {
     const dialog = await openWizard(page);
     await dialog.getByTestId("wizard-occasion-holiday").click();
-    await dialog.getByTestId("wizard-continue").click();
 
     await dialog.getByTestId("wizard-starter-thanksgiving").click();
 
-    const nameInput = dialog.getByLabel(/party name/i);
+    const nameInput = dialog.getByLabel(/start with the idea/i);
     await expect(nameInput).toHaveValue(/thanksgiving/i);
     await nameInput.fill("Friendsgiving @ Sam's");
 
     const future = new Date(Date.now() + 21 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const details = dialog.locator("details");
+    await details.locator("summary").click();
     await dialog.getByLabel(/date/i).fill(future);
-    await dialog.getByTestId("wizard-continue").click();
-
-    const themes = dialog.locator('[data-testid^="wizard-theme-"]');
-    await expect(themes.first()).toBeVisible();
-    await themes.first().click();
     await dialog.getByTestId("wizard-create").click();
 
     // Enter workspace via the completion CTA (stable, no text search).
@@ -233,5 +206,27 @@ test.describe("Holiday starter → editable workspace", () => {
     // resets seed data, so persistence is scoped to the live session.)
     await tab("overview");
     await expect(page.getByText("Sam's Table 2026", { exact: false }).first()).toBeVisible();
+  });
+});
+
+test.describe("Frictionless starting plan", () => {
+  test("one idea creates a usable plan and turns blanks into next steps", async ({ page }) => {
+    const dialog = await openWizard(page);
+    await dialog.getByLabel(/start with the idea/i).fill("A cozy dinner with friends");
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+    await page.waitForLoadState("networkidle");
+
+    await expect(page.getByText("Date to decide", { exact: false }).first()).toBeVisible();
+    const target = page
+      .locator(
+        '[data-testid="party-tab-checklist"]:visible, [data-testid="party-tab-mobile-checklist"]:visible',
+      )
+      .first();
+    await expect(target).toBeVisible();
+    await target.click();
+    await expect(page.locator("main")).toContainText("Choose the party date");
+    await expect(page.locator("main")).toContainText("Estimate the guest count");
+    await expect(page.locator("main")).toContainText("Set a comfortable budget");
   });
 });

@@ -1,5 +1,5 @@
-// Text-mode Talk-it-out brain. Ships today via Lovable AI Gateway with a
-// deterministic demo fallback so the experience is never broken.
+// Text-mode Talk-it-out brain. Uses OpenAI directly with a deterministic
+// fallback so the experience is never broken.
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -239,7 +239,7 @@ export const sendTurn = createServerFn({ method: "POST" })
     }
 
     let result: TurnResult;
-    const canUseAi = !!process.env.LOVABLE_API_KEY;
+    const canUseAi = !!process.env.OPENAI_API_KEY;
     if (canUseAi) {
       try {
         const { chatJSON } = await import("./ai.server");
