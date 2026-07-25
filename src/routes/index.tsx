@@ -8,12 +8,13 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import { daysUntilLocal } from "@/lib/date-only";
+import { daysUntilLocal, formatDateOnly } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 const heroImage = { url: "/brand/confetti-hero.jpg" };
-// Mock party date used in the "chaos → calm" card. Countdown is derived
-// live via daysUntilLocal so the number stays truthful vs. the shown date.
-const SAMPLE_CARD_DATE = "2026-08-15";
+// Mock party date used in the "chaos → calm" card. Both the visible date
+// label AND the countdown badge are derived from this single source, so
+// they always agree with each other and reflect real days-until math.
+const SAMPLE_CARD_DATE = "2027-08-14"; // Saturday
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
