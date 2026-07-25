@@ -149,7 +149,47 @@ function pack(
   };
 }
 
+// Tradition-neutral starter — no culturally specific rituals or menu.
+// Every seed is generic ("main dish", "side", "dessert") and fully editable,
+// so a host who doesn't want any tradition still gets a working checklist +
+// bring board on day one instead of a blank workspace.
+const GENERIC_HOLIDAY: HolidayPack = {
+  id: "generic",
+  label: "Holiday Gathering",
+  blurb: "Tradition-neutral starter. Nothing assumed, everything editable.",
+  emoji: "🎉",
+  respectNote:
+    "This starter avoids any specific tradition. Rename, swap, or remove anything — it's a working shell, not a script.",
+  toneHint: "warm",
+  bringBoardSeeds: [
+    { category: "Main", label: "Main dish", qty: 1, notes: "Host usually covers" },
+    { category: "Sides", label: "Side dish", qty: 2, unit: "dishes" },
+    { category: "Sides", label: "Salad", qty: 1, unit: "big bowl", dietaryTags: ["vegetarian"] },
+    { category: "Sides", label: "Bread or rolls", qty: 1, unit: "basket" },
+    { category: "Dessert", label: "Dessert", qty: 1 },
+    { category: "Drinks", label: "Wine or non-alcoholic drink", qty: 2, unit: "bottles" },
+    { category: "Drinks", label: "Sparkling water", qty: 1, unit: "bottle" },
+    { category: "Ice / Serveware", label: "Bag of ice", qty: 1, unit: "bag" },
+  ],
+  rituals: [{ label: "Toast at the start of the meal", optional: true }],
+  suggestedMenu: [
+    { label: "Main dish", role: "main" },
+    { label: "Two sides", role: "side" },
+    { label: "Dessert", role: "dessert" },
+    { label: "Sparkling water", role: "drink" },
+  ],
+  taskSeeds: [
+    { title: "Confirm headcount and dietary needs", bucket: "3-5 weeks" },
+    { title: "Send the invite with time and location", bucket: "3-5 weeks" },
+    { title: "Assign dishes on the Bring Board", bucket: "1-2 weeks" },
+    { title: "Grocery run for what the host is covering", bucket: "Party week" },
+    { title: "Set the table", bucket: "Day of" },
+    { title: "Chill drinks and put out ice", bucket: "Day of" },
+  ],
+};
+
 export const PACKS: Record<PackId, HolidayPack> = {
+  generic: GENERIC_HOLIDAY,
   thanksgiving: THANKSGIVING,
   friendsgiving: FRIENDSGIVING,
   shabbat: pack(
