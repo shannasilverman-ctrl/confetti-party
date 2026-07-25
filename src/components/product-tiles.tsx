@@ -70,6 +70,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
       href={product.url}
       target="_blank"
       rel="noopener noreferrer sponsored"
+      referrerPolicy="no-referrer"
       className="group flex w-[132px] shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-card text-left shadow-sm transition-shadow hover:shadow-card"
     >
       <div className="relative aspect-square w-full bg-muted">
@@ -78,6 +79,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             src={product.image}
             alt={product.title}
             loading="lazy"
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover"
           />
         ) : (

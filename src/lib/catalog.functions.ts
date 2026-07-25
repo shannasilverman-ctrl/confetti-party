@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { safeExternalHref } from "./safe-url";
+
 
 // Shopify Global Catalog MCP (UCP) — keyless tier.
 // Docs: https://shopify.dev/docs/agents/catalog/global-catalog
@@ -100,18 +102,20 @@ export const searchCatalogProducts = createServerFn({ method: "POST" })
     return products.slice(0, data.limit ?? 3).flatMap((p): CatalogProduct[] => {
       const variant = p.variants?.[0];
       const price = variant?.price ?? p.price_range?.min;
-      const url = variant?.checkout_url || variant?.url;
+      const rawUrl = variant?.checkout_url || variant?.url;
+      const url = safeExternalHref(rawUrl);
       if (!url || !p.title) return [];
-      const image = p.media?.find((m) => m?.type === "image")?.url ?? null;
+      const rawImage = p.media?.find((m) => m?.type === "image")?.url ?? null;
+      const image = rawImage ? safeExternalHref(rawImage) : null;
       return [
         {
           id: String(p.id ?? url),
-          title: String(p.title),
+          title: String(p.title).slice(0, 200),
           image,
           priceMinor: typeof price?.amount === "number" ? price.amount : null,
           currency: price?.currency ?? null,
           url,
-          seller: variant?.seller?.name ?? null,
+          seller: variant?.seller?.name ? String(variant.seller.name).slice(0, 120) : null,
         },
       ];
     });
