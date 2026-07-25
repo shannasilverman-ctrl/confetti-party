@@ -507,7 +507,7 @@ describe("POST /api/realtime/session", () => {
     let openaiCalls = 0;
     const handler = bind(state, async () => {
       openaiCalls++;
-      return okOpenAI();
+      return mintOk();
     });
     const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(503);
@@ -533,7 +533,7 @@ describe("POST /api/realtime/session", () => {
     let openaiCalls = 0;
     const handler = bind(state, async () => {
       openaiCalls++;
-      return okOpenAI();
+      return mintOk();
     });
     const res = await handler(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(503);
