@@ -38,6 +38,10 @@ type Entry = {
    * "Not saved" recovery card until the user retries or discards. */
   insertRejected: boolean;
   userId: string;
+  /** Monotonic epoch stamped from the store at entry creation. Used to
+   *  discard writes/events after an identity reset so a pending write from
+   *  account A cannot flush after account B signs in. */
+  epoch: number;
 };
 
 export type StoreEvent =
@@ -64,6 +68,13 @@ const GENERIC_REJECTED = "This party couldn't be saved to the cloud. It's kept o
 
 export class PartyStore {
   private queue = new Map<string, Entry>();
+  /** Monotonic identity epoch. Bumped by reset() so async continuations
+   *  from a prior identity can detect they are stale and abort. */
+  private epoch = 0;
+  /** Owner user id for the queue. null = not established yet (e.g. demo/
+   *  signed-out) or just after reset(null). Enqueue/seed calls that don't
+   *  match will be refused. */
+  private currentUserId: string | null = null;
   private opts: Required<
     Omit<PartyStoreOptions, "onEvent" | "client" | "isTombstoned" | "logError">
   > &
@@ -87,8 +98,48 @@ export class PartyStore {
     };
   }
 
+  /** Reset the store on auth identity change. Drops every queued entry
+   *  (pending inserts, updates, conflicts, offline retries) and bumps the
+   *  epoch so any in-flight network continuation aborts silently instead of
+   *  emitting state/toasts or persisting into the wrong account. */
+  reset(nextUserId: string | null) {
+    this.epoch += 1;
+    this.queue.clear();
+    this.currentUserId = nextUserId;
+  }
+
+  /** Read the current owner user id (test helper / diagnostics). */
+  getCurrentUserId(): string | null {
+    return this.currentUserId;
+  }
+
+  /** True when writes from `userId` are welcome — i.e. queue is unclaimed
+   *  or already claimed by that user. */
+  private acceptsUser(userId: string): boolean {
+    if (this.currentUserId === null) {
+      this.currentUserId = userId;
+      return true;
+    }
+    return this.currentUserId === userId;
+  }
+
+  private refuseCrossUser(op: string, id: string, userId: string) {
+    this.opts.logError("cross_user_write_refused", {
+      op,
+      id,
+      // Never log the raw ids — only lengths — to avoid painting auth ids
+      // into error surfaces.
+      currentUserIdLen: this.currentUserId?.length ?? 0,
+      incomingUserIdLen: userId.length,
+    });
+  }
+
   /** Record a server snapshot (from initial load) so the first UPDATE has a baseline. */
   seedBaseline(party: Party, userId: string) {
+    if (!this.acceptsUser(userId)) {
+      this.refuseCrossUser("seedBaseline", party.id, userId);
+      return;
+    }
     const row = { ...partyToColumns(party, userId), updated_at: party.updatedAt };
     const existing = this.queue.get(party.id);
     if (existing) existing.baseline = row;
@@ -102,6 +153,7 @@ export class PartyStore {
         pendingConflict: null,
         insertRejected: false,
         userId,
+        epoch: this.epoch,
       });
   }
 
@@ -119,6 +171,10 @@ export class PartyStore {
   }
 
   enqueueInsert(party: Party, userId: string) {
+    if (!this.acceptsUser(userId)) {
+      this.refuseCrossUser("enqueueInsert", party.id, userId);
+      return;
+    }
     const e = this.queue.get(party.id);
     if (e) {
       e.latest = party;
@@ -134,12 +190,17 @@ export class PartyStore {
         pendingConflict: null,
         insertRejected: false,
         userId,
+        epoch: this.epoch,
       });
     }
     void this.kick(party.id);
   }
 
   enqueueUpdate(party: Party, userId: string) {
+    if (!this.acceptsUser(userId)) {
+      this.refuseCrossUser("enqueueUpdate", party.id, userId);
+      return;
+    }
     const e = this.queue.get(party.id);
     if (!e) {
       // Never loaded from server (e.g. locally-created row). Treat as insert.
@@ -240,10 +301,21 @@ export class PartyStore {
     }
   }
 
+  /** True when the entry still exists AND its epoch matches the value
+   *  captured before an async await. Any mismatch means an identity reset
+   *  happened while we were awaiting network I/O — abort silently. */
+  private aliveAt(id: string, epoch: number): boolean {
+    const cur = this.queue.get(id);
+    return !!cur && cur.epoch === epoch;
+  }
+
   private async runOne(id: string) {
+    const startEntry = this.queue.get(id);
+    if (!startEntry) return;
+    const startEpoch = startEntry.epoch;
     while (true) {
       const e = this.queue.get(id);
-      if (!e) return;
+      if (!e || e.epoch !== startEpoch) return;
       if (this.opts.isTombstoned(id)) {
         this.queue.delete(id);
         return;
@@ -256,14 +328,19 @@ export class PartyStore {
       if (!e.baseline) {
         const row = partyToColumns(snapshot, userId);
         const { data, error } = await this.opts.client.insert(row);
+        // Identity may have changed while awaiting I/O. If so, discard the
+        // result — do NOT persist server-row events into the new account.
+        if (!this.aliveAt(id, startEpoch)) return;
         if (error) {
           const done = await this.handleInsertError(id, error);
+          if (!this.aliveAt(id, startEpoch)) return;
           if (done) return;
           continue;
         }
+        const eNow = this.queue.get(id)!;
         if (data) {
-          e.baseline = data;
-          e.insertRejected = false;
+          eNow.baseline = data;
+          eNow.insertRejected = false;
           const merged: Party = { ...rowToParty(data), ...localOnlyFields(snapshot) };
           this.emit({ type: "server-row", id, party: merged });
         }
@@ -285,18 +362,22 @@ export class PartyStore {
         patch,
         expectedUpdatedAt,
       );
+      if (!this.aliveAt(id, startEpoch)) return;
       if (error) {
         const done = await this.handleError(id, error);
+        if (!this.aliveAt(id, startEpoch)) return;
         if (done) return;
         continue;
       }
       if (conflict) {
         const handled = await this.handleConflict(id, snapshot, nextRow, changed);
+        if (!this.aliveAt(id, startEpoch)) return;
         if (!handled) return; // conflict awaits user resolution
         continue;
       }
+      const eNow = this.queue.get(id)!;
       if (data) {
-        e.baseline = data;
+        eNow.baseline = data;
         const merged: Party = {
           ...rowToParty(data),
           ...localOnlyFields(snapshot),
@@ -376,7 +457,10 @@ export class PartyStore {
   ): Promise<boolean> {
     const e = this.queue.get(id);
     if (!e || !e.baseline) return false;
+    const startEpoch = e.epoch;
     const { data: fresh, error } = await this.opts.client.fetch(id);
+    // Identity may have reset while awaiting the fresh row — drop silently.
+    if (!this.aliveAt(id, startEpoch)) return false;
     if (error || !fresh) {
       const done = await this.handleError(
         id,
@@ -384,6 +468,7 @@ export class PartyStore {
       );
       return !done ? true : false;
     }
+
     const contended = contendedColumns(e.baseline, nextRow, fresh).filter((c) =>
       changedCols.includes(c),
     );
