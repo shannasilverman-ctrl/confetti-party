@@ -219,35 +219,31 @@ function downloadIcs(party: PartyView) {
 
 /* ---------- Sub-components ---------- */
 
-function WhosComing({ names, yes }: { names: string[]; yes: number }) {
-  if (!names || names.length === 0) {
+function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
+  if (yes === 0 && maybe === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-2 text-center text-xs text-muted-foreground">
         Be the first to RSVP
       </div>
     );
   }
-  const shown = names.slice(0, 3);
-  const extra = Math.max(0, yes - shown.length);
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Who's coming
       </span>
-      {shown.map((n, i) => (
-        <span
-          key={`${n}-${i}`}
-          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-        >
-          {n}
-        </span>
-      ))}
-      <span className="text-xs text-muted-foreground">
-        {extra > 0 ? `+${extra} going` : `${yes} going`}
+      <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+        {yes} going
       </span>
+      {maybe > 0 && (
+        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+          {maybe} maybe
+        </span>
+      )}
     </div>
   );
 }
+
 
 function CalendarAndDirections({ party }: { party: PartyView }) {
   return (
@@ -344,11 +340,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
   };
 
   const displayYes = party.yes_count + (done && rsvp === "yes" ? 1 : 0);
-  const displayNames = useMemo(() => {
-    if (!done || rsvp !== "yes" || !name.trim()) return party.guest_first_names;
-    const first = name.trim().split(/\s+/)[0];
-    return [first, ...party.guest_first_names];
-  }, [done, rsvp, name, party.guest_first_names]);
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -418,7 +410,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               {theme && <Badge variant="accent">{theme.name}</Badge>}
             </div>
             <div className="rounded-2xl bg-muted/40 p-3">
-              <WhosComing names={displayNames} yes={displayYes} />
+              <WhosComing yes={displayYes} maybe={party.maybe_count} />
             </div>
             <div className="flex justify-center">
               <CalendarAndDirections party={party} />
@@ -434,7 +426,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               {party.yes_count} yes · {party.maybe_count} maybe
             </div>
 
-            <WhosComing names={party.guest_first_names} yes={party.yes_count} />
+            <WhosComing yes={party.yes_count} maybe={party.maybe_count} />
 
             <div className="space-y-2">
               <Label htmlFor="name">Your name</Label>

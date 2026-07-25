@@ -88,23 +88,25 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       setSecrets((prev) => ({ ...prev, [item.id]: secret }));
     }
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === item.id ? { ...r, status: "claimed", assigneeName: who } : r,
-      ),
+      prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)),
     );
     celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
     toast.success(`You're on ${item.label}. Thanks!`);
   }
 
   async function release(item: PublicBringItem) {
-    const who = name.trim() || item.assigneeName || "";
+    const who = name.trim();
     const secret = secrets[item.id];
+    if (!secret) {
+      toast.error("Only the guest who claimed this can release it.");
+      return;
+    }
     setBusyId(item.id);
     const { data, error } = await supabase.rpc("release_bring_item", {
       token,
       item_id: item.id,
       guest_name: who,
-      claim_secret: secret ?? null,
+      claim_secret: secret,
     });
     setBusyId(null);
     if (error || (data && (data as { ok?: boolean }).ok === false)) {
@@ -118,11 +120,10 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       return next;
     });
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === item.id ? { ...r, status: "open", assigneeName: null } : r,
-      ),
+      prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)),
     );
   }
+
 
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -153,11 +154,7 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
             <ul className="space-y-1.5">
               {list.map((it) => {
                 const taken = it.status !== "open";
-                const mine =
-                  taken &&
-                  (!!secrets[it.id] ||
-                    (!!name.trim() &&
-                      it.assigneeName?.trim().toLowerCase() === name.trim().toLowerCase()));
+                const mine = taken && !!secrets[it.id];
                 return (
                   <li
                     key={it.id}
@@ -172,18 +169,14 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
                           × {it.qty}
                           {it.unit ? ` ${it.unit}` : ""}
                         </span>
-                        {it.dietaryTags?.map((t) => (
-                          <Badge key={t} variant="secondary" className="h-5 text-[10px]">
-                            {t}
-                          </Badge>
-                        ))}
                       </div>
                       {taken && (
                         <div className="mt-0.5 text-xs text-muted-foreground">
-                          Claimed{it.assigneeName ? ` by ${it.assigneeName}` : ""}
+                          Claimed
                         </div>
                       )}
                     </div>
+
                     {taken ? (
                       mine ? (
                         <Button
