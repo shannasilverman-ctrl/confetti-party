@@ -12,6 +12,8 @@ import {
   newId,
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
+import { partiesSummary } from "@/lib/parties-summary";
+
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { ConfettiBurst, celebrateAtEvent, celebrate } from "@/components/confetti-burst";
