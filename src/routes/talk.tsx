@@ -195,6 +195,10 @@ function TalkRoute() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const clientRef = useRef<TalkClient | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // React state does not update synchronously. This ref closes the tiny
+  // double-tap window before `connecting` disables the button, preventing
+  // two server reservations and two microphone handshakes.
+  const voiceStartInFlightRef = useRef(false);
   // Idempotent lifecycle controller: guarantees exactly-one end() per
   // owned reservation regardless of which signal fires (user stop,
   // connect failure, pagehide, SPA route unmount, duplicate events).
@@ -399,6 +403,8 @@ function TalkRoute() {
       navigate({ to: "/auth" });
       return;
     }
+    if (voiceStartInFlightRef.current) return;
+    voiceStartInFlightRef.current = true;
     setConnecting(true);
     setStatusAnnouncement("Connecting to voice.");
     try {
@@ -459,6 +465,7 @@ function TalkRoute() {
       toast.error(msg);
       setStatusAnnouncement(msg);
     } finally {
+      voiceStartInFlightRef.current = false;
       setConnecting(false);
     }
   }, [handleVoiceEvent, navigate, isDemo, user]);

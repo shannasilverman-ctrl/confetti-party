@@ -25,6 +25,7 @@ export class TalkClient {
   private dc: RTCDataChannel | null = null;
   private stream: MediaStream | null = null;
   private state: TalkState = "idle";
+  private didClose = false;
   private opts: TalkClientOptions;
 
   constructor(opts: TalkClientOptions) {
@@ -43,60 +44,73 @@ export class TalkClient {
     } catch (err) {
       this.opts.onEvent({ type: "error", message: "Microphone permission was denied." });
       this.setState("error");
+      this.finishClosed("microphone_denied", true);
       throw err;
     }
 
-    const pc = new RTCPeerConnection();
-    this.pc = pc;
+    try {
+      const pc = new RTCPeerConnection();
+      this.pc = pc;
 
-    pc.ontrack = (e) => {
-      const [remote] = e.streams;
-      if (remote) this.opts.audioEl.srcObject = remote;
-    };
+      pc.ontrack = (e) => {
+        const [remote] = e.streams;
+        if (remote) this.opts.audioEl.srcObject = remote;
+      };
 
-    for (const track of this.stream.getAudioTracks()) {
-      pc.addTrack(track, this.stream);
-    }
+      for (const track of this.stream.getAudioTracks()) {
+        pc.addTrack(track, this.stream);
+      }
 
-    const dc = pc.createDataChannel("oai-events");
-    this.dc = dc;
-    dc.onopen = () => this.setState("listening");
-    dc.onmessage = (msg) => this.handleEvent(msg.data);
-    dc.onclose = () => {
-      this.setState("closed");
-      this.opts.onEvent({ type: "closed" });
-    };
+      const dc = pc.createDataChannel("oai-events");
+      this.dc = dc;
+      dc.onopen = () => this.setState("listening");
+      dc.onmessage = (msg) => this.handleEvent(msg.data);
+      dc.onclose = () => this.finishClosed("transport_closed", false);
 
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-    const res = await fetch(
-      `https://api.openai.com/v1/realtime?model=${encodeURIComponent(this.opts.model)}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.opts.clientSecret}`,
-          "Content-Type": "application/sdp",
+      const res = await fetch(
+        `https://api.openai.com/v1/realtime?model=${encodeURIComponent(this.opts.model)}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.opts.clientSecret}`,
+            "Content-Type": "application/sdp",
+          },
+          body: offer.sdp,
         },
-        body: offer.sdp,
-      },
-    );
+      );
 
-    if (!res.ok) {
-      // Drain the body so the connection releases, but never surface it —
-      // SDP error bodies can include upstream identifiers we don't want in
-      // the UI or client logs.
-      await res.text().catch(() => "");
-      this.opts.onEvent({
-        type: "error",
-        message: "Couldn't connect to the voice service. Please try again.",
-      });
-      this.setState("error");
-      throw new Error("voice_connect_failed");
+      if (!res.ok) {
+        // Drain the body so the connection releases, but never surface it —
+        // SDP error bodies can include upstream identifiers we don't want in
+        // the UI or client logs.
+        await res.text().catch(() => "");
+        this.opts.onEvent({
+          type: "error",
+          message: "Couldn't connect to the voice service. Please try again.",
+        });
+        this.setState("error");
+        throw new Error("voice_connect_failed");
+      }
+
+      const answer = { type: "answer" as const, sdp: await res.text() };
+      await pc.setRemoteDescription(answer);
+    } catch (err) {
+      // getUserMedia succeeded, so every failure after this point must
+      // synchronously release the microphone, peer connection and audio
+      // element. Callers also close defensively; finishClosed is idempotent.
+      if (this.state !== "error") {
+        this.opts.onEvent({
+          type: "error",
+          message: "Couldn't connect to the voice service. Please try again.",
+        });
+        this.setState("error");
+      }
+      this.finishClosed("connect_failed", true);
+      throw err;
     }
-
-    const answer = { type: "answer" as const, sdp: await res.text() };
-    await pc.setRemoteDescription(answer);
   }
 
   private handleEvent(raw: unknown) {
@@ -164,21 +178,38 @@ export class TalkClient {
     this.stream?.getAudioTracks().forEach((t) => (t.enabled = !muted));
   }
 
-  close(reason?: string) {
-    try {
-      this.dc?.close();
-    } catch {
-      /* noop */
+  private finishClosed(reason: string | undefined, closeDataChannel: boolean) {
+    if (this.didClose) return;
+    this.didClose = true;
+
+    const dc = this.dc;
+    this.dc = null;
+    if (dc && closeDataChannel) {
+      // Prevent the synchronous fake/browser onclose callback from emitting
+      // a second closed event while this explicit close is in progress.
+      dc.onclose = null;
+      try {
+        dc.close();
+      } catch {
+        /* noop */
+      }
     }
+
     try {
       this.pc?.close();
     } catch {
       /* noop */
     }
+    this.pc = null;
     this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null;
     this.opts.audioEl.srcObject = null;
     this.setState("closed");
     this.opts.onEvent({ type: "closed", reason });
+  }
+
+  close(reason?: string) {
+    this.finishClosed(reason, true);
   }
 
   getState(): TalkState {

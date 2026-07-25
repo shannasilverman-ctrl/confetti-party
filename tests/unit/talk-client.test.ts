@@ -35,15 +35,18 @@ class FakePC {
 
 const originalFetch = global.fetch;
 const originalRTC = (globalThis as { RTCPeerConnection?: unknown }).RTCPeerConnection;
+let mediaTrackStop: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   (globalThis as unknown as { RTCPeerConnection: new () => FakePC }).RTCPeerConnection = FakePC;
+  mediaTrackStop = vi.fn();
+  const track = { enabled: true, stop: mediaTrackStop };
   Object.defineProperty(navigator, "mediaDevices", {
     configurable: true,
     value: {
       getUserMedia: vi.fn(async () => ({
-        getAudioTracks: () => [{ enabled: true }],
-        getTracks: () => [],
+        getAudioTracks: () => [track],
+        getTracks: () => [track],
       })),
     },
   });
@@ -109,5 +112,46 @@ describe("TalkClient handshake", () => {
     expect(types).toContain("assistant_transcript_delta");
     expect(types).toContain("user_transcript_done");
     expect(events.find((e) => e.type === "user_transcript_done")?.text).toBe("hi there");
+  });
+
+  it("releases microphone and peer connection when SDP negotiation fails", async () => {
+    global.fetch = vi.fn(
+      async () => new Response("upstream detail that must not surface", { status: 503 }),
+    ) as unknown as typeof fetch;
+    const events: Array<{ type: string; message?: string }> = [];
+    const client = new TalkClient({
+      clientSecret: "ek",
+      model: "gpt-realtime-2.1",
+      audioEl: { srcObject: null } as unknown as HTMLAudioElement,
+      onEvent: (event) => events.push(event as { type: string; message?: string }),
+    });
+
+    await expect(client.connect()).rejects.toThrow("voice_connect_failed");
+
+    expect(mediaTrackStop).toHaveBeenCalledOnce();
+    const pc = (client as unknown as { pc: FakePC | null }).pc;
+    expect(pc).toBeNull();
+    expect(events.filter((event) => event.type === "closed")).toHaveLength(1);
+    expect(events.map((event) => event.message ?? "").join(" ")).not.toContain("upstream detail");
+  });
+
+  it("explicit close is idempotent even when data-channel close fires synchronously", async () => {
+    global.fetch = vi.fn(
+      async () => new Response("ANSWER_SDP", { status: 200 }),
+    ) as unknown as typeof fetch;
+    const eventTypes: string[] = [];
+    const client = new TalkClient({
+      clientSecret: "ek",
+      model: "gpt-realtime-2.1",
+      audioEl: { srcObject: null } as unknown as HTMLAudioElement,
+      onEvent: (event) => eventTypes.push(event.type),
+    });
+    await client.connect();
+
+    client.close("user_ended");
+    client.close("route_unmount");
+
+    expect(mediaTrackStop).toHaveBeenCalledOnce();
+    expect(eventTypes.filter((type) => type === "closed")).toHaveLength(1);
   });
 });
