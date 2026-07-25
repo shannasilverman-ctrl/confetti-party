@@ -95,19 +95,10 @@ const DEFAULT_DEPS: RealtimeDeps = {
 // ---- In-process per-user serialization -------------------------------------
 // Serializes SELECT-then-INSERT reservations on the same node so a single
 // isolate cannot admit more than the allowed concurrent count for one user.
+// Backed by `withKeyedLock` (see src/lib/user-mutex.ts) which guarantees
+// map entries are cleaned up after every task (success or rejection) and
+// that different users are not globally serialized.
 // Cross-node distributed race remains (documented above as a release blocker).
-const userMutex = new Map<string, Promise<unknown>>();
-function withUserMutex<T>(userId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = userMutex.get(userId) ?? Promise.resolve();
-  const next = prev.catch(() => undefined).then(fn);
-  userMutex.set(
-    userId,
-    next.finally(() => {
-      if (userMutex.get(userId) === next) userMutex.delete(userId);
-    }),
-  );
-  return next;
-}
 
 const CONCURRENCY_LIMIT = 2;
 const HOURLY_LIMIT = 5;
