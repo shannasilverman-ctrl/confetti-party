@@ -517,6 +517,7 @@ function rowToParty(r: {
   holiday_pack_id?: string | null;
   photo_drop?: unknown;
   checkins?: unknown;
+  retrospective?: unknown;
 }): Party {
   return {
     id: r.id,
