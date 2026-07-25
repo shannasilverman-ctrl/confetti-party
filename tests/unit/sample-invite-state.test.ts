@@ -26,27 +26,38 @@ describe("sample invite persistence", () => {
     const state = defaultSampleState();
     expect(saveSampleState(state, storage)).toEqual({ ok: true });
     expect(storage.setItem).toHaveBeenCalledWith(SAMPLE_STATE_STORAGE_KEY, expect.any(String));
-    expect(loadSampleState(storage)).toEqual(state);
+    expect(loadSampleState(storage)).toEqual({ state });
   });
 
   it.each([
-    "{",
-    JSON.stringify({ v: 1, bring: [], baseline: { yes: 1, maybe: 1 }, rsvp: null, extra: true }),
-    JSON.stringify({
-      v: 1,
-      bring: [{ id: "__proto__", category: "x", label: "x", qty: 1, status: "open" }],
-      baseline: { yes: 1, maybe: 1 },
-      rsvp: null,
-    }),
-    JSON.stringify({
-      v: 1,
-      bring: [{ id: "x", category: "x", label: "x", qty: 0, status: "claimed" }],
-      baseline: { yes: 1, maybe: 1 },
-      rsvp: null,
-    }),
-  ])("resets corrupt or out-of-contract state", (raw) => {
+    ["{", "parse"],
+    [
+      JSON.stringify({ v: 1, bring: [], baseline: { yes: 1, maybe: 1 }, rsvp: null, extra: true }),
+      "invalid",
+    ],
+    [
+      JSON.stringify({
+        v: 1,
+        bring: [{ id: "__proto__", category: "x", label: "x", qty: 1, status: "open" }],
+        baseline: { yes: 1, maybe: 1 },
+        rsvp: null,
+      }),
+      "invalid",
+    ],
+    [
+      JSON.stringify({
+        v: 1,
+        bring: [{ id: "x", category: "x", label: "x", qty: 0, status: "claimed" }],
+        baseline: { yes: 1, maybe: 1 },
+        rsvp: null,
+      }),
+      "invalid",
+    ],
+  ])("reports corruption tag and resets on invalid state", (raw, corruption) => {
     const storage = memoryStorage(raw);
-    expect(loadSampleState(storage)).toEqual(defaultSampleState());
+    const result = loadSampleState(storage);
+    expect(result.state).toEqual(defaultSampleState());
+    expect(result.corruption).toBe(corruption);
     expect(storage.removeItem).toHaveBeenCalledWith(SAMPLE_STATE_STORAGE_KEY);
   });
 
@@ -66,8 +77,9 @@ describe("sample invite persistence", () => {
 
     const oversizedRaw = JSON.stringify({ ...state, padding: "🎉".repeat(10_000) });
     const storage = memoryStorage(oversizedRaw);
-    expect(loadSampleState(storage)).toEqual(defaultSampleState());
-    expect(storage.removeItem).toHaveBeenCalled();
+    const result = loadSampleState(storage);
+    expect(result.state).toEqual(defaultSampleState());
+    expect(result.corruption).toBe("oversize");
   });
 
   it("reports unavailable and quota failures instead of pretending persistence", () => {
@@ -97,5 +109,65 @@ describe("sample invite persistence", () => {
       at: "2027-01-01T00:00:00.000Z",
     };
     expect(derivedCounts(state)).toEqual({ yes: 18, maybe: 3 });
+  });
+
+  // -------- Fuzz / adversarial payloads --------
+
+  it("rejects prototype-pollution attempts in bring ids", () => {
+    for (const bad of ["__proto__", "prototype", "constructor"]) {
+      const raw = JSON.stringify({
+        v: 1,
+        bring: [{ id: bad, category: "x", label: "x", qty: 1, status: "open" }],
+        baseline: { yes: 0, maybe: 0 },
+        rsvp: null,
+      });
+      const result = loadSampleState(memoryStorage(raw));
+      expect(result.corruption).toBe("invalid");
+    }
+  });
+
+  it("rejects non-object and array payloads without throwing", () => {
+    for (const raw of ["null", "123", '"string"', "[]", "false"]) {
+      expect(loadSampleState(memoryStorage(raw)).corruption).toBeDefined();
+    }
+  });
+
+  it("rejects duplicate bring ids and dietary tags", () => {
+    const dup = JSON.stringify({
+      v: 1,
+      bring: [
+        { id: "a", category: "x", label: "x", qty: 1, status: "open" },
+        { id: "a", category: "x", label: "x", qty: 1, status: "open" },
+      ],
+      baseline: { yes: 0, maybe: 0 },
+      rsvp: null,
+    });
+    expect(loadSampleState(memoryStorage(dup)).corruption).toBe("invalid");
+
+    const dupDiet = JSON.stringify({
+      v: 1,
+      bring: [],
+      baseline: { yes: 0, maybe: 0 },
+      rsvp: {
+        name: "x",
+        choice: "yes",
+        adults: 1,
+        kids: 0,
+        dietary: ["vegan", "vegan"],
+        allergens: [],
+        at: "2027-01-01T00:00:00.000Z",
+      },
+    });
+    expect(loadSampleState(memoryStorage(dupDiet)).corruption).toBe("invalid");
+  });
+
+  it("rejects claimedByMe on non-claimed items", () => {
+    const raw = JSON.stringify({
+      v: 1,
+      bring: [{ id: "a", category: "x", label: "x", qty: 1, status: "open", claimedByMe: true }],
+      baseline: { yes: 0, maybe: 0 },
+      rsvp: null,
+    });
+    expect(loadSampleState(memoryStorage(raw)).corruption).toBe("invalid");
   });
 });
