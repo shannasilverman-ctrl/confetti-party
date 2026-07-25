@@ -544,6 +544,7 @@ function rowToParty(r: {
     holidayPackId: r.holiday_pack_id ?? undefined,
     photoDrop: (r.photo_drop as PhotoDropInfo | null) ?? null,
     checkins: (r.checkins as Record<string, string>) ?? {},
+    retrospective: (r.retrospective as PartyRetrospective | null) ?? null,
   };
 }
 
@@ -573,6 +574,7 @@ function partyToRow(p: Party, userId: string) {
     holiday_pack_id: p.holidayPackId ?? null,
     photo_drop: (p.photoDrop ?? null) as unknown as Json,
     checkins: (p.checkins ?? {}) as unknown as Json,
+    retrospective: (p.retrospective ?? null) as unknown as Json,
   };
 }
 
