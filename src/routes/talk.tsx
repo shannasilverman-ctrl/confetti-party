@@ -284,10 +284,16 @@ function TalkRoute() {
       case "state":
         setState(evt.state);
         break;
-      case "error":
-        setVoiceError(evt.message);
-        toast.error(evt.message);
+      case "error": {
+        // Never surface raw upstream / SDP text — TalkClient already emits
+        // sanitized copy, but be defensive here too.
+        const msg = friendlyTalkError("voice_runtime", evt.message);
+        setVoiceError(msg);
+        toast.error(msg);
+        setStatusAnnouncement(msg);
         break;
+      }
+
       case "assistant_transcript_delta":
         setVoiceLines((prev) => {
           const last = prev[prev.length - 1];
