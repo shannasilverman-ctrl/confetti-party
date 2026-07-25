@@ -5,8 +5,11 @@ import {
   REALTIME_VOICE,
   buildRealtimeSessionBody,
   computeSafetyIdentifier,
+  newCorrelationId,
   parseClientSecretResponse,
 } from "@/lib/realtime-session";
+
+const SALT = "test-salt-value-strong-enough";
 
 describe("realtime-session contract", () => {
   it("targets the current client_secrets endpoint (not the deprecated one)", () => {
@@ -27,7 +30,6 @@ describe("realtime-session contract", () => {
     expect(body.session.instructions).toBe("hi");
     expect(body.session.audio.output.voice).toBe(REALTIME_VOICE);
     expect(body.session.audio.input.turn_detection.type).toBe("server_vad");
-    // Do not carry whisper-1 forward — must be a currently supported transcription model.
     expect(body.session.audio.input.transcription.model).not.toBe("whisper-1");
   });
 
@@ -39,49 +41,84 @@ describe("realtime-session contract", () => {
   });
 
   describe("computeSafetyIdentifier", () => {
-    it("is stable for the same user id", async () => {
-      const a = await computeSafetyIdentifier("user-123", "salt");
-      const b = await computeSafetyIdentifier("user-123", "salt");
+    it("is stable for the same user id + salt", async () => {
+      const a = await computeSafetyIdentifier("user-123", SALT);
+      const b = await computeSafetyIdentifier("user-123", SALT);
       expect(a).toBe(b);
     });
 
     it("differs between users", async () => {
-      const a = await computeSafetyIdentifier("user-a", "salt");
-      const b = await computeSafetyIdentifier("user-b", "salt");
+      const a = await computeSafetyIdentifier("user-a", SALT);
+      const b = await computeSafetyIdentifier("user-b", SALT);
       expect(a).not.toBe(b);
     });
 
     it("differs between salts", async () => {
-      const a = await computeSafetyIdentifier("user-a", "s1");
-      const b = await computeSafetyIdentifier("user-a", "s2");
+      const a = await computeSafetyIdentifier("user-a", "salt-one-long-enough");
+      const b = await computeSafetyIdentifier("user-a", "salt-two-long-enough");
       expect(a).not.toBe(b);
     });
 
     it("never contains the raw user id or an email substring", async () => {
       const id = "alice@example.com";
-      const out = await computeSafetyIdentifier(id, null);
+      const out = await computeSafetyIdentifier(id, SALT);
       expect(out).not.toContain("alice");
       expect(out).not.toContain("@");
       expect(out).not.toContain(id);
       expect(out).toMatch(/^conf_[0-9a-f]{32}$/);
     });
+
+    it("refuses to hash without a salt (fail closed, no unsalted digest)", async () => {
+      await expect(computeSafetyIdentifier("u", "")).rejects.toThrow(/salt/i);
+      await expect(computeSafetyIdentifier("u", "short")).rejects.toThrow(/salt/i);
+      // @ts-expect-error explicit null must be rejected at runtime
+      await expect(computeSafetyIdentifier("u", null)).rejects.toThrow(/salt/i);
+    });
+  });
+
+  describe("newCorrelationId", () => {
+    it("is prefixed and non-user-identifying", () => {
+      const a = newCorrelationId();
+      const b = newCorrelationId();
+      expect(a).toMatch(/^req_[0-9a-f]{16}$/);
+      expect(a).not.toBe(b);
+    });
   });
 
   describe("parseClientSecretResponse", () => {
-    it("accepts the current shape", () => {
-      const parsed = parseClientSecretResponse({
-        value: "ek_test",
-        expires_at: 1234,
-        session: { id: "sess_1", model: "gpt-realtime-2.1" },
-      });
+    const now = 1_000_000;
+    it("accepts a well-formed, still-valid response", () => {
+      const parsed = parseClientSecretResponse(
+        {
+          value: "ek_test",
+          expires_at: now + 60,
+          session: { id: "sess_1", model: "gpt-realtime-2.1" },
+        },
+        now,
+      );
       expect(parsed?.value).toBe("ek_test");
       expect(parsed?.session?.model).toBe("gpt-realtime-2.1");
     });
 
-    it("rejects malformed responses", () => {
-      expect(parseClientSecretResponse(null)).toBeNull();
-      expect(parseClientSecretResponse({ value: "x" })).toBeNull();
-      expect(parseClientSecretResponse({ expires_at: 1 })).toBeNull();
+    it("rejects null / wrong shape", () => {
+      expect(parseClientSecretResponse(null, now)).toBeNull();
+      expect(parseClientSecretResponse({ value: "x" }, now)).toBeNull();
+      expect(parseClientSecretResponse({ expires_at: now + 60 }, now)).toBeNull();
+    });
+
+    it("rejects empty value", () => {
+      expect(parseClientSecretResponse({ value: "", expires_at: now + 60 }, now)).toBeNull();
+    });
+
+    it("rejects non-finite / non-positive / past expires_at", () => {
+      expect(parseClientSecretResponse({ value: "ek", expires_at: Number.NaN }, now)).toBeNull();
+      expect(
+        parseClientSecretResponse({ value: "ek", expires_at: Number.POSITIVE_INFINITY }, now),
+      ).toBeNull();
+      expect(parseClientSecretResponse({ value: "ek", expires_at: -1 }, now)).toBeNull();
+      // Already past (or inside skew window):
+      expect(parseClientSecretResponse({ value: "ek", expires_at: now }, now)).toBeNull();
+      expect(parseClientSecretResponse({ value: "ek", expires_at: now + 1 }, now)).toBeNull();
     });
   });
 });

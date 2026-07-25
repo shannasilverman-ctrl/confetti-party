@@ -83,13 +83,16 @@ export class TalkClient {
     );
 
     if (!res.ok) {
-      const text = await res.text().catch(() => "");
+      // Drain the body so the connection releases, but never surface it —
+      // SDP error bodies can include upstream identifiers we don't want in
+      // the UI or client logs.
+      await res.text().catch(() => "");
       this.opts.onEvent({
         type: "error",
-        message: `Voice connect failed (${res.status}). ${text.slice(0, 120)}`,
+        message: "Couldn't connect to the voice service. Please try again.",
       });
       this.setState("error");
-      throw new Error(`Realtime SDP exchange failed: ${res.status}`);
+      throw new Error("voice_connect_failed");
     }
 
     const answer = { type: "answer" as const, sdp: await res.text() };
@@ -131,11 +134,12 @@ export class TalkClient {
         this.setState("listening");
         break;
       case "error": {
-        const msg =
-          typeof (evt.error as { message?: string })?.message === "string"
-            ? (evt.error as { message: string }).message
-            : "Realtime error";
-        this.opts.onEvent({ type: "error", message: msg });
+        // Do not surface raw provider error text to users — it can contain
+        // upstream identifiers. Emit a stable sanitized message.
+        this.opts.onEvent({
+          type: "error",
+          message: "The voice service hit a snag. Try ending and reconnecting.",
+        });
         break;
       }
     }

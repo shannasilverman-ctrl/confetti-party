@@ -1,7 +1,7 @@
 // Pure helpers for the Realtime session mint. Extracted so they can be
 // unit-tested without spinning up the TanStack server route.
 //
-// Contract references (OpenAI Realtime, current as of 2025):
+// Contract references (OpenAI Realtime, current as of 2026-01):
 //   * Endpoint: POST https://api.openai.com/v1/realtime/client_secrets
 //   * Model:    gpt-realtime-2.1
 //   * Voice:    marin (default) — supported preset
@@ -12,6 +12,15 @@
 export const REALTIME_MODEL = "gpt-realtime-2.1";
 export const REALTIME_VOICE = "marin";
 export const REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets";
+
+// A minted client secret is treated as expired this many seconds before the
+// stated `expires_at`, so we don't hand out a secret that will die in flight.
+export const REALTIME_EXPIRY_SKEW_S = 5;
+
+// Server-side hard cap on how long a talk session may remain "open" without
+// an ended_at row before the concurrency guard ignores it. Enforced by the
+// mint route; also mirrored by a client-side keepalive/end call.
+export const REALTIME_SESSION_STALE_MS = 15 * 60 * 1000;
 
 export interface BuildSessionBodyInput {
   instructions: string;
@@ -56,20 +65,15 @@ export function buildRealtimeSessionBody(input: BuildSessionBodyInput) {
  * header on the server-side mint request so OpenAI can correlate abuse
  * signals without ever seeing the raw Supabase user id or email.
  *
- * - Uses Web Crypto (SubtleCrypto), which is available in the Cloudflare
- *   Worker SSR runtime and in Node ≥ 20.
- * - If OPENAI_SAFETY_ID_SALT is set on the server, it's mixed in so the
- *   digest is unlinkable across projects. Without a salt the digest is
- *   still opaque (SHA-256 of the user id), but linkable across deployments
- *   that share the same user-id space. This limitation is documented in
- *   OPENAI_REALTIME.md.
- * - Never returns raw PII. Never throws for a well-formed string input.
+ * A non-empty salt is REQUIRED. The route layer refuses to mint without
+ * one, so an unsalted digest can never leave the server. Passing an
+ * empty/nullish salt here throws instead of silently degrading privacy.
  */
-export async function computeSafetyIdentifier(
-  userId: string,
-  salt?: string | null,
-): Promise<string> {
-  const material = `${salt ?? ""}:${userId}`;
+export async function computeSafetyIdentifier(userId: string, salt: string): Promise<string> {
+  if (typeof salt !== "string" || salt.length < 8) {
+    throw new Error("OPENAI_SAFETY_ID_SALT missing or too short");
+  }
+  const material = `${salt}:${userId}`;
   const bytes = new TextEncoder().encode(material);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hex = Array.from(new Uint8Array(digest))
@@ -82,6 +86,18 @@ export async function computeSafetyIdentifier(
 }
 
 /**
+ * Cryptographically random correlation id used to tag one mint request in
+ * server logs. Not user-identifying; safe to log.
+ */
+export function newCorrelationId(): string {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return `req_${Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+/**
  * Shape of a successful `/v1/realtime/client_secrets` response. Only the
  * fields we actually consume.
  */
@@ -91,12 +107,25 @@ export interface ClientSecretResponse {
   session?: { id?: string; model?: string };
 }
 
-export function parseClientSecretResponse(raw: unknown): ClientSecretResponse | null {
+/**
+ * Strictly validate the upstream mint response. Rejects:
+ *  - non-object payloads
+ *  - missing/empty `value`
+ *  - non-finite / non-positive `expires_at`
+ *  - `expires_at` already past (with a small skew to avoid handing out
+ *    a secret that will die in transit).
+ *
+ * `nowS` is injectable for tests; defaults to wall-clock seconds.
+ */
+export function parseClientSecretResponse(
+  raw: unknown,
+  nowS: number = Math.floor(Date.now() / 1000),
+): ClientSecretResponse | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  if (typeof r.value !== "string" || typeof r.expires_at !== "number") {
-    return null;
-  }
+  if (typeof r.value !== "string" || r.value.length === 0) return null;
+  if (typeof r.expires_at !== "number" || !Number.isFinite(r.expires_at)) return null;
+  if (r.expires_at <= nowS + REALTIME_EXPIRY_SKEW_S) return null;
   const session =
     r.session && typeof r.session === "object"
       ? (r.session as { id?: string; model?: string })
