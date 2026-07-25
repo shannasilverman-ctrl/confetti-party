@@ -7,19 +7,21 @@
 //   - `defaultName` mirrors the RSVP form name and stays in sync UNLESS the
 //     guest has edited the Bring Board name field themselves.
 //   - `onChanged` fires after a successful claim/release so the parent can
-//     re-fetch `get_rsvp_party` for canonical counts + board.
+//     re-fetch `get_rsvp_party` for canonical counts + board. The component
+//     awaits it before releasing the busy state so double actions cannot race.
 //   - `onRequestRefresh` powers the visible Refresh control; the parent owns
 //     the actual RPC call and busy/last-updated indicators.
 //
 // Storage-failure compensation (see docs/rc-audit gap G7):
 //   If localStorage rejects the claim receipt (quota / disabled / private
-//   mode), we do NOT leave the guest with a claim they can never release.
-//   We immediately call `release_bring_item` with the freshly-minted secret
-//   and surface a clear message. There is no name fallback for release.
+//   mode), we compensate by releasing the just-minted claim. If compensation
+//   also fails, we retain the receipt IN MEMORY only (never printed) and
+//   expose a high-urgency "Retry release" affordance so the same tab can
+//   still recover. A canonical refresh that reports the item as claimed does
+//   not hide that control while a memory receipt exists.
 
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +34,13 @@ type Props = {
   token: string;
   items: PublicBringItem[];
   defaultName?: string;
-  onChanged?: () => void;
+  onChanged?: () => void | Promise<void>;
   onRequestRefresh?: () => void | Promise<void>;
   refreshing?: boolean;
   lastUpdatedAt?: number | null;
 };
+
+type StatusMsg = { kind: "info" | "success" | "error" | "warn"; text: string } | null;
 
 function formatRelative(ts: number | null | undefined): string | null {
   if (!ts) return null;
@@ -49,6 +53,12 @@ function formatRelative(ts: number | null | undefined): string | null {
   return `${h}h ago`;
 }
 
+function isNetworkError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /network|fetch|failed to fetch|timeout|offline/i.test(msg);
+}
+
 export function PublicBringBoard({
   token,
   items,
@@ -58,7 +68,7 @@ export function PublicBringBoard({
   refreshing,
   lastUpdatedAt,
 }: Props) {
-  // Canonical rows come from props; sync a local mirror so single-mutation
+  // Canonical rows from props; sync a local mirror so single-mutation
   // optimism is possible without discarding fresh server state on refetch.
   const [rows, setRows] = useState<PublicBringItem[]>(items);
   const itemsKey = useRef(JSON.stringify(items));
@@ -78,13 +88,44 @@ export function PublicBringBoard({
   }, [defaultName]);
 
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [secrets, setSecrets] = useState<Record<string, string>>(() => loadSecrets(token).map);
+  const [status, setStatus] = useState<StatusMsg>(null);
+
+  // Two-tier receipt store. `secrets` is the union used for UI checks;
+  // `memoryOnly` marks receipts that failed to persist and only live in this
+  // tab. On unmount / token change the memory receipts are dropped along with
+  // the tab's session — a canonical refresh from the server is authoritative.
+  const [secrets, setSecrets] = useState<Record<string, string>>(
+    () => loadSecrets(token).map,
+  );
+  const memoryOnly = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     // TanStack can reuse this component instance when only the route token
-    // changes. Never carry claim capabilities from invite A into invite B.
+    // changes. Never carry claim capabilities, memory receipts, name edits,
+    // busy state, or status from invite A into invite B.
     setSecrets(loadSecrets(token).map);
+    memoryOnly.current = new Set();
     setBusyId(null);
+    setStatus(null);
+    nameDirty.current = false;
+    setName(defaultName ?? "");
+    // defaultName intentionally excluded — its own effect handles later changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Request sequencing: only the newest refresh is allowed to update rows.
+  const refreshSeqRef = useRef(0);
+  const awaitRefresh = useCallback(async () => {
+    if (!onChanged && !onRequestRefresh) return;
+    const seq = ++refreshSeqRef.current;
+    try {
+      await (onChanged ? onChanged() : onRequestRefresh?.());
+    } catch {
+      /* parent surfaces its own refresh error; ignore here */
+    }
+    // If a newer refresh started while we awaited, drop this one's effects.
+    if (seq !== refreshSeqRef.current) return;
+  }, [onChanged, onRequestRefresh]);
 
   // Re-tick the "updated Xs ago" label without a hard re-render loop.
   const [, forceTick] = useState(0);
@@ -104,32 +145,53 @@ export function PublicBringBoard({
   async function claim(item: PublicBringItem, evt?: React.MouseEvent) {
     const who = name.trim();
     if (!who) {
-      toast.error("Add your name above to claim an item.");
+      setStatus({ kind: "error", text: "Add your name above to claim an item." });
       return;
     }
+    if (busyId) return; // hard guard against double-clicks
     setBusyId(item.id);
+    setStatus(null);
     try {
-      const { data, error } = await supabase.rpc("claim_bring_item", {
-        token,
-        item_id: item.id,
-        guest_name: who,
-      });
-      if (error || (data as { ok?: boolean } | null)?.ok !== true) {
-        toast.error("That item was just claimed by someone else. Refreshing…");
-        await onRequestRefresh?.();
+      let data: unknown = null;
+      let error: unknown = null;
+      try {
+        const res = await supabase.rpc("claim_bring_item", {
+          token,
+          item_id: item.id,
+          guest_name: who,
+        });
+        data = res.data;
+        error = res.error;
+      } catch (thrown) {
+        error = thrown;
+      }
+      const okPayload = (data as { ok?: boolean } | null)?.ok === true;
+      if (error || !okPayload) {
+        // Distinguish thrown/network errors from a legitimate "already claimed"
+        // reply so the copy is honest and retry guidance matches.
+        const network = !!error && isNetworkError(error);
+        setStatus(
+          network
+            ? {
+                kind: "error",
+                text: "Network hiccup — couldn't reach the server. Try again in a moment.",
+              }
+            : { kind: "warn", text: "Someone just claimed that one. Refreshing…" },
+        );
+        await awaitRefresh();
         return;
       }
       const secret = (data as { claimSecret?: string } | null)?.claimSecret;
       if (!secret) {
-        toast.error("Couldn't confirm your claim — please try again.");
-        await onRequestRefresh?.();
+        setStatus({ kind: "error", text: "Couldn't confirm your claim — please try again." });
+        await awaitRefresh();
         return;
       }
       // Try to persist the receipt. If storage rejects it, compensate by
       // releasing the just-minted claim. If compensation also fails, retain
       // the receipt in memory so this open page still has a recovery path.
-      const status = saveSecret(token, item.id, secret);
-      if (status !== "ok") {
+      const persistStatus = saveSecret(token, item.id, secret);
+      if (persistStatus !== "ok") {
         let releasedOk = false;
         try {
           const { data: relData, error: relErr } = await supabase.rpc("release_bring_item", {
@@ -143,27 +205,33 @@ export function PublicBringBoard({
           releasedOk = false;
         }
         if (!releasedOk) {
+          // Preserve receipt IN MEMORY only. Never print it. Mark for the UI
+          // so we can render the high-urgency retry affordance.
+          memoryOnly.current.add(item.id);
           setSecrets((prev) => ({ ...prev, [item.id]: secret }));
           setRows((prev) =>
             prev.map((row) => (row.id === item.id ? { ...row, status: "claimed" } : row)),
           );
+          setStatus({
+            kind: "warn",
+            text: "This browser can't save your claim. Keep this tab open — use Retry release below to free the item.",
+          });
+        } else {
+          setStatus({
+            kind: "warn",
+            text: "This browser can't remember claims, so we released it for someone else.",
+          });
         }
-        toast.error(
-          releasedOk
-            ? "This browser can't remember claims, so we released it for someone else."
-            : "We couldn't save or undo this claim. Keep this page open and tap Release to retry.",
-        );
-        await onRequestRefresh?.();
+        await awaitRefresh();
         return;
       }
       setSecrets((prev) => ({ ...prev, [item.id]: secret }));
-      setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)));
+      setRows((prev) =>
+        prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)),
+      );
       celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
-      toast.success(`You're on ${item.label}. Thanks!`);
-      onChanged?.();
-    } catch {
-      toast.error("Couldn't claim that item. Check your connection and try again.");
-      await onRequestRefresh?.();
+      setStatus({ kind: "success", text: `You're on ${item.label}. Thanks!` });
+      await awaitRefresh();
     } finally {
       setBusyId(null);
     }
@@ -173,22 +241,41 @@ export function PublicBringBoard({
     const who = name.trim();
     const secret = secrets[item.id];
     if (!secret) {
-      toast.error("Only the browser that claimed this can release it.");
+      setStatus({ kind: "error", text: "Only the browser that claimed this can release it." });
       return;
     }
+    if (busyId) return;
     setBusyId(item.id);
+    setStatus(null);
     try {
-      const { data, error } = await supabase.rpc("release_bring_item", {
-        token,
-        item_id: item.id,
-        guest_name: who,
-        claim_secret: secret,
-      });
-      if (error || (data as { ok?: boolean } | null)?.ok !== true) {
-        toast.error("Couldn't release that item. Your claim receipt is still here—try again.");
-        await onRequestRefresh?.();
+      let data: unknown = null;
+      let error: unknown = null;
+      try {
+        const res = await supabase.rpc("release_bring_item", {
+          token,
+          item_id: item.id,
+          guest_name: who,
+          claim_secret: secret,
+        });
+        data = res.data;
+        error = res.error;
+      } catch (thrown) {
+        error = thrown;
+      }
+      const okPayload = (data as { ok?: boolean } | null)?.ok === true;
+      if (error || !okPayload) {
+        const network = !!error && isNetworkError(error);
+        setStatus({
+          kind: "error",
+          text: network
+            ? "Network hiccup — your receipt is still here. Tap Release to retry."
+            : "Couldn't release that item. Your receipt is still here — tap Release to retry.",
+        });
+        await awaitRefresh();
         return;
       }
+      // Success — drop receipt from both tiers.
+      memoryOnly.current.delete(item.id);
       clearSecret(token, item.id);
       setSecrets((prev) => {
         const next = { ...prev };
@@ -196,17 +283,23 @@ export function PublicBringBoard({
         return next;
       });
       setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)));
-      toast.success("Released. Someone else can grab it now.");
-      onChanged?.();
-    } catch {
-      toast.error("Couldn't release that item. Your claim receipt is still here—try again.");
-      await onRequestRefresh?.();
+      setStatus({ kind: "success", text: "Released. Someone else can grab it now." });
+      await awaitRefresh();
     } finally {
       setBusyId(null);
     }
   }
 
   const rel = formatRelative(lastUpdatedAt);
+
+  const statusToneClass =
+    status?.kind === "success"
+      ? "text-primary"
+      : status?.kind === "warn"
+        ? "text-amber-700 dark:text-amber-500"
+        : status?.kind === "error"
+          ? "text-destructive"
+          : "text-muted-foreground";
 
   return (
     <section
@@ -260,7 +353,18 @@ export function PublicBringBoard({
           className="min-h-11"
         />
       </div>
-      <div className="mt-4 space-y-4">
+      {/* Inline aria-live status — screen readers announce claim/release
+          outcomes without relying on transient toast notifications. */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={`mt-2 min-h-[1.25rem] text-[12px] ${statusToneClass}`}
+        data-testid="bring-status"
+      >
+        {status?.text ?? ""}
+      </div>
+      <div className="mt-3 space-y-4">
         {Object.entries(grouped).map(([cat, list]) => (
           <div key={cat}>
             <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -269,7 +373,13 @@ export function PublicBringBoard({
             <ul className="space-y-1.5">
               {list.map((it) => {
                 const taken = it.status !== "open";
-                const mine = taken && !!secrets[it.id];
+                const mine = !!secrets[it.id];
+                // A memory-only receipt means the persisted release path is
+                // gone the moment this tab closes. Surface that prominently.
+                const memory = mine && memoryOnly.current.has(it.id);
+                // Keep Release visible whenever we hold ANY receipt, even if
+                // the server row happens to be open (compensation succeeded).
+                const showRelease = mine;
                 return (
                   <li
                     key={it.id}
@@ -288,23 +398,27 @@ export function PublicBringBoard({
                           {mine ? "Claimed by you" : "Claimed"}
                         </div>
                       )}
+                      {memory && (
+                        <div className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-500">
+                          <AlertTriangle className="h-3 w-3" aria-hidden />
+                          Only this tab can release it — don't close yet.
+                        </div>
+                      )}
                     </div>
 
-                    {taken ? (
-                      mine ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={busyId === it.id}
-                          onClick={() => void release(it)}
-                          className="min-h-11"
-                        >
-                          Release
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Taken</span>
-                      )
+                    {showRelease ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={memory ? "outline" : "ghost"}
+                        disabled={busyId === it.id}
+                        onClick={() => void release(it)}
+                        className="min-h-11"
+                      >
+                        {memory ? "Retry release" : "Release"}
+                      </Button>
+                    ) : taken ? (
+                      <span className="text-xs text-muted-foreground">Taken</span>
                     ) : (
                       <Button
                         type="button"
