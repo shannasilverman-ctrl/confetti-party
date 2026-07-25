@@ -375,6 +375,42 @@ export function materializeDraft(
     });
   }
 
+  // Effort level → stance-only task the host can rename/delete.
+  if (merged.effort?.level) {
+    derivedTasks.push({
+      title: `Plan for a ${merged.effort.level}-effort gathering`,
+      bucket: "3-5 weeks",
+    });
+  }
+
+  // Food approach (potluck / catering / cook / mix / snacks-only / grocery-prepared)
+  if (merged.food?.approach) {
+    const label = merged.food.approach.replace("-", " ");
+    derivedTasks.push({ title: `Food approach: ${label}`, bucket: "1-2 weeks" });
+  }
+
+  // Households / kids — track separately from headcount if provided.
+  if (typeof merged.people?.households === "number" && merged.people.households > 0) {
+    derivedTasks.push({
+      title: `Track ${merged.people.households} household${merged.people.households === 1 ? "" : "s"}`,
+      bucket: "3-5 weeks",
+    });
+  }
+  if (typeof merged.people?.kids === "number" && merged.people.kids > 0) {
+    derivedTasks.push({
+      title: `Plan for ${merged.people.kids} kid${merged.people.kids === 1 ? "" : "s"} (activities / menu)`,
+      bucket: "1-2 weeks",
+    });
+  }
+
+  // Budget stance is guidance, not a number.
+  if (merged.budget?.stance && merged.budget.stance !== "flexible") {
+    derivedTasks.push({
+      title: `Budget stance: ${merged.budget.stance.replace("-", " ")}`,
+      bucket: "3-5 weeks",
+    });
+  }
+
   // Rituals (opt-in — listed as optional tasks the host can delete)
   for (const r of merged.rituals ?? []) {
     derivedTasks.push({
