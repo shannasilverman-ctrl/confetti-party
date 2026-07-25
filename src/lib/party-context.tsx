@@ -134,9 +134,19 @@ export const PLANNING_TASK_TITLES: Record<PlanningDetail, string> = {
   theme: "Choose the look and feel",
 };
 
+const PLANNING_DETAILS = Object.keys(PLANNING_TASK_TITLES) as PlanningDetail[];
+
+export function planningDetailForTask(task: Pick<Task, "title">): PlanningDetail | undefined {
+  return PLANNING_DETAILS.find((detail) => PLANNING_TASK_TITLES[detail] === task.title);
+}
+
 export function planningDetailIsOpen(party: Party, detail: PlanningDetail): boolean {
   const title = PLANNING_TASK_TITLES[detail];
   return party.tasks.some((task) => task.title === title && !task.done);
+}
+
+export function openPlanningDetails(party: Party): PlanningDetail[] {
+  return PLANNING_DETAILS.filter((detail) => planningDetailIsOpen(party, detail));
 }
 
 export function resolvePlanningDetails(party: Party, details: PlanningDetail[]): Party {

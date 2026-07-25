@@ -9,6 +9,7 @@ import {
   guestCounts,
   newId,
   OCCASION_LABELS,
+  planningDetailIsOpen,
   progressPct,
   totalSpent,
   useParties,
@@ -33,8 +34,8 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowLeft,
+  CalendarClock,
   CalendarDays,
-  CheckCircle2,
   ListChecks,
   Users,
   Wallet,
@@ -60,6 +61,7 @@ import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
 import { ConfirmDelete } from "@/components/confirm-delete";
+import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
 
@@ -112,7 +114,10 @@ function PartyWorkspace() {
     );
   }
 
-  const days = daysUntil(party.date);
+  const dateTbd = planningDetailIsOpen(party, "date");
+  const guestsTbd = planningDetailIsOpen(party, "guests");
+  const budgetTbd = planningDetailIsOpen(party, "budget");
+  const days = dateTbd ? null : daysUntil(party.date);
   const g = guestCounts(party);
   const spent = totalSpent(party);
   const prog = progressPct(party);
@@ -187,19 +192,29 @@ function PartyWorkspace() {
                 {party.name}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/80">
-                <CalendarDays className="h-4 w-4 shrink-0" />
-                <span>
-                  {formatDateOnly(party.date, {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
-                </span>
-                <span aria-hidden>·</span>
-                <span className="font-semibold text-white">
-                  {days > 0 ? `${days} days to go` : days === 0 ? "Today" : "Past"}
-                </span>
+                {dateTbd ? (
+                  <>
+                    <CalendarClock className="h-4 w-4 shrink-0" />
+                    <span className="font-semibold text-white">Date to decide</span>
+                    <span>Keep planning—nothing has been guessed.</span>
+                  </>
+                ) : (
+                  <>
+                    <CalendarDays className="h-4 w-4 shrink-0" />
+                    <span>
+                      {formatDateOnly(party.date, {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <span aria-hidden>·</span>
+                    <span className="font-semibold text-white">
+                      {days! > 0 ? `${days} days to go` : days === 0 ? "Today" : "Past"}
+                    </span>
+                  </>
+                )}
               </div>
 
               <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
@@ -211,9 +226,17 @@ function PartyWorkspace() {
                 <Stat
                   label="RSVPs"
                   value={`${g.yes}`}
-                  sub={`${g.maybe} maybe · ${g.invited} pending`}
+                  sub={
+                    guestsTbd && g.total === 0
+                      ? "Guest count to decide"
+                      : `${g.maybe} maybe · ${g.invited} pending`
+                  }
                 />
-                <Stat label="Budget" value={`$${spent}`} sub={`of $${party.budget}`} />
+                <Stat
+                  label="Budget"
+                  value={budgetTbd ? "To decide" : `$${spent}`}
+                  sub={budgetTbd ? `$${spent} tracked so far` : `of $${party.budget}`}
+                />
               </div>
 
               <div className="mt-4">
@@ -255,7 +278,7 @@ function PartyWorkspace() {
         {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
         {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "shopping" && <ShoppingTab partyId={party.id} />}
-        {tab === "checklist" && <ChecklistTab partyId={party.id} />}
+        {tab === "checklist" && <ChecklistTab partyId={party.id} onNavigate={setTab} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
         {tab === "bring" && (
           <div className="space-y-10">
@@ -318,7 +341,13 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
 
 /* ---------------- Checklist ---------------- */
 
-function ChecklistTab({ partyId }: { partyId: string }) {
+function ChecklistTab({
+  partyId,
+  onNavigate,
+}: {
+  partyId: string;
+  onNavigate: (tab: TabKey) => void;
+}) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
   const [newTitle, setNewTitle] = useState("");
@@ -409,39 +438,17 @@ function ChecklistTab({ partyId }: { partyId: string }) {
             </div>
             <ul className="space-y-2">
               {items.map((t) => (
-                <li
+                <ChecklistTaskRow
                   key={t.id}
-                  className={`group flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card transition ${
-                    t.done ? "opacity-60" : ""
-                  }`}
-                >
-                  <div className={poppedId === t.id ? "animate-pop" : ""}>
-                    <Checkbox
-                      checked={t.done}
-                      onClick={(e) => {
-                        if (!t.done) celebrateAtEvent("micro", e);
-                      }}
-                      onCheckedChange={() => toggle(t.id)}
-                      className="h-5 w-5"
-                    />
-                  </div>
-                  <span
-                    className={`flex-1 text-sm ${
-                      t.done ? "text-muted-foreground line-through" : "text-secondary"
-                    }`}
-                  >
-                    {t.title}
-                  </span>
-                  {t.done && <CheckCircle2 className="h-4 w-4 text-success" />}
-                  <button
-                    type="button"
-                    onClick={() => remove(t.id)}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-destructive sm:min-h-0 sm:min-w-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                    aria-label="Delete task"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
+                  partyId={partyId}
+                  task={t}
+                  popped={poppedId === t.id}
+                  onToggle={() => toggle(t.id)}
+                  onRemove={() => remove(t.id)}
+                  onResolvePlanning={(detail) =>
+                    onNavigate(detail === "theme" ? "theme" : "overview")
+                  }
+                />
               ))}
             </ul>
           </section>

@@ -16,7 +16,13 @@ import { Pencil } from "lucide-react";
 
 const HOST_NOTE_MAX = 280;
 
-export function EditDetailsDialog({ partyId }: { partyId: string }) {
+export function EditDetailsDialog({
+  partyId,
+  triggerLabel = "Edit details",
+}: {
+  partyId: string;
+  triggerLabel?: string;
+}) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId);
   const [open, setOpen] = useState(false);
@@ -71,10 +77,10 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
       <Button
         variant="ghost"
         size="sm"
-        data-testid="edit-details-trigger"
+        data-testid={triggerLabel === "Edit details" ? "edit-details-trigger" : undefined}
         onClick={() => setOpen(true)}
       >
-        <Pencil /> Edit details
+        <Pencil /> {triggerLabel}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

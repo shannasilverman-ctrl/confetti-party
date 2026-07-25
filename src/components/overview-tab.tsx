@@ -12,6 +12,9 @@ import {
   shoppingProjectedRemaining,
   totalSpent,
   useParties,
+  openPlanningDetails,
+  planningDetailForTask,
+  planningDetailIsOpen,
   type Task,
 } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
@@ -39,7 +42,6 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { formatDateOnly } from "@/lib/date-only";
-import { planningDetailIsOpen } from "@/lib/party-context";
 
 type NavTab =
   | "overview"
@@ -64,22 +66,24 @@ export function OverviewTab({
 
   const days = daysUntil(party.date);
   const dateTbd = planningDetailIsOpen(party, "date");
+  const budgetTbd = planningDetailIsOpen(party, "budget");
   const prog = progressPct(party);
   const g = guestCounts(party);
   const spent = totalSpent(party);
   const remainingEst = shoppingProjectedRemaining(party);
   const projected = spent + remainingEst;
-  const overBudget = projected > party.budget;
+  const overBudget = !budgetTbd && projected > party.budget;
   const theme = themeById(party.themeId);
+  const openDetails = openPlanningDetails(party);
 
   const bucketIdx = (b: Task["bucket"]) => BUCKETS.indexOf(b);
   const upNext = [...party.tasks]
-    .filter((t) => !t.done)
+    .filter((t) => !t.done && !planningDetailForTask(t))
     .sort((a, b) => bucketIdx(a.bucket) - bucketIdx(b.bucket))
     .slice(0, 3);
 
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
-  const partyWeek = days <= 7 && days >= 0;
+  const partyWeek = !dateTbd && days <= 7 && days >= 0;
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -137,7 +141,7 @@ export function OverviewTab({
       <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-card sm:p-7">
         <div className="absolute inset-0 bg-confetti opacity-25" aria-hidden />
         <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-5">
-          <CountdownRing days={days} progress={prog} />
+          <CountdownRing days={dateTbd ? null : days} progress={prog} />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               {theme && <Badge variant="accent">{theme.name}</Badge>}
@@ -189,9 +193,52 @@ export function OverviewTab({
         hasBring={(party.bringBoard ?? []).length > 0}
         hasPhotoDrop={!!party.photoDrop}
         rsvpToken={party.rsvpToken}
+        dateTbd={dateTbd}
         onOpenInvite={() => setInviteOpen(true)}
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
+
+      {openDetails.length > 0 && (
+        <section
+          aria-label="Details to decide"
+          className="rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-card"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <CalendarClock className="h-5 w-5" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-display text-lg font-semibold text-secondary">Still flexible</h3>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Nothing was guessed. Add these whenever you know them.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {openDetails.map((detail) => (
+                  <Badge key={detail} variant="soft">
+                    {detail === "date"
+                      ? "Date"
+                      : detail === "guests"
+                        ? "Guest count"
+                        : detail === "budget"
+                          ? "Budget"
+                          : "Look & feel"}
+                  </Badge>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {openDetails.some((detail) => detail !== "theme") && (
+                  <EditDetailsDialog partyId={partyId} />
+                )}
+                {openDetails.includes("theme") && (
+                  <Button variant="outline" size="sm" onClick={() => onNavigate("theme")}>
+                    <Sparkles /> Pick a look
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Up next */}
       <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
@@ -301,13 +348,22 @@ export function OverviewTab({
         </div>
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Budget ${party.budget}</span>
-            <span>
-              {party.budget ? Math.round((projected / party.budget) * 100) : 0}% projected
-            </span>
+            {budgetTbd ? (
+              <>
+                <span>Budget to decide</span>
+                <span>Estimates saved</span>
+              </>
+            ) : (
+              <>
+                <span>Budget ${party.budget}</span>
+                <span>
+                  {party.budget ? Math.round((projected / party.budget) * 100) : 0}% projected
+                </span>
+              </>
+            )}
           </div>
           <Progress
-            value={party.budget ? Math.min(100, (projected / party.budget) * 100) : 0}
+            value={!budgetTbd && party.budget ? Math.min(100, (projected / party.budget) * 100) : 0}
             aria-label="Budget used"
           />
         </div>
@@ -370,7 +426,7 @@ function MiniStat({
   );
 }
 
-function CountdownRing({ days, progress }: { days: number; progress: number }) {
+function CountdownRing({ days, progress }: { days: number | null; progress: number }) {
   const size = 96;
   const r = 42;
   const c = 2 * Math.PI * r;
@@ -407,10 +463,10 @@ function CountdownRing({ days, progress }: { days: number; progress: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <div className="font-display text-xl font-semibold text-secondary">
-          {days < 0 ? "—" : days}
+          {days == null ? "TBD" : days < 0 ? "—" : days}
         </div>
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          {days === 1 ? "day" : "days"}
+          {days == null ? "date" : days === 1 ? "day" : "days"}
         </div>
       </div>
     </div>
@@ -428,6 +484,7 @@ function PartyJourneyActions({
   hasBring,
   hasPhotoDrop,
   rsvpToken,
+  dateTbd,
   onOpenInvite,
   onOpenBring,
 }: {
@@ -435,11 +492,12 @@ function PartyJourneyActions({
   hasBring: boolean;
   hasPhotoDrop: boolean;
   rsvpToken?: string;
+  dateTbd: boolean;
   onOpenInvite: () => void;
   onOpenBring: () => void;
 }) {
   const copyGuestLink = async () => {
-    if (!rsvpToken) {
+    if (!rsvpToken || dateTbd) {
       onOpenInvite();
       return;
     }
@@ -470,7 +528,8 @@ function PartyJourneyActions({
           </Link>
         </Button>
         <Button size="sm" variant="outline" className="min-h-11" onClick={copyGuestLink}>
-          <Copy className="h-4 w-4" /> {rsvpToken ? "Copy guest link" : "Create invite"}
+          <Copy className="h-4 w-4" />{" "}
+          {dateTbd ? "Finish invite details" : rsvpToken ? "Copy guest link" : "Create invite"}
         </Button>
         <Button
           size="sm"

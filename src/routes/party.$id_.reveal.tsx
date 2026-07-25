@@ -4,6 +4,7 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
+  CalendarClock,
   CalendarDays,
   Copy,
   MapPin,
@@ -25,6 +26,7 @@ import {
   totalSpent,
   progressPct,
   OCCASION_LABELS,
+  planningDetailIsOpen,
 } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
 import { PACKS } from "@/lib/holiday-packs";
@@ -90,24 +92,27 @@ function RevealPage() {
 
   const theme = themeById(party.themeId);
   const pack = party.holidayPackId ? PACKS[party.holidayPackId as keyof typeof PACKS] : undefined;
-  const days = daysUntil(party.date);
+  const dateTbd = planningDetailIsOpen(party, "date");
+  const guestsTbd = planningDetailIsOpen(party, "guests");
+  const budgetTbd = planningDetailIsOpen(party, "budget");
+  const days = dateTbd ? null : daysUntil(party.date);
   const gc = guestCounts(party);
   const spent = totalSpent(party);
   const pct = progressPct(party);
   const openBring = (party.bringBoard ?? []).filter((b) => b.status === "open").length;
   const nextThree = party.tasks.filter((t) => !t.done).slice(0, 3);
-  const canPlanNext = days < 0 || !!party.retrospective;
+  const canPlanNext = !dateTbd && (days! < 0 || !!party.retrospective);
 
   const risks: string[] = [];
-  if (days >= 0 && days <= 7 && openBring > 0) {
+  if (days != null && days >= 0 && days <= 7 && openBring > 0) {
     risks.push(
       `${openBring} bring-board item${openBring === 1 ? "" : "s"} still unclaimed with under a week to go.`,
     );
   }
-  if (spent > party.budget) {
+  if (!budgetTbd && spent > party.budget) {
     risks.push(`Projected spend is over budget by $${Math.round(spent - party.budget)}.`);
   }
-  if (gc.yes === 0 && days > 0) {
+  if (gc.yes === 0 && days != null && days > 0) {
     risks.push("No yes RSVPs yet — consider a reminder nudge.");
   }
 
@@ -172,13 +177,21 @@ function RevealPage() {
           </div>
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />{" "}
-              {formatDateOnly(party.date, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}{" "}
-              · {days >= 0 ? `${days} day${days === 1 ? "" : "s"} to go` : "past"}
+              {dateTbd ? (
+                <>
+                  <CalendarClock className="h-4 w-4" /> Date to decide
+                </>
+              ) : (
+                <>
+                  <CalendarDays className="h-4 w-4" />{" "}
+                  {formatDateOnly(party.date, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}{" "}
+                  · {days! >= 0 ? `${days} day${days === 1 ? "" : "s"} to go` : "past"}
+                </>
+              )}
             </div>
             {party.startTime && (
               <div className="flex items-center gap-2">
@@ -191,8 +204,8 @@ function RevealPage() {
               </div>
             )}
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" /> {gc.yes} yes · {gc.maybe} maybe · target{" "}
-              {party.guestEstimate}
+              <Users className="h-4 w-4" /> {gc.yes} yes · {gc.maybe} maybe ·{" "}
+              {guestsTbd ? "guest count to decide" : `target ${party.guestEstimate}`}
             </div>
           </div>
           {party.hostNote && (
@@ -236,14 +249,20 @@ function RevealPage() {
                 <Wallet className="h-4 w-4 text-primary" /> Budget
               </div>
               <div className="tabular-nums">
-                ${Math.round(spent)} / ${party.budget}
+                {budgetTbd ? "To decide" : `$${Math.round(spent)} / $${party.budget}`}
               </div>
             </div>
-            <Progress
-              value={Math.min(100, Math.round((spent / Math.max(1, party.budget)) * 100))}
-              aria-label="Budget used"
-              className="mt-3"
-            />
+            {budgetTbd ? (
+              <p className="mt-3 text-sm text-muted-foreground">
+                ${Math.round(spent)} tracked so far. Add a comfortable cap when you&apos;re ready.
+              </p>
+            ) : (
+              <Progress
+                value={Math.min(100, Math.round((spent / Math.max(1, party.budget)) * 100))}
+                aria-label="Budget used"
+                className="mt-3"
+              />
+            )}
             <div className="mt-2 text-xs text-muted-foreground">Planning progress {pct}%</div>
           </Card>
 
