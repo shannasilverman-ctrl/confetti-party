@@ -683,12 +683,14 @@ function makeParty(
     theme: string;
     themeId?: string;
     extraTasks?: Task[];
-    holidayPackId?: string;
+    holidayPackId?: HolidayStarterId;
   },
   id: string,
 ): Party {
-  // starterPack("generic") returns undefined by design; unknown ids are ignored.
-  const pack = starterPack(input.holidayPackId as never);
+  // Runtime-narrow the id so any stray unknown value fails safely to undefined
+  // instead of crashing or seeding a garbage pack.
+  const starterId = toHolidayStarterId(input.holidayPackId);
+  const pack = starterPack(starterId);
   const packTaskEntries = pack ? packTasks(pack, () => newId()) : [];
   const packBring = pack ? packBringBoard(pack, () => newId()) : [];
   return {
