@@ -104,11 +104,12 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
 test.describe("Holiday starter → editable workspace", () => {
   test("picking a starter prefills a name and opens the party overview", async ({ page }) => {
     await page.goto("/app");
-    await page
-      .getByRole("button", { name: /new party/i })
-      .first()
-      .click();
+    const trigger = page.getByRole("button", { name: /new party/i }).first();
+    await expect(trigger).toBeVisible();
+    await trigger.focus();
+    await trigger.press("Enter");
     const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
     await dialog
       .getByRole("button", { name: /holiday/i })
       .first()
