@@ -534,7 +534,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
           <EmptyState icon={Users} title="No guests yet" body="Add your first guest above." />
         ) : (
           <ul className="divide-y divide-border">
-            {party.guests.map((guest) => (
+            {party.guests.map((guest, guestIndex) => (
               <li key={guest.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
