@@ -69,16 +69,20 @@ function DayOfPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-2xl px-4 pb-24 pt-4">
-        <header className="flex items-center justify-between">
-          <Button asChild variant="ghost" size="sm" className="gap-1">
+      <div
+        className="mx-auto max-w-2xl px-4 pt-4"
+        style={{ paddingBottom: "max(2rem, env(safe-area-inset-bottom))" }}
+      >
+        <header className="flex items-center justify-between gap-2">
+          <Button asChild variant="ghost" size="sm" className="gap-1 min-h-11">
             <Link to="/party/$id" params={{ id }}>
               <ArrowLeft className="h-4 w-4" /> Workspace
             </Link>
           </Button>
           <BrandLockup />
-          <div className="w-16" />
+          <div className="w-11" aria-hidden />
         </header>
+
 
         <section className="mt-4 rounded-3xl border border-border bg-card p-5 shadow-card">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Day of · {party.name}</div>
