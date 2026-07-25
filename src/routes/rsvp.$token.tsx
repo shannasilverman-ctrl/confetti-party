@@ -219,35 +219,31 @@ function downloadIcs(party: PartyView) {
 
 /* ---------- Sub-components ---------- */
 
-function WhosComing({ names, yes }: { names: string[]; yes: number }) {
-  if (!names || names.length === 0) {
+function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
+  if (yes === 0 && maybe === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-3 py-2 text-center text-xs text-muted-foreground">
         Be the first to RSVP
       </div>
     );
   }
-  const shown = names.slice(0, 3);
-  const extra = Math.max(0, yes - shown.length);
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Who's coming
       </span>
-      {shown.map((n, i) => (
-        <span
-          key={`${n}-${i}`}
-          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
-        >
-          {n}
-        </span>
-      ))}
-      <span className="text-xs text-muted-foreground">
-        {extra > 0 ? `+${extra} going` : `${yes} going`}
+      <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+        {yes} going
       </span>
+      {maybe > 0 && (
+        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+          {maybe} maybe
+        </span>
+      )}
     </div>
   );
 }
+
 
 function CalendarAndDirections({ party }: { party: PartyView }) {
   return (
