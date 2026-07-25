@@ -479,6 +479,7 @@ type Ctx = {
     extraTasks?: Task[];
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
+  cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
 };
 
 const PartyContext = createContext<Ctx | null>(null);
