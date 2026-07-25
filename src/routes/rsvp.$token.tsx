@@ -410,7 +410,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
               {theme && <Badge variant="accent">{theme.name}</Badge>}
             </div>
             <div className="rounded-2xl bg-muted/40 p-3">
-              <WhosComing names={displayNames} yes={displayYes} />
+              <WhosComing yes={displayYes} maybe={party.maybe_count} />
             </div>
             <div className="flex justify-center">
               <CalendarAndDirections party={party} />
