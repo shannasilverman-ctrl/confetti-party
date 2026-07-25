@@ -69,10 +69,7 @@ export function buildRealtimeSessionBody(input: BuildSessionBodyInput) {
  * one, so an unsalted digest can never leave the server. Passing an
  * empty/nullish salt here throws instead of silently degrading privacy.
  */
-export async function computeSafetyIdentifier(
-  userId: string,
-  salt: string,
-): Promise<string> {
+export async function computeSafetyIdentifier(userId: string, salt: string): Promise<string> {
   if (typeof salt !== "string" || salt.length < 8) {
     throw new Error("OPENAI_SAFETY_ID_SALT missing or too short");
   }

@@ -111,9 +111,7 @@ describe("realtime-session contract", () => {
     });
 
     it("rejects non-finite / non-positive / past expires_at", () => {
-      expect(
-        parseClientSecretResponse({ value: "ek", expires_at: Number.NaN }, now),
-      ).toBeNull();
+      expect(parseClientSecretResponse({ value: "ek", expires_at: Number.NaN }, now)).toBeNull();
       expect(
         parseClientSecretResponse({ value: "ek", expires_at: Number.POSITIVE_INFINITY }, now),
       ).toBeNull();

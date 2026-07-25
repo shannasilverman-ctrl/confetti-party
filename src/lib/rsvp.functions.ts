@@ -104,4 +104,3 @@ export const getRsvpLoaderData = createServerFn({ method: "GET" })
       return { party: null, origin };
     }
   });
-

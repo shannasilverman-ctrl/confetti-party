@@ -7,8 +7,6 @@ server-side.
 **Contract dated:** 2026-01 — verified against OpenAI's current
 `/v1/realtime/client_secrets` mint flow and `gpt-realtime-2.1` model.
 
-
-
 ## Contract
 
 | Field                 | Value                                                                      |
@@ -59,7 +57,7 @@ from the authenticated Supabase user id via SHA-256:
 - Format: `conf_<32 hex chars>` (128 bits, opaque).
 - **`OPENAI_SAFETY_ID_SALT` is REQUIRED** whenever `OPENAI_API_KEY` is
   configured. Missing/short salt fails closed with a sanitized `503
-  voice_unavailable`; the route never falls back to hashing an unsalted
+voice_unavailable`; the route never falls back to hashing an unsalted
   user id. Set the salt (any high-entropy string, min 8 chars) in Project
   Settings → Secrets. Rotate to invalidate all existing correlation ids.
 - The raw user id, email, bearer token, IP, and any other PII are never
@@ -113,8 +111,6 @@ The server returns sanitized errors — never the raw OpenAI response body:
 | Upstream network error             | 502    | `upstream_unreachable`                 |
 | Upstream non-2xx                   | 502    | `upstream_error`                       |
 | Unexpected/malformed upstream JSON | 502    | `upstream_error`                       |
-
-
 
 ## Opt-in staging smoke test
 
