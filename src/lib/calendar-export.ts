@@ -101,8 +101,16 @@ export function buildIcs(party: PartyView, generatedAt: Date = new Date()): stri
     "BEGIN:VEVENT",
     `UID:${stableUid(party)}`,
     `DTSTAMP:${toUtcCalendarStamp(generatedAt)}`,
-    payload.icsAllDay ? `DTSTART;VALUE=DATE:${payload.icsStart}` : `DTSTART:${payload.icsStart}`,
-    payload.icsAllDay ? `DTEND;VALUE=DATE:${payload.icsEnd}` : `DTEND:${payload.icsEnd}`,
+    payload.icsAllDay
+      ? `DTSTART;VALUE=DATE:${payload.icsStart}`
+      : party.time_zone
+        ? `DTSTART;TZID=${party.time_zone}:${payload.icsStart}`
+        : `DTSTART:${payload.icsStart}`,
+    payload.icsAllDay
+      ? `DTEND;VALUE=DATE:${payload.icsEnd}`
+      : party.time_zone
+        ? `DTEND;TZID=${party.time_zone}:${payload.icsEnd}`
+        : `DTEND:${payload.icsEnd}`,
     `SUMMARY:${escapeIcsText(party.name)}`,
     party.location ? `LOCATION:${escapeIcsText(party.location)}` : null,
     "DESCRIPTION:See you there — sent via Confetti.",
