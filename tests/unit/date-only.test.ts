@@ -213,7 +213,7 @@ describe("input validation", () => {
   });
   it("civil-date ordinal is exact across DST and historical offsets", () => {
     // 100 years of days.
-    expect(calendarDaysBetween("1925-01-01", "2025-01-01")).toBe(36524);
+    expect(calendarDaysBetween("1925-01-01", "2025-01-01")).toBe(36525);
     // Around the 1883 US standard-time adoption era (still within
     // supported year range) — pure civil-date math ignores offset history.
     expect(calendarDaysBetween("1883-11-17", "1883-11-19")).toBe(2);
