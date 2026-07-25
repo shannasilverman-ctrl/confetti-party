@@ -49,6 +49,10 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Verify webServer contract (spawn declared command, wait for 200)
+        # Distinct port from the E2E suite so a SIGKILL-teardown race cannot
+        # collide with Playwright's webServer bind.
+        env:
+          PW_PORT: "4271"
         run: bun run verify:webserver
 
       - name: E2E tests
