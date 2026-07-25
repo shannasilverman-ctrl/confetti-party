@@ -9,7 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as TalkRouteImport } from './routes/talk'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -19,9 +22,24 @@ import { Route as PartyIdRevealRouteImport } from './routes/party.$id.reveal'
 import { Route as PartyIdDayOfRouteImport } from './routes/party.$id.day-of'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TalkRoute = TalkRouteImport.update({
   id: '/talk',
   path: '/talk',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -69,7 +87,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/talk': typeof TalkRoute
+  '/terms': typeof TermsRoute
   '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -80,7 +101,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/talk': typeof TalkRoute
+  '/terms': typeof TermsRoute
   '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -92,7 +116,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/talk': typeof TalkRoute
+  '/terms': typeof TermsRoute
   '/party/$id': typeof PartyIdRouteWithChildren
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -105,7 +132,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/privacy'
+    | '/reset-password'
     | '/talk'
+    | '/terms'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -116,7 +146,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/privacy'
+    | '/reset-password'
     | '/talk'
+    | '/terms'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -127,7 +160,10 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/auth'
+    | '/privacy'
+    | '/reset-password'
     | '/talk'
+    | '/terms'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -139,7 +175,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
+  PrivacyRoute: typeof PrivacyRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   TalkRoute: typeof TalkRoute
+  TermsRoute: typeof TermsRoute
   PartyIdRoute: typeof PartyIdRouteWithChildren
   RsvpTokenRoute: typeof RsvpTokenRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
@@ -147,11 +186,32 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/talk': {
       id: '/talk'
       path: '/talk'
       fullPath: '/talk'
       preLoaderRoute: typeof TalkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -230,7 +290,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
+  PrivacyRoute: PrivacyRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   TalkRoute: TalkRoute,
+  TermsRoute: TermsRoute,
   PartyIdRoute: PartyIdRouteWithChildren,
   RsvpTokenRoute: RsvpTokenRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,

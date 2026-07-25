@@ -600,7 +600,48 @@ type Ctx = {
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
+  deleteParty: (id: string) => Promise<{ error: string | null }>;
 };
+
+// localStorage key for demo parties. Bump version if the Party shape changes.
+const DEMO_STORAGE_KEY = "confetti:demo-parties:v1";
+const DEMO_MAX_BYTES = 512 * 1024; // 512KB cap
+const DEMO_MAX_PARTIES = 20;
+
+function loadDemoParties(): Party[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(DEMO_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    // Trust structure only enough to render; runtime code re-normalizes via getParty.
+    return parsed as Party[];
+  } catch {
+    return null;
+  }
+}
+
+function saveDemoParties(list: Party[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const capped = list.slice(0, DEMO_MAX_PARTIES);
+    const json = JSON.stringify(capped);
+    if (json.length > DEMO_MAX_BYTES) return; // silently skip oversized state
+    window.localStorage.setItem(DEMO_STORAGE_KEY, json);
+  } catch {
+    /* quota / private mode — ignore */
+  }
+}
+
+function clearDemoParties(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(DEMO_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 const PartyContext = createContext<Ctx | null>(null);
 
@@ -752,7 +793,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     let cancelled = false;
     if (!user) {
-      setParties([seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()]);
+      const stored = loadDemoParties();
+      setParties(
+        stored && stored.length > 0
+          ? stored
+          : [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()],
+      );
       setStatus("ready");
       return;
     }
@@ -771,11 +817,20 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         }
         setParties((data ?? []).map(rowToParty));
         setStatus("ready");
+        // Signed in: demo storage is no longer authoritative.
+        clearDemoParties();
       });
     return () => {
       cancelled = true;
     };
   }, [user, authLoading, reloadKey]);
+
+  // Persist demo parties to localStorage whenever they change (signed-out only).
+  useEffect(() => {
+    if (authLoading || user) return;
+    if (status !== "ready") return;
+    saveDemoParties(parties);
+  }, [parties, user, authLoading, status]);
 
   const persist = useCallback(
     async (p: Party) => {
@@ -886,6 +941,23 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         setParties((prev) => [...prev, copy]);
         if (user) void persist(copy);
         return newId;
+      },
+      deleteParty: async (id) => {
+        const prev = parties;
+        const target = prev.find((p) => p.id === id);
+        if (!target) return { error: null };
+        // Optimistic remove.
+        setParties((list) => list.filter((p) => p.id !== id));
+        savingRef.current.delete(id);
+        if (!user) return { error: null };
+        const { error } = await supabase.from("parties").delete().eq("id", id);
+        if (error) {
+          console.error("[parties] delete failed", error);
+          // Rollback local removal so the user is not silently lied to.
+          setParties(prev);
+          return { error: error.message };
+        }
+        return { error: null };
       },
     }),
     [parties, status, isDemo, user, persist],
