@@ -1019,6 +1019,18 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         if (user) store.enqueueInsert(p, user.id);
         return id;
       },
+      createPartyAsync: async (input) => {
+        const id =
+          typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
+        const p = makeParty(input, id);
+        applyPartiesUpdate((prev) => [...prev, p]);
+        if (!user) return { id, error: null }; // demo persists via localStorage
+        store.enqueueInsert(p, user.id);
+        const outcome = await store.waitForInitialSave(id);
+        if (outcome.ok) return { id, error: null };
+        // Party remains as a recoverable local draft; UI can call retrySave.
+        return { id, error: outcome.error ?? "save-failed" };
+      },
       updateParty: (id, updater) => {
         // Deterministic: compute next from the authoritative ref, not from the
         // React state closure. Two synchronous updateParty calls will both see
