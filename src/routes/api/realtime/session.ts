@@ -52,6 +52,7 @@ import {
   newCorrelationId,
   parseClientSecretResponse,
 } from "@/lib/realtime-session";
+import { withKeyedLock } from "@/lib/user-mutex";
 
 function isNewKey(k: string) {
   return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
@@ -94,19 +95,10 @@ const DEFAULT_DEPS: RealtimeDeps = {
 // ---- In-process per-user serialization -------------------------------------
 // Serializes SELECT-then-INSERT reservations on the same node so a single
 // isolate cannot admit more than the allowed concurrent count for one user.
+// Backed by `withKeyedLock` (see src/lib/user-mutex.ts) which guarantees
+// map entries are cleaned up after every task (success or rejection) and
+// that different users are not globally serialized.
 // Cross-node distributed race remains (documented above as a release blocker).
-const userMutex = new Map<string, Promise<unknown>>();
-function withUserMutex<T>(userId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = userMutex.get(userId) ?? Promise.resolve();
-  const next = prev.catch(() => undefined).then(fn);
-  userMutex.set(
-    userId,
-    next.finally(() => {
-      if (userMutex.get(userId) === next) userMutex.delete(userId);
-    }),
-  );
-  return next;
-}
 
 const CONCURRENCY_LIMIT = 2;
 const HOURLY_LIMIT = 5;
@@ -177,7 +169,7 @@ export function createMintRealtimeSessionHandler(
     }
 
     // ---- 4-6. Reservation, serialized per user on this node --------------
-    return withUserMutex(userId, async () => {
+    return withKeyedLock(userId, async () => {
       const oneHourAgoISO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const staleCutoffISO = new Date(Date.now() - REALTIME_SESSION_STALE_MS).toISOString();
 
@@ -242,12 +234,26 @@ export function createMintRealtimeSessionHandler(
       const sessionId = sessionRow.id;
 
       // Recount AFTER insert to catch single-node races that raced past the
-      // pre-check. If we overshot, close our own reservation and 429.
-      const { data: postRecent } = await supabase
+      // pre-check. A DB failure here MUST NOT fail-open: we own a fresh
+      // reservation, so we close it (best-effort) and return sanitized 503
+      // without calling OpenAI. The distributed multi-worker race is still
+      // documented as a release blocker above.
+      const { data: postRecent, error: postRecentErr } = await supabase
         .from("talk_sessions")
         .select("id, ended_at, started_at")
         .eq("user_id", userId)
         .gte("started_at", oneHourAgoISO);
+      if (postRecentErr) {
+        console.error("[realtime] recount_failed", {
+          cid,
+          code: postRecentErr.code ?? null,
+        });
+        await closeReservedSession(supabase, sessionId, "recount_failed", cid);
+        return Response.json(
+          { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
+          { status: 503 },
+        );
+      }
       const postConcurrent = (postRecent ?? []).filter(
         (r) => !r.ended_at && r.started_at >= staleCutoffISO,
       ).length;

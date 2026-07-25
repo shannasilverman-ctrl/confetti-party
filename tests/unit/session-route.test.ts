@@ -15,7 +15,10 @@ interface FakeSupabaseState {
   authError?: boolean;
   sessions: FakeSession[];
   selectError?: { code: string } | null;
+  /** Applies only to selects AFTER at least one insert (post-insert recount). */
+  recountError?: { code: string } | null;
   insertError?: { code: string } | null;
+  updateError?: { code: string } | null;
   insertHook?: () => void | Promise<void>;
   updates: Array<{ id: string; patch: Record<string, unknown> }>;
   inserts: Array<Record<string, unknown>>;
@@ -48,6 +51,9 @@ function makeFakeSupabase(state: FakeSupabaseState) {
         },
         then(resolve: (v: unknown) => unknown) {
           if (state.selectError) return resolve({ data: null, error: state.selectError });
+          if (state.recountError && state.inserts.length > 0) {
+            return resolve({ data: null, error: state.recountError });
+          }
           return resolve({ data: state.sessions, error: null });
         },
         insert(row: Record<string, unknown>) {
@@ -91,20 +97,25 @@ function makeFakeSupabase(state: FakeSupabaseState) {
             is: (_c: string, _v: null) => {
               const id = (chain as unknown as { _id?: string })._id;
               const doApply = () => {
+                if (state.updateError) return { data: null, error: state.updateError };
                 const row = state.sessions.find((s) => s.id === id);
                 if (row && row.ended_at === null) {
                   row.ended_at = String(patch.ended_at ?? new Date().toISOString());
                   state.updates.push({ id: id ?? "?", patch });
                 }
-              };
-              const promise = (async () => {
-                doApply();
                 return { data: null, error: null };
-              })() as Promise<{ data: null; error: null }> & {
+              };
+              const promise = (async () => doApply())() as Promise<{
+                data: null;
+                error: null;
+              }> & {
                 select: (cols: string) => Promise<{ data: unknown[]; error: null }>;
               };
               promise.select = async (_cols: string) => {
-                doApply();
+                const r = doApply();
+                if ((r as { error?: unknown }).error) {
+                  return { data: [], error: null };
+                }
                 return { data: [{ id }], error: null };
               };
               return promise;
@@ -487,5 +498,49 @@ describe("POST /api/realtime/session", () => {
     await handler(makeReq({ authorization: "Bearer t" }));
     expect(logSink.join("\n")).toMatch(/req_provider_123/);
     expect(logSink.join("\n")).toMatch(/mint_upstream_non_2xx/);
+  });
+
+  // ---- Post-insert recount fail-closed (release blocker) ----------------
+
+  it("post-insert recount DB error → sanitized 503, closes reservation, never mints", async () => {
+    const state = makeState({ recountError: { code: "57P01" } });
+    let openaiCalls = 0;
+    const handler = bind(state, async () => {
+      openaiCalls++;
+      return mintOk();
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.error).toBe("voice_unavailable");
+    // OpenAI is never called after fail-closed.
+    expect(openaiCalls).toBe(0);
+    // Reservation was closed (best-effort cleanup succeeded).
+    expect(state.updates.length).toBe(1);
+    // Correlation-only log; DB code allowed, no user id / bearer / api key.
+    const logs = logSink.join("\n");
+    expect(logs).toMatch(/recount_failed/);
+    expect(logs).toMatch(/57P01/);
+    expect(logs).not.toMatch(/user-uuid-123/);
+    expect(logs).not.toMatch(/sk-test-do-not-log/);
+  });
+
+  it("post-insert recount error + cleanup failure → still 503, never mints, no sensitive logs", async () => {
+    const state = makeState({
+      recountError: { code: "40001" },
+      updateError: { code: "40001" },
+    });
+    let openaiCalls = 0;
+    const handler = bind(state, async () => {
+      openaiCalls++;
+      return mintOk();
+    });
+    const res = await handler(makeReq({ authorization: "Bearer t" }));
+    expect(res.status).toBe(503);
+    expect(openaiCalls).toBe(0);
+    const logs = logSink.join("\n");
+    expect(logs).toMatch(/recount_failed/);
+    expect(logs).not.toMatch(/user-uuid-123/);
+    expect(logs).not.toMatch(/Bearer /);
   });
 });
