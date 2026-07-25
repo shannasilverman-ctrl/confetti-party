@@ -102,20 +102,39 @@ function SampleInvitePage() {
   const [state, setState] = useState<SampleState>(() => defaultSampleState());
   const [hydrated, setHydrated] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadNotice, setLoadNotice] = useState<string | null>(null);
 
   // Client-only load — never call localStorage during SSR.
   useEffect(() => {
-    setState(loadSampleState());
+    const { state: loaded, corruption } = loadSampleState();
+    setState(loaded);
+    if (corruption) {
+      setLoadNotice(
+        corruption === "oversize"
+          ? "The saved sample was too large and was reset."
+          : corruption === "parse"
+            ? "The saved sample was unreadable and was reset."
+            : "The saved sample didn't match what we expected and was reset.",
+      );
+    }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
     const result = saveSampleState(state);
+    if (result.ok) {
+      setSaveError(null);
+      return;
+    }
     setSaveError(
-      result.ok
-        ? null
-        : "This browser couldn't save the sample. You can keep exploring, but it may reset when you leave.",
+      result.reason === "quota"
+        ? "This browser is out of space for the sample. Your changes stay for this visit."
+        : result.reason === "oversized"
+          ? "The sample got too large to save. Some recent changes won't persist."
+          : result.reason === "invalid"
+            ? "Something is off with the sample data. Try resetting."
+            : "This browser can't save the sample, but you can keep exploring.",
     );
   }, [state, hydrated]);
 
@@ -127,6 +146,7 @@ function SampleInvitePage() {
     resetSampleState();
     setState(defaultSampleState());
     setSaveError(null);
+    setLoadNotice(null);
   }
 
   function onSubmit(entry: NonNullable<SampleState["rsvp"]>) {
@@ -138,8 +158,16 @@ function SampleInvitePage() {
     setState((prev) => ({ ...prev, rsvp: null }));
   }
 
-  function claim(itemId: string, guestName: string) {
-    if (!guestName.trim()) return;
+  /**
+   * Sample adapter claim: enforces open-only and requires a guest name.
+   * Never surfaces claimer PII — UI shows "Claimed" only.
+   */
+  function claim(itemId: string, guestName: string): { ok: true } | { ok: false; error: string } {
+    const trimmed = guestName.trim();
+    if (!trimmed) return { ok: false, error: "Please add your name first." };
+    const target = state.bring.find((b) => b.id === itemId);
+    if (!target) return { ok: false, error: "That item is no longer available." };
+    if (target.status !== "open") return { ok: false, error: "Someone else just claimed this." };
     setState((prev) => ({
       ...prev,
       bring: prev.bring.map((b) =>
@@ -149,9 +177,14 @@ function SampleInvitePage() {
       ),
     }));
     celebrate("micro");
+    return { ok: true };
   }
 
-  function release(itemId: string) {
+  /** Release only items this sample guest claimed themselves. */
+  function release(itemId: string): { ok: true } | { ok: false; error: string } {
+    const target = state.bring.find((b) => b.id === itemId);
+    if (!target) return { ok: false, error: "That item is no longer here." };
+    if (!target.claimedByMe) return { ok: false, error: "You can only release your own claims." };
     setState((prev) => ({
       ...prev,
       bring: prev.bring.map((b) =>
@@ -160,6 +193,7 @@ function SampleInvitePage() {
           : b,
       ),
     }));
+    return { ok: true };
   }
 
   const heroStyle: React.CSSProperties = {
