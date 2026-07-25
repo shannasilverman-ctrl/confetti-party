@@ -681,10 +681,7 @@ function makeParty(
   },
   id: string,
 ): Party {
-  // Lazy-load holiday-packs to avoid a circular import at module scope.
-  // starterPack("generic") returns undefined by design.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { starterPack, packTasks, packBringBoard } = require("./holiday-packs") as typeof import("./holiday-packs");
+  // starterPack("generic") returns undefined by design; unknown ids are ignored.
   const pack = starterPack(input.holidayPackId as never);
   const packTaskEntries = pack ? packTasks(pack, () => newId()) : [];
   const packBring = pack ? packBringBoard(pack, () => newId()) : [];
