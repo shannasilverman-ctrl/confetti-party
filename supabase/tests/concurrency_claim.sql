@@ -1,0 +1,35 @@
+-- Two-session concurrency test for claim_bring_item.
+--
+-- Requires an ISOLATED local or staging database. Do NOT run against the
+-- production/connected database — it inserts a synthetic party outside a
+-- single transaction and cleans up afterwards.
+--
+-- Usage:
+--   Terminal 1: psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f setup.sql
+--   Then start two concurrent psql sessions and each execute:
+--     SELECT public.claim_bring_item(:token, 'race_item', 'Racer '||pg_backend_pid()::text, NULL, 1);
+--   Exactly one must return ok=true with a claimSecret; the other must
+--   return ok=false / reason='unavailable'.
+--   Terminal 3 (cleanup): psql "$LOCAL_DB_URL" -f teardown.sql
+--
+-- The scripts/db-concurrency-test.sh helper wraps this using two psql
+-- background processes against $LOCAL_DB_URL and asserts the outcome.
+
+-- setup.sql equivalent (run once):
+-- \set owner_id '<uuid of a test auth.users row you control>'
+-- \set token '<uuid you generate>'
+-- INSERT INTO public.parties (
+--   user_id, name, occasion, date, guest_estimate, budget, theme, tasks,
+--   guests, budget_categories, shopping_items, timeline, rsvp_token,
+--   pinned_inspiration, households, bring_board, host_updates, checkins
+-- ) VALUES (
+--   :'owner_id', 'rpc_concurrency_fixture', 'birthday', current_date + 7,
+--   4, 50, 'default', '[]','[]','[]','[]','[]', :'token',
+--   '[]','[]',
+--   jsonb_build_array(jsonb_build_object('id','race_item','category','food',
+--     'label','Cake','qty',1,'unit','','status','open')),
+--   '[]','[]'
+-- );
+--
+-- teardown.sql equivalent:
+-- DELETE FROM public.parties WHERE name = 'rpc_concurrency_fixture';
