@@ -463,7 +463,21 @@ function NewPartyWizard({
         if (!v) reset();
       }}
     >
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        onCloseAutoFocus={(event) => {
+          // Trigger is a plain <Button>, not <DialogTrigger asChild>, so
+          // Radix cannot auto-restore focus. Manually return focus to the
+          // "New party" trigger to satisfy the dialog contract.
+          const trigger = document.querySelector<HTMLElement>(
+            '[data-testid="new-party-trigger"]',
+          );
+          if (trigger) {
+            event.preventDefault();
+            trigger.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-secondary">
             {step === 1 && "What are you hosting?"}
