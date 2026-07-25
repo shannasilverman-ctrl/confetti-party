@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeAuthReturnTo } from "@/lib/auth-redirect";
+import { isRecoveryRedirect } from "@/lib/auth-recovery";
 
 export type SignUpResult = {
   error: string | null;
@@ -15,6 +16,8 @@ type AuthCtx = {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  /** True only after a recovery redirect marker or PASSWORD_RECOVERY event. */
+  recoveryReady: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, returnTo?: string) => Promise<SignUpResult>;
   /**
@@ -36,17 +39,42 @@ function originOrUndefined(): string | undefined {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recoveryReady, setRecoveryReady] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      isRecoveryRedirect(window.location.search, window.location.hash),
+  );
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    let active = true;
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (!active) return;
       setSession(s);
       setLoading(false);
+      if (event === "PASSWORD_RECOVERY") setRecoveryReady(true);
+      if (event === "SIGNED_OUT") setRecoveryReady(false);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    return () => sub.subscription.unsubscribe();
+    const timeout = window.setTimeout(() => {
+      if (active) setLoading(false);
+    }, 8_000);
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (active) setSession(data.session);
+      })
+      .catch(() => {
+        // Let signed-out/demo surfaces recover instead of hanging forever.
+      })
+      .finally(() => {
+        if (!active) return;
+        window.clearTimeout(timeout);
+        setLoading(false);
+      });
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo<AuthCtx>(
@@ -54,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       session,
       loading,
+      recoveryReady,
       signIn: async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error: error?.message ?? null };
@@ -103,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error?.message ?? null };
       },
     }),
-    [session, loading],
+    [session, loading, recoveryReady],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

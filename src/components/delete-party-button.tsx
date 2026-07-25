@@ -47,15 +47,20 @@ export function DeletePartyButton({
 
   async function onConfirm() {
     setBusy(true);
-    const { error } = await deleteParty(partyId);
-    setBusy(false);
-    if (error) {
-      toast.error(`Could not delete: ${error}`);
-      return;
+    try {
+      const { error } = await deleteParty(partyId);
+      if (error) {
+        toast.error(`Could not delete: ${error}`);
+        return;
+      }
+      toast.success(`Deleted "${partyName}"`);
+      setOpen(false);
+      if (redirectOnDelete) void navigate({ to: "/app", replace: true });
+    } catch {
+      toast.error("Could not delete this party. Nothing was changed.");
+    } finally {
+      setBusy(false);
     }
-    toast.success(`Deleted "${partyName}"`);
-    setOpen(false);
-    if (redirectOnDelete) void navigate({ to: "/app", replace: true });
   }
 
   return (

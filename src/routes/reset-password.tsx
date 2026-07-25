@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPasswordPage,
@@ -21,37 +20,23 @@ export const Route = createFileRoute("/reset-password")({
 
 function ResetPasswordPage() {
   const navigate = useNavigate();
-  const { updatePassword } = useAuth();
-  const [ready, setReady] = useState(false);
+  const { updatePassword, recoveryReady, loading: authLoading } = useAuth();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [invalidLink, setInvalidLink] = useState(false);
 
-  // Only PASSWORD_RECOVERY proves this tab followed a recovery link. An
-  // arbitrary existing session is not enough: otherwise any signed-in user
-  // who visits /reset-password could change their password without the link.
   useEffect(() => {
-    let cancelled = false;
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (cancelled) return;
-      if (event === "PASSWORD_RECOVERY") {
-        setReady(true);
-      }
-    });
+    if (recoveryReady) {
+      setInvalidLink(false);
+      return;
+    }
+    if (authLoading) return;
     const timer = setTimeout(() => {
-      if (cancelled) return;
-      setReady((r) => {
-        if (!r) setInvalidLink(true);
-        return r;
-      });
+      setInvalidLink(true);
     }, 8000);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      sub.subscription.unsubscribe();
-    };
-  }, []);
+    return () => clearTimeout(timer);
+  }, [authLoading, recoveryReady]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -95,7 +80,7 @@ function ResetPasswordPage() {
             Choose a password with at least 8 characters.
           </p>
 
-          {invalidLink && !ready ? (
+          {invalidLink && !recoveryReady ? (
             <div className="mt-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm text-secondary">
               <p>This reset link looks expired or already used.</p>
               <Button asChild className="mt-3" variant="festive" size="sm">
@@ -104,7 +89,7 @@ function ResetPasswordPage() {
                 </Link>
               </Button>
             </div>
-          ) : !ready ? (
+          ) : !recoveryReady ? (
             <p className="mt-6 text-sm text-muted-foreground">Verifying reset link…</p>
           ) : (
             <form onSubmit={onSubmit} className="mt-6 grid gap-4">

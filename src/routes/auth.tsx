@@ -146,6 +146,8 @@ function AuthPage() {
       }
       toast.success("Sent again");
       setResendCooldown(60);
+    } catch {
+      toast.error("Couldn't reach the email service. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }

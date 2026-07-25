@@ -1063,6 +1063,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       deleteParty: async (id) => {
         const target = partiesRef.current.find((p) => p.id === id);
         if (!target) return { error: null };
+        const restoreTarget = () => {
+          tombstonesRef.current.delete(id);
+          applyPartiesUpdate((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
+        };
         tombstonesRef.current.add(id);
         store.drop(id);
         applyPartiesUpdate((list) => list.filter((p) => p.id !== id));
@@ -1075,19 +1079,23 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           return rest;
         });
         if (!user) return { error: null };
-        const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
-        if (error) {
-          console.warn("[parties] delete failed", {
-            code: (error as { code?: string }).code,
-          });
-          tombstonesRef.current.delete(id);
-          applyPartiesUpdate((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
-          return { error: "Couldn't delete this party. Try again." };
-        }
-        if (!data || data.length === 0) {
+        try {
+          const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
+          if (error) {
+            console.warn("[parties] delete failed", {
+              code: (error as { code?: string }).code,
+            });
+            restoreTarget();
+            return { error: "Couldn't delete this party. Try again." };
+          }
+          if (!data || data.length === 0) {
+            return { error: null };
+          }
           return { error: null };
+        } catch {
+          restoreTarget();
+          return { error: "Couldn't delete this party. Check your connection and try again." };
         }
-        return { error: null };
       },
     }),
     [
