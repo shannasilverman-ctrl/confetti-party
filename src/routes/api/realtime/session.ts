@@ -3,14 +3,21 @@
 //
 // Auth: requires a Supabase bearer token. Anonymous callers get 401.
 // Rate limit: max 5 mints/hour and 2 concurrent sessions per user (tracked in talk_sessions).
+//
+// Contract: uses the current /v1/realtime/client_secrets endpoint with the
+// nested `session` schema and gpt-realtime-2.1. See OPENAI_REALTIME.md.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { TALK_SYSTEM_PROMPT } from "@/lib/gathering-draft";
-
-const REALTIME_MODEL = "gpt-4o-realtime-preview-2024-12-17";
-const VOICE = "alloy";
+import {
+  REALTIME_CLIENT_SECRETS_URL,
+  REALTIME_VOICE,
+  buildRealtimeSessionBody,
+  computeSafetyIdentifier,
+  parseClientSecretResponse,
+} from "@/lib/realtime-session";
 
 function isNewKey(k: string) {
   return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
@@ -29,7 +36,6 @@ function supabaseWithToken(token: string) {
           h.delete("Authorization");
         }
         h.set("apikey", key);
-        // Prefer the user's JWT for RLS.
         h.set("Authorization", `Bearer ${token}`);
         return fetch(input, { ...init, headers: h });
       },
@@ -62,7 +68,7 @@ export const Route = createFileRoute("/api/realtime/session")({
         }
         const userId = userRes.user.id;
 
-        // Rate limit: 5 mints/hour, 2 concurrent
+        // Rate limit: 5 mints/hour, 2 concurrent (preserved from Phase 1).
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
         const { data: recent } = await supabase
           .from("talk_sessions")
@@ -94,32 +100,24 @@ export const Route = createFileRoute("/api/realtime/session")({
           // empty body is fine
         }
 
+        const safetyId = await computeSafetyIdentifier(
+          userId,
+          process.env.OPENAI_SAFETY_ID_SALT ?? null,
+        );
+
         // Mint ephemeral client secret from OpenAI Realtime.
         let openaiRes: Response;
         try {
-          openaiRes = await fetch("https://api.openai.com/v1/realtime/sessions", {
+          openaiRes = await fetch(REALTIME_CLIENT_SECRETS_URL, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${openaiKey}`,
               "Content-Type": "application/json",
-              "OpenAI-Beta": "realtime=v1",
+              "OpenAI-Safety-Identifier": safetyId,
             },
-            body: JSON.stringify({
-              model: REALTIME_MODEL,
-              voice: VOICE,
-              modalities: ["audio", "text"],
-              instructions: TALK_SYSTEM_PROMPT,
-              turn_detection: {
-                type: "server_vad",
-                threshold: 0.5,
-                prefix_padding_ms: 300,
-                silence_duration_ms: 500,
-                create_response: true,
-                interrupt_response: true,
-              },
-              input_audio_transcription: { model: "whisper-1" },
-              max_response_output_tokens: 512,
-            }),
+            body: JSON.stringify(
+              buildRealtimeSessionBody({ instructions: TALK_SYSTEM_PROMPT }),
+            ),
           });
         } catch (err) {
           console.error("[realtime] mint fetch failed", { userId, err: (err as Error).message });
@@ -146,11 +144,14 @@ export const Route = createFileRoute("/api/realtime/session")({
           );
         }
 
-        const sessionData = (await openaiRes.json()) as {
-          id: string;
-          model: string;
-          client_secret: { value: string; expires_at: number };
-        };
+        const parsed = parseClientSecretResponse(await openaiRes.json().catch(() => null));
+        if (!parsed) {
+          console.error("[realtime] mint returned unexpected shape", { userId });
+          return Response.json(
+            { error: "upstream_error", message: "Voice service returned an unexpected response." },
+            { status: 502 },
+          );
+        }
 
         // Record the session (owner-scoped).
         const { data: sessionRow, error: sessionErr } = await supabase
@@ -158,7 +159,7 @@ export const Route = createFileRoute("/api/realtime/session")({
           .insert({
             user_id: userId,
             draft_id: body.draftId ?? null,
-            model: sessionData.model,
+            model: parsed.session?.model ?? null,
           })
           .select("id")
           .single();
@@ -168,15 +169,15 @@ export const Route = createFileRoute("/api/realtime/session")({
             userId,
             err: sessionErr.message,
           });
-          // Non-fatal — we can still return the client secret. Cost tracking will be missing.
+          // Non-fatal — we can still return the client secret.
         }
 
         return Response.json({
-          clientSecret: sessionData.client_secret.value,
-          expiresAt: sessionData.client_secret.expires_at,
-          model: sessionData.model,
+          clientSecret: parsed.value,
+          expiresAt: parsed.expires_at,
+          model: parsed.session?.model ?? null,
           sessionId: sessionRow?.id ?? null,
-          voice: VOICE,
+          voice: REALTIME_VOICE,
         });
       },
     },
