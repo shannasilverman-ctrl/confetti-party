@@ -17,6 +17,7 @@ export type Database = {
       gathering_drafts: {
         Row: {
           ai_turns: number
+          ai_turns_hour_start: string | null
           assumptions: Json
           confirmed_party_id: string | null
           created_at: string
@@ -30,6 +31,7 @@ export type Database = {
         }
         Insert: {
           ai_turns?: number
+          ai_turns_hour_start?: string | null
           assumptions?: Json
           confirmed_party_id?: string | null
           created_at?: string
@@ -43,6 +45,7 @@ export type Database = {
         }
         Update: {
           ai_turns?: number
+          ai_turns_hour_start?: string | null
           assumptions?: Json
           confirmed_party_id?: string | null
           created_at?: string
