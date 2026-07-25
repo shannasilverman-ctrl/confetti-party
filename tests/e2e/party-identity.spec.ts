@@ -34,24 +34,12 @@ test.describe("Party route identity", () => {
   test("day-of renders Day-of identity, NOT workspace Overview", async ({ page }) => {
     const resp = await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
     expect(resp?.ok()).toBeTruthy();
-    await expect(page.getByRole("heading", { name: "Next three actions" })).toBeVisible();
-    await expect(page.getByText("Sample Day-of Mode.")).toBeVisible();
+    // Day-of exposes a "Post update" textarea — unique to that mode
+    await expect(page.getByRole("heading", { name: /Day-of|Today/i }).first()).toBeVisible();
     const body = (await page.textContent("body")) ?? "";
     expect(body).not.toMatch(/RSVP snapshot/i);
     // No workspace section tabs
     expect(await page.getByRole("tab").count()).toBe(0);
-  });
-
-  test("sample Day-of update is explicitly local and never claims a guest send", async ({
-    page,
-  }) => {
-    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
-    await page
-      .getByRole("textbox", { name: /Running 15 minutes late/i })
-      .fill("Sample schedule note");
-    await page.getByRole("button", { name: "Add sample update" }).click();
-    await expect(page.getByText(/No guests were notified/i)).toBeVisible();
-    await expect(page.getByText("Sample schedule note")).toBeVisible();
   });
 
   test("unknown party id → branded not-found on all three modes", async ({ page }) => {

@@ -1,7 +1,7 @@
 // Holiday / Party Reveal — a calm summary of the current plan generated
 // from the intake conversation. Editable via the existing workspace.
 
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CalendarDays,
@@ -13,17 +13,17 @@ import {
   ListChecks,
   Package,
   AlertTriangle,
-  Info,
   NotebookPen,
 } from "lucide-react";
 import {
-  useParties,
   daysUntil,
   guestCounts,
   totalSpent,
   progressPct,
   OCCASION_LABELS,
 } from "@/lib/party-context";
+import { useResolvedParty } from "@/lib/use-resolved-party";
+import { PartyModeLoading, PartyModeError, PartyModeMissing } from "@/components/party-mode-panels";
 import { themeById } from "@/lib/themes";
 import { PACKS } from "@/lib/holiday-packs";
 import { BrandLockup } from "@/components/brand";
@@ -40,40 +40,14 @@ export const Route = createFileRoute("/party/$id_/reveal")({
 
 function RevealPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch, isDemo } = useParties();
-  const party = parties.find((p) => p.id === id);
+  const resolved = useResolvedParty(id);
 
-  // PartyProvider hydrates asynchronously for signed-in hosts. Treating
-  // the empty pre-hydration array as authoritative turns a valid deep link
-  // into a false 404 and can poison the SSR response. Only decide that the
-  // party is missing after the provider has reached a terminal state.
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div role="status" className="text-sm text-muted-foreground">
-          Loading your party…
-        </div>
-      </div>
-    );
-  }
+  if (resolved.state === "loading") return <PartyModeLoading />;
+  if (resolved.state === "error") return <PartyModeError retry={resolved.retry} />;
+  if (resolved.state === "missing")
+    return <PartyModeMissing id={id} retry={resolved.retry} mode="reveal" />;
 
-  if (status === "error") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-sm text-center">
-          <h1 className="font-display text-2xl text-secondary">We couldn’t load your party</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Check your connection and try again. Your plan is still safe.
-          </p>
-          <Button className="mt-4" variant="festive" onClick={refetch}>
-            Try again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!party) throw notFound();
+  const party = resolved.party;
 
   const theme = themeById(party.themeId);
   const pack = party.holidayPackId ? PACKS[party.holidayPackId as keyof typeof PACKS] : undefined;
@@ -116,19 +90,6 @@ function RevealPage() {
             </Link>
           </Button>
         </header>
-
-        {isDemo && (
-          <div
-            className="mt-3 flex items-start gap-2 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-secondary"
-            role="note"
-          >
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span>
-              <strong>Sample reveal.</strong> This fictional plan is safe to explore and never
-              changes a real event.
-            </span>
-          </div>
-        )}
 
         <section className="mt-6 rounded-3xl border border-border bg-card p-6 shadow-card md:p-8">
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">

@@ -1,11 +1,13 @@
 // Day-of Host Mode — calm mobile-first surface with next actions,
 // timeline, arrivals and quick host updates.
 
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Circle, Info, Megaphone, UserCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Megaphone, UserCheck } from "lucide-react";
 import { useParties, newId } from "@/lib/party-context";
+import { useResolvedParty } from "@/lib/use-resolved-party";
+import { PartyModeLoading, PartyModeError, PartyModeMissing } from "@/components/party-mode-panels";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -18,8 +20,9 @@ export const Route = createFileRoute("/party/$id_/day-of")({
 
 function DayOfPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch, updateParty, isDemo } = useParties();
-  const party = parties.find((p) => p.id === id);
+  const { updateParty } = useParties();
+  const resolved = useResolvedParty(id);
+  const party = resolved.state === "ready" ? resolved.party : null;
   const [note, setNote] = useState("");
   // Compute derived state before any early return so hook order is stable
   // across renders where the party may briefly disappear (e.g. delete).
@@ -28,39 +31,18 @@ function DayOfPage() {
     [party?.tasks],
   );
 
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div role="status" className="text-sm text-muted-foreground">
-          Loading your party…
-        </div>
-      </div>
-    );
-  }
+  if (resolved.state === "loading") return <PartyModeLoading />;
+  if (resolved.state === "error") return <PartyModeError retry={resolved.retry} />;
+  if (resolved.state === "missing")
+    return <PartyModeMissing id={id} retry={resolved.retry} mode="day-of" />;
 
-  if (status === "error") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-sm text-center">
-          <h1 className="font-display text-2xl text-secondary">We couldn’t load your party</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Check your connection and try again. Your plan is still safe.
-          </p>
-          <Button className="mt-4" variant="festive" onClick={refetch}>
-            Try again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!party) throw notFound();
-  const timeline = party.timeline ?? [];
-  const yesGuests = party.guests.filter((g) => g.rsvp === "yes");
-  const checkins = party.checkins ?? {};
+  const readyParty = resolved.party;
+  const timeline = readyParty.timeline ?? [];
+  const yesGuests = readyParty.guests.filter((g) => g.rsvp === "yes");
+  const checkins = readyParty.checkins ?? {};
 
   function toggleTask(taskId: string, evt?: React.MouseEvent) {
-    updateParty(party!.id, (p) => ({
+    updateParty(readyParty.id, (p) => ({
       ...p,
       tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)),
     }));
@@ -69,7 +51,7 @@ function DayOfPage() {
 
   function toggleCheckin(guestId: string, evt?: React.MouseEvent) {
     const wasHere = !!checkins[guestId];
-    updateParty(party!.id, (p) => {
+    updateParty(readyParty.id, (p) => {
       const next = { ...(p.checkins ?? {}) };
       if (next[guestId]) delete next[guestId];
       else next[guestId] = new Date().toISOString();
@@ -81,7 +63,7 @@ function DayOfPage() {
   function postUpdate() {
     const text = note.trim();
     if (!text) return;
-    updateParty(party!.id, (p) => ({
+    updateParty(readyParty.id, (p) => ({
       ...p,
       hostUpdates: [
         { id: newId(), text, at: new Date().toISOString() },
@@ -89,9 +71,7 @@ function DayOfPage() {
       ].slice(0, 20),
     }));
     setNote("");
-    toast.success(
-      isDemo ? "Sample update added here. No guests were notified." : "Update posted to guests.",
-    );
+    toast.success("Update posted to your guest invite.");
   }
 
   const arrived = Object.keys(checkins).length;
@@ -112,22 +92,9 @@ function DayOfPage() {
           <div className="w-11" aria-hidden />
         </header>
 
-        {isDemo && (
-          <div
-            className="mt-3 flex items-start gap-2 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-secondary"
-            role="note"
-          >
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
-            <span>
-              <strong>Sample Day-of Mode.</strong> Try tasks, check-ins, and updates safely—nothing
-              here notifies real guests.
-            </span>
-          </div>
-        )}
-
         <section className="mt-4 rounded-3xl border border-border bg-card p-5 shadow-card">
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Day of · {party.name}
+            Day of · {readyParty.name}
           </div>
           <h1 className="mt-1 font-display text-2xl font-semibold text-secondary">
             Next three actions
@@ -158,8 +125,7 @@ function DayOfPage() {
 
         <Card className="mt-4 p-5">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Megaphone className="h-4 w-4 text-primary" />{" "}
-            {isDemo ? "Try a sample guest update" : "Post an update to guests"}
+            <Megaphone className="h-4 w-4 text-primary" /> Post an update to guests
           </div>
           <Textarea
             value={note}
@@ -170,12 +136,12 @@ function DayOfPage() {
           />
           <div className="mt-2 flex justify-end">
             <Button size="sm" variant="festive" onClick={postUpdate} disabled={!note.trim()}>
-              {isDemo ? "Add sample update" : "Post update"}
+              Post update
             </Button>
           </div>
-          {(party.hostUpdates ?? []).length > 0 && (
+          {(readyParty.hostUpdates ?? []).length > 0 && (
             <ul className="mt-3 space-y-1.5">
-              {(party.hostUpdates ?? []).slice(0, 3).map((u) => (
+              {(readyParty.hostUpdates ?? []).slice(0, 3).map((u) => (
                 <li
                   key={u.id}
                   className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground"

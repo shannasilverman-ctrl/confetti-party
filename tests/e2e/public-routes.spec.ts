@@ -4,7 +4,6 @@ import AxeBuilder from "@axe-core/playwright";
 const ROUTES = [
   "/",
   "/talk",
-  "/sample-invite",
   "/app",
   "/party/ava-liam-wedding",
   "/party/ava-liam-wedding/reveal",
@@ -99,7 +98,6 @@ test("/app party cards use accessible non-nested interactive controls", async ({
 const AXE_ROUTES = [
   "/",
   "/talk",
-  "/sample-invite",
   "/app",
   "/party/ava-liam-wedding",
   "/party/ava-liam-wedding/reveal",
