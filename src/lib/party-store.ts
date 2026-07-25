@@ -289,23 +289,21 @@ export class PartyStore {
 
     // New baseline is the fresh server row.
     e.baseline = fresh;
-    // Update UI with the merged view so the user sees guest RSVPs and any
-    // fresh server data landing alongside their edit.
-    const mergedParty: Party = {
-      ...rowToParty(fresh),
-      ...localOnlyFieldsFromMerged(merged, fresh),
-    };
-    // Overlay mergeable columns from `merged` back onto the party.
+    // `merged` is the authoritative post-conflict row: it has local values
+    // for columns we changed, server values for columns we didn't, and
+    // three-way merges for mergeable-column contention. Carry over the
+    // server's row metadata so the next update diffs against the fresh
+    // updated_at / rsvp_token / created_at.
+    (merged as Record<string, unknown>).updated_at = fresh.updated_at;
+    (merged as Record<string, unknown>).rsvp_token = fresh.rsvp_token;
+    (merged as Record<string, unknown>).created_at = fresh.created_at;
     const mergedFull: Party = {
-      ...mergedParty,
-      guests: (merged.guests as Party["guests"]) ?? mergedParty.guests,
-      bringBoard: (merged.bring_board as Party["bringBoard"]) ?? mergedParty.bringBoard,
-      checkins: (merged.checkins as Party["checkins"]) ?? mergedParty.checkins,
-      hostUpdates: (merged.host_updates as Party["hostUpdates"]) ?? mergedParty.hostUpdates,
+      ...rowToParty(merged),
+      ...localOnlyFields(_snapshot, fresh),
     };
     this.emit({ type: "server-row", id, party: mergedFull });
     // The queue's latest becomes the merged local target so the next loop's
-    // diff sends only the still-pending host-owned mergeable changes.
+    // diff sends only the still-pending host-owned changes.
     e.latest = mergedFull;
 
     if (nonMergeable.length > 0) {
