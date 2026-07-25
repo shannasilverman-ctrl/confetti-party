@@ -15,6 +15,16 @@ export default defineConfig({
       reporter: ["text", "html"],
       include: ["src/lib/**/*.{ts,tsx}", "src/components/logo.tsx"],
       exclude: ["src/lib/**/*.functions.ts", "src/lib/**/*.server.ts"],
+      // Conservative floors reflecting current focused suite: prevent regressions
+      // in the pure-logic modules exercised by tests (rsvp math, party summary,
+      // seasonal, holiday packs, talk demo, logo). Not a coverage target.
+      thresholds: {
+        lines: 55,
+        statements: 55,
+        functions: 60,
+        branches: 70,
+      },
     },
+
   },
 });
