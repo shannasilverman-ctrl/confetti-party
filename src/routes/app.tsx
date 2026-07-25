@@ -80,18 +80,23 @@ function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6">
           <BrandLockup />
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <AuthNav variant="app" />
             <Button asChild variant="outline" size="sm">
-              <Link to="/talk"><MessageSquare className="h-4 w-4" /> Talk it out</Link>
+              <Link to="/talk">
+                <MessageSquare className="h-4 w-4" />
+                <span className="hidden sm:inline">Talk it out</span>
+              </Link>
             </Button>
-            <Button variant="festive" onClick={() => setWizardOpen(true)}>
-              <Plus /> New Party
+            <Button variant="festive" size="sm" onClick={() => setWizardOpen(true)}>
+              <Plus />
+              <span className="hidden sm:inline">New Party</span>
             </Button>
           </div>
         </div>
+
       </header>
 
       {showBanner && (
