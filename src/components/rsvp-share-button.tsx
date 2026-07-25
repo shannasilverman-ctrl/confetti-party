@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Link2, Copy, Sparkles } from "lucide-react";
+import { Link2, Copy, Sparkles, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Link } from "@tanstack/react-router";
-import { useParties, daysUntil, type Party } from "@/lib/party-context";
+import { useParties, daysUntil, planningDetailIsOpen, type Party } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
 import { formatDateOnly } from "@/lib/date-only";
 
@@ -31,9 +31,14 @@ export function RsvpShareButton({
   const { getParty, isDemo } = useParties();
   const party = getParty(partyId);
   const [demoOpen, setDemoOpen] = useState(false);
+  const [dateNeededOpen, setDateNeededOpen] = useState(false);
   if (!party) return null;
 
   const onClick = async () => {
+    if (planningDetailIsOpen(party, "date")) {
+      setDateNeededOpen(true);
+      return;
+    }
     if (isDemo || !party.rsvpToken) {
       setDemoOpen(true);
       return;
@@ -55,7 +60,47 @@ export function RsvpShareButton({
         <Link2 /> {label}
       </Button>
       <DemoRsvpDialog open={demoOpen} onOpenChange={setDemoOpen} party={party} />
+      <DateNeededDialog
+        open={dateNeededOpen}
+        onOpenChange={setDateNeededOpen}
+        partyName={party.name}
+      />
     </>
+  );
+}
+
+function DateNeededDialog({
+  open,
+  onOpenChange,
+  partyName,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  partyName: string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-warning/20 text-warning-foreground">
+            <CalendarClock className="h-5 w-5" aria-hidden />
+          </div>
+          <DialogTitle className="font-display text-2xl">Pick the date before sharing</DialogTitle>
+          <DialogDescription>
+            {partyName} is safely marked “Date to decide.” Add the real date in Edit details before
+            sending guests an RSVP link.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="rounded-xl border border-border bg-muted/50 p-3 text-sm text-secondary">
+          Your planning work is saved. Confetti won&apos;t put a guessed date on an invitation.
+        </div>
+        <DialogFooter>
+          <Button variant="festive" onClick={() => onOpenChange(false)}>
+            Keep planning
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
