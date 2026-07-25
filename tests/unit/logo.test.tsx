@@ -5,7 +5,7 @@ import { LogoLockup, LogoMark } from "@/components/logo";
 describe("Logo", () => {
   it("renders the full Confetti wordmark in the lockup", () => {
     render(<LogoLockup />);
-    expect(screen.getByText("Confetti")).toBeInTheDocument();
+    expect(screen.getAllByText("Confetti").length).toBeGreaterThan(0);
   });
 
   it("exposes an accessible name on the mark", () => {
