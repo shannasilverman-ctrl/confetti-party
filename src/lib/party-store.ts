@@ -303,10 +303,21 @@ export class PartyStore {
     }
   }
 
+  /** True when the entry still exists AND its epoch matches the value
+   *  captured before an async await. Any mismatch means an identity reset
+   *  happened while we were awaiting network I/O — abort silently. */
+  private aliveAt(id: string, epoch: number): boolean {
+    const cur = this.queue.get(id);
+    return !!cur && cur.epoch === epoch;
+  }
+
   private async runOne(id: string) {
+    const startEntry = this.queue.get(id);
+    if (!startEntry) return;
+    const startEpoch = startEntry.epoch;
     while (true) {
       const e = this.queue.get(id);
-      if (!e) return;
+      if (!e || e.epoch !== startEpoch) return;
       if (this.opts.isTombstoned(id)) {
         this.queue.delete(id);
         return;
@@ -319,14 +330,19 @@ export class PartyStore {
       if (!e.baseline) {
         const row = partyToColumns(snapshot, userId);
         const { data, error } = await this.opts.client.insert(row);
+        // Identity may have changed while awaiting I/O. If so, discard the
+        // result — do NOT persist server-row events into the new account.
+        if (!this.aliveAt(id, startEpoch)) return;
         if (error) {
           const done = await this.handleInsertError(id, error);
+          if (!this.aliveAt(id, startEpoch)) return;
           if (done) return;
           continue;
         }
+        const eNow = this.queue.get(id)!;
         if (data) {
-          e.baseline = data;
-          e.insertRejected = false;
+          eNow.baseline = data;
+          eNow.insertRejected = false;
           const merged: Party = { ...rowToParty(data), ...localOnlyFields(snapshot) };
           this.emit({ type: "server-row", id, party: merged });
         }
@@ -348,18 +364,22 @@ export class PartyStore {
         patch,
         expectedUpdatedAt,
       );
+      if (!this.aliveAt(id, startEpoch)) return;
       if (error) {
         const done = await this.handleError(id, error);
+        if (!this.aliveAt(id, startEpoch)) return;
         if (done) return;
         continue;
       }
       if (conflict) {
         const handled = await this.handleConflict(id, snapshot, nextRow, changed);
+        if (!this.aliveAt(id, startEpoch)) return;
         if (!handled) return; // conflict awaits user resolution
         continue;
       }
+      const eNow = this.queue.get(id)!;
       if (data) {
-        e.baseline = data;
+        eNow.baseline = data;
         const merged: Party = {
           ...rowToParty(data),
           ...localOnlyFields(snapshot),
@@ -371,6 +391,7 @@ export class PartyStore {
       return;
     }
   }
+
 
   private done(id: string) {
     const e = this.queue.get(id);
