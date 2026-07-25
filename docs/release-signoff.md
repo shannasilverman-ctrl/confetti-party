@@ -76,6 +76,10 @@ green.
   content, and raw provider bodies.
 - Photo Drop stores only a validated HTTPS destination. Photos go directly
   to the host's selected provider; outbound links suppress referrers.
+- Party Booth builds a personalized event frame from the public invite name,
+  date, and selected theme entirely in the guest's browser. Original and
+  finished photos are never uploaded to or stored by Confetti; mobile devices
+  use the native share sheet and other browsers receive a local download.
 - Skipped date, guest-count, budget, and look decisions remain explicitly
   open across quick start, workspace, checklist, invitation, and Reveal
   surfaces. A placeholder date cannot be shared, checked off, or deleted into

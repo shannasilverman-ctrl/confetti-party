@@ -28,6 +28,7 @@ import { refetchRsvpParty } from "@/lib/rsvp-refetch";
 import { daysUntilLocal, formatDateOnly } from "@/lib/date-only";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
+import { PersonalizedPhotoBooth } from "@/components/personalized-photo-booth";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
 import { CalendarActions } from "@/components/calendar-actions";
 
@@ -705,6 +706,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
           refreshing={refreshing}
           lastUpdatedAt={lastUpdatedAt}
         />
+        <PersonalizedPhotoBooth eventName={party.name} date={party.date} theme={theme} />
         <PhotoDropCard drop={party.photo_drop ?? null} />
       </main>
 
