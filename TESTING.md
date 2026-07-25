@@ -65,16 +65,21 @@ Assertions:
   `SECURITY DEFINER`, explicit `search_path`, wildcard `ESCAPE` in
   `submit_rsvp`, and `FOR UPDATE` row locks in
   `claim_bring_item` / `release_bring_item`.
-- **Behavioural (Phase B)**: `get_rsvp_party` / `list_bring_board`
-  projections never expose `assigneeName`, `assigneeHousehold`,
-  `claimSecret`, `dietaryTags`, or item `notes`; `submit_rsvp` happy
-  path updates `yes_count`; malformed shapes (non-array
-  dietary/allergens, oversized name, unknown rsvp value) are rejected
-  without changing state; first `claim_bring_item` returns
-  `ok=true` with a non-empty `claimSecret`, second claim returns
-  `unavailable`; `release_bring_item` fails without or with a wrong
-  receipt and only succeeds with the exact receipt; the receipt never
-  appears in either public projection.
+- **Behavioural (Phase B)**: `get_rsvp_party` / `list_bring_board` return
+  only allow-listed keys (no `assigneeName`, `assigneeHousehold`,
+  `claimSecret`, `dietary`, or item `notes`), and sanitized
+  `host_updates` / `photo_drop` projections match an exact key set.
+  Every invalid-input path — blank/oversized names, invalid RSVP value,
+  non-array or oversized `dietary`/`allergens`, blank/oversized/invalid
+  `item_id`, `qty=0`, `qty>999` — must be rejected by the RPC (tracked
+  by a `raised` sentinel so the harness cannot pass on its own thrown
+  error), and byte-identical snapshots of `guests` and `bring_board`
+  prove state was unchanged after each rejection. `submit_rsvp` happy
+  path updates `yes_count`; first `claim_bring_item` returns `ok=true`
+  with a non-empty `claimSecret`, the second returns `unavailable`;
+  `release_bring_item` fails without and with a wrong receipt and only
+  succeeds with the exact receipt; the receipt never appears in either
+  public projection.
 
 Run:
 
@@ -86,27 +91,47 @@ Requires the standard `PG*` env vars (`PGHOST`, `PGPORT`, `PGUSER`,
 `PGPASSWORD`, `PGDATABASE`) pointing at a database with the current
 RPCs deployed. Safe execution surfaces:
 
-- The Lovable sandbox (harness runs inside `BEGIN ... ROLLBACK`; nothing
-  persists).
-- A local `supabase start` instance.
-- A dedicated staging database. **Never a shared production DB.**
+- A local `supabase start` instance (default).
+- A dedicated staging database.
+- The connected Lovable database **only** with an explicit
+  `CONFETTI_ALLOW_CONNECTED_ROLLBACK=1` opt-in. The shell runner refuses
+  hosts whose name contains `prod`/`production`, requires the SQL file
+  to open with `BEGIN` and end in `ROLLBACK` (no `COMMIT`), runs psql
+  with `ON_ERROR_STOP=1`, and performs an independent post-run leak
+  check against both `public.parties` and `auth.users`.
 
-Phase B needs a valid `parties.user_id` (FK → `auth.users`). The harness
-reuses `SELECT user_id FROM public.parties LIMIT 1` purely as an internal
-FK and does not print it. If no owner exists (fresh database), Phase B
-emits `SKIP` and exits cleanly rather than fabricating an auth row.
+Phase B owner-FK strategy (in order):
 
-### Two-session concurrency (local/staging only)
+1. Insert a synthetic `auth.users` row tagged with the run marker
+   (`rpc_harness_fixture_<epoch-ns>@rpc-harness.invalid`). Only possible
+   when the harness role has `INSERT` on `auth.users` (local supabase
+   or staging with `service_role`/`postgres`).
+2. If the role lacks that privilege, fall back to any existing
+   `parties.user_id` as an internal FK (never printed).
+3. If neither is possible (empty database with no auth INSERT), the
+   harness **fails loudly** rather than skipping.
+
+On the connected Lovable sandbox the harness role
+(`sandbox_exec.<ref>`) has neither `INSERT` on `auth.users` nor any
+existing owner to reuse, so Phase B is expected to fail there; run
+Phase B on a local `supabase start` instance where seeding is
+permitted. Phase A still runs and validates grants, function bodies,
+and structural guarantees on any reachable database.
+
+### Two-session concurrency (local/staging only, currently manual)
 
 `supabase/tests/concurrency_claim.sql` documents a two-session claim
 race. It requires two independent psql sessions and therefore cannot
-run inside the atomic-rollback harness. Run it manually against a local
-or staging database only — never production — and delete the fixture
-party (`name = 'rpc_concurrency_fixture'`) afterward. **No isolated
-local instance was available to Lovable when this document was written,
-so the concurrency race is currently un-executed; the row lock is
-covered indirectly via the Phase A `FOR UPDATE` static check and the
-Phase B double-claim assertion (which runs sequentially).**
+run inside the atomic-rollback harness. **There is no
+`scripts/db-concurrency-test.sh`; the two-session race is currently
+run manually and is un-executed by automation.** Run the SQL manually
+against a local or staging database only — never production — and
+delete the fixture party (`name = 'rpc_concurrency_fixture'`)
+afterward. `FOR UPDATE` presence is asserted statically in Phase A and
+sequential loser behavior is asserted in Phase B; true two-backend
+serialization remains unproven until executed on isolated
+local/staging infrastructure.
+
 
 ## Intentionally not covered yet
 
