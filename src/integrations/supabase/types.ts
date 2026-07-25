@@ -23,6 +23,7 @@ export type Database = {
           created_at: string
           draft: Json
           id: string
+          import_idempotency_key: string | null
           open_questions: Json
           status: string
           transcript_retention: string
@@ -37,6 +38,7 @@ export type Database = {
           created_at?: string
           draft?: Json
           id?: string
+          import_idempotency_key?: string | null
           open_questions?: Json
           status?: string
           transcript_retention?: string
@@ -51,6 +53,7 @@ export type Database = {
           created_at?: string
           draft?: Json
           id?: string
+          import_idempotency_key?: string | null
           open_questions?: Json
           status?: string
           transcript_retention?: string
@@ -74,6 +77,7 @@ export type Database = {
           host_updates: Json
           households: Json
           id: string
+          import_local_id: string | null
           location: string | null
           name: string
           occasion: string
@@ -104,6 +108,7 @@ export type Database = {
           host_updates?: Json
           households?: Json
           id?: string
+          import_local_id?: string | null
           location?: string | null
           name: string
           occasion: string
@@ -134,6 +139,7 @@ export type Database = {
           host_updates?: Json
           households?: Json
           id?: string
+          import_local_id?: string | null
           location?: string | null
           name?: string
           occasion?: string
