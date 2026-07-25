@@ -875,7 +875,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
                 themeId: target.themeId,
                 holidayPackId: target.holidayPackId,
                 hostNote: target.hostNote,
-                timeZone: target.timeZone,
               });
             } else if (!rejected && ev.state === "saved") {
               void clearRejectedDraft(uid);
