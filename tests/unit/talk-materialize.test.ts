@@ -98,7 +98,10 @@ describe("materializeDraft — rich case", () => {
     expect(party.location).toBe("Our place");
     expect(party.guestEstimate).toBe(22);
     expect(party.budget).toBe(450);
-    expect(party.hostNote).toBe("Everyone's welcome; kids table by the window.");
+    // hostNote is composed of the host-authored note plus deterministic
+    // vibe metadata (tone/palette/sound-check), so we assert prefix + parts.
+    expect(party.hostNote).toContain("Everyone's welcome; kids table by the window.");
+    expect(party.hostNote).toContain("Palette: amber, cream");
     expect(party.theme).toBe("warm and low-key");
 
     // Derived tasks include host-ready target, backup plan, dietary, accessibility,
