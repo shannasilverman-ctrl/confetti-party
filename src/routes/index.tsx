@@ -438,7 +438,7 @@ function Bubble({
     <div
       className={`max-w-[85%] rounded-2xl bg-muted px-4 py-2.5 text-sm text-muted-foreground shadow-sm ${
         align === "right" ? "self-end rounded-br-sm" : "self-start rounded-bl-sm"
-      } ${strike ? "line-through opacity-60" : ""}`}
+      } ${strike ? "line-through" : ""}`}
       style={{ transform: `rotate(${rot}deg)` }}
     >
       {children}
