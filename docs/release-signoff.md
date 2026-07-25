@@ -79,7 +79,10 @@ green.
 - Skipped date, guest-count, budget, and look decisions remain explicitly
   open across quick start, workspace, checklist, invitation, and Reveal
   surfaces. A placeholder date cannot be shared, checked off, or deleted into
-  becoming a guest-visible fact.
+  becoming a guest-visible fact. The workspace promotes these unresolved
+  inputs as four optional, directly actionable “next moves” before suggesting
+  downstream work such as invitations or RSVP follow-up; the host can choose
+  whichever answer feels easiest and leave the rest open.
 - Account export strips bring-item claim secrets. Account and party deletion
   have explicit confirmation and failure recovery.
 

@@ -11,7 +11,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { planningDetailIsOpen, resolvePlanningDetails, useParties } from "@/lib/party-context";
+import {
+  planningDetailIsOpen,
+  resolvePlanningDetails,
+  useParties,
+  type PlanningDetail,
+} from "@/lib/party-context";
 import { Pencil } from "lucide-react";
 
 const HOST_NOTE_MAX = 280;
@@ -19,9 +24,11 @@ const HOST_NOTE_MAX = 280;
 export function EditDetailsDialog({
   partyId,
   triggerLabel = "Edit details",
+  initialField,
 }: {
   partyId: string;
   triggerLabel?: string;
+  initialField?: Exclude<PlanningDetail, "theme">;
 }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId);
@@ -77,7 +84,14 @@ export function EditDetailsDialog({
       <Button
         variant="ghost"
         size="sm"
-        data-testid={triggerLabel === "Edit details" ? "edit-details-trigger" : undefined}
+        className="min-h-11"
+        data-testid={
+          initialField
+            ? `edit-details-${initialField}-trigger`
+            : triggerLabel === "Edit details"
+              ? "edit-details-trigger"
+              : undefined
+        }
         onClick={() => setOpen(true)}
       >
         <Pencil /> {triggerLabel}
@@ -102,6 +116,7 @@ export function EditDetailsDialog({
               <Input
                 id="ed-date"
                 type="date"
+                autoFocus={initialField === "date"}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
               />
@@ -133,6 +148,7 @@ export function EditDetailsDialog({
                   id="ed-guests"
                   type="number"
                   min={1}
+                  autoFocus={initialField === "guests"}
                   value={guestEstimate}
                   onChange={(e) => setGuestEstimate(e.target.value)}
                   placeholder="Decide later"
@@ -144,6 +160,7 @@ export function EditDetailsDialog({
                   id="ed-budget"
                   type="number"
                   min={0}
+                  autoFocus={initialField === "budget"}
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   placeholder="Decide later"

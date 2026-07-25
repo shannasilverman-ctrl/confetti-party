@@ -180,6 +180,21 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
   await expect(page.getByRole("heading", { level: 1, name: "Neighborhood potluck" })).toBeVisible();
   await expect(page.locator("header").getByText("Date to decide", { exact: true })).toBeVisible();
   await expect(page.getByText("Keep planning—nothing has been guessed.")).toBeVisible();
+
+  const nextMoves = page.getByRole("region", { name: "Your next moves" });
+  await expect(nextMoves).toBeVisible();
+  await expect(nextMoves.getByText(/One answer is enough/i)).toBeVisible();
+  await expect(nextMoves.getByRole("button", { name: "Choose date" })).toBeVisible();
+  await expect(nextMoves.getByRole("button", { name: "Estimate guests" })).toBeVisible();
+  await expect(nextMoves.getByRole("button", { name: "Set budget" })).toBeVisible();
+  await expect(nextMoves.getByRole("button", { name: "Explore looks" })).toBeVisible();
+  await expect(nextMoves.getByText("Send invites", { exact: true })).toHaveCount(0);
+
+  await nextMoves.getByRole("button", { name: "Choose date" }).click();
+  await expect(page.getByRole("heading", { name: "Edit party details" })).toBeVisible();
+  await expect(page.locator("#ed-date")).toBeFocused();
+  await page.getByRole("button", { name: "Cancel" }).click();
+
   await page
     .getByLabel("Party quick actions")
     .getByRole("button", { name: "Finish invite details" })
