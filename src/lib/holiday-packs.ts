@@ -9,6 +9,7 @@ export type PackId =
   | "shabbat"
   | "hanukkah"
   | "christmas"
+  | "new-years"
   | "passover"
   | "easter"
   | "diwali"
