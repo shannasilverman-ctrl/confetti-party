@@ -52,6 +52,7 @@ import {
   newCorrelationId,
   parseClientSecretResponse,
 } from "@/lib/realtime-session";
+import { withKeyedLock } from "@/lib/user-mutex";
 
 function isNewKey(k: string) {
   return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
