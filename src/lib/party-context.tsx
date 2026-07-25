@@ -531,6 +531,44 @@ function seedAvaLiam(): Party {
     { id: uid(), name: "Elena Conti", kind: "adult", rsvp: "maybe" },
     { id: uid(), name: "Marco Ferrari", kind: "adult", rsvp: "invited" },
   ];
+  // Wedding-scale category allocations that sum to the shown budget ($12,500).
+  // Every surface (Overview projected/remaining, Budget totals) will now agree.
+  const venueExp = uid();
+  const cateringExp = uid();
+  const florals1 = uid();
+  const florals2 = uid();
+  const musicDep = uid();
+  const budgetCategories: BudgetCategory[] = [
+    {
+      id: uid(),
+      name: "Venue",
+      planned: 4500,
+      expenses: [{ id: venueExp, label: "Tenuta di Fiore — deposit", amount: 2250 }],
+    },
+    {
+      id: uid(),
+      name: "Food & Drink",
+      planned: 3800,
+      expenses: [{ id: cateringExp, label: "Long-table dinner — deposit", amount: 1500 }],
+    },
+    { id: uid(), name: "Cake & Desserts", planned: 350, expenses: [] },
+    {
+      id: uid(),
+      name: "Decorations",
+      planned: 1400,
+      expenses: [
+        { id: florals1, label: "Cypress arch florals", amount: 420 },
+        { id: florals2, label: "Long-table runners", amount: 180 },
+      ],
+    },
+    {
+      id: uid(),
+      name: "Entertainment",
+      planned: 1600,
+      expenses: [{ id: musicDep, label: "String trio deposit", amount: 400 }],
+    },
+    { id: uid(), name: "Favors", planned: 850, expenses: [] },
+  ];
   return {
     id: "ava-liam-wedding",
     name: "Ava & Liam",
@@ -543,7 +581,7 @@ function seedAvaLiam(): Party {
     theme: "Tuscan Vineyard",
     tasks,
     guests,
-    budgetCategories: DEFAULT_CATEGORIES(),
+    budgetCategories,
     timeline: [
       { id: uid(), time: "4:30 PM", activity: "Guests arrive, prosecco on the terrace" },
       { id: uid(), time: "5:30 PM", activity: "Ceremony under the cypress arch" },
@@ -551,25 +589,21 @@ function seedAvaLiam(): Party {
       { id: uid(), time: "7:30 PM", activity: "Long-table dinner in the vineyard" },
       { id: uid(), time: "9:30 PM", activity: "Toasts, cake, first dance" },
     ],
-    shoppingItems: [],
+    shoppingItems: [
+      { id: uid(), name: "Welcome favors — olive oil minis", category: "Favors", qty: 60, estPrice: 8, status: "needed" },
+      { id: uid(), name: "Ceremony program cards", category: "Decorations", qty: 65, estPrice: 2, status: "in-cart" },
+      { id: uid(), name: "Sparklers for send-off", category: "Decorations", qty: 6, estPrice: 12, status: "needed" },
+      { id: uid(), name: "Bocce set (backyard aperitivo)", category: "Entertainment", qty: 1, estPrice: 45, status: "needed" },
+    ],
     bringBoard: [
-      {
-        id: uid(),
-        category: "Sides",
-        label: "Antipasti board",
-        qty: 2,
-        status: "open",
-        source: "host",
-      },
+      { id: uid(), category: "Main", label: "Focaccia — rosemary & sea salt", qty: 3, status: "open", source: "host" },
+      { id: uid(), category: "Main", label: "Roasted porchetta trays", qty: 2, status: "claimed", source: "host", assigneeName: "Matteo Marchetti", assigneeHousehold: "Marchetti family" },
+      { id: uid(), category: "Sides", label: "Antipasti board", qty: 2, status: "open", source: "host" },
+      { id: uid(), category: "Sides", label: "Panzanella (summer tomato)", qty: 2, status: "claimed", source: "host", assigneeName: "Sofia Rossi" },
       { id: uid(), category: "Dessert", label: "Tiramisu", qty: 1, status: "open", source: "host" },
-      {
-        id: uid(),
-        category: "Drinks",
-        label: "Chianti bottles",
-        qty: 6,
-        status: "open",
-        source: "host",
-      },
+      { id: uid(), category: "Dessert", label: "Cannoli platter", qty: 2, status: "claimed", source: "host", assigneeName: "Giulia Bianchi" },
+      { id: uid(), category: "Drinks", label: "Chianti bottles", qty: 6, status: "open", source: "host" },
+      { id: uid(), category: "Drinks", label: "Sparkling water flats", qty: 3, status: "claimed", source: "host", assigneeName: "Marco Ferrari" },
     ],
     pinnedInspiration: [],
     hostNote:
