@@ -38,6 +38,7 @@ import {
   Wallet,
   ShoppingCart,
 } from "lucide-react";
+import { formatDateOnly } from "@/lib/date-only";
 
 type NavTab =
   | "overview"

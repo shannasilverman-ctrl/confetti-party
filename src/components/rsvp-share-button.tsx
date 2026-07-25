@@ -13,6 +13,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useParties, daysUntil, type Party } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
+import { formatDateOnly } from "@/lib/date-only";
 
 export function RsvpShareButton({
   partyId,

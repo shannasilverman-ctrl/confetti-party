@@ -31,6 +31,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { RetrospectiveDialog } from "@/components/retrospective-dialog";
+import { formatDateOnly } from "@/lib/date-only";
 
 export const Route = createFileRoute("/party/$id/reveal")({
   component: RevealPage,
