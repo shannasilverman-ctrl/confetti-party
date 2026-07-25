@@ -5,6 +5,7 @@ import {
   dateOnlyToLocalDate,
   localDateToDateOnly,
   nextWeekdayDateOnly,
+  nextAnnualDateOnly,
   todayDateOnly,
   addDaysDateOnly,
   isoDateInDaysLocal,
@@ -47,6 +48,21 @@ describe("nextWeekdayDateOnly", () => {
   it("rejects invalid weekday and range inputs", () => {
     expect(() => nextWeekdayDateOnly(7, 1)).toThrow(/weekday/);
     expect(() => nextWeekdayDateOnly(6, -1)).toThrow(/minimumDays/);
+  });
+});
+
+describe("nextAnnualDateOnly", () => {
+  it("keeps the calendar month and day while moving at least one year forward", () => {
+    expect(nextAnnualDateOnly("2025-11-27", new Date(2026, 6, 25))).toBe("2026-11-27");
+    expect(nextAnnualDateOnly("2026-05-22", new Date(2026, 6, 25))).toBe("2027-05-22");
+  });
+
+  it("keeps advancing until the occurrence is in the future", () => {
+    expect(nextAnnualDateOnly("2022-01-10", new Date(2026, 6, 25))).toBe("2027-01-10");
+  });
+
+  it("clamps leap day to the end of February", () => {
+    expect(nextAnnualDateOnly("2024-02-29", new Date(2024, 2, 1))).toBe("2025-02-28");
   });
 });
 

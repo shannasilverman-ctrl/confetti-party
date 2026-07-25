@@ -109,6 +109,21 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
+test("retrospective reveal can start the next gathering without setup friction", async ({
+  page,
+}) => {
+  await page.goto("/party/world-cup-final-watch/reveal", { waitUntil: "domcontentloaded" });
+  const nextButton = page.getByRole("button", { name: "Plan the next one" });
+  await expect(nextButton).toBeVisible();
+  await nextButton.click();
+
+  await expect(page).toHaveURL(/\/party\/[^/]+$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "World Cup Final Watch Party — next time" }),
+  ).toBeVisible();
+  await expect(page.getByText("0 maybe · 0 pending")).toBeVisible();
+});
+
 test("sample invite exposes the same practical guest details and calendar actions", async ({
   page,
 }) => {

@@ -1,10 +1,11 @@
 // Holiday / Party Reveal — a calm summary of the current plan generated
 // from the intake conversation. Editable via the existing workspace.
 
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CalendarDays,
+  Copy,
   MapPin,
   Users,
   Wallet,
@@ -16,6 +17,7 @@ import {
   Info,
   NotebookPen,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   useParties,
   daysUntil,
@@ -32,7 +34,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { RetrospectiveDialog } from "@/components/retrospective-dialog";
-import { formatDateOnly } from "@/lib/date-only";
+import { formatDateOnly, nextAnnualDateOnly } from "@/lib/date-only";
 
 export const Route = createFileRoute("/party/$id_/reveal")({
   component: RevealPage,
@@ -50,7 +52,8 @@ export const Route = createFileRoute("/party/$id_/reveal")({
 
 function RevealPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch, isDemo } = useParties();
+  const navigate = useNavigate();
+  const { parties, status, refetch, isDemo, cloneParty } = useParties();
   const party = parties.find((p) => p.id === id);
 
   // PartyProvider hydrates asynchronously for signed-in hosts. Treating
@@ -93,6 +96,7 @@ function RevealPage() {
   const pct = progressPct(party);
   const openBring = (party.bringBoard ?? []).filter((b) => b.status === "open").length;
   const nextThree = party.tasks.filter((t) => !t.done).slice(0, 3);
+  const canPlanNext = days < 0 || !!party.retrospective;
 
   const risks: string[] = [];
   if (days >= 0 && days <= 7 && openBring > 0) {
@@ -105,6 +109,20 @@ function RevealPage() {
   }
   if (gc.yes === 0 && days > 0) {
     risks.push("No yes RSVPs yet — consider a reminder nudge.");
+  }
+
+  const sourceParty = party;
+  function planNextGathering() {
+    const nextId = cloneParty(sourceParty.id, {
+      name: `${sourceParty.name} — next time`,
+      date: nextAnnualDateOnly(sourceParty.date),
+    });
+    if (!nextId) {
+      toast.error("Couldn't prepare the next gathering. Please try again.");
+      return;
+    }
+    toast.success("Fresh plan ready — guests, spending, and check-ins were reset.");
+    void navigate({ to: "/party/$id", params: { id: nextId } });
   }
 
   return (
@@ -263,7 +281,7 @@ function RevealPage() {
           </Card>
         </div>
 
-        {(days < 0 || party.retrospective) && (
+        {canPlanNext && (
           <Card className="mt-6 p-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -306,6 +324,30 @@ function RevealPage() {
                 the next time you clone this party.
               </p>
             )}
+          </Card>
+        )}
+
+        {canPlanNext && (
+          <Card className="mt-4 overflow-hidden border-primary/25 bg-primary/5 p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-sm font-semibold text-secondary">
+                  <Copy className="h-4 w-4 text-primary" aria-hidden /> Make next time easier
+                </div>
+                <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                  Keep the useful plan and private retrospective. Confetti resets guests, spending,
+                  check-ins, claims, and completed tasks, then moves the date forward.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="festive"
+                className="min-h-11 shrink-0"
+                onClick={planNextGathering}
+              >
+                Plan the next one
+              </Button>
+            </div>
           </Card>
         )}
       </main>
