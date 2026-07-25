@@ -149,29 +149,21 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
       await dialog.getByTestId("wizard-continue").click();
       await expect(dialog.getByTestId("wizard-step-3")).toBeVisible();
 
-      // -------- STEP 3: theme cards + Back/Create --------
+      // -------- STEP 3: Holiday themes are curated — require ≥1 --------
       m = await measureTargets(dialog, '[data-testid^="wizard-theme-"]', width, "step3-theme");
-      // Some occasions may have no themes; treat 0 as acceptable but log.
-      if (m === 0) {
-        // No themes for this pack — footer Create is still measurable.
-      }
+      expect(m, `step 3 measured ≥1 theme card @${width}`).toBeGreaterThan(0);
       await measureTargets(dialog, '[data-testid="wizard-back"]', width, "step3-back");
       await measureTargets(dialog, '[data-testid="wizard-create"]', width, "step3-create");
 
-      // Complete the wizard if a theme is available.
-      const themes = dialog.locator('[data-testid^="wizard-theme-"]');
-      if ((await themes.count()) > 0) {
-        await themes.first().click();
-        await dialog.getByTestId("wizard-create").click();
+      // Winter Wonderland is a stable holiday theme id (see src/lib/themes.ts).
+      await dialog.getByTestId("wizard-theme-winter-wonderland").click();
+      await dialog.getByTestId("wizard-create").click();
 
-        // -------- COMPLETION: Close + Open plan --------
-        await expect(dialog.getByTestId("wizard-close")).toBeVisible();
-        await measureTargets(dialog, '[data-testid="wizard-close"]', width, "done-close");
-        await measureTargets(dialog, '[data-testid="wizard-open-plan"]', width, "done-open");
-        await dialog.getByTestId("wizard-close").click();
-      } else {
-        await page.keyboard.press("Escape");
-      }
+      // -------- COMPLETION: Close + Open plan --------
+      await expect(dialog.getByTestId("wizard-close")).toBeVisible();
+      await measureTargets(dialog, '[data-testid="wizard-close"]', width, "done-close");
+      await measureTargets(dialog, '[data-testid="wizard-open-plan"]', width, "done-open");
+      await dialog.getByTestId("wizard-close").click();
       await expect(dialog).toBeHidden();
     }
   });
