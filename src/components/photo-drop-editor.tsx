@@ -31,7 +31,11 @@ import { celebrate } from "@/components/confetti-burst";
 export function PhotoDropEditor({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
-  const existing = party.photoDrop ?? null;
+  const storedDrop = party.photoDrop ?? null;
+  // Runtime-validate the persisted row before rendering QR/copy/share/open.
+  // Legacy or tampered rows fall through as an unavailable-safe card below.
+  const safeExisting = storedDrop ? sanitizePublicPhotoDrop(storedDrop) : null;
+  const existing = safeExisting ? storedDrop : null;
 
   const [provider, setProvider] = useState<PhotoDropProvider>(
     (existing?.provider as PhotoDropProvider) ?? "dropbox_request",
@@ -40,6 +44,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
   const [label, setLabel] = useState(existing?.label ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCustom, setConfirmingCustom] = useState(false);
   const printableQrRef = useRef<HTMLDivElement | null>(null);
 
   function save(evt?: React.MouseEvent) {
@@ -48,7 +53,14 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
       setError(v.error);
       return;
     }
+    // First-time custom domains require an explicit host confirmation.
+    if (provider === "custom" && !confirmingCustom && existing?.url !== v.url) {
+      setError(null);
+      setConfirmingCustom(true);
+      return;
+    }
     setError(null);
+    setConfirmingCustom(false);
     const next: PhotoDrop = {
       provider,
       url: v.url,
@@ -68,6 +80,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
     setNote("");
     toast.success("Photo Drop removed.");
   }
+
 
   async function copyLink() {
     if (!existing?.url) return;
