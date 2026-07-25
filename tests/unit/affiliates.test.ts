@@ -23,9 +23,7 @@ describe("affiliate link builders", () => {
 
   it("appends the Amazon Associates tag when configured", () => {
     AFFILIATE.amazonTag = "confetti-20";
-    expect(amazonSearchUrl("balloons")).toBe(
-      "https://www.amazon.com/s?k=balloons&tag=confetti-20",
-    );
+    expect(amazonSearchUrl("balloons")).toBe("https://www.amazon.com/s?k=balloons&tag=confetti-20");
     expect(affiliateDisclosureEnabled()).toBe(true);
     expect(AFFILIATE_DISCLOSURE).toMatch(/Amazon Associate/);
   });

@@ -55,4 +55,4 @@ port with `PW_PORT`.
    `tests/e2e/public-routes.spec.ts`. Prefer role/text queries over CSS
    selectors and assert user-visible behavior.
 3. Run `bun run lint && bun run typecheck && bun run test && bun run build &&
-   bun run test:e2e` before opening the PR. CI runs the same sequence.
+bun run test:e2e` before opening the PR. CI runs the same sequence.

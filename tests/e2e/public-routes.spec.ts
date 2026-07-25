@@ -28,7 +28,10 @@ for (const path of ROUTES) {
       const el = document.documentElement;
       return el.scrollWidth - el.clientWidth;
     });
-    expect(overflow, `horizontal overflow on ${path} (${testInfo.project.name})`).toBeLessThanOrEqual(1);
+    expect(
+      overflow,
+      `horizontal overflow on ${path} (${testInfo.project.name})`,
+    ).toBeLessThanOrEqual(1);
   });
 }
 
@@ -54,15 +57,10 @@ for (const path of ["/", "/talk"]) {
   test(`axe: no serious/critical a11y violations on ${path}`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "run a11y once per route");
     await page.goto(path, { waitUntil: "domcontentloaded" });
-    const results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa"])
-      .analyze();
+    const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
     const blocking = results.violations.filter(
       (v) => v.impact === "serious" || v.impact === "critical",
     );
-    expect(
-      blocking,
-      blocking.map((v) => `${v.id}: ${v.help}`).join("\n"),
-    ).toEqual([]);
+    expect(blocking, blocking.map((v) => `${v.id}: ${v.help}`).join("\n")).toEqual([]);
   });
 }
