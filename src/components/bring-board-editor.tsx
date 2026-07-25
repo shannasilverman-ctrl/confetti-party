@@ -93,7 +93,7 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
   }
 
   function applyPack(packId: PackId) {
-    const seeds = packBringBoard(packId);
+    const seeds = packBringBoard(PACKS[packId], newId);
     if (!seeds.length) return;
     updateParty(party.id, (p) => {
       const existing = p.bringBoard ?? [];
