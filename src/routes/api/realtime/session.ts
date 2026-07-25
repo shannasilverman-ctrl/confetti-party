@@ -234,12 +234,26 @@ export function createMintRealtimeSessionHandler(
       const sessionId = sessionRow.id;
 
       // Recount AFTER insert to catch single-node races that raced past the
-      // pre-check. If we overshot, close our own reservation and 429.
-      const { data: postRecent } = await supabase
+      // pre-check. A DB failure here MUST NOT fail-open: we own a fresh
+      // reservation, so we close it (best-effort) and return sanitized 503
+      // without calling OpenAI. The distributed multi-worker race is still
+      // documented as a release blocker above.
+      const { data: postRecent, error: postRecentErr } = await supabase
         .from("talk_sessions")
         .select("id, ended_at, started_at")
         .eq("user_id", userId)
         .gte("started_at", oneHourAgoISO);
+      if (postRecentErr) {
+        console.error("[realtime] recount_failed", {
+          cid,
+          code: postRecentErr.code ?? null,
+        });
+        await closeReservedSession(supabase, sessionId, "recount_failed", cid);
+        return Response.json(
+          { error: "voice_unavailable", message: "Voice is temporarily unavailable." },
+          { status: 503 },
+        );
+      }
       const postConcurrent = (postRecent ?? []).filter(
         (r) => !r.ended_at && r.started_at >= staleCutoffISO,
       ).length;
