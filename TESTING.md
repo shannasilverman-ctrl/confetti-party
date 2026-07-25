@@ -132,7 +132,6 @@ sequential loser behavior is asserted in Phase B; true two-backend
 serialization remains unproven until executed on isolated
 local/staging infrastructure.
 
-
 ## Intentionally not covered yet
 
 - **Real database RSVP happy path via HTTP.** Submitting an RSVP through
