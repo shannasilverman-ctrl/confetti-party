@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:db": "bash scripts/test-db.sh",
-    "e2e:server": "wrangler dev --config dist/server/wrangler.json",
+    "e2e:server": "node -e \"import('./scripts/wrangler-config-path.mjs').then(m=>{const{spawn}=require('node:child_process');spawn('wrangler',['dev','--config',m.resolveWranglerConfigPath()],{stdio:'inherit'}).on('exit',c=>process.exit(c??0))})\"",
     "verify:webserver": "node scripts/verify-webserver.mjs"
   },
   "dependencies": {

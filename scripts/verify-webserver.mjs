@@ -13,24 +13,21 @@
  */
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
+import { resolveWranglerConfigPath } from "./wrangler-config-path.mjs";
 
 const PORT = Number(process.env.PW_PORT ?? 4173);
 const URL = `http://127.0.0.1:${PORT}/`;
 const START_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 500;
 
+// Resolve the current build's wrangler.json — .output/ on GitHub, dist/ in
+// the Lovable sandbox. Fails loudly (non-zero) if the build has not been
+// produced yet, which is the actual CI failure this smoke exists to catch.
+const CONFIG = resolveWranglerConfigPath();
+
 // The command below MUST stay in sync with playwright.config.ts webServer.command.
 const CMD = "bunx";
-const ARGS = [
-  "wrangler",
-  "dev",
-  "--config",
-  "dist/server/wrangler.json",
-  "--port",
-  String(PORT),
-  "--ip",
-  "127.0.0.1",
-];
+const ARGS = ["wrangler", "dev", "--config", CONFIG, "--port", String(PORT), "--ip", "127.0.0.1"];
 
 console.log(`[verify-webserver] spawning: ${CMD} ${ARGS.join(" ")}`);
 const child = spawn(CMD, ARGS, {
@@ -75,11 +72,18 @@ try {
 } finally {
   if (earlyExitCode === null) {
     child.kill("SIGTERM");
-    const killDeadline = Date.now() + 5_000;
-    while (earlyExitCode === null && Date.now() < killDeadline) {
+    const softDeadline = Date.now() + 5_000;
+    while (earlyExitCode === null && Date.now() < softDeadline) {
       await delay(100);
     }
     if (earlyExitCode === null) child.kill("SIGKILL");
+    // Await confirmed process exit so the port is released before the
+    // caller (the E2E suite) tries to bind it. Without this, SIGKILL
+    // returns immediately and the follow-up Playwright webServer racy.
+    const hardDeadline = Date.now() + 10_000;
+    while (earlyExitCode === null && Date.now() < hardDeadline) {
+      await delay(100);
+    }
   }
 }
 

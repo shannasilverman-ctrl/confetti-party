@@ -17,7 +17,10 @@ bun run test:e2e      # Playwright against the production preview server
 ```
 
 `test:e2e` boots the Cloudflare Worker preview (`wrangler dev`) against
-`dist/server/wrangler.json` as its `webServer`, so you must have run
+the Nitro build output — `.output/server/wrangler.json` on GitHub / any
+non-sandbox host, or `dist/server/wrangler.json` inside the Lovable
+sandbox. `scripts/wrangler-config-path.mjs` resolves the path from
+whichever directory actually exists, so you must have run
 `bun run build` at least once (CI does this in-order). Override the port
 with `PW_PORT`.
 

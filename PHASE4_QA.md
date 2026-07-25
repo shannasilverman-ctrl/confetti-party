@@ -10,16 +10,16 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 
 ## 1. Quality gates (exact commands)
 
-| Step      | Command                                                                                                                         |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Install   | `bun install --frozen-lockfile`                                                                                                 |
-| Prettier  | `bun run format:check` (`prettier --check .`)                                                                                   |
-| Lint      | `bun run lint` (`eslint .`)                                                                                                     |
-| Typecheck | `bun run typecheck` (`tsc --noEmit`)                                                                                            |
-| Unit      | `bun run test` (`vitest run`)                                                                                                   |
-| Coverage  | `bun run test:coverage` (`vitest run --coverage`)                                                                               |
-| Build     | `bun run build` (`vite build`)                                                                                                  |
-| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, `--config dist/server/wrangler.json` webServer, no `reuseExistingServer` in CI) |
+| Step      | Command                                                                                                                                                                                                                       |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install   | `bun install --frozen-lockfile`                                                                                                                                                                                               |
+| Prettier  | `bun run format:check` (`prettier --check .`)                                                                                                                                                                                 |
+| Lint      | `bun run lint` (`eslint .`)                                                                                                                                                                                                   |
+| Typecheck | `bun run typecheck` (`tsc --noEmit`)                                                                                                                                                                                          |
+| Unit      | `bun run test` (`vitest run`)                                                                                                                                                                                                 |
+| Coverage  | `bun run test:coverage` (`vitest run --coverage`)                                                                                                                                                                             |
+| Build     | `bun run build` (`vite build`)                                                                                                                                                                                                |
+| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, webServer via `scripts/wrangler-config-path.mjs` → `.output/server/wrangler.json` on CI / `dist/server/wrangler.json` in the Lovable sandbox; no `reuseExistingServer` in CI) |
 
 Latest local execution on Turn 2 branch (baseline SHA `f665f94` + Turn 2
 edits; SHA finalised on push):
@@ -40,8 +40,11 @@ mobile-only project skipping desktop tests (and vice-versa) — expected.
 
 ## 2. Bundle byte counts (this commit)
 
-Measured after `bun run build` from `dist/client/assets/**` in Turn 1.
-Re-run `du -b dist/client/assets/*.{js,css}` to refresh.
+Measured after `bun run build`. Read from the build's public asset dir —
+`.output/public/assets/**` on GitHub / non-sandbox hosts, or
+`dist/client/assets/**` in the Lovable sandbox (see
+`scripts/wrangler-config-path.mjs` for the parallel convention). Refresh
+with `du -b "$(node -e 'import(\"./scripts/wrangler-config-path.mjs\").then(m=>console.log(m.resolveWranglerConfigPath().replace(\"server/wrangler.json\",\"\")))')"client/assets/*.{js,css}` or, equivalently, `du -b dist/client/assets/*.{js,css}` inside the sandbox.
 
 | Bucket           | Bytes         |
 | ---------------- | ------------- |

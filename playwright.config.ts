@@ -1,7 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolveWranglerConfigPath } from "./scripts/wrangler-config-path.mjs";
 
 const PORT = Number(process.env.PW_PORT ?? 4173);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+// Fail fast at Playwright config load time if the build output is missing.
+// Playwright's webServer.command is a string, so we must resolve the path
+// eagerly rather than at spawn time.
+const WRANGLER_CONFIG = resolveWranglerConfigPath();
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -35,7 +40,7 @@ export default defineConfig({
     // wrangler v4 no-op `--local` flag so a clean GitHub runner sees the
     // exact same command locally. Keep this in lockstep with
     // scripts/verify-webserver.mjs so the CI-contract smoke covers it.
-    command: `bunx wrangler dev --config dist/server/wrangler.json --port ${PORT} --ip 127.0.0.1`,
+    command: `bunx wrangler dev --config ${WRANGLER_CONFIG} --port ${PORT} --ip 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
