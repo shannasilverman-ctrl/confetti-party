@@ -613,7 +613,11 @@ function BudgetTab({ partyId }: { partyId: string }) {
         <div className="rounded-2xl border border-border bg-card p-5 shadow-card">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">Spent</div>
           <div className="mt-1 font-display text-3xl font-semibold text-secondary">${spent}</div>
-          <Progress value={party.budget ? (spent / party.budget) * 100 : 0} aria-label="Budget used" className="mt-3" />
+          <Progress
+            value={party.budget ? (spent / party.budget) * 100 : 0}
+            aria-label="Budget used"
+            className="mt-3"
+          />
         </div>
         <div
           className={`rounded-2xl border p-5 shadow-card ${

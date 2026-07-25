@@ -9,9 +9,7 @@ import { resolve } from "node:path";
  * GitHub runners even when they work locally.
  */
 describe("CI contract: package.json scripts", () => {
-  const pkg = JSON.parse(
-    readFileSync(resolve(__dirname, "../../package.json"), "utf8"),
-  ) as {
+  const pkg = JSON.parse(readFileSync(resolve(__dirname, "../../package.json"), "utf8")) as {
     scripts: Record<string, string>;
     dependencies?: Record<string, string>;
     devDependencies?: Record<string, string>;
@@ -22,17 +20,7 @@ describe("CI contract: package.json scripts", () => {
   ]);
 
   // Runners/interpreters always present on the CI image.
-  const runners = new Set([
-    "bun",
-    "bunx",
-    "node",
-    "npm",
-    "npx",
-    "pnpm",
-    "yarn",
-    "bash",
-    "sh",
-  ]);
+  const runners = new Set(["bun", "bunx", "node", "npm", "npx", "pnpm", "yarn", "bash", "sh"]);
   // First-token binaries produced by declared packages. Extend as new
   // devDependencies with non-obvious bin names are added.
   const knownBins: Record<string, string> = {
@@ -50,10 +38,7 @@ describe("CI contract: package.json scripts", () => {
       const first = cmd.trim().split(/\s+/)[0];
       if (runners.has(first)) return;
       const owner = knownBins[first];
-      expect(
-        owner,
-        `script "${name}" invokes unknown binary "${first}"`,
-      ).toBeDefined();
+      expect(owner, `script "${name}" invokes unknown binary "${first}"`).toBeDefined();
       expect(
         declared.has(owner!),
         `script "${name}" needs devDependency "${owner}" for "${first}"`,
