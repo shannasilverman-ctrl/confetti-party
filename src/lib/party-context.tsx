@@ -739,6 +739,12 @@ import {
   saveDemoState as _saveDemoState,
   clearDemoState as _clearDemoState,
 } from "./demo-storage";
+import {
+  saveRejectedDraft,
+  clearRejectedDraft,
+  loadRejectedDraft,
+  type RejectedDraft,
+} from "./rejected-draft-store";
 
 function baseSeeds(): Party[] {
   return [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()];
