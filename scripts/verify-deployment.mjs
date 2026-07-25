@@ -3,6 +3,8 @@ import { pathToFileURL } from "node:url";
 
 export const DEFAULT_DEPLOYMENT_URL =
   "https://confetti-independent-preview.shannasilverman-apps.workers.dev";
+export const DEFAULT_VERIFY_ATTEMPTS = 10;
+export const DEFAULT_VERIFY_DELAY_MS = 3_000;
 
 const HTML_ROUTES = ["/", "/app", "/talk"];
 const ASSETS = [
@@ -158,8 +160,8 @@ export async function verifyDeployment(
 export async function verifyDeploymentWithRetry(
   baseUrl,
   {
-    attempts = 4,
-    delayMs = 1_500,
+    attempts = DEFAULT_VERIFY_ATTEMPTS,
+    delayMs = DEFAULT_VERIFY_DELAY_MS,
     fetchImpl = fetch,
     expectedReleaseSha = resolveExpectedReleaseSha(),
     onRetry = ({ attempt, error }) =>

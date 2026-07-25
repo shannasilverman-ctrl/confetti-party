@@ -1,4 +1,6 @@
 export const DEFAULT_DEPLOYMENT_URL: string;
+export const DEFAULT_VERIFY_ATTEMPTS: number;
+export const DEFAULT_VERIFY_DELAY_MS: number;
 
 export function normalizeDeploymentUrl(value: string): string;
 
