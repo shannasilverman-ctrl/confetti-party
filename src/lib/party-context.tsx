@@ -1041,7 +1041,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
+        if (user?.id) void clearRejectedDraft(user.id);
       },
+      loadRejectedDraftForUser: user?.id
+        ? async () => loadRejectedDraft(user.id)
+        : async () => null,
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
