@@ -134,11 +134,12 @@ export class TalkClient {
         this.setState("listening");
         break;
       case "error": {
-        const msg =
-          typeof (evt.error as { message?: string })?.message === "string"
-            ? (evt.error as { message: string }).message
-            : "Realtime error";
-        this.opts.onEvent({ type: "error", message: msg });
+        // Do not surface raw provider error text to users — it can contain
+        // upstream identifiers. Emit a stable sanitized message.
+        this.opts.onEvent({
+          type: "error",
+          message: "The voice service hit a snag. Try ending and reconnecting.",
+        });
         break;
       }
     }
