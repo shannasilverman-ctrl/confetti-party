@@ -68,7 +68,7 @@ function Landing() {
       <SeasonalBanner />
       {/* Nav */}
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <BrandLockup animated />
+        <BrandLockup />
         <nav className="flex items-center gap-3 sm:gap-5">
           <Link
             to="/party/$id"
