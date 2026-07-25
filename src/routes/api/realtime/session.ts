@@ -202,8 +202,7 @@ export function createMintRealtimeSessionHandler(
         return Response.json(
           {
             error: "rate_limited",
-            message:
-              "You've started a lot of voice sessions in the last hour. Try again in a bit.",
+            message: "You've started a lot of voice sessions in the last hour. Try again in a bit.",
           },
           { status: 429 },
         );
@@ -282,9 +281,7 @@ export function createMintRealtimeSessionHandler(
       }
 
       const openaiReqId =
-        openaiRes.headers.get("x-request-id") ??
-        openaiRes.headers.get("openai-request-id") ??
-        null;
+        openaiRes.headers.get("x-request-id") ?? openaiRes.headers.get("openai-request-id") ?? null;
 
       if (!openaiRes.ok) {
         await openaiRes.text().catch(() => "");

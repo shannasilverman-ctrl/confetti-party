@@ -49,9 +49,18 @@ export async function performEndSession(
   supabase: {
     from: (t: string) => {
       update: (patch: Record<string, unknown>) => {
-        eq: (c: string, v: string) => {
-          eq: (c: string, v: string) => {
-            is: (c: string, v: null) => {
+        eq: (
+          c: string,
+          v: string,
+        ) => {
+          eq: (
+            c: string,
+            v: string,
+          ) => {
+            is: (
+              c: string,
+              v: null,
+            ) => {
               select: (cols: string) => Promise<{
                 data: Array<{ id: string }> | null;
                 error: { message: string; code?: string } | null;
@@ -96,7 +105,6 @@ export const endSession = createServerFn({ method: "POST" })
       data,
     );
   });
-
 
 /** Hard-delete a draft and its transcripts (retention control). */
 export const deleteDraft = createServerFn({ method: "POST" })

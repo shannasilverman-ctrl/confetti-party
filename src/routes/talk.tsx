@@ -448,8 +448,6 @@ function TalkRoute() {
     [],
   );
 
-
-
   const toggleMute = useCallback(() => {
     setMuted((m) => {
       const next = !m;
