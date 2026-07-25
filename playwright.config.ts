@@ -41,7 +41,7 @@ export default defineConfig({
     // wrangler v4 no-op `--local` flag so a clean GitHub runner sees the
     // exact same command locally. Keep this in lockstep with
     // scripts/verify-webserver.mjs so the CI-contract smoke covers it.
-    command: `bunx wrangler dev --config dist/server/wrangler.json --port ${PORT} --ip 127.0.0.1`,
+    command: `bunx wrangler dev --config ${WRANGLER_CONFIG} --port ${PORT} --ip 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
