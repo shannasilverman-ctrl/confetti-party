@@ -576,10 +576,12 @@ export function packOccasion(pack: HolidayPack): OccasionType {
 
 /**
  * Curated Holiday starter list surfaced in the New Party wizard.
- * "generic" carries no pack (empty holidayPackId) so nothing is prescribed.
- * All other entries reference an existing PackId, so no data model fork.
+ * Every starter, including "generic", maps to a real HolidayPack so the
+ * checklist and Bring Board are seeded and immediately editable. No
+ * starter is a true blank; the neutral GENERIC_HOLIDAY pack is the
+ * tradition-free default.
  */
-export type HolidayStarterId = "generic" | PackId;
+export type HolidayStarterId = PackId;
 
 export type HolidayStarter = {
   id: HolidayStarterId;
@@ -594,8 +596,8 @@ export const HOLIDAY_STARTERS: HolidayStarter[] = [
   {
     id: "generic",
     label: "Generic Holiday",
-    emoji: "🎄",
-    blurb: "Blank canvas — no traditions assumed.",
+    emoji: "🎉",
+    blurb: "Tradition-neutral starter. Seeds a basic checklist + bring board.",
     suggestedName: "Holiday Gathering",
   },
   {
@@ -635,13 +637,28 @@ export const HOLIDAY_STARTERS: HolidayStarter[] = [
   },
 ];
 
-export function getStarter(id: string | undefined | null): HolidayStarter | undefined {
-  if (!id) return undefined;
-  return HOLIDAY_STARTERS.find((s) => s.id === id);
+const HOLIDAY_STARTER_IDS: ReadonlySet<HolidayStarterId> = new Set(
+  HOLIDAY_STARTERS.map((s) => s.id),
+);
+
+/** Runtime-safe narrowing: unknown values become undefined instead of crashing. */
+export function toHolidayStarterId(id: unknown): HolidayStarterId | undefined {
+  return typeof id === "string" && HOLIDAY_STARTER_IDS.has(id as HolidayStarterId)
+    ? (id as HolidayStarterId)
+    : undefined;
 }
 
-/** Map a starter selection to its holiday pack (or undefined for "generic"). */
-export function starterPack(id: HolidayStarterId | undefined | null): HolidayPack | undefined {
-  if (!id || id === "generic") return undefined;
-  return PACKS[id as PackId];
+export function getStarter(id: string | undefined | null): HolidayStarter | undefined {
+  const narrowed = toHolidayStarterId(id);
+  return narrowed ? HOLIDAY_STARTERS.find((s) => s.id === narrowed) : undefined;
 }
+
+/**
+ * Map a starter selection to its holiday pack. Every listed starter has a
+ * pack, so an unknown/absent id returns undefined and no seeding happens.
+ */
+export function starterPack(id: HolidayStarterId | undefined | null): HolidayPack | undefined {
+  if (!id) return undefined;
+  return PACKS[id];
+}
+
