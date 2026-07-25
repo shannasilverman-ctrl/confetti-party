@@ -24,6 +24,11 @@ whichever directory actually exists, so you must have run
 `bun run build` at least once (CI does this in-order). Override the port
 with `PW_PORT`.
 
+GitHub runs `test:e2e:desktop` and `test:e2e:mobile` as separate steps.
+Both execute the same suite, but each starts a fresh Wrangler process so
+the constrained runner does not carry one local Worker through the entire
+mixed-device matrix.
+
 If your local environment does not ship the system libraries that
 Playwright's bundled Chromium expects (e.g. the Lovable sandbox), point
 Playwright at a system Chromium instead:
@@ -158,4 +163,5 @@ local/staging infrastructure.
    `tests/e2e/public-routes.spec.ts`. Prefer role/text queries over CSS
    selectors and assert user-visible behavior.
 3. Run `bun run lint && bun run typecheck && bun run test && bun run build &&
-bun run test:e2e` before opening the PR. CI runs the same sequence.
+bun run test:e2e` before opening the PR. CI runs the same checks, with the
+   desktop and mobile E2E projects split across fresh preview-server processes.

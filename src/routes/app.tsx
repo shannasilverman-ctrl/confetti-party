@@ -789,13 +789,13 @@ function NewPartyWizard({
           </div>
         )}
 
-        <DialogFooter className="flex-row justify-between sm:justify-between">
+        <DialogFooter className="gap-2 min-[360px]:flex-row min-[360px]:justify-between">
           {step === "done" ? (
             <>
               <Button
                 variant="ghost"
                 data-testid="wizard-close"
-                className="min-h-[45px]"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
                 onClick={() => {
                   onOpenChange(false);
                   reset();
@@ -806,7 +806,7 @@ function NewPartyWizard({
               <Button
                 variant="festive"
                 data-testid="wizard-open-plan"
-                className="min-h-[45px]"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
                 onClick={openPlan}
               >
                 <Sparkles /> Open your party plan
@@ -817,7 +817,7 @@ function NewPartyWizard({
               <Button
                 variant="ghost"
                 data-testid="wizard-back"
-                className="min-h-[45px]"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
                 onClick={() => onOpenChange(false)}
               >
                 Cancel
@@ -825,7 +825,7 @@ function NewPartyWizard({
               <Button
                 variant="festive"
                 data-testid="wizard-create"
-                className="min-h-[45px]"
+                className="min-h-[45px] w-full min-[360px]:w-auto"
                 disabled={!name.trim() && !occasion}
                 onClick={finish}
               >
