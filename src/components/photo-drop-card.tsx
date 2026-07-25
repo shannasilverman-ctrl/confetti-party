@@ -73,7 +73,8 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
             <Camera className="h-5 w-5" /> {label}
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Upload photos straight to the host's {providerLabel}. Confetti never sees them.
+            Uploads go straight to the host's {providerLabel}. Confetti stores the link, not your
+            photos.
           </p>
         </div>
       </div>
@@ -83,7 +84,13 @@ export function PhotoDropCard({ drop }: { drop: PublicPhotoDrop }) {
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button asChild size="sm" variant="festive">
-          <a href={safeDrop.url} target="_blank" rel="noopener noreferrer">
+          <a
+            href={safeDrop.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            referrerPolicy="no-referrer"
+            aria-label={`Open uploader on ${safeDrop.hostname}`}
+          >
             <ExternalLink className="mr-1 h-4 w-4" /> Open uploader
           </a>
         </Button>

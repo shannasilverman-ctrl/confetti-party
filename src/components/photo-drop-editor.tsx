@@ -10,6 +10,7 @@ import { useParties } from "@/lib/party-context";
 import {
   validatePhotoDropUrl,
   PROVIDERS,
+  sanitizePublicPhotoDrop,
   type PhotoDropProvider,
   type PhotoDrop,
 } from "@/lib/photo-drop";
@@ -30,7 +31,11 @@ import { celebrate } from "@/components/confetti-burst";
 export function PhotoDropEditor({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
-  const existing = party.photoDrop ?? null;
+  const storedDrop = party.photoDrop ?? null;
+  // Runtime-validate the persisted row before rendering QR/copy/share/open.
+  // Legacy or tampered rows fall through as an unavailable-safe card below.
+  const safeExisting = storedDrop ? sanitizePublicPhotoDrop(storedDrop) : null;
+  const existing = safeExisting ? storedDrop : null;
 
   const [provider, setProvider] = useState<PhotoDropProvider>(
     (existing?.provider as PhotoDropProvider) ?? "dropbox_request",
@@ -39,6 +44,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
   const [label, setLabel] = useState(existing?.label ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [confirmingCustom, setConfirmingCustom] = useState(false);
   const printableQrRef = useRef<HTMLDivElement | null>(null);
 
   function save(evt?: React.MouseEvent) {
@@ -47,7 +53,14 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
       setError(v.error);
       return;
     }
+    // First-time custom domains require an explicit host confirmation.
+    if (provider === "custom" && !confirmingCustom && existing?.url !== v.url) {
+      setError(null);
+      setConfirmingCustom(true);
+      return;
+    }
     setError(null);
+    setConfirmingCustom(false);
     const next: PhotoDrop = {
       provider,
       url: v.url,
@@ -67,6 +80,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
     setNote("");
     toast.success("Photo Drop removed.");
   }
+
 
   async function copyLink() {
     if (!existing?.url) return;
@@ -100,11 +114,21 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
               <Camera className="h-5 w-5" /> Photo Drop
             </h2>
             <p className="text-sm text-muted-foreground">
-              Guests upload straight to your account. Confetti never sees the photos.
+              Guests upload straight to your account on the provider. Confetti stores the link for
+              your invite until you remove it — the provider, not Confetti, receives the photos.
             </p>
           </div>
           {existing && <Badge variant="secondary">Live</Badge>}
         </div>
+        {storedDrop && !safeExisting && (
+          <div
+            className="mt-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-xs text-destructive"
+            role="alert"
+          >
+            The saved Photo Drop link failed our safety check and won't be shared with guests.
+            Re-enter a fresh https:// URL below and save again.
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3">
           <div>
@@ -163,14 +187,25 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
 
           <div className="flex flex-wrap gap-2">
             <Button variant="festive" onClick={save}>
-              Save Photo Drop
+              {confirmingCustom ? "Confirm publish" : "Save Photo Drop"}
             </Button>
-            {existing && (
+            {confirmingCustom && (
+              <Button variant="ghost" onClick={() => setConfirmingCustom(false)}>
+                Cancel
+              </Button>
+            )}
+            {existing && !confirmingCustom && (
               <Button variant="outline" onClick={clear}>
                 Remove
               </Button>
             )}
           </div>
+          {confirmingCustom && (
+            <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
+              Guests will upload to <strong>{new URL(url.trim()).hostname}</strong>. Confirm to
+              publish this custom destination.
+            </p>
+          )}
 
           <p className="text-xs text-muted-foreground">
             Anyone with the QR / link can upload according to your provider's settings. Review your
@@ -207,7 +242,12 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
                   </Button>
                 )}
                 <Button size="sm" variant="outline" asChild>
-                  <a href={existing.url} target="_blank" rel="noopener noreferrer">
+                  <a
+                    href={existing.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    referrerPolicy="no-referrer"
+                  >
                     <ExternalLink className="h-4 w-4" /> Open
                   </a>
                 </Button>

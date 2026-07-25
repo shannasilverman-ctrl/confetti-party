@@ -56,28 +56,29 @@ export const PROVIDERS: Record<
   },
 };
 
+import { validateSafeUrl } from "./safe-url";
+
 export function validatePhotoDropUrl(
   provider: PhotoDropProvider,
   raw: string,
 ): { ok: true; url: string } | { ok: false; error: string } {
-  const trimmed = raw.trim();
-  if (!trimmed) return { ok: false, error: "Paste your upload URL." };
-  if (trimmed.length > 2048) return { ok: false, error: "URL is too long." };
-  let u: URL;
-  try {
-    u = new URL(trimmed);
-  } catch {
-    return { ok: false, error: "That doesn't look like a URL." };
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { ok: false, error: "Paste your upload URL." };
   }
-  if (u.protocol !== "https:") return { ok: false, error: "URL must start with https://." };
   const cfg = PROVIDERS[provider];
-  if (cfg.hosts.length && !cfg.hosts.some((h) => u.host === h || u.host.endsWith(`.${h}`))) {
-    return {
-      ok: false,
-      error: `That doesn't look like a ${cfg.label} URL (expected ${cfg.hosts[0]}).`,
-    };
+  const check = validateSafeUrl(raw, {
+    allowedHosts: cfg.hosts.length ? cfg.hosts : undefined,
+  });
+  if (!check.ok) {
+    if (cfg.hosts.length && /allowed host/i.test(check.error)) {
+      return {
+        ok: false,
+        error: `That doesn’t look like a ${cfg.label} URL (expected ${cfg.hosts[0]}).`,
+      };
+    }
+    return { ok: false, error: check.error };
   }
-  return { ok: true, url: u.toString() };
+  return { ok: true, url: check.url };
 }
 
 /**
