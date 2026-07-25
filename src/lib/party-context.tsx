@@ -761,22 +761,22 @@ function partyToRow(p: Party, userId: string): PartyRow {
   return partyToColumns(p, userId);
 }
 
-export function makeParty(
-  input: {
-    name: string;
-    occasion: OccasionType;
-    date: string;
-    startTime?: string;
-    location?: string;
-    guestEstimate: number;
-    budget: number;
-    theme: string;
-    themeId?: string;
-    extraTasks?: Task[];
-    holidayPackId?: HolidayStarterId;
-  },
-  id: string,
-): Party {
+export type CreatePartyInput = {
+  name: string;
+  occasion: OccasionType;
+  date: string;
+  startTime?: string;
+  timeZone?: string;
+  location?: string;
+  guestEstimate: number;
+  budget: number;
+  theme: string;
+  themeId?: string;
+  extraTasks?: Task[];
+  holidayPackId?: HolidayStarterId;
+};
+
+export function makeParty(input: CreatePartyInput, id: string): Party {
   // Runtime-narrow the id so any stray unknown value fails safely to undefined
   // instead of crashing or seeding a garbage pack.
   const starterId = toHolidayStarterId(input.holidayPackId);
@@ -789,6 +789,7 @@ export function makeParty(
     occasion: input.occasion,
     date: input.date,
     startTime: input.startTime,
+    timeZone: input.timeZone,
     location: input.location,
     guestEstimate: input.guestEstimate,
     budget: input.budget,
