@@ -26,6 +26,7 @@ import {
   toHolidayStarterId,
   type HolidayStarterId,
 } from "./holiday-packs";
+import { daysUntilLocal } from "./date-only";
 
 export type OccasionType =
   | "birthday"
@@ -281,10 +282,8 @@ function seedGameDayTimeline(kickoff: string): TimelineItem[] {
 
 export function generateTasks(occasion: OccasionType, dateISO: string): Task[] {
   const template = TASK_TEMPLATES[occasion] ?? TASK_TEMPLATES.other;
-  const weeks = Math.max(
-    0,
-    Math.floor((new Date(dateISO).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 7)),
-  );
+  // Calendar-day math via the shared date-only helper — never ms rounding.
+  const weeks = Math.max(0, Math.floor(daysUntilLocal(dateISO) / 7));
   const allowedFrom = (b: Bucket): boolean => {
     if (b === "6+ weeks out") return weeks >= 6;
     if (b === "3-5 weeks") return weeks >= 3;
@@ -913,8 +912,8 @@ export function useParties() {
 // ---- Derived helpers ----
 
 export function daysUntil(dateISO: string): number {
-  const ms = new Date(dateISO).getTime() - Date.now();
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  // Local calendar-day delta — never rounded milliseconds. See src/lib/date-only.ts.
+  return daysUntilLocal(dateISO);
 }
 
 export function progressPct(p: Party): number {

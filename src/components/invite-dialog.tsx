@@ -25,9 +25,10 @@ import {
 import { useParties, type Party } from "@/lib/party-context";
 import { celebrate } from "@/components/confetti-burst";
 import { themeById } from "@/lib/themes";
+import { formatDateOnly } from "@/lib/date-only";
 
 function formatDate(dateISO: string) {
-  return new Date(dateISO).toLocaleDateString(undefined, {
+  return formatDateOnly(dateISO, {
     weekday: "long",
     month: "long",
     day: "numeric",

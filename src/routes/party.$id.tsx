@@ -59,6 +59,7 @@ import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
+import { formatDateOnly } from "@/lib/date-only";
 
 export type TabKey =
   | "overview"
@@ -177,7 +178,7 @@ function PartyWorkspace() {
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <CalendarDays className="h-4 w-4 shrink-0" />
               <span>
-                {new Date(party.date).toLocaleDateString(undefined, {
+                {formatDateOnly(party.date, {
                   weekday: "long",
                   month: "long",
                   day: "numeric",

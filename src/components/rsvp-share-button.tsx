@@ -13,6 +13,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useParties, daysUntil, type Party } from "@/lib/party-context";
 import { themeById } from "@/lib/themes";
+import { formatDateOnly } from "@/lib/date-only";
 
 export function RsvpShareButton({
   partyId,
@@ -90,7 +91,7 @@ function DemoRsvpDialog({
             </div>
             <h3 className="mt-1 font-display text-xl font-semibold text-secondary">{party.name}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              {new Date(party.date).toLocaleDateString(undefined, {
+              {formatDateOnly(party.date, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",

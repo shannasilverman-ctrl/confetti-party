@@ -31,6 +31,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { RetrospectiveDialog } from "@/components/retrospective-dialog";
+import { formatDateOnly } from "@/lib/date-only";
 
 export const Route = createFileRoute("/party/$id/reveal")({
   component: RevealPage,
@@ -99,7 +100,7 @@ function RevealPage() {
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
             <div className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />{" "}
-              {new Date(party.date + "T00:00:00").toLocaleDateString(undefined, {
+              {formatDateOnly(party.date, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",

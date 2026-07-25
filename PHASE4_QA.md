@@ -28,16 +28,16 @@ The job completed in **3m53s** with all stages green: frozen install, lint,
 typecheck, unit tests with coverage, build, Playwright browser install,
 webServer smoke, E2E, and Playwright artifact upload.
 
-| Gate                            | Result                                                       |
-| ------------------------------- | ------------------------------------------------------------ |
-| `bun install --frozen-lockfile` | ok                                                           |
-| `bun run format:check`          | Prettier — all files clean                                   |
-| `bun run lint`                  | ESLint — 0 problems                                          |
-| `bun run typecheck`             | `tsc --noEmit` — 0 errors                                    |
-| `bun run test` (BEFORE build)   | Vitest — **127 passed / 18 files** (no repo-state deps)      |
-| `bun run build`                 | Vite + Nitro — ok                                            |
-| `verify:webserver`              | 200 OK, exit 0                                               |
-| Playwright E2E + axe            | **76 passed, 48 skipped, 0 failed, 0 flaky** (2.1m)          |
+| Gate                            | Result                                                  |
+| ------------------------------- | ------------------------------------------------------- |
+| `bun install --frozen-lockfile` | ok                                                      |
+| `bun run format:check`          | Prettier — all files clean                              |
+| `bun run lint`                  | ESLint — 0 problems                                     |
+| `bun run typecheck`             | `tsc --noEmit` — 0 errors                               |
+| `bun run test` (BEFORE build)   | Vitest — **127 passed / 18 files** (no repo-state deps) |
+| `bun run build`                 | Vite + Nitro — ok                                       |
+| `verify:webserver`              | 200 OK, exit 0                                          |
+| Playwright E2E + axe            | **76 passed, 48 skipped, 0 failed, 0 flaky** (2.1m)     |
 
 GitHub E2E log lines 2269–2270 show exactly `48 skipped` and `76 passed
 (2.1m)`, with zero failures. Searching the GitHub log for `flaky` returned

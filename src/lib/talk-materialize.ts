@@ -25,6 +25,7 @@ import {
 // the React/Supabase client module into the server-fn bundle.
 import type { Bucket, OccasionType } from "./party-context";
 import { generateShoppingItems, type ShoppingItem } from "./shopping";
+import { isoDateInDaysLocal } from "./date-only";
 
 // Minimal, deterministic baseline tasks per occasion. Kept in this file (not
 // imported from party-context) so the materializer stays server-safe.
@@ -194,9 +195,9 @@ function narrowOccasion(input: string | undefined, hasPack: boolean): OccasionTy
 }
 
 function isoDateInDays(days: number, base = new Date()): string {
-  const d = new Date(base);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
+  // Local-calendar arithmetic so a late-evening base does not shift the
+  // date westward under UTC.
+  return isoDateInDaysLocal(days, base);
 }
 
 // ------------- Materialization --------------

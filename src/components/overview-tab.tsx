@@ -38,6 +38,7 @@ import {
   Wallet,
   ShoppingCart,
 } from "lucide-react";
+import { formatDateOnly } from "@/lib/date-only";
 
 type NavTab =
   | "overview"
@@ -105,7 +106,7 @@ export function OverviewTab({
           <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-5 sm:p-7">
             <div className="min-w-0">
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
-                {new Date(party.date).toLocaleDateString(undefined, {
+                {formatDateOnly(party.date, {
                   month: "long",
                   day: "numeric",
                   year: "numeric",
