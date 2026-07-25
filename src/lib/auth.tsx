@@ -2,12 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeAuthReturnTo } from "@/lib/auth-redirect";
+import { friendlyAuthError, type FriendlyAuthError } from "@/lib/friendly-auth-error";
 
-export type SignUpResult = {
-  error: string | null;
+export type AuthOpResult = { error: FriendlyAuthError | null };
+
+export type SignUpResult = AuthOpResult & {
   /** Non-null only when confirmation is disabled and Supabase returned a session. */
   session: Session | null;
-  /** True when Supabase created the user but no session — i.e. must confirm email. */
+  /** True when Supabase created the user but no session — must confirm email. */
   needsConfirmation: boolean;
 };
 
@@ -15,22 +17,27 @@ type AuthCtx = {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string) => Promise<AuthOpResult>;
   signUp: (email: string, password: string, returnTo?: string) => Promise<SignUpResult>;
-  /**
-   * Resend the signup confirmation email. Never re-invokes signUp and never
-   * requires the password. Uses Supabase's dedicated resend API.
-   */
-  resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
+  resendSignupConfirmation: (email: string) => Promise<AuthOpResult>;
   signOut: () => Promise<void>;
-  resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
-  updatePassword: (password: string) => Promise<{ error: string | null }>;
+  resetPasswordForEmail: (email: string, returnTo?: string) => Promise<AuthOpResult>;
+  updatePassword: (password: string) => Promise<AuthOpResult>;
 };
 
 const Ctx = createContext<AuthCtx | null>(null);
 
 function originOrUndefined(): string | undefined {
   return typeof window !== "undefined" ? window.location.origin : undefined;
+}
+
+function buildResetRedirect(returnTo?: string): string | undefined {
+  const origin = originOrUndefined();
+  if (!origin) return undefined;
+  const safe = normalizeAuthReturnTo(returnTo);
+  const url = new URL("/reset-password", origin);
+  if (safe && safe !== "/app") url.searchParams.set("returnTo", safe);
+  return url.toString();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -55,52 +62,82 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       loading,
       signIn: async (email, password) => {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return { error: error?.message ?? null };
+        try {
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) return { error: friendlyAuthError(error, "invalid_credentials") };
+          return { error: null };
+        } catch (e) {
+          return { error: friendlyAuthError(e, "network") };
+        }
       },
       signUp: async (email, password, returnTo) => {
         const origin = originOrUndefined();
         const emailRedirectTo = origin
           ? new URL(normalizeAuthReturnTo(returnTo), origin).toString()
           : undefined;
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo },
-        });
-        if (error) {
-          return { error: error.message, session: null, needsConfirmation: false };
+        try {
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo },
+          });
+          if (error) {
+            return {
+              error: friendlyAuthError(error, "email_taken"),
+              session: null,
+              needsConfirmation: false,
+            };
+          }
+          const s = data.session ?? null;
+          return { error: null, session: s, needsConfirmation: !s };
+        } catch (e) {
+          return {
+            error: friendlyAuthError(e, "network"),
+            session: null,
+            needsConfirmation: false,
+          };
         }
-        // When email confirmation is disabled, Supabase returns a session and
-        // the caller can navigate to /app immediately. When confirmation is
-        // required, session is null and the caller must show a confirm state.
-        const s = data.session ?? null;
-        return { error: null, session: s, needsConfirmation: !s };
       },
       resendSignupConfirmation: async (email) => {
         const origin = originOrUndefined();
         const emailRedirectTo = origin ? `${origin}/app` : undefined;
-        const { error } = await supabase.auth.resend({
-          type: "signup",
-          email,
-          options: emailRedirectTo ? { emailRedirectTo } : undefined,
-        });
-        return { error: error?.message ?? null };
+        try {
+          const { error } = await supabase.auth.resend({
+            type: "signup",
+            email,
+            options: emailRedirectTo ? { emailRedirectTo } : undefined,
+          });
+          if (error) return { error: friendlyAuthError(error, "rate_limited") };
+          return { error: null };
+        } catch (e) {
+          return { error: friendlyAuthError(e, "network") };
+        }
       },
       signOut: async () => {
-        await supabase.auth.signOut();
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // best-effort; local session clears regardless
+        }
       },
-      resetPasswordForEmail: async (email) => {
-        const origin = originOrUndefined();
-        const redirectTo = origin ? `${origin}/reset-password` : undefined;
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo,
-        });
-        return { error: error?.message ?? null };
+      resetPasswordForEmail: async (email, returnTo) => {
+        const redirectTo = buildResetRedirect(returnTo);
+        try {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+          if (error) return { error: friendlyAuthError(error, "rate_limited") };
+          return { error: null };
+        } catch (e) {
+          return { error: friendlyAuthError(e, "network") };
+        }
       },
       updatePassword: async (password) => {
-        const { error } = await supabase.auth.updateUser({ password });
-        return { error: error?.message ?? null };
+        try {
+          const { error } = await supabase.auth.updateUser({ password });
+          if (error) return { error: friendlyAuthError(error, "weak_password") };
+          return { error: null };
+        } catch (e) {
+          return { error: friendlyAuthError(e, "network") };
+        }
       },
     }),
     [session, loading],
