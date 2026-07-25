@@ -79,6 +79,12 @@ export function PublicBringBoard({
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [secrets, setSecrets] = useState<Record<string, string>>(() => loadSecrets(token).map);
+  useEffect(() => {
+    // TanStack can reuse this component instance when only the route token
+    // changes. Never carry claim capabilities from invite A into invite B.
+    setSecrets(loadSecrets(token).map);
+    setBusyId(null);
+  }, [token]);
 
   // Re-tick the "updated Xs ago" label without a hard re-render loop.
   const [, forceTick] = useState(0);
@@ -102,47 +108,65 @@ export function PublicBringBoard({
       return;
     }
     setBusyId(item.id);
-    const { data, error } = await supabase.rpc("claim_bring_item", {
-      token,
-      item_id: item.id,
-      guest_name: who,
-    });
-    setBusyId(null);
-    if (error || (data && (data as { ok?: boolean }).ok === false)) {
-      toast.error("That item was just claimed by someone else. Refreshing…");
-      await onRequestRefresh?.();
-      return;
-    }
-    const secret = (data as { claimSecret?: string } | null)?.claimSecret;
-    if (!secret) {
-      toast.error("Couldn't confirm your claim — please try again.");
-      await onRequestRefresh?.();
-      return;
-    }
-    // Try to persist the receipt. If storage rejects it, compensate by
-    // releasing the just-minted claim so the guest is never stranded.
-    const status = saveSecret(token, item.id, secret);
-    if (status !== "ok") {
-      const { data: relData, error: relErr } = await supabase.rpc("release_bring_item", {
+    try {
+      const { data, error } = await supabase.rpc("claim_bring_item", {
         token,
         item_id: item.id,
         guest_name: who,
-        claim_secret: secret,
       });
-      const releasedOk = !relErr && (relData as { ok?: boolean } | null)?.ok !== false;
-      toast.error(
-        releasedOk
-          ? "This browser can't remember claims (private mode or storage full). We released the claim so someone else can take it."
-          : "This browser can't remember claims. Please try again on a device that allows storage.",
-      );
+      if (error || (data as { ok?: boolean } | null)?.ok !== true) {
+        toast.error("That item was just claimed by someone else. Refreshing…");
+        await onRequestRefresh?.();
+        return;
+      }
+      const secret = (data as { claimSecret?: string } | null)?.claimSecret;
+      if (!secret) {
+        toast.error("Couldn't confirm your claim — please try again.");
+        await onRequestRefresh?.();
+        return;
+      }
+      // Try to persist the receipt. If storage rejects it, compensate by
+      // releasing the just-minted claim. If compensation also fails, retain
+      // the receipt in memory so this open page still has a recovery path.
+      const status = saveSecret(token, item.id, secret);
+      if (status !== "ok") {
+        let releasedOk = false;
+        try {
+          const { data: relData, error: relErr } = await supabase.rpc("release_bring_item", {
+            token,
+            item_id: item.id,
+            guest_name: who,
+            claim_secret: secret,
+          });
+          releasedOk = !relErr && (relData as { ok?: boolean } | null)?.ok === true;
+        } catch {
+          releasedOk = false;
+        }
+        if (!releasedOk) {
+          setSecrets((prev) => ({ ...prev, [item.id]: secret }));
+          setRows((prev) =>
+            prev.map((row) => (row.id === item.id ? { ...row, status: "claimed" } : row)),
+          );
+        }
+        toast.error(
+          releasedOk
+            ? "This browser can't remember claims, so we released it for someone else."
+            : "We couldn't save or undo this claim. Keep this page open and tap Release to retry.",
+        );
+        await onRequestRefresh?.();
+        return;
+      }
+      setSecrets((prev) => ({ ...prev, [item.id]: secret }));
+      setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)));
+      celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
+      toast.success(`You're on ${item.label}. Thanks!`);
+      onChanged?.();
+    } catch {
+      toast.error("Couldn't claim that item. Check your connection and try again.");
       await onRequestRefresh?.();
-      return;
+    } finally {
+      setBusyId(null);
     }
-    setSecrets((prev) => ({ ...prev, [item.id]: secret }));
-    setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)));
-    celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
-    toast.success(`You're on ${item.label}. Thanks!`);
-    onChanged?.();
   }
 
   async function release(item: PublicBringItem) {
@@ -153,27 +177,33 @@ export function PublicBringBoard({
       return;
     }
     setBusyId(item.id);
-    const { data, error } = await supabase.rpc("release_bring_item", {
-      token,
-      item_id: item.id,
-      guest_name: who,
-      claim_secret: secret,
-    });
-    setBusyId(null);
-    if (error || (data && (data as { ok?: boolean }).ok === false)) {
-      toast.error("Couldn't release that item. Refreshing…");
+    try {
+      const { data, error } = await supabase.rpc("release_bring_item", {
+        token,
+        item_id: item.id,
+        guest_name: who,
+        claim_secret: secret,
+      });
+      if (error || (data as { ok?: boolean } | null)?.ok !== true) {
+        toast.error("Couldn't release that item. Your claim receipt is still here—try again.");
+        await onRequestRefresh?.();
+        return;
+      }
+      clearSecret(token, item.id);
+      setSecrets((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)));
+      toast.success("Released. Someone else can grab it now.");
+      onChanged?.();
+    } catch {
+      toast.error("Couldn't release that item. Your claim receipt is still here—try again.");
       await onRequestRefresh?.();
-      return;
+    } finally {
+      setBusyId(null);
     }
-    clearSecret(token, item.id);
-    setSecrets((prev) => {
-      const next = { ...prev };
-      delete next[item.id];
-      return next;
-    });
-    setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)));
-    toast.success("Released. Someone else can grab it now.");
-    onChanged?.();
   }
 
   const rel = formatRelative(lastUpdatedAt);
