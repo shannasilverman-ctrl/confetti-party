@@ -40,11 +40,14 @@ mobile-only project skipping desktop tests (and vice-versa) — expected.
 
 ## 2. Bundle byte counts (this commit)
 
-Measured after `bun run build`. Read from the build's public asset dir —
-`.output/public/assets/**` on GitHub / non-sandbox hosts, or
-`dist/client/assets/**` in the Lovable sandbox (see
-`scripts/wrangler-config-path.mjs` for the parallel convention). Refresh
-with `du -b "$(node -e 'import(\"./scripts/wrangler-config-path.mjs\").then(m=>console.log(m.resolveWranglerConfigPath().replace(\"server/wrangler.json\",\"\")))')"client/assets/*.{js,css}` or, equivalently, `du -b dist/client/assets/*.{js,css}` inside the sandbox.
+Measured after `bun run build`. On GitHub / any non-sandbox Nitro build
+the public asset dir is `.output/public/assets/**`; the Lovable sandbox
+override writes the same files to `dist/client/assets/**` (see
+`scripts/wrangler-config-path.mjs` for the parallel convention). All
+byte counts and filenames in this section were captured from
+`.output/public/assets/**` — the CI / production layout. To refresh
+locally use `du -b .output/public/assets/*.{js,css}` (or
+`du -b dist/client/assets/*.{js,css}` inside the sandbox).
 
 | Bucket           | Bytes         |
 | ---------------- | ------------- |
