@@ -968,7 +968,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     };
   }, [user, authLoading, reloadKey, store]);
 
-
   useEffect(() => {
     if (authLoading || user) return;
     if (status !== "ready") return;

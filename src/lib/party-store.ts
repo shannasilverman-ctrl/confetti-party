@@ -134,7 +134,6 @@ export class PartyStore {
     });
   }
 
-
   /** Record a server snapshot (from initial load) so the first UPDATE has a baseline. */
   seedBaseline(party: Party, userId: string) {
     if (!this.acceptsUser(userId)) {
@@ -212,7 +211,6 @@ export class PartyStore {
     e.userId = userId;
     void this.kick(party.id);
   }
-
 
   drop(id: string) {
     this.queue.delete(id);
@@ -391,7 +389,6 @@ export class PartyStore {
       return;
     }
   }
-
 
   private done(id: string) {
     const e = this.queue.get(id);
