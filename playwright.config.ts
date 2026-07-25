@@ -23,10 +23,12 @@ export default defineConfig({
     { name: "mobile", use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: `bun run preview --port ${PORT} --host 127.0.0.1`,
+    // Serve the production build via the Cloudflare Worker preview
+    // (nodejs_compat) so E2E hits the same runtime as the deployed site.
+    command: `bunx wrangler dev --config dist/server/wrangler.json --port ${PORT} --local --ip 127.0.0.1`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
   },
