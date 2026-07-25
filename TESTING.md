@@ -16,9 +16,22 @@ bun run build         # Vite production build (must precede E2E)
 bun run test:e2e      # Playwright against the production preview server
 ```
 
-`test:e2e` boots `vite preview` on port 4173 as its `webServer`, so you must
-have run `bun run build` at least once (CI does this in-order). Override the
-port with `PW_PORT`.
+`test:e2e` boots the Cloudflare Worker preview (`wrangler dev`) against
+`dist/server/wrangler.json` as its `webServer`, so you must have run
+`bun run build` at least once (CI does this in-order). Override the port
+with `PW_PORT`.
+
+If your local environment does not ship the system libraries that
+Playwright's bundled Chromium expects (e.g. the Lovable sandbox), point
+Playwright at a system Chromium instead:
+
+```
+CHROME=$(nix-shell -p chromium --run 'which chromium' | tail -1)
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$CHROME" bun run test:e2e
+```
+
+CI installs Chromium + system deps via `bunx playwright install --with-deps chromium`
+and does not need this override.
 
 ## Layers
 
