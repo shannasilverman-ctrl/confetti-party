@@ -189,56 +189,85 @@ export function diffColumns(
 
 // ----- 3-way merges for guest-mutated columns -----
 
+/** Guest-domain fields that indicate a real guest write on an item. */
+function guestDomainDiffersGuest(a: Guest, b: Guest): boolean {
+  return a.rsvp !== b.rsvp;
+}
+function guestDomainDiffersBring(a: BringItem, b: BringItem): boolean {
+  return (
+    a.status !== b.status ||
+    a.assigneeName !== b.assigneeName ||
+    a.assigneeHousehold !== b.assigneeHousehold ||
+    a.claimedAt !== b.claimedAt
+  );
+}
+
 /** Union by id: for items present in both local and server, prefer server
  * for guest-domain fields whenever the server value differs from baseline
- * (indicating a real guest write); otherwise prefer local. Removals: if
- * baseline had id X and only ONE side removed it, respect the removal. */
-export function mergeGuests(baseline: Guest[], local: Guest[], server: Guest[]): Guest[] {
+ * (indicating a real guest write); otherwise prefer local.
+ * Removals: honoring a local removal is UNSAFE when the server has a
+ * concurrent guest-domain change on that same id (e.g. host removed a
+ * guest whose RSVP just flipped to yes). Preserve the server row in that
+ * case and report a semantic conflict for the host to resolve. */
+export function mergeGuests(
+  baseline: Guest[],
+  local: Guest[],
+  server: Guest[],
+): { items: Guest[]; hadRemoveVsServerChange: boolean } {
   const bmap = new Map(baseline.map((g) => [g.id, g]));
   const lmap = new Map(local.map((g) => [g.id, g]));
   const smap = new Map(server.map((g) => [g.id, g]));
   const ids = new Set<string>([...lmap.keys(), ...smap.keys()]);
-  const out: Guest[] = [];
+  const items: Guest[] = [];
+  let hadRemoveVsServerChange = false;
   for (const id of ids) {
     const b = bmap.get(id);
     const l = lmap.get(id);
     const s = smap.get(id);
-    // Removed by host locally (was in baseline, gone in local) → respect removal.
-    if (b && !l) continue;
-    // Removed on server (was in baseline, gone on server) → respect removal.
-    if (b && !s) continue;
-    if (l && s) {
-      // Present in both. Guest-domain field: rsvp. Prefer server if it
-      // changed vs baseline (a real guest write); else keep local's.
-      const rsvp = b && s.rsvp !== b.rsvp ? s.rsvp : l.rsvp;
-      out.push({ ...l, rsvp });
+    if (b && !l) {
+      if (s && guestDomainDiffersGuest(s, b)) {
+        hadRemoveVsServerChange = true;
+        items.push(s);
+        continue;
+      }
       continue;
     }
-    // Only on local (host added) or only on server (rare, e.g. magic-link).
-    out.push((l ?? s) as Guest);
+    if (b && !s) continue;
+    if (l && s) {
+      const rsvp = b && s.rsvp !== b.rsvp ? s.rsvp : l.rsvp;
+      items.push({ ...l, rsvp });
+      continue;
+    }
+    items.push((l ?? s) as Guest);
   }
-  return out;
+  return { items, hadRemoveVsServerChange };
 }
 
 export function mergeBringBoard(
   baseline: BringItem[],
   local: BringItem[],
   server: BringItem[],
-): BringItem[] {
+): { items: BringItem[]; hadRemoveVsServerChange: boolean } {
   const bmap = new Map(baseline.map((i) => [i.id, i]));
   const lmap = new Map(local.map((i) => [i.id, i]));
   const smap = new Map(server.map((i) => [i.id, i]));
   const ids = new Set<string>([...lmap.keys(), ...smap.keys()]);
-  const out: BringItem[] = [];
+  const items: BringItem[] = [];
+  let hadRemoveVsServerChange = false;
   for (const id of ids) {
     const b = bmap.get(id);
     const l = lmap.get(id);
     const s = smap.get(id);
-    if (b && !l) continue; // host removed locally
-    if (b && !s) continue; // removed server-side
+    if (b && !l) {
+      if (s && guestDomainDiffersBring(s, b)) {
+        hadRemoveVsServerChange = true;
+        items.push(s);
+        continue;
+      }
+      continue;
+    }
+    if (b && !s) continue;
     if (l && s) {
-      // Guest-domain fields: status, assigneeName, assigneeHousehold,
-      // claimedAt. Take from server if it changed vs baseline.
       const serverClaimed = b
         ? s.status !== b.status ||
           s.assigneeName !== b.assigneeName ||
@@ -258,8 +287,7 @@ export function mergeBringBoard(
             assigneeHousehold: l.assigneeHousehold,
             claimedAt: l.claimedAt,
           };
-      // Structural fields from local (host owns them).
-      out.push({
+      items.push({
         ...l,
         status: claim.status,
         assigneeName: claim.assigneeName,
@@ -268,9 +296,9 @@ export function mergeBringBoard(
       });
       continue;
     }
-    out.push((l ?? s) as BringItem);
+    items.push((l ?? s) as BringItem);
   }
-  return out;
+  return { items, hadRemoveVsServerChange };
 }
 
 /** Key-union: keep the max ISO timestamp per key. */
@@ -303,7 +331,9 @@ export function mergeHostUpdates(
 }
 
 /** Apply 3-way merge for mergeable columns. Non-mergeable contended columns
- * are left as-is in `next` (caller decides how to surface). */
+ * and remove-vs-server-change semantic conflicts are surfaced in
+ * `unresolvedNonMergeable` so the caller can hold the local edit for
+ * explicit resolution while preserving server state on the merged row. */
 export function mergeContendedColumns(
   baseline: PartyRow,
   local: PartyRow,
@@ -314,17 +344,21 @@ export function mergeContendedColumns(
   const unresolved: HostColumn[] = [];
   for (const col of contended) {
     if (col === "guests") {
-      merged.guests = mergeGuests(
+      const { items, hadRemoveVsServerChange } = mergeGuests(
         (baseline.guests as Guest[]) ?? [],
         (local.guests as Guest[]) ?? [],
         (server.guests as Guest[]) ?? [],
       );
+      merged.guests = items;
+      if (hadRemoveVsServerChange) unresolved.push(col);
     } else if (col === "bring_board") {
-      merged.bring_board = mergeBringBoard(
+      const { items, hadRemoveVsServerChange } = mergeBringBoard(
         (baseline.bring_board as BringItem[]) ?? [],
         (local.bring_board as BringItem[]) ?? [],
         (server.bring_board as BringItem[]) ?? [],
       );
+      merged.bring_board = items;
+      if (hadRemoveVsServerChange) unresolved.push(col);
     } else if (col === "checkins") {
       merged.checkins = mergeCheckins(
         (baseline.checkins as Record<string, string>) ?? {},
@@ -341,9 +375,6 @@ export function mergeContendedColumns(
       unresolved.push(col);
     }
   }
-  // For unresolved non-mergeable contended columns: adopt server's value so
-  // fresh server data is not silently lost. Local edit is retained in the
-  // caller's "pending conflict" record for retry.
   for (const col of unresolved) {
     (merged as Record<string, unknown>)[col] = (server as Record<string, unknown>)[col];
   }
