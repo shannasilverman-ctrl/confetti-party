@@ -23,6 +23,7 @@ function DayOfPage() {
   const [note, setNote] = useState("");
   if (!party) throw notFound();
 
+  if (!party) throw notFound();
   const nextThree = useMemo(
     () => party.tasks.filter((t) => !t.done).slice(0, 3),
     [party.tasks],
@@ -32,29 +33,34 @@ function DayOfPage() {
   const checkins = party.checkins ?? {};
 
   function toggleTask(taskId: string, evt?: React.MouseEvent) {
-    const tasks = party.tasks.map((t) =>
-      t.id === taskId ? { ...t, done: !t.done } : t,
-    );
-    updateParty(party.id, { tasks });
+    updateParty(party!.id, (p) => ({
+      ...p,
+      tasks: p.tasks.map((t) => (t.id === taskId ? { ...t, done: !t.done } : t)),
+    }));
     if (evt) celebrate("micro", { x: evt.clientX, y: evt.clientY });
   }
 
   function toggleCheckin(guestId: string, evt?: React.MouseEvent) {
-    const next = { ...checkins };
-    if (next[guestId]) delete next[guestId];
-    else next[guestId] = new Date().toISOString();
-    updateParty(party.id, { checkins: next });
-    if (evt && !checkins[guestId]) celebrate("micro", { x: evt.clientX, y: evt.clientY });
+    const wasHere = !!checkins[guestId];
+    updateParty(party!.id, (p) => {
+      const next = { ...(p.checkins ?? {}) };
+      if (next[guestId]) delete next[guestId];
+      else next[guestId] = new Date().toISOString();
+      return { ...p, checkins: next };
+    });
+    if (evt && !wasHere) celebrate("micro", { x: evt.clientX, y: evt.clientY });
   }
 
   function postUpdate() {
     const text = note.trim();
     if (!text) return;
-    const updates = [
-      { id: newId(), text, at: new Date().toISOString() },
-      ...(party.hostUpdates ?? []),
-    ].slice(0, 20);
-    updateParty(party.id, { hostUpdates: updates });
+    updateParty(party!.id, (p) => ({
+      ...p,
+      hostUpdates: [
+        { id: newId(), text, at: new Date().toISOString() },
+        ...(p.hostUpdates ?? []),
+      ].slice(0, 20),
+    }));
     setNote("");
     toast.success("Update posted to your Party Pass.");
   }
