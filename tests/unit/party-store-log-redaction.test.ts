@@ -43,11 +43,11 @@ function fakeClient(): PartyClient {
       data: null,
       // The store never sees the raw provider text — only a classified kind.
       // But if any future refactor smuggles the message in, this test catches it.
-      error: { kind: "permission", retryable: false },
+      error: { kind: "permission", retryable: false, message: "raw sb_secret_LEAKY_TOKEN_ABC123 victim@example.com 11111111-2222-3333-4444-555555555555" },
     }),
     updateWithConcurrency: async () => ({
       data: null,
-      error: { kind: "permission", retryable: false },
+      error: { kind: "permission", retryable: false, message: "raw sb_secret_LEAKY_TOKEN_ABC123 victim@example.com 11111111-2222-3333-4444-555555555555" },
       conflict: false,
     }),
     fetch: async () => ({ data: null, error: null }),
@@ -95,11 +95,11 @@ describe("PartyStore — log & toast redaction", () => {
       client: {
         insert: async () => ({
           data: null,
-          error: { kind: "permission", retryable: false },
+          error: { kind: "permission", retryable: false, message: "raw sb_secret_LEAKY_TOKEN_ABC123 victim@example.com 11111111-2222-3333-4444-555555555555" },
         }),
         updateWithConcurrency: async () => ({
           data: null,
-          error: { kind: "permission", retryable: false },
+          error: { kind: "permission", retryable: false, message: "raw sb_secret_LEAKY_TOKEN_ABC123 victim@example.com 11111111-2222-3333-4444-555555555555" },
           conflict: false,
         }),
         fetch: async () => ({ data: null, error: null }),

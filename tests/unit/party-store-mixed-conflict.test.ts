@@ -54,7 +54,7 @@ class FakeDb {
   }
   client(): PartyClient {
     return {
-      insert: async () => ({ data: null, error: { kind: "network", retryable: true } }),
+      insert: async () => ({ data: null, error: { kind: "network", retryable: true, message: "boom" } }),
       updateWithConcurrency: async (id, patch, expected) => {
         const cur = this.rows.get(id);
         if (!cur) return { data: null, error: null, conflict: true };
@@ -97,7 +97,7 @@ describe("PartyStore — mixed conflict (semantic + safe merge)", () => {
     const localEdit: Party = {
       ...party,
       name: "My Name",
-      tasks: [...party.tasks, { id: "t2", title: "Extra", done: false, dueDays: 0 }],
+      tasks: [...party.tasks, { id: "t2", title: "Extra", done: false, bucket: "Party week" }],
     };
     store.enqueueUpdate(localEdit, "u");
     await flush();
@@ -137,7 +137,7 @@ describe("PartyStore — mixed conflict (semantic + safe merge)", () => {
     const localEdit: Party = {
       ...party,
       name: "My Name",
-      tasks: [...party.tasks, { id: "t2", title: "Extra", done: false, dueDays: 0 }],
+      tasks: [...party.tasks, { id: "t2", title: "Extra", done: false, bucket: "Party week" }],
     };
     store.enqueueUpdate(localEdit, "u");
     await flush();
