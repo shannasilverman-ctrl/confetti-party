@@ -84,6 +84,9 @@ function Dashboard() {
           <BrandLockup />
           <div className="flex items-center gap-2">
             <AuthNav variant="app" />
+            <Button asChild variant="outline" size="sm">
+              <Link to="/talk"><MessageSquare className="h-4 w-4" /> Talk it out</Link>
+            </Button>
             <Button variant="festive" onClick={() => setWizardOpen(true)}>
               <Plus /> New Party
             </Button>
