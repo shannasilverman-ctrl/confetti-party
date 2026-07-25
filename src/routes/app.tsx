@@ -373,6 +373,7 @@ function NewPartyWizard({
   const [guestEstimate, setGuestEstimate] = useState(20);
   const [budget, setBudget] = useState(500);
   const [theme, setTheme] = useState<Theme | null>(null);
+  const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
 
@@ -387,6 +388,7 @@ function NewPartyWizard({
     setGuestEstimate(20);
     setBudget(500);
     setTheme(null);
+    setHolidayStarter(null);
   }
 
   function finish() {
