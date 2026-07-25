@@ -1,5 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-// @ts-expect-error — plain .mjs helper shared with scripts/*.
 import { resolveWranglerConfigPath } from "./scripts/wrangler-config-path.mjs";
 
 const PORT = Number(process.env.PW_PORT ?? 4173);
