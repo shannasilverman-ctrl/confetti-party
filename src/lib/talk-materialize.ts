@@ -496,25 +496,57 @@ export function materializeDraft(
 
   // ---- Theme: light-touch from creativeDirection.vibe. No inference of themeId.
   const theme = (merged.vibe?.creativeDirection?.vibe ?? "").trim();
+  const palette = (merged.vibe?.creativeDirection?.palette ?? [])
+    .map((p) => String(p).trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  const tone = merged.identity?.tone?.trim() || null;
 
-  // ---- Assumptions and open questions surfaced for the review UI.
+  // ---- Host note enrichment: capture soft "vibe" info (tone, palette,
+  //      needsSoundCheck-only-when-true) that has no dedicated Party column
+  //      so it isn't silently dropped. Public projections never expose it.
+  const noteParts: string[] = [];
+  if (merged.hostNote) noteParts.push(merged.hostNote.trim());
+  if (tone) noteParts.push(`Tone: ${tone}.`);
+  if (palette.length) noteParts.push(`Palette: ${palette.join(", ")}.`);
+  if (merged.vibe?.broadcast?.needsSoundCheck === true) {
+    noteParts.push("Sound check needed on the day.");
+  }
+  const hostNote = noteParts.length ? noteParts.join(" ").slice(0, 2000) : null;
+
+  // ---- Assumptions, open questions, and blocking / optional unknowns.
   const assumptions: string[] = [];
   const openQuestions: string[] = [];
+  const blockingUnknowns: Array<{ field: string; label: string; placeholder?: string }> = [];
+  const optionalUnknowns: Array<{ field: string; label: string }> = [];
 
-  if (!merged.when?.date) {
-    assumptions.push(
-      `Placeholder date ${date} (3 weeks from today). Change before you send invites.`,
-    );
+  if (!hasRealDate) {
+    // NEVER auto-fill a fake date into an invitation. The Talk UI treats this
+    // as blocking until the host either types a real date or ticks the
+    // "I'll pick a date later" acknowledgment.
+    blockingUnknowns.push({
+      field: "date",
+      label: "Real event date",
+      placeholder: date,
+    });
     openQuestions.push("What's the actual date?");
   }
-  if (!merged.people?.expectedCount) {
-    assumptions.push(`Guest estimate ${guestEstimate} (default). Update once you know.`);
+  if (!hasGuestCount) {
+    optionalUnknowns.push({ field: "guestEstimate", label: "Guest estimate" });
+    assumptions.push("Guest estimate not set — leaving at 0 until you know.");
   }
-  if (!merged.budget?.total) {
-    assumptions.push(`Budget $${budget} (default). Adjust in the Budget tab.`);
+  if (!hasBudget) {
+    optionalUnknowns.push({ field: "budget", label: "Budget" });
+    assumptions.push("Budget not set — leaving at $0 until you decide.");
   }
-  if (!location) openQuestions.push("Where will it be?");
-  if (!startTime) openQuestions.push("What time does it start?");
+  if (!location) {
+    optionalUnknowns.push({ field: "location", label: "Location" });
+    openQuestions.push("Where will it be?");
+  }
+  if (!startTime) {
+    optionalUnknowns.push({ field: "startTime", label: "Start time" });
+    openQuestions.push("What time does it start?");
+  }
 
   return {
     party: {
@@ -528,7 +560,7 @@ export function materializeDraft(
       theme,
       themeId: null,
       holidayPackId: pack?.id ?? null,
-      hostNote: merged.hostNote?.trim() || null,
+      hostNote,
       tasks,
       bringBoard,
       shoppingItems,
@@ -537,6 +569,8 @@ export function materializeDraft(
     },
     assumptions,
     openQuestions,
+    blockingUnknowns,
+    optionalUnknowns,
   };
 }
 
