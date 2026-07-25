@@ -24,7 +24,6 @@ import { sendTurn, confirmDraft } from "@/lib/talk-brain.functions";
 import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
 import { celebrate } from "@/components/confetti-burst";
 
-
 export const Route = createFileRoute("/talk")({
   ssr: false,
   head: () => ({
@@ -210,7 +209,6 @@ function TalkRoute() {
       setThinking(false);
     }
   }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
-
 
   const confirmAndCreate = useCallback(async () => {
     if (!draftId) return;
@@ -530,7 +528,6 @@ function TalkRoute() {
               </p>
             </section>
 
-
             <aside className="space-y-3">
               <Card className="p-4">
                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -613,7 +610,6 @@ function TalkRoute() {
                 </>
               )}
             </aside>
-
           </main>
         ) : (
           <main className="mt-6 flex flex-1 flex-col items-center gap-6 md:mt-10">

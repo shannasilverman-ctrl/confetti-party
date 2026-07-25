@@ -56,5 +56,4 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
   );
 }
 
-
 export { Wordmark as AnimatedWordmark };

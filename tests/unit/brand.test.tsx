@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { createRouter, RouterProvider, createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
+import {
+  createRouter,
+  RouterProvider,
+  createRootRoute,
+  createRoute,
+  Outlet,
+} from "@tanstack/react-router";
 import { BrandLockup } from "@/components/brand";
 
 function renderWithRouter(ui: React.ReactNode) {

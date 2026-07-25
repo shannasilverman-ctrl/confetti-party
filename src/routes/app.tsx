@@ -143,8 +143,6 @@ function Dashboard() {
                       : "Nothing here yet — plan your first party."
                     : partiesSummary(parties).copy}
             </p>
-
-
           </div>
           {status === "ready" &&
             parties.length > 0 &&
@@ -324,7 +322,6 @@ function Dashboard() {
                 </article>
               );
             })}
-
 
             <button
               onClick={() => setWizardOpen(true)}

@@ -75,7 +75,6 @@ export function LogoLockup({
     <span className={`inline-flex items-center gap-2 ${className}`}>
       <LogoMark className={markSize} decorative />
       <span
-
         className={`font-display font-semibold tracking-tight text-secondary ${type} ${wordmarkClassName}`}
       >
         Confetti

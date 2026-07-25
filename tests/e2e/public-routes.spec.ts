@@ -74,7 +74,6 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
-
 // Axe scans for stable public pages. Fails only on serious/critical violations.
 for (const path of ["/", "/talk"]) {
   test(`axe: no serious/critical a11y violations on ${path}`, async ({ page }, testInfo) => {
