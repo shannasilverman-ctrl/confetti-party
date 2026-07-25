@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { BrandLockup } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,11 @@ function maskEmail(email: string): string {
   return `${local.slice(0, 2)}…@${domain}`;
 }
 
+/** Normalize email: trim + lowercase. Preserves the raw input for typing. */
+function normalizeEmailForSubmit(v: string): string {
+  return v.trim().toLowerCase();
+}
+
 function AuthPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -54,9 +59,13 @@ function AuthPage() {
   const [mode, setMode] = useState<AuthMode>(search.mode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [inlineNotice, setInlineNotice] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<{ kind: "confirm" | "reset"; email: string } | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const submitLockRef = useRef(false);
   const returnTo = normalizeAuthReturnTo(search.returnTo);
 
   useEffect(() => {
@@ -67,6 +76,9 @@ function AuthPage() {
 
   useEffect(() => {
     setMode(search.mode ?? "signin");
+    setInlineError(null);
+    setPassword("");
+    setShowPassword(false);
   }, [search.mode]);
 
   useEffect(() => {
@@ -75,78 +87,89 @@ function AuthPage() {
     return () => clearTimeout(t);
   }, [resendCooldown]);
 
-  async function submitSignIn() {
-    const { error } = await signIn(email, password);
+  async function submitSignIn(normalizedEmail: string) {
+    const { error } = await signIn(normalizedEmail, password);
     if (error) {
-      toast.error("That email and password combination wasn't recognized.");
+      setInlineError(error.message);
+      setPassword("");
       return;
     }
-    toast.success("Welcome back");
     window.location.replace(returnTo);
   }
 
-  async function submitSignUp() {
-    const result = await signUp(email, password, returnTo);
+  async function submitSignUp(normalizedEmail: string) {
+    const result = await signUp(normalizedEmail, password, returnTo);
     if (result.error) {
-      toast.error("Couldn't create that account. Check the details or try signing in.");
+      setInlineError(result.error.message);
+      setPassword("");
       return;
     }
-    // Clear the password from state as soon as signUp resolves. Resends must
-    // never reuse it.
     setPassword("");
     if (result.session) {
-      // Confirmation is disabled — Supabase returned an active session.
-      // Navigate straight into the app.
-      toast.success("Welcome to Confetti");
       window.location.replace(returnTo);
       return;
     }
-    // Confirmation required — show the persistent confirm-email state.
-    setSentTo({ kind: "confirm", email });
+    setSentTo({ kind: "confirm", email: normalizedEmail });
     setResendCooldown(60);
   }
 
-  async function submitForgot() {
-    const { error } = await resetPasswordForEmail(email);
-    if (error) {
-      toast.error("Couldn't send a reset email just now. Please try again shortly.");
+  async function submitForgot(normalizedEmail: string) {
+    const { error } = await resetPasswordForEmail(normalizedEmail, returnTo);
+    // Non-enumerating: show the same confirmation whether or not the address
+    // exists. Only surface an inline error on transport/rate-limit failures.
+    if (error && error.kind === "network") {
+      setInlineError(error.message);
       return;
     }
-    setSentTo({ kind: "reset", email });
+    if (error && error.kind === "rate_limited") {
+      setInlineError(error.message);
+      return;
+    }
+    setSentTo({ kind: "reset", email: normalizedEmail });
     setResendCooldown(60);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email) return;
+    if (submitLockRef.current) return;
+    const normalizedEmail = normalizeEmailForSubmit(email);
+    if (!normalizedEmail) return;
     if (mode !== "forgot" && !password) return;
+    submitLockRef.current = true;
     setSubmitting(true);
+    setInlineError(null);
+    setInlineNotice(null);
     try {
-      if (mode === "signup") await submitSignUp();
-      else if (mode === "forgot") await submitForgot();
-      else await submitSignIn();
+      if (mode === "signup") await submitSignUp(normalizedEmail);
+      else if (mode === "forgot") await submitForgot(normalizedEmail);
+      else await submitSignIn(normalizedEmail);
     } catch {
-      toast.error("Couldn't reach the sign-in service. Check your connection and try again.");
+      setInlineError("Couldn't reach the sign-in service. Check your connection and try again.");
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   }
 
   async function resend() {
-    if (!sentTo || resendCooldown > 0) return;
+    if (!sentTo || resendCooldown > 0 || submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
+    setInlineError(null);
+    setInlineNotice(null);
     try {
       const { error } =
         sentTo.kind === "reset"
-          ? await resetPasswordForEmail(sentTo.email)
+          ? await resetPasswordForEmail(sentTo.email, returnTo)
           : await resendSignupConfirmation(sentTo.email);
       if (error) {
-        toast.error("Couldn't send that email just now. Please try again shortly.");
+        setInlineError(error.message);
         return;
       }
-      toast.success("Sent again");
+      setInlineNotice("Sent again. Check your inbox.");
       setResendCooldown(60);
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   }
@@ -162,11 +185,15 @@ function AuthPage() {
 
   function changeMode(next: AuthMode) {
     setSentTo(null);
+    setInlineError(null);
+    setInlineNotice(null);
+    setPassword("");
+    setShowPassword(false);
     setMode(next);
     void navigate({
       to: "/auth",
       search: { mode: next, returnTo },
-      replace: true,
+      replace: false,
     });
   }
 
@@ -188,12 +215,24 @@ function AuthPage() {
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {sentTo.kind === "reset"
-                  ? `We sent a password reset link to ${maskEmail(sentTo.email)}.`
+                  ? `If an account exists for ${maskEmail(sentTo.email)}, we sent a password reset link.`
                   : `We sent a confirmation link to ${maskEmail(sentTo.email)}. Click it to activate your account.`}
               </p>
-              <div className="mt-6 flex flex-col gap-2">
+              <div
+                role="status"
+                aria-live="polite"
+                className="min-h-[1.25rem] text-sm"
+              >
+                {inlineError ? (
+                  <span className="text-destructive">{inlineError}</span>
+                ) : inlineNotice ? (
+                  <span className="text-secondary">{inlineNotice}</span>
+                ) : null}
+              </div>
+              <div className="mt-4 flex flex-col gap-2">
                 <Button
                   variant="outline"
+                  className="min-h-11"
                   disabled={resendCooldown > 0 || submitting}
                   onClick={resend}
                 >
@@ -201,6 +240,7 @@ function AuthPage() {
                 </Button>
                 <Button
                   variant="ghost"
+                  className="min-h-11"
                   onClick={() => {
                     setSentTo(null);
                     changeMode("signin");
@@ -221,16 +261,18 @@ function AuthPage() {
                     : "Sign in to your parties."}
               </p>
 
-              <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+              <form onSubmit={onSubmit} className="mt-6 grid gap-4" noValidate>
                 <div>
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
                     autoComplete="email"
+                    inputMode="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="min-h-11"
                   />
                 </div>
                 {mode !== "forgot" && (
@@ -247,18 +289,46 @@ function AuthPage() {
                         </button>
                       )}
                     </div>
-                    <Input
-                      id="password"
-                      type="password"
-                      autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                      required
-                      minLength={mode === "signup" ? 8 : 6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                        required
+                        minLength={mode === "signup" ? 8 : 6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="min-h-11 pr-11"
+                      />
+                      <button
+                        type="button"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        aria-pressed={showPassword}
+                        onClick={() => setShowPassword((v) => !v)}
+                        className="absolute right-2 top-1/2 flex h-9 min-h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-secondary focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <Eye className="h-4 w-4" aria-hidden />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 )}
-                <Button type="submit" variant="festive" disabled={submitting}>
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="min-h-[1.25rem] text-sm text-destructive"
+                >
+                  {inlineError}
+                </div>
+                <Button
+                  type="submit"
+                  variant="festive"
+                  className="min-h-11"
+                  disabled={submitting}
+                >
                   {submitting ? "Please wait…" : submitLabel}
                 </Button>
               </form>
