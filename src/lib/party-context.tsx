@@ -117,6 +117,8 @@ export type Party = {
   photoDrop?: PhotoDropInfo | null;
   checkins?: Record<string, string>; // guestId -> ISO timestamp
   retrospective?: PartyRetrospective | null;
+  /** Optional cinematic banner image URL, seeded on curated samples only. */
+  heroImageUrl?: string;
 };
 
 export type PartyRetrospective = {
@@ -466,6 +468,46 @@ function seedWorldCup(): Party {
   };
 }
 
+function seedAvaLiam(): Party {
+  const date = "2027-05-22";
+  const tasks = generateTasks("other", date).map((t, i) => ({ ...t, done: i < 2 }));
+  const guests: Guest[] = [
+    { id: uid(), name: "Ava Rossi (bride)", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Liam Marchetti (groom)", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Sofia Rossi", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Matteo Marchetti", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Giulia Bianchi", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Elena Conti", kind: "adult", rsvp: "maybe" },
+    { id: uid(), name: "Marco Ferrari", kind: "adult", rsvp: "invited" },
+  ];
+  return {
+    id: "ava-liam-wedding",
+    name: "Ava & Liam",
+    occasion: "other",
+    date,
+    startTime: "5:30 PM",
+    location: "Tenuta di Fiore, Tuscany",
+    guestEstimate: 62,
+    budget: 12500,
+    theme: "Tuscan Vineyard",
+    tasks,
+    guests,
+    budgetCategories: DEFAULT_CATEGORIES(),
+    timeline: [
+      { id: uid(), time: "4:30 PM", activity: "Guests arrive, prosecco on the terrace" },
+      { id: uid(), time: "5:30 PM", activity: "Ceremony under the cypress arch" },
+      { id: uid(), time: "6:15 PM", activity: "Aperitivo & family photos" },
+      { id: uid(), time: "7:30 PM", activity: "Long-table dinner in the vineyard" },
+      { id: uid(), time: "9:30 PM", activity: "Toasts, cake, first dance" },
+    ],
+    shoppingItems: [],
+    pinnedInspiration: [],
+    hostNote:
+      "We can't wait to celebrate with you in Tuscany. Dinner is at the long table under the vines — bring a light layer for after sunset.",
+    heroImageUrl: "/__l5e/assets-v1/fb43d5b6-1a02-4feb-9f8c-421d86fc8f5e/ava-liam.jpg",
+  };
+}
+
 // ---- Context ----
 
 type Ctx = {
@@ -629,7 +671,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (authLoading) return;
     let cancelled = false;
     if (!user) {
-      setParties([seedMaya(), seedGrad(), seedWorldCup()]);
+      setParties([seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()]);
       setStatus("ready");
       return;
     }
