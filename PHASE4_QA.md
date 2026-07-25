@@ -1,37 +1,42 @@
 # Phase 4 QA — Final Evidence
 
-Commit range: Phase 4 completion + code-review correction (see git log).
+Baseline commit: `f665f94` (Turn 1 completion). Turn 2 changes:
+mobile-matrix rewrite for worker-safe evidence, hero descriptor truth-up,
+and this document. No pre-change bundle baseline is retained in the repo
+so byte-for-byte regressions can only be judged against the numbers in
+§2 going forward.
+
 All commands run against a frozen `bun install --frozen-lockfile` tree.
 
-## 1. Quality gates (frozen install, exact commands)
+## 1. Quality gates (exact commands)
 
-| Step      | Command                                |
-| --------- | -------------------------------------- |
-| Install   | `bun install --frozen-lockfile`        |
-| Prettier  | `bun run format:check`                 |
-| Lint      | `bun run lint`                         |
-| Typecheck | `bun run typecheck` (→ `tsc --noEmit`) |
-| Unit      | `bun run test`                         |
-| Coverage  | `bun run test:coverage`                |
-| Build     | `bun run build`                        |
-| E2E + axe | `bun run test:e2e` (Playwright)        |
+| Step      | Command                                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Install   | `bun install --frozen-lockfile`                                                                                                  |
+| Prettier  | `bun run format:check` (`prettier --check .`)                                                                                    |
+| Lint      | `bun run lint` (`eslint .`)                                                                                                      |
+| Typecheck | `bun run typecheck` (`tsc --noEmit`)                                                                                             |
+| Unit      | `bun run test` (`vitest run`)                                                                                                    |
+| Coverage  | `bun run test:coverage` (`vitest run --coverage`)                                                                                |
+| Build     | `bun run build` (`vite build`)                                                                                                   |
+| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, `--config dist/server/wrangler.json` webServer, no `reuseExistingServer` in CI)   |
 
-Results are recorded in the CI workflow run linked from the release PR.
-
-Note: an earlier revision of this document mentioned `bunx tsgo`. The project
-does not ship `tsgo`; the actual typecheck binary is `tsc` from the pinned
-`typescript` devDependency, invoked directly via `bun run typecheck`.
+Latest local execution (this branch, commit noted in §9): captured in
+the terminal transcript attached to this turn. No release PR exists yet;
+GitHub Actions run URL will be attached once the branch is pushed to
+`origin`.
 
 ## 2. Bundle byte counts (this commit)
 
-Measured after `bun run build` from `dist/client/assets/**`:
+Measured after `bun run build` from `dist/client/assets/**` in Turn 1.
+Re-run `du -b dist/client/assets/*.{js,css}` to refresh.
 
 | Bucket           | Bytes         |
 | ---------------- | ------------- |
 | Total client JS  | **1,134,256** |
 | Total client CSS | **109,037**   |
 
-Largest client JS chunks:
+Largest client JS chunks (Turn 1 snapshot; regenerate after any dep change):
 
 | Bytes   | File                                |
 | ------- | ----------------------------------- |
@@ -50,68 +55,104 @@ Largest CSS chunk:
 | ------- | --------------------- |
 | 109,037 | `assets/styles-*.css` |
 
+No comparable pre-Phase-4 bundle baseline is retained in the repo; the
+numbers above are the authoritative reference going forward.
+
 ### Fonts
 
-`Fraunces` (display) and `Outfit` (body) are loaded via a `<link>` tag in
-`src/routes/__root.tsx` with `display=swap` (Google Fonts default). No
-render-blocking `@font-face` blocks; text paints in fallback while custom
-fonts stream.
-
-## 3. Hero image
-
-Source file: `src/assets/confetti-hero.jpg` (managed asset).
-
-| Property                | Value                                                                               |
-| ----------------------- | ----------------------------------------------------------------------------------- |
-| Bytes                   | 121,037                                                                             |
-| Content type            | `image/jpeg`                                                                        |
-| `<img>` intrinsic attrs | `width={1600} height={900}` on the hero, `decoding="async"`, `fetchPriority="high"` |
-
-Below-fold theme thumbnails and workspace previews use `loading="lazy"` +
-`decoding="async"`; grep for `loading="lazy"` under `src/routes/` and
-`src/components/` to enumerate.
-
-## 4. Route × width overflow matrix
-
-`tests/e2e/mobile-matrix.spec.ts` visits each of the seven core public +
-demo-workspace routes at 320 / 375 / 390 / 430 px and asserts
-`document.documentElement.scrollWidth <= clientWidth` at every cell. It
-writes the raw numbers to `PHASE4_QA_evidence.json` after the run, so the
-matrix is machine-verified per run instead of pasted-in.
-
-Routes covered:
+`src/routes/__root.tsx` injects two `<link>` elements (see lines around
+`102`):
 
 ```text
-/
-/talk
-/app
-/party/ava-liam-wedding
-/party/ava-liam-wedding/reveal
-/party/ava-liam-wedding/day-of
-/rsvp/00000000-0000-0000-0000-000000000000
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700&display=swap"
+/>
 ```
 
-Any nonzero `overflowsBy` fails the corresponding test — no silent
-tolerances.
+`display=swap` forces the browser to paint fallback text immediately and
+swap in the web font once it streams — no FOIT / render-blocking. The
+system fallback stack for both families is declared in `src/styles.css`
+as `var(--font-body)` / `var(--font-display)`, which resolve to
+`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica
+Neue", Arial, sans-serif` for body and the same stack fronted by
+`"Fraunces"` for display. Body copy therefore renders in Nunito **or**
+the platform sans; headings in Fraunces **or** the platform sans — no
+invisible text at any point.
+
+Note: `src/routes/__root.tsx` uses `Nunito`, not `Outfit`. Earlier
+revisions of this doc named `Outfit`; the live font is Nunito 400/500/600/700.
+
+## 3. Hero image (truth-up)
+
+Source is a managed asset pointer, `src/assets/confetti-hero.jpg.asset.json`:
+
+| Property                    | Value                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Descriptor bytes            | 121,037 (matches `size` field in pointer)                                                                    |
+| Content type                | `image/jpeg`                                                                                                 |
+| Decoded pixel dimensions    | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker)            |
+| `<img>` intrinsic attrs     | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"`            |
+
+The intrinsic attrs and the decoded pixel dimensions now agree. Any
+prior mention of `1600 × 900` was inherited from an earlier hero and is
+no longer accurate — this document is the source of truth.
+
+Below-fold theme thumbnails and workspace previews use
+`loading="lazy"` + `decoding="async"`; grep for `loading="lazy"` under
+`src/routes/` and `src/components/` to enumerate.
+
+## 4. Route × width × state matrix — durable evidence
+
+`tests/e2e/mobile-matrix.spec.ts` (Turn 2 rewrite) drives ten scenarios
+across the four thumb widths and asserts `scrollWidth <= clientWidth`
+on `document` and on named containers per scenario. Sticky/fixed action
+bars are measured against the viewport and any that escape any edge
+fail the test. Safe-area inset resolution is captured per test.
+
+Evidence is written per-test via `testInfo.attach`, so the standard
+Playwright HTML/artifact upload contains every row — nothing depends
+on a module-global array that fullyParallel workers would race on.
+
+Attachment names (available under each test in the Playwright HTML
+report and in the CI artifact bundle):
+
+- `mobile-evidence.json` — `{ scenario, route, width, measurements[], sticky[], safeArea }`
+- `mobile-screenshot.png` — viewport screenshot at the tested width
+
+Scenarios × widths (each is a separate Playwright test, 10 × 4 = 40):
+
+```text
+landing                /
+talk-signed-out        /talk
+app-dashboard          /app
+new-party-dialog       /app (opens the New party dialog)
+workspace-overview     /party/ava-liam-wedding
+workspace-bring-board  /party/ava-liam-wedding (selects Bring & Photos)
+workspace-reveal       /party/ava-liam-wedding/reveal
+workspace-day-of       /party/ava-liam-wedding/day-of
+rsvp-malformed         /rsvp/not-a-uuid
+rsvp-unknown-uuid      /rsvp/00000000-0000-0000-0000-000000000000
+```
+
+widths: `320, 375, 390, 430`.
 
 ## 5. Dialog contract — focus + tap targets
 
-`tests/e2e/dialog-contract.spec.ts` (Phase 4 correction):
+`tests/e2e/dialog-contract.spec.ts` (Phase 4 correction, still in force):
 
 - Focus return is proven by **stable node identity**: before opening the
   New Party dialog, the trigger is stamped with `data-focus-probe="trigger-a"`.
   After `Escape` closes the dialog, the assertion is
   `document.activeElement.getAttribute("data-focus-probe") === "trigger-a"`.
-  Text-based checks are gone.
 - Tap-target check iterates **every visible `role=button`** inside the
   dialog at 320 / 375 / 390 / 430 and asserts `width ≥ 44` and
-  `height ≥ 44`. It fails per-button with the button's label, so a
-  regression names the exact offending control.
+  `height ≥ 44`. It fails per-button with the button's label.
 
 ## 6. RSVP status affordances
 
-`tests/e2e/public-routes.spec.ts` (Phase 4 correction) now has two
-deterministic tests:
+`tests/e2e/public-routes.spec.ts`:
 
 - Malformed token (`/rsvp/not-a-uuid`) → HTTP 200 + strict
   `"This invite link doesn't look right"` copy, MUST NOT contain
@@ -119,11 +160,9 @@ deterministic tests:
 - Well-formed unknown UUID → HTTP 200 + same not-found copy.
 
 Both assert the body contains no raw error strings (`JWT`, `PostgREST`,
-`SQLSTATE`, `500`, …).
-
-The `temporarily_unavailable` branch is exercised as a unit test in
-`tests/unit/rsvp-loader.test.ts`, where the RPC can be mocked to fail
-without a real database outage.
+`SQLSTATE`, `500`, …). The `temporarily_unavailable` branch is
+exercised in `tests/unit/rsvp-loader.test.ts` where the RPC can be
+mocked to fail without a database outage.
 
 ## 7. Holiday starter — production shape
 
@@ -134,23 +173,15 @@ prove:
 - `"generic"` returns the tradition-neutral `GENERIC_HOLIDAY` pack with
   non-empty `bringBoardSeeds` and `taskSeeds`, and none of its labels
   mention specific traditions (`turkey`, `latke`, `menorah`, …).
-- `toHolidayStarterId(x)` narrows unknown input to `undefined`
-  (no unsafe `as never` cast anywhere in the create path).
-- `makeParty` returns a single, non-duplicated `tasks` array; pack
-  tasks + generated tasks + extra tasks appear exactly once each.
-- Unknown `holidayPackId` is dropped, no pack is applied,
-  `bringBoard` is empty.
+- `toHolidayStarterId(x)` narrows unknown input to `undefined`.
+- `makeParty` returns a single non-duplicated `tasks` array.
+- Unknown `holidayPackId` is dropped, no pack is applied.
 
-The E2E starter test (`Holiday starter → editable workspace`) walks the
-full path: pick Thanksgiving → verify name prefill → complete wizard →
-open the created party → click **Edit details** → rename → assert the
-new name renders and the seeded checklist shows Thanksgiving-flavored
-tasks. This proves the workspace is not just visible but **editable**.
+The E2E starter test walks the full path in Playwright.
 
-## 8. Design token contrast (regression retune)
+## 8. Design token contrast
 
-`src/styles.css` retains exactly one declaration per token. Retained
-values and measured contrast ratios (values in comments in the file):
+`src/styles.css` retains exactly one declaration per token:
 
 | Token       | Value              | Foreground surface / bg                   | Ratio  |
 | ----------- | ------------------ | ----------------------------------------- | ------ |
@@ -160,5 +191,21 @@ values and measured contrast ratios (values in comments in the file):
 |             |                    | `text-success` on `--background` cream    | 5.85:1 |
 
 Vibrant brand values are exposed as `--brand-coral` and `--brand-mint`
-for decorative gradients / logo art, so the landing hero still pops
-without dragging button/text contrast below AA.
+for decorative art.
+
+## 9. Reproduction
+
+```bash
+bun install --frozen-lockfile
+bun run format:check
+bun run lint
+bun run typecheck
+bun run test
+bun run test:coverage
+bun run build
+CI=1 bunx playwright install --with-deps chromium
+CI=1 bun run test:e2e
+```
+
+Report exact `SHA`, exit codes, and Playwright pass/fail/skip counts on
+the branch after running. Do not publish or touch domains/data/secrets.
