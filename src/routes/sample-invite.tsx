@@ -585,10 +585,11 @@ function SampleBringBoard({
 }: {
   items: SampleBringItem[];
   defaultName: string;
-  onClaim: (id: string, name: string) => void;
-  onRelease: (id: string) => void;
+  onClaim: (id: string, name: string) => { ok: true } | { ok: false; error: string };
+  onRelease: (id: string) => { ok: true } | { ok: false; error: string };
 }) {
   const [name, setName] = useState(defaultName);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setName((prev) => prev || defaultName);
   }, [defaultName]);
