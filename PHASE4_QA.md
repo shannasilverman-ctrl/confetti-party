@@ -10,16 +10,16 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 
 ## 1. Quality gates (exact commands)
 
-| Step      | Command                                                                                                                          |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Install   | `bun install --frozen-lockfile`                                                                                                  |
-| Prettier  | `bun run format:check` (`prettier --check .`)                                                                                    |
-| Lint      | `bun run lint` (`eslint .`)                                                                                                      |
-| Typecheck | `bun run typecheck` (`tsc --noEmit`)                                                                                             |
-| Unit      | `bun run test` (`vitest run`)                                                                                                    |
-| Coverage  | `bun run test:coverage` (`vitest run --coverage`)                                                                                |
-| Build     | `bun run build` (`vite build`)                                                                                                   |
-| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, `--config dist/server/wrangler.json` webServer, no `reuseExistingServer` in CI)   |
+| Step      | Command                                                                                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Install   | `bun install --frozen-lockfile`                                                                                                 |
+| Prettier  | `bun run format:check` (`prettier --check .`)                                                                                   |
+| Lint      | `bun run lint` (`eslint .`)                                                                                                     |
+| Typecheck | `bun run typecheck` (`tsc --noEmit`)                                                                                            |
+| Unit      | `bun run test` (`vitest run`)                                                                                                   |
+| Coverage  | `bun run test:coverage` (`vitest run --coverage`)                                                                               |
+| Build     | `bun run build` (`vite build`)                                                                                                  |
+| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, `--config dist/server/wrangler.json` webServer, no `reuseExistingServer` in CI) |
 
 Latest local execution (this branch, commit noted in §9): captured in
 the terminal transcript attached to this turn. No release PR exists yet;
@@ -88,12 +88,12 @@ revisions of this doc named `Outfit`; the live font is Nunito 400/500/600/700.
 
 Source is a managed asset pointer, `src/assets/confetti-hero.jpg.asset.json`:
 
-| Property                    | Value                                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Descriptor bytes            | 121,037 (matches `size` field in pointer)                                                                    |
-| Content type                | `image/jpeg`                                                                                                 |
-| Decoded pixel dimensions    | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker)            |
-| `<img>` intrinsic attrs     | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"`            |
+| Property                 | Value                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------- |
+| Descriptor bytes         | 121,037 (matches `size` field in pointer)                                                         |
+| Content type             | `image/jpeg`                                                                                      |
+| Decoded pixel dimensions | **1280 × 714** (verified via `PIL.Image.open` after fetching the CDN URL from the running Worker) |
+| `<img>` intrinsic attrs  | `width={1280} height={714}` in `src/routes/index.tsx`, `fetchPriority="high"`, `decoding="async"` |
 
 The intrinsic attrs and the decoded pixel dimensions now agree. Any
 prior mention of `1600 × 900` was inherited from an earlier hero and is
