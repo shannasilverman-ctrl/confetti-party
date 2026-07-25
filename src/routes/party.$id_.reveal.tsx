@@ -23,11 +23,7 @@ import {
   OCCASION_LABELS,
 } from "@/lib/party-context";
 import { useResolvedParty } from "@/lib/use-resolved-party";
-import {
-  PartyModeLoading,
-  PartyModeError,
-  PartyModeMissing,
-} from "@/components/party-mode-panels";
+import { PartyModeLoading, PartyModeError, PartyModeMissing } from "@/components/party-mode-panels";
 import { themeById } from "@/lib/themes";
 import { PACKS } from "@/lib/holiday-packs";
 import { BrandLockup } from "@/components/brand";

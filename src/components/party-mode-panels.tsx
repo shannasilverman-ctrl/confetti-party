@@ -34,9 +34,7 @@ export function PartyModeError({ retry }: { retry: () => void }) {
     >
       <div className="max-w-sm text-center">
         <BrandLockup />
-        <h1 className="mt-4 font-display text-2xl text-secondary">
-          We couldn’t load your party
-        </h1>
+        <h1 className="mt-4 font-display text-2xl text-secondary">We couldn’t load your party</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Check your connection and try again. Your plan is still safe.
         </p>
@@ -66,12 +64,10 @@ export function PartyModeMissing({
     >
       <div className="max-w-md text-center">
         <BrandLockup />
-        <h1 className="mt-4 font-display text-3xl text-secondary">
-          We can’t find that party
-        </h1>
+        <h1 className="mt-4 font-display text-3xl text-secondary">We can’t find that party</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          The {label} for <span className="font-mono">{id}</span> isn’t in your list.
-          It may have been deleted, or you may need to sign in with the host account.
+          The {label} for <span className="font-mono">{id}</span> isn’t in your list. It may have
+          been deleted, or you may need to sign in with the host account.
         </p>
         <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
           <Button variant="festive" onClick={retry}>

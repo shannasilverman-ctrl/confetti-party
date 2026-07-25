@@ -7,11 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Circle, Megaphone, UserCheck } from "lucide-react";
 import { useParties, newId } from "@/lib/party-context";
 import { useResolvedParty } from "@/lib/use-resolved-party";
-import {
-  PartyModeLoading,
-  PartyModeError,
-  PartyModeMissing,
-} from "@/components/party-mode-panels";
+import { PartyModeLoading, PartyModeError, PartyModeMissing } from "@/components/party-mode-panels";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
