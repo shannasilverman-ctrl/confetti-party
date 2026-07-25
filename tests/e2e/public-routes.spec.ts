@@ -164,6 +164,31 @@ test("/app distinguishes a real guest list from a planning goal", async ({ page 
   await expect(goalOnlyParty.getByText("12", { exact: true })).toBeVisible();
 });
 
+test("a date-TBD quick start never exposes its placeholder date to guests", async ({ page }) => {
+  await page.goto("/app?new=1", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Start with the idea").fill("Neighborhood potluck");
+  await page.getByTestId("wizard-create").click();
+  await expect(page.getByText("Your plan is ready")).toBeVisible();
+  await page.getByTestId("wizard-open-plan").click();
+
+  await expect(page.getByRole("heading", { level: 1, name: "Neighborhood potluck" })).toBeVisible();
+  await page
+    .getByLabel("Party quick actions")
+    .getByRole("button", { name: "Create invite" })
+    .click();
+
+  const dateRequired = page.getByTestId("invite-date-required");
+  await expect(dateRequired).toBeVisible();
+  await expect(dateRequired.getByText("Date to decide", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy link" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Copy message" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Download image" })).toBeDisabled();
+
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).first().click();
+  await page.getByRole("button", { name: "Copy RSVP link" }).click();
+  await expect(page.getByRole("heading", { name: "Pick the date before sharing" })).toBeVisible();
+});
+
 test("retrospective reveal can start the next gathering without setup friction", async ({
   page,
 }) => {

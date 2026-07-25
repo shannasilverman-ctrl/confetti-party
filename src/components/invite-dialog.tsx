@@ -12,6 +12,7 @@ import {
   Share2,
   Sparkles,
   Mail,
+  CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +23,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useParties, type Party } from "@/lib/party-context";
+import { planningDetailIsOpen, useParties, type Party } from "@/lib/party-context";
 import { celebrate } from "@/components/confetti-burst";
 import { themeById } from "@/lib/themes";
 import { formatDateOnly } from "@/lib/date-only";
@@ -66,6 +67,7 @@ export function InviteDialog({
 
   const theme = themeById(party.themeId);
   const isReal = !isDemo && !!party.rsvpToken;
+  const dateTbd = planningDetailIsOpen(party, "date");
   const url = isReal
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/rsvp/${party.rsvpToken}`
     : "Your private RSVP link";
@@ -73,6 +75,10 @@ export function InviteDialog({
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   const copyLink = async () => {
+    if (dateTbd) {
+      toast.info("Add the real date before sharing this invitation.");
+      return;
+    }
     if (!isReal) {
       toast.info("Sign up free to get a real shareable link.");
       return;
@@ -87,6 +93,10 @@ export function InviteDialog({
   };
 
   const copyMessage = async () => {
+    if (dateTbd) {
+      toast.info("Add the real date before copying an invite message.");
+      return;
+    }
     const text = buildInviteText(party, url);
     try {
       await navigator.clipboard.writeText(text);
@@ -100,6 +110,10 @@ export function InviteDialog({
   };
 
   const download = async () => {
+    if (dateTbd) {
+      toast.info("Add the real date before downloading an invitation.");
+      return;
+    }
     if (!cardRef.current) return;
     setDownloading(true);
     try {
@@ -123,6 +137,10 @@ export function InviteDialog({
   };
 
   const shareNative = async () => {
+    if (dateTbd) {
+      toast.info("Add the real date before sharing this invitation.");
+      return;
+    }
     if (!canShare) return;
     const text = buildInviteText(party, url);
     try {
@@ -147,8 +165,32 @@ export function InviteDialog({
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-secondary">Party invite</DialogTitle>
-          <DialogDescription>Share the card and RSVP link with your guests.</DialogDescription>
+          <DialogDescription>
+            {dateTbd
+              ? "Preview your card now. Add the real date before sharing it with guests."
+              : "Share the card and RSVP link with your guests."}
+          </DialogDescription>
         </DialogHeader>
+
+        {dateTbd && (
+          <div
+            role="status"
+            data-testid="invite-date-required"
+            className="flex items-start gap-3 rounded-2xl border border-warning/35 bg-warning/10 p-4 text-sm text-secondary"
+          >
+            <CalendarClock
+              className="mt-0.5 h-5 w-5 shrink-0 text-warning-foreground"
+              aria-hidden
+            />
+            <div>
+              <p className="font-semibold">Date to decide</p>
+              <p className="mt-0.5 text-muted-foreground">
+                Your plan is safe to keep editing. Sharing stays locked so guests never see a
+                placeholder date.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Invite card */}
         <div
@@ -171,7 +213,9 @@ export function InviteDialog({
               <div className="space-y-1.5 pt-2 text-sm">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4 shrink-0" />
-                  <span className="tabular-nums">{formatDate(party.date)}</span>
+                  <span className="tabular-nums">
+                    {dateTbd ? "Date to decide" : formatDate(party.date)}
+                  </span>
                 </div>
                 {party.startTime && (
                   <div className="flex items-center gap-2">
@@ -202,18 +246,18 @@ export function InviteDialog({
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" size="sm" onClick={copyLink}>
+        <div className="grid grid-cols-2 gap-2" aria-label="Invitation sharing actions">
+          <Button variant="outline" size="sm" onClick={copyLink} disabled={dateTbd}>
             <Link2 /> Copy link
           </Button>
-          <Button variant="outline" size="sm" onClick={copyMessage}>
+          <Button variant="outline" size="sm" onClick={copyMessage} disabled={dateTbd}>
             <Copy /> Copy message
           </Button>
-          <Button variant="outline" size="sm" onClick={download} disabled={downloading}>
+          <Button variant="outline" size="sm" onClick={download} disabled={dateTbd || downloading}>
             <Download /> {downloading ? "Preparing…" : "Download image"}
           </Button>
           {canShare && (
-            <Button variant="outline" size="sm" onClick={shareNative}>
+            <Button variant="outline" size="sm" onClick={shareNative} disabled={dateTbd}>
               <Share2 /> Share…
             </Button>
           )}
@@ -230,7 +274,7 @@ export function InviteDialog({
               </Link>
             </Button>
           )}
-          {isReal && (
+          {isReal && !dateTbd && (
             <a
               href={`mailto:?subject=${encodeURIComponent(`You're invited to ${party.name}`)}&body=${encodeURIComponent(buildInviteText(party, url))}`}
               className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
