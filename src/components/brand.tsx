@@ -7,7 +7,7 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
   const [burst, setBurst] = useState(0);
   return (
     <span
-      className={`relative inline-flex overflow-visible ${className}`}
+      className={`relative inline-flex overflow-visible text-secondary ${className}`}
       onMouseEnter={() => setBurst((n) => n + 1)}
       onTouchStart={() => setBurst((n) => n + 1)}
       aria-hidden="true"
@@ -19,8 +19,8 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
 }
 
 /**
- * Wordmark, rendered in Outfit to match the original confettiapp.ai
- * lockup. `animated` fades letters in on mount.
+ * Wordmark, rendered in Confetti's editorial display face. `animated` fades
+ * letters in on mount.
  * The visible glyphs are aria-hidden — the parent lockup Link
  * owns the single accessible name.
  */
@@ -49,7 +49,7 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
       aria-label="Confetti — home"
     >
       <BrandMark className="h-9 w-9" />
-      <span className="font-body text-2xl font-extrabold tracking-[-0.035em] text-foreground">
+      <span className="font-display text-2xl font-semibold tracking-[-0.045em] text-foreground">
         <Wordmark text="Confetti" animated={animated} />
       </span>
     </Link>

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { coverCrop, photoBoothFilename, photoBoothTitle } from "@/lib/photo-booth";
+import {
+  buildPartyBoothUrl,
+  coverCrop,
+  photoBoothFilename,
+  photoBoothTitle,
+} from "@/lib/photo-booth";
 
 describe("private party photo booth", () => {
   it("normalizes event titles without inventing a public identity", () => {
@@ -13,6 +18,16 @@ describe("private party photo booth", () => {
       "confetti-joseph-s-bar-mitzvah-photo.jpg",
     );
     expect(photoBoothFilename("Fête 2026!")).toBe("confetti-fete-2026-photo.jpg");
+  });
+
+  it("builds a server-private booth fragment without discarding existing query state", () => {
+    expect(buildPartyBoothUrl("https://confetti.test/rsvp/token")).toBe(
+      "https://confetti.test/rsvp/token#party-booth",
+    );
+    expect(buildPartyBoothUrl("/sample-invite?from=sign#party")).toBe(
+      "/sample-invite?from=sign#party-booth",
+    );
+    expect(buildPartyBoothUrl("/sample-invite#old")).toBe("/sample-invite#party-booth");
   });
 
   it("centers a landscape source when covering a portrait canvas", () => {

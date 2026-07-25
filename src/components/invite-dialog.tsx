@@ -1,9 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
 import { Link } from "@tanstack/react-router";
+import { QRCodeSVG } from "qrcode.react";
 import {
   CalendarDays,
+  Camera,
   Clock,
   MapPin,
   Link2,
@@ -13,6 +15,8 @@ import {
   Sparkles,
   Mail,
   CalendarClock,
+  LockKeyhole,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +31,8 @@ import { planningDetailIsOpen, useParties, type Party } from "@/lib/party-contex
 import { celebrate } from "@/components/confetti-burst";
 import { themeById } from "@/lib/themes";
 import { formatDateOnly } from "@/lib/date-only";
+import { buildPartyBoothUrl } from "@/lib/photo-booth";
+import { openPrintableSign } from "@/lib/printable-sign";
 
 function formatDate(dateISO: string) {
   return formatDateOnly(dateISO, {
@@ -61,16 +67,27 @@ export function InviteDialog({
   const { getParty, isDemo } = useParties();
   const party = getParty(partyId);
   const cardRef = useRef<HTMLDivElement>(null);
+  const boothQrRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
+  const [clientOrigin, setClientOrigin] = useState("");
+
+  useEffect(() => {
+    setClientOrigin(window.location.origin);
+  }, []);
 
   if (!party) return null;
 
   const theme = themeById(party.themeId);
   const isReal = !isDemo && !!party.rsvpToken;
   const dateTbd = planningDetailIsOpen(party, "date");
-  const url = isReal
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/rsvp/${party.rsvpToken}`
-    : "Your private RSVP link";
+  const url = isReal ? `${clientOrigin}/rsvp/${party.rsvpToken}` : "Your private RSVP link";
+  const boothUrl = dateTbd
+    ? null
+    : isReal
+      ? buildPartyBoothUrl(url)
+      : party.id === "ava-liam-wedding"
+        ? buildPartyBoothUrl(`${clientOrigin}/sample-invite`)
+        : null;
 
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
@@ -147,6 +164,49 @@ export function InviteDialog({
       await navigator.share({ title: party.name, text, url: isReal ? url : undefined });
     } catch {
       // user dismissed
+    }
+  };
+
+  const copyBoothLink = async () => {
+    if (!boothUrl) return;
+    try {
+      await navigator.clipboard.writeText(boothUrl);
+      toast.success("Party Booth link copied", {
+        description: "Guests land directly in the private booth.",
+      });
+      celebrate("micro");
+    } catch {
+      toast.error("Couldn't copy the booth link", { description: boothUrl });
+    }
+  };
+
+  const shareBooth = async () => {
+    if (!boothUrl || !canShare) return;
+    try {
+      await navigator.share({
+        title: `${party.name} Party Booth`,
+        text: `Take a party photo for ${party.name}. Your photos stay on your phone.`,
+        url: boothUrl,
+      });
+    } catch {
+      // user dismissed
+    }
+  };
+
+  const printBoothSign = () => {
+    if (!boothUrl) return;
+    const qrSvg = boothQrRef.current?.querySelector("svg")?.outerHTML;
+    if (
+      !qrSvg ||
+      !openPrintableSign({
+        partyName: party.name,
+        title: "Your private Party Booth",
+        note: `Scan, take or choose a photo, add ${party.name}'s event frame, and save it to your phone. Confetti never uploads your photos.`,
+        url: boothUrl,
+        qrSvg,
+      })
+    ) {
+      toast.error("Couldn't prepare the booth sign. Try again.");
     }
   };
 
@@ -262,6 +322,72 @@ export function InviteDialog({
             </Button>
           )}
         </div>
+
+        {boothUrl && (
+          <section
+            className="overflow-hidden rounded-3xl border border-primary/20 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.18),transparent_48%),linear-gradient(135deg,hsl(var(--card)),hsl(var(--muted)/0.5))] p-4 sm:p-5"
+            aria-labelledby="host-party-booth-heading"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                <Camera className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
+                  At-the-party magic
+                </div>
+                <h3
+                  id="host-party-booth-heading"
+                  className="mt-0.5 font-display text-xl font-semibold text-secondary"
+                >
+                  Put the booth where the party is
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  Print the sign for the welcome table. One scan opens {party.name}'s booth—no
+                  account, app, or photo upload.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-4 rounded-2xl border border-white/80 bg-white/75 p-3 shadow-sm sm:flex-row sm:items-center">
+              <div
+                ref={boothQrRef}
+                className="mx-auto shrink-0 rounded-2xl border border-border bg-white p-2.5"
+              >
+                <QRCodeSVG
+                  value={boothUrl}
+                  size={124}
+                  includeMargin
+                  title={`${party.name} Party Booth QR code`}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                {!isReal && (
+                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                    Sample booth sign
+                  </div>
+                )}
+                <div className="flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+                  <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                  <span>Every photo stays on the guest's device. Confetti stores nothing.</span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button size="sm" variant="outline" onClick={copyBoothLink}>
+                    <Copy className="h-4 w-4" /> Copy booth link
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={printBoothSign}>
+                    <Printer className="h-4 w-4" /> Printable sign
+                  </Button>
+                  {canShare && (
+                    <Button size="sm" variant="outline" className="col-span-2" onClick={shareBooth}>
+                      <Share2 className="h-4 w-4" /> Share booth
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         <DialogFooter className="sm:justify-between">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

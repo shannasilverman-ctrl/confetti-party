@@ -316,6 +316,46 @@ test("sample invite turns a guest photo into a private event keepsake", async ({
   ).toBeLessThanOrEqual(1);
 });
 
+test("a booth QR deep link opens directly into the private camera choice", async ({ page }) => {
+  await page.goto("/sample-invite#party-booth", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/sample-invite#party-booth$/);
+
+  const dialog = page.getByRole("dialog", { name: "Your private party booth" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText("Take a photo", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Choose from library", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/Confetti never uploads or stores them/i)).toBeVisible();
+
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
+test("the sample host can prepare a direct Party Booth sign", async ({ page }) => {
+  await page.goto("/party/ava-liam-wedding", { waitUntil: "domcontentloaded" });
+  await page
+    .getByLabel("Party quick actions")
+    .getByRole("button", { name: /invite/i })
+    .click();
+
+  const dialog = page.getByRole("dialog", { name: "Party invite" });
+  const booth = dialog.getByRole("region", { name: "Put the booth where the party is" });
+  await expect(booth).toBeVisible();
+  await expect(booth.getByText("Sample booth sign")).toBeVisible();
+  await expect(booth.getByRole("img", { name: "Ava & Liam Party Booth QR code" })).toBeVisible();
+  await expect(booth.getByRole("button", { name: "Copy booth link" })).toBeVisible();
+  await expect(booth.getByRole("button", { name: "Printable sign" })).toBeVisible();
+  await expect(booth.getByText(/Confetti stores nothing/i)).toBeVisible();
+
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
 test("mobile guest and timeline controls fit and remain touch-visible", async ({
   page,
 }, testInfo) => {

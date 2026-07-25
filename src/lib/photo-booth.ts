@@ -38,6 +38,12 @@ export function photoBoothFilename(eventName: string): string {
   return `confetti-${slug || "party"}-photo.jpg`;
 }
 
+export function buildPartyBoothUrl(inviteUrl: string): string {
+  const hashIndex = inviteUrl.indexOf("#");
+  const withoutHash = hashIndex >= 0 ? inviteUrl.slice(0, hashIndex) : inviteUrl;
+  return `${withoutHash}#party-booth`;
+}
+
 export function coverCrop(
   sourceWidth: number,
   sourceHeight: number,

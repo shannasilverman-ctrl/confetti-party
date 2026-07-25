@@ -173,10 +173,12 @@ export function PersonalizedPhotoBooth({
   eventName,
   date,
   theme,
+  autoOpen = false,
 }: {
   eventName: string;
   date: string;
   theme?: Pick<Theme, "name" | "palette"> | null;
+  autoOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [photo, setPhoto] = useState<LoadedPhoto | null>(null);
@@ -184,6 +186,7 @@ export function PersonalizedPhotoBooth({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const autoOpenedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const palette = theme?.palette ?? FALLBACK_PALETTE;
   const dateLabel = useMemo(
@@ -198,7 +201,12 @@ export function PersonalizedPhotoBooth({
 
   useEffect(() => {
     setHydrated(true);
-  }, []);
+    const openedFromSign = window.location.hash === "#party-booth";
+    if ((autoOpen || openedFromSign) && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      setOpen(true);
+    }
+  }, [autoOpen]);
 
   useEffect(() => {
     if (!photo || !canvasRef.current) return;
