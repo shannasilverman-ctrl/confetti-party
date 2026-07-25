@@ -206,6 +206,10 @@ function PartyWorkspace() {
               />
               <Stat label="Budget" value={`$${spent}`} sub={`of $${party.budget}`} />
             </div>
+
+            <div className="mt-4">
+              <SaveStatus partyId={party.id} />
+            </div>
           </div>
 
           {/* Desktop tabs */}
