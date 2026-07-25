@@ -586,55 +586,6 @@ function ChecklistMini() {
   );
 }
 
-function BudgetMini() {
-  const cats = [
-    { name: "Venue", spent: 150, cap: 200, tone: "ok" as const },
-    { name: "Food & Cake", spent: 110, cap: 200, tone: "ok" as const },
-    { name: "Decorations", spent: 82, cap: 100, tone: "warn" as const },
-    { name: "Favors", spent: 0, cap: 100, tone: "ok" as const },
-  ];
-  return (
-    <div className="rotate-[-1.5deg] rounded-3xl border border-border bg-card p-5 shadow-card">
-      <div className="flex items-center justify-between">
-        <div className="font-display text-base font-semibold text-secondary">Budget</div>
-        <div className="text-sm font-semibold text-secondary tabular-nums">$342 / $600</div>
-      </div>
-      <div className="mt-4 space-y-3">
-        {cats.map((c) => {
-          const pct = Math.min(100, Math.round((c.spent / c.cap) * 100));
-          const warn = c.tone === "warn";
-          return (
-            <div key={c.name}>
-              <div className="mb-1 flex items-center justify-between text-xs">
-                <span className={warn ? "font-medium text-warning" : "text-muted-foreground"}>
-                  {c.name}
-                </span>
-                <span className="tabular-nums text-muted-foreground">
-                  ${c.spent} / ${c.cap}
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full ${warn ? "bg-warning" : "bg-primary"}`}
-                  style={{
-                    width: `${pct}%`,
-                    boxShadow: warn ? "0 0 12px hsl(var(--warning) / 0.7)" : undefined,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-4 flex items-start gap-2 rounded-xl bg-warning/10 p-3 text-xs text-warning-foreground">
-        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-        <span className="text-muted-foreground">
-          Decorations are creeping, heads up not a lecture.
-        </span>
-      </div>
-    </div>
-  );
-}
 
 function TimelineMini() {
   const rows = [
