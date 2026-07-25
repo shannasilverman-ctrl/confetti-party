@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { CalendarActions } from "@/components/calendar-actions";
+import { PersonalizedPhotoBooth } from "@/components/personalized-photo-booth";
 import { formatDateOnly, daysUntilLocal } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 import {
@@ -61,6 +62,11 @@ const SAMPLE_CALENDAR_PARTY = {
   start_time: SAMPLE.startTime,
   location: SAMPLE.location,
 } as const;
+
+const SAMPLE_THEME = {
+  name: "Tuscan Table",
+  palette: ["hsl(15 55% 50%)", "hsl(80 30% 45%)", "hsl(40 50% 88%)", "hsl(20 40% 30%)"],
+} satisfies { name: string; palette: [string, string, string, string] };
 
 const DIETARY_OPTIONS = [
   "Vegetarian",
@@ -291,6 +297,7 @@ function SampleInvitePage() {
             onClaim={claim}
             onRelease={release}
           />
+          <PersonalizedPhotoBooth eventName={SAMPLE.name} date={SAMPLE.date} theme={SAMPLE_THEME} />
         </div>
 
         <ConversionFooter />

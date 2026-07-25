@@ -272,6 +272,50 @@ test("sample invite exposes the same practical guest details and calendar action
   await expect(page.getByRole("link", { name: /Directions/i })).toBeVisible();
 });
 
+test("sample invite turns a guest photo into a private event keepsake", async ({ page }) => {
+  await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+
+  const booth = page.getByRole("region", { name: /Take home a photo made for Ava & Liam/i });
+  await expect(booth).toBeVisible();
+  // The entry card is SSR-rendered. Wait for the component's explicit client
+  // readiness contract before exercising its first mobile tap.
+  await expect(booth).toHaveAttribute("data-hydrated", "true");
+  await expect(booth.getByText("No upload. No account. No photo storage.")).toBeVisible();
+  await booth.getByRole("button", { name: "Open the photo booth" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Your private party booth" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByText(/Confetti never uploads or stores them/i)).toBeVisible();
+  await expect(dialog.locator('input[type="file"]')).toHaveCount(2);
+
+  await dialog
+    .locator('input[type="file"]')
+    .last()
+    .setInputFiles({
+      name: "guest-photo.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZrZQAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
+
+  const previewDialog = page.getByRole("dialog", { name: "Make it party-official" });
+  await expect(previewDialog).toBeVisible();
+  await expect(previewDialog.locator("canvas")).toBeVisible();
+  await expect(previewDialog.getByRole("button", { name: "Save to phone" })).toBeVisible();
+
+  const editorial = previewDialog.getByRole("button", { name: /Editorial/i });
+  await editorial.click();
+  await expect(editorial).toHaveAttribute("aria-pressed", "true");
+
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(1);
+});
+
 test("mobile guest and timeline controls fit and remain touch-visible", async ({
   page,
 }, testInfo) => {

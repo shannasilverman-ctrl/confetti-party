@@ -67,6 +67,11 @@ function PrivacyPage() {
             <li>Payment information — Confetti has no billing.</li>
             <li>Cross-site tracking cookies or third-party ad networks.</li>
             <li>Guest email addresses or phone numbers (unless you type them into a note).</li>
+            <li>
+              Photos used in Party Booth. The original and event-framed image are processed only in
+              the guest's browser, then saved or shared from that device. Confetti does not upload
+              or store either image.
+            </li>
           </ul>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Subprocessors</h2>
