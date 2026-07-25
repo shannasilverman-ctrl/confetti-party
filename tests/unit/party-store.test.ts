@@ -122,17 +122,16 @@ describe("diffColumns", () => {
 describe("mergeGuests", () => {
   it("keeps guest RSVP change and host edit on other guest", () => {
     const baseline = [
-      { id: "g1", name: "Alice", kind: "adult", rsvp: "invited" as const },
-      { id: "g2", name: "Bob", kind: "adult", rsvp: "invited" as const },
+      { id: "g1", name: "Alice", kind: "adult" as const, rsvp: "invited" as const },
+      { id: "g2", name: "Bob", kind: "adult" as const, rsvp: "invited" as const },
     ];
-    // Local: host renamed g2. Server: guest g1 said yes.
     const local = [
-      { id: "g1", name: "Alice", kind: "adult", rsvp: "invited" as const },
-      { id: "g2", name: "Robert", kind: "adult", rsvp: "invited" as const },
+      { id: "g1", name: "Alice", kind: "adult" as const, rsvp: "invited" as const },
+      { id: "g2", name: "Robert", kind: "adult" as const, rsvp: "invited" as const },
     ];
     const server = [
-      { id: "g1", name: "Alice", kind: "adult", rsvp: "yes" as const },
-      { id: "g2", name: "Bob", kind: "adult", rsvp: "invited" as const },
+      { id: "g1", name: "Alice", kind: "adult" as const, rsvp: "yes" as const },
+      { id: "g2", name: "Bob", kind: "adult" as const, rsvp: "invited" as const },
     ];
     const merged = mergeGuests(baseline, local, server);
     expect(merged.find((g) => g.id === "g1")?.rsvp).toBe("yes");
