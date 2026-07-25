@@ -61,7 +61,7 @@ export const Route = createFileRoute("/app")({
 });
 
 function Dashboard() {
-  const { parties, status, isDemo, refetch } = useParties();
+  const { parties, status, isDemo, refetch, cloneParty } = useParties();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [wizardOpen, setWizardOpen] = useState(!!search.new);
