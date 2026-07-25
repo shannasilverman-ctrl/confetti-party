@@ -28,7 +28,7 @@ values.
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | build-time public           | Browser RLS key                        |
 | `OPENAI_API_KEY`                | server secret               | Text and voice planning                |
 | `OPENAI_TEXT_MODEL`             | server variable, optional   | Defaults to `gpt-5.6-terra`            |
-| `OPENAI_SAFETY_SALT`            | server secret               | Privacy-preserving Realtime identifier |
+| `OPENAI_SAFETY_ID_SALT`         | server secret               | Privacy-preserving Realtime identifier |
 
 ## Safe release sequence
 
