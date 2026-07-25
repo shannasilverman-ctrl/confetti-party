@@ -425,9 +425,20 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
     [theme],
   );
 
+  // Sequence guard: only the newest refresh may write into `party`. A slow
+  // response from an earlier fetch must never overwrite a newer canonical
+  // snapshot the user has already seen.
+  const refreshSeqRef = useRef(0);
+  useEffect(() => {
+    // Reset the sequence when the token changes so a slow prior fetch
+    // cannot land on a new invite's state.
+    refreshSeqRef.current = 0;
+  }, [token]);
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
     setRefreshing(true);
     const res = await refetchRsvpParty(token);
+    if (seq !== refreshSeqRef.current) return; // stale — a newer refresh started
     setRefreshing(false);
     if (!res.ok) {
       setRefreshError(res.error);
@@ -484,19 +495,26 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
       ...(allergensOther.trim() ? [allergensOther.trim().slice(0, 60)] : []),
     ];
 
-    const { error: rpcError } = await supabase.rpc("submit_rsvp", {
-      token,
-      guest_name: trimmedName,
-      rsvp,
-      adults: rsvp === "yes" ? adults : 0,
-      kids: rsvp === "yes" ? kids : 0,
-      household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
-      dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
-      allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
-    });
+    let rpcError: unknown = null;
+    try {
+      const res = await supabase.rpc("submit_rsvp", {
+        token,
+        guest_name: trimmedName,
+        rsvp,
+        adults: rsvp === "yes" ? adults : 0,
+        kids: rsvp === "yes" ? kids : 0,
+        household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
+        dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
+        allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
+      });
+      rpcError = res.error;
+    } catch (thrown) {
+      rpcError = thrown;
+    }
     setSubmitting(false);
     if (rpcError) {
-      setError("Something went wrong. Please try again.");
+      // Preserve form inputs so the guest can retry without re-entering.
+      setError("We couldn't send your RSVP. Check your connection and try again.");
       return;
     }
     setSubmittedChoice(rsvp);
@@ -647,9 +665,12 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Can you make it?</Label>
+            {/* Native fieldset/legend gives the radio group a real accessible
+                name for screen readers and passes axe's radiogroup-name rule. */}
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-secondary">Can you make it?</legend>
               <RadioGroup
+                aria-label="Can you make it?"
                 value={rsvp}
                 onValueChange={(v) => {
                   const next = v as RSVPChoice;
@@ -672,7 +693,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                   </label>
                 ))}
               </RadioGroup>
-            </div>
+            </fieldset>
 
             {rsvp === "yes" && (
               <div className="grid grid-cols-2 gap-3">
@@ -782,7 +803,8 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
             </div>
 
             <p className="text-center text-[11px] text-muted-foreground">
-              Sending again with the same name updates your response.
+              If your host added you by name, sending again with the same name updates your
+              response. Otherwise it adds a new entry — the host can merge duplicates.
             </p>
           </form>
         )}
