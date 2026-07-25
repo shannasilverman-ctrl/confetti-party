@@ -34,7 +34,7 @@ test.describe("New Party dialog — keyboard + focus contract", () => {
       .getByRole("button", { name: /holiday/i })
       .first()
       .click();
-    await page.getByRole("button", { name: /^next$/i }).click();
+    await page.getByRole("button", { name: /continue|next/i }).click();
 
     // Every visible input in the dialog must have an accessible name.
     const dialogInputs = dialog.locator("input");
@@ -113,7 +113,7 @@ test.describe("Holiday starter → editable workspace", () => {
       .getByRole("button", { name: /holiday/i })
       .first()
       .click();
-    await dialog.getByRole("button", { name: /^next$/i }).click();
+    await dialog.getByRole("button", { name: /continue|next/i }).click();
 
     // Starter radiogroup exists and picks Thanksgiving.
     const starterGroup = dialog.getByRole("radiogroup", { name: /holiday starter/i });
@@ -128,14 +128,14 @@ test.describe("Holiday starter → editable workspace", () => {
     // Fill required date + advance to theme step, pick first theme, finish.
     const future = new Date(Date.now() + 21 * 24 * 3600 * 1000).toISOString().slice(0, 10);
     await dialog.getByLabel(/date/i).fill(future);
-    await dialog.getByRole("button", { name: /^next$/i }).click();
+    await dialog.getByRole("button", { name: /continue|next/i }).click();
 
     const themeCards = dialog.getByRole("button").filter({ hasText: /./ });
     // First theme card in step 3 grid.
     await themeCards.first().click();
     // Look for the finish/create button.
     await dialog
-      .getByRole("button", { name: /create|finish|ready|plan/i })
+      .getByRole("button", { name: /create party/i })
       .first()
       .click();
 
