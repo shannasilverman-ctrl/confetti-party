@@ -8,7 +8,6 @@ import {
   BUCKETS,
   daysUntil,
   guestCounts,
-  progressPct,
   shoppingProjectedRemaining,
   totalSpent,
   useParties,
@@ -17,22 +16,24 @@ import {
   type PlanningDetail,
   type Task,
 } from "@/lib/party-context";
-import { themeById } from "@/lib/themes";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import {
+  localPlanningSuggestions,
+  locationIsSpecific,
+  type LocalPlanningKind,
+} from "@/lib/local-planning";
+import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
   Camera,
-  Clock,
   Copy,
   Gift,
   ListChecks,
-  MapPin,
   Mail,
   Sparkle,
   Sparkles,
@@ -40,8 +41,11 @@ import {
   Users,
   Wallet,
   ShoppingCart,
+  ExternalLink,
+  House,
+  MapPinned,
+  UtensilsCrossed,
 } from "lucide-react";
-import { formatDateOnly } from "@/lib/date-only";
 
 type NavTab =
   | "overview"
@@ -67,13 +71,11 @@ export function OverviewTab({
   const days = daysUntil(party.date);
   const dateTbd = planningDetailIsOpen(party, "date");
   const budgetTbd = planningDetailIsOpen(party, "budget");
-  const prog = progressPct(party);
   const g = guestCounts(party);
   const spent = totalSpent(party);
   const remainingEst = shoppingProjectedRemaining(party);
   const projected = spent + remainingEst;
   const overBudget = !budgetTbd && projected > party.budget;
-  const theme = themeById(party.themeId);
   const bucketIdx = (b: Task["bucket"]) => BUCKETS.indexOf(b);
   const sortedIncomplete = [...party.tasks]
     .filter((t) => !t.done)
@@ -84,6 +86,7 @@ export function OverviewTab({
 
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
   const partyWeek = !dateTbd && days <= 7 && days >= 0;
+  const localSuggestions = localPlanningSuggestions(party);
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -93,100 +96,6 @@ export function OverviewTab({
 
   return (
     <div className="space-y-6">
-      {/* Cinematic hero banner (only when a curated hero image is present) */}
-      {party.heroImageUrl && (
-        <section className="relative overflow-hidden rounded-3xl shadow-elevated">
-          <img
-            src={party.heroImageUrl}
-            alt={`${party.name} — event banner`}
-            className="h-56 w-full object-cover sm:h-72 md:h-80"
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(180deg, hsl(268 55% 10% / 0.15) 0%, hsl(268 55% 10% / 0.15) 50%, hsl(268 55% 10% / 0.75) 100%)",
-            }}
-            aria-hidden
-          />
-          <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-end justify-between gap-3 p-5 sm:p-7">
-            <div className="min-w-0">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/85">
-                {dateTbd
-                  ? "Date to decide"
-                  : formatDateOnly(party.date, {
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                {party.startTime ? ` · ${party.startTime}` : ""}
-              </div>
-              <h2 className="mt-1 truncate font-display text-3xl font-semibold text-white sm:text-5xl">
-                {party.name}
-              </h2>
-              {party.location && (
-                <div className="mt-1 flex items-center gap-1.5 text-sm text-white/85">
-                  <MapPin className="h-3.5 w-3.5" /> {party.location}
-                </div>
-              )}
-            </div>
-            <div className="shrink-0">
-              <EditDetailsDialog partyId={partyId} />
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Header card (skips redundant title when a hero banner is shown) */}
-      <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-5 shadow-card sm:p-7">
-        <div className="absolute inset-0 bg-confetti opacity-25" aria-hidden />
-        <div className="relative grid grid-cols-[auto_minmax(0,1fr)] items-center gap-5">
-          <CountdownRing days={dateTbd ? null : days} progress={prog} />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              {theme && <Badge variant="accent">{theme.name}</Badge>}
-              <Badge variant="soft">
-                {dateTbd
-                  ? "Date to decide"
-                  : days > 0
-                    ? `${days} days to go`
-                    : days === 0
-                      ? "Today"
-                      : `${Math.abs(days)} days ago`}
-              </Badge>
-              {!party.heroImageUrl && (
-                <div className="ml-auto">
-                  <EditDetailsDialog partyId={partyId} />
-                </div>
-              )}
-            </div>
-            {!party.heroImageUrl && (
-              <h2 className="mt-2 truncate font-display text-2xl font-semibold text-secondary sm:text-3xl">
-                {party.name}
-              </h2>
-            )}
-            <p className="mt-1 text-sm text-muted-foreground">
-              {prog}% planned · {party.tasks.filter((t) => t.done).length}/{party.tasks.length}{" "}
-              tasks complete
-            </p>
-            {!party.heroImageUrl && (party.startTime || party.location) && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                {party.startTime && (
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5" /> {party.startTime}
-                  </span>
-                )}
-                {party.location && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" /> {party.location}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
       {/* Journey actions — always show working links to the pages that exist for this party */}
       <PartyJourneyActions
         partyId={partyId}
@@ -291,6 +200,76 @@ export function OverviewTab({
             })}
           </ul>
         )}
+      </section>
+
+      <section
+        aria-labelledby="local-planning-title"
+        data-testid="local-planning"
+        className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
+      >
+        <div className="border-b border-border bg-primary/5 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <MapPinned className="h-4 w-4 text-primary" aria-hidden />
+                <h3
+                  id="local-planning-title"
+                  className="font-display text-lg font-semibold text-secondary"
+                >
+                  Make it local
+                </h3>
+              </div>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Confetti gives you the paths. Maps gives you current businesses, ratings, and
+                hours—so we never pretend inventory is live when it isn't.
+              </p>
+            </div>
+            {!locationIsSpecific(party.location) && (
+              <EditDetailsDialog partyId={party.id} triggerLabel="Add city or ZIP" />
+            )}
+          </div>
+        </div>
+        <div className="grid gap-px bg-border sm:grid-cols-3">
+          {localSuggestions.map((suggestion) => (
+            <article key={suggestion.id} className="flex flex-col bg-card p-5">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <LocalPlanningIcon kind={suggestion.kind} />
+              </div>
+              <h4 className="mt-3 font-display text-base font-semibold text-secondary">
+                {suggestion.title}
+              </h4>
+              <p className="mt-1 flex-1 text-sm leading-6 text-muted-foreground">
+                {suggestion.reason}
+              </p>
+              {suggestion.searchUrl && suggestion.searchLabel ? (
+                <Button asChild variant="outline" size="sm" className="mt-4 min-h-11">
+                  <a
+                    href={suggestion.searchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    referrerPolicy="no-referrer"
+                  >
+                    {suggestion.searchLabel} <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 min-h-11"
+                  onClick={() => onNavigate(suggestion.action ?? "theme")}
+                >
+                  {suggestion.action === "shopping" ? "Open the list" : "Build this version"}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </article>
+          ))}
+        </div>
+        <p className="px-5 py-3 text-[11px] leading-5 text-muted-foreground">
+          Search links are starting points, not endorsements. Confirm pricing, fit, accessibility,
+          reviews, and availability with each provider.
+        </p>
       </section>
 
       {/* RSVP snapshot */}
@@ -412,6 +391,12 @@ export function OverviewTab({
   );
 }
 
+function LocalPlanningIcon({ kind }: { kind: LocalPlanningKind }) {
+  if (kind === "food") return <UtensilsCrossed className="h-4 w-4" aria-hidden />;
+  if (kind === "at-home") return <House className="h-4 w-4" aria-hidden />;
+  return <MapPinned className="h-4 w-4" aria-hidden />;
+}
+
 function planningMoveCopy(detail: PlanningDetail): { action: string; hint: string } {
   switch (detail) {
     case "date":
@@ -456,53 +441,6 @@ function MiniStat({
         }`}
       >
         {value}
-      </div>
-    </div>
-  );
-}
-
-function CountdownRing({ days, progress }: { days: number | null; progress: number }) {
-  const size = 96;
-  const r = 42;
-  const c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, progress));
-  const offset = c - (pct / 100) * c;
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="hsl(var(--muted))"
-          strokeWidth={8}
-          fill="none"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="url(#hostwell-ring)"
-          strokeWidth={8}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-        />
-        <defs>
-          <linearGradient id="hostwell-ring" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" />
-            <stop offset="100%" stopColor="hsl(var(--accent))" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <div className="font-display text-xl font-semibold text-secondary">
-          {days == null ? "TBD" : days < 0 ? "—" : days}
-        </div>
-        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-          {days == null ? "date" : days === 1 ? "day" : "days"}
-        </div>
       </div>
     </div>
   );

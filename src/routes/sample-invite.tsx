@@ -11,6 +11,7 @@ import {
   HandHeart,
   RotateCcw,
   Info,
+  ChevronDown,
 } from "lucide-react";
 import { BrandLockup } from "@/components/brand";
 import { LegalFooter } from "@/components/legal-footer";
@@ -257,7 +258,10 @@ function SampleInvitePage() {
         </div>
       </section>
 
-      <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
+      <main
+        className="relative z-10 mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6"
+        data-testid="sample-invite-content"
+      >
         {loadNotice && (
           <div
             className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-50 p-3 text-sm text-amber-900"
@@ -306,14 +310,15 @@ function SampleInvitePage() {
   );
 }
 
-/* ---------------- Persistent sample banner ---------------- */
+/* ---------------- Sample-mode notice ---------------- */
 
 function SampleBanner({ onReset }: { onReset: () => void }) {
   return (
     <div
-      className="sticky top-0 z-30 border-b border-primary/25 bg-primary/10 backdrop-blur"
+      className="relative border-b border-primary/25 bg-primary/10"
       role="region"
       aria-label="Sample invite notice"
+      data-testid="sample-invite-notice"
     >
       <div className="mx-auto flex max-w-lg items-center gap-2 px-4 py-2 text-xs text-secondary sm:px-6">
         <Info className="h-3.5 w-3.5 text-primary" aria-hidden />
@@ -405,6 +410,20 @@ function RsvpForm({
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="sample-name">Your name</Label>
+        <Input
+          id="sample-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="First and last"
+          maxLength={80}
+          autoComplete="name"
+          className="min-h-11"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="sample-household">Group name (optional)</Label>
         <Input
           id="sample-household"
@@ -417,20 +436,6 @@ function RsvpForm({
         <p className="text-[11px] text-muted-foreground">
           Helps the host see everyone in your group together.
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="sample-name">Your name</Label>
-        <Input
-          id="sample-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="First and last"
-          maxLength={80}
-          autoComplete="name"
-          className="min-h-11"
-          required
-        />
       </div>
 
       <fieldset className="space-y-2">
@@ -487,53 +492,66 @@ function RsvpForm({
       )}
 
       {choice !== "no" && (
-        <div className="space-y-4 rounded-2xl border border-border bg-muted/20 p-4">
-          <div className="flex items-center gap-2 text-secondary">
-            <HandHeart className="h-4 w-4" aria-hidden />
-            <span className="text-sm font-semibold">Anything to know?</span>
-          </div>
-          <p className="-mt-2 text-[11px] text-muted-foreground">
-            In a real invite, this is shared only with the host. Never public.
-          </p>
-          <ChipGroup
-            legend="Dietary needs"
-            options={DIETARY_OPTIONS}
-            selected={dietary}
-            onToggle={toggle(setDietary)}
-          />
-          <div className="space-y-1.5">
-            <Label htmlFor="sample-dietary-other" className="text-xs">
-              Other dietary needs
-            </Label>
-            <Input
-              id="sample-dietary-other"
-              value={dietaryOther}
-              onChange={(e) => setDietaryOther(e.target.value)}
-              placeholder="e.g. low sodium"
-              maxLength={60}
-              className="min-h-11"
+        <details className="group rounded-2xl border border-border bg-muted/20">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 text-secondary">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
+              <HandHeart className="h-4 w-4" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block text-sm font-semibold">Dietary needs or allergies?</span>
+              <span className="block text-[11px] font-normal text-muted-foreground">
+                Optional · shared only with the host
+              </span>
+            </span>
+            <ChevronDown
+              className="h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180"
+              aria-hidden
             />
-          </div>
-          <ChipGroup
-            legend="Allergens to avoid"
-            options={ALLERGEN_OPTIONS}
-            selected={allergens}
-            onToggle={toggle(setAllergens)}
-          />
-          <div className="space-y-1.5">
-            <Label htmlFor="sample-allergens-other" className="text-xs">
-              Other allergens
-            </Label>
-            <Input
-              id="sample-allergens-other"
-              value={allergensOther}
-              onChange={(e) => setAllergensOther(e.target.value)}
-              placeholder="e.g. mustard"
-              maxLength={60}
-              className="min-h-11"
+          </summary>
+          <div className="space-y-4 border-t border-border/70 p-4">
+            <p className="text-[11px] text-muted-foreground">
+              In a real invite, this is shared only with the host. Never public.
+            </p>
+            <ChipGroup
+              legend="Dietary needs"
+              options={DIETARY_OPTIONS}
+              selected={dietary}
+              onToggle={toggle(setDietary)}
             />
+            <div className="space-y-1.5">
+              <Label htmlFor="sample-dietary-other" className="text-xs">
+                Other dietary needs
+              </Label>
+              <Input
+                id="sample-dietary-other"
+                value={dietaryOther}
+                onChange={(e) => setDietaryOther(e.target.value)}
+                placeholder="e.g. low sodium"
+                maxLength={60}
+                className="min-h-11"
+              />
+            </div>
+            <ChipGroup
+              legend="Allergens to avoid"
+              options={ALLERGEN_OPTIONS}
+              selected={allergens}
+              onToggle={toggle(setAllergens)}
+            />
+            <div className="space-y-1.5">
+              <Label htmlFor="sample-allergens-other" className="text-xs">
+                Other allergens
+              </Label>
+              <Input
+                id="sample-allergens-other"
+                value={allergensOther}
+                onChange={(e) => setAllergensOther(e.target.value)}
+                placeholder="e.g. mustard"
+                maxLength={60}
+                className="min-h-11"
+              />
+            </div>
           </div>
-        </div>
+        </details>
       )}
 
       {error && (

@@ -48,6 +48,19 @@ test("home exposes the primary CTA", async ({ page }) => {
   await expect(cta).toBeVisible();
 });
 
+test("home opens with a controllable multi-event party scene", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const hero = page.getByRole("region", { name: "Gatherings planned with Confetti" });
+  await expect(hero).toBeVisible();
+  await expect(hero.getByRole("heading", { name: /Bring the idea/i })).toBeVisible();
+  await hero.getByRole("button", { name: "Pause event carousel" }).click();
+  await expect(hero.getByRole("button", { name: "Play event carousel" })).toBeVisible();
+  await hero.getByRole("button", { name: "Show Weddings & milestones" }).click();
+  await expect(hero.getByRole("heading", { name: /Every meaningful detail/i })).toBeVisible();
+  await hero.getByRole("button", { name: "Show The dance floor" }).click();
+  await expect(hero.getByRole("heading", { name: /Make the plan/i })).toBeVisible();
+});
+
 test("the original Confetti typography remains a product-wide contract", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   const landingType = await page.evaluate(() => ({
@@ -140,6 +153,19 @@ test("/talk renders a signed-out demo experience (no redirect to /auth)", async 
   await expect(signup).toBeVisible();
 });
 
+test("/talk makes a messy idea easy to start in text or voice", async ({ page }) => {
+  await page.goto("/talk", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: /Start messy/i })).toBeVisible();
+
+  await page.getByRole("button", { name: "A backyard birthday that feels easy" }).click();
+  await expect(page.getByLabel("Message Confetti")).toHaveValue(
+    "A backyard birthday that feels easy",
+  );
+
+  await page.getByRole("tab", { name: "Voice" }).click();
+  await expect(page.getByRole("heading", { name: /Say it out loud/i })).toBeVisible();
+});
+
 test("/app party cards use accessible non-nested interactive controls", async ({ page }) => {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   const nested = await page.evaluate(() => {
@@ -152,16 +178,41 @@ test("/app party cards use accessible non-nested interactive controls", async ({
   await expect(dupe).toBeVisible();
 });
 
-test("/app distinguishes a real guest list from a planning goal", async ({ page }) => {
+test("/app promotes the next party once instead of repeating it as a card", async ({ page }) => {
+  await page.goto("/app", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Everything else, still in hand" })).toBeVisible();
+  await expect(page.locator('a[href="/party/maya-8th"]')).toHaveCount(1);
+  await expect(page.getByRole("article", { name: "Maya's 8th Birthday" })).toHaveCount(0);
+  await expect(page.getByText("One idea is enough", { exact: true })).toBeVisible();
+  await expect(page.getByText("3 quick steps", { exact: true })).toHaveCount(0);
+});
+
+test("a seeded party offers truthful local paths without fake marketplace data", async ({
+  page,
+}) => {
+  await page.goto("/party/maya-8th", { waitUntil: "domcontentloaded" });
+  const local = page.getByRole("region", { name: "Make it local" });
+  await expect(local).toBeVisible();
+  await expect(
+    local.getByText(/Maps gives you current businesses, ratings, and hours/i),
+  ).toBeVisible();
+  await expect(local.getByRole("link", { name: /Search venues/i })).toHaveAttribute(
+    "href",
+    /google\.com\/maps\/search/,
+  );
+  await expect(local.getByText(/not endorsements/i)).toBeVisible();
+});
+
+test("/app shows completed demo guest lists truthfully", async ({ page }) => {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
 
   const listedParty = page.getByRole("article", { name: "Ava & Liam" });
   await expect(listedParty.getByText("Guest list")).toBeVisible();
   await expect(listedParty.getByText("7", { exact: true })).toBeVisible();
 
-  const goalOnlyParty = page.getByRole("article", { name: "World Cup Final Watch Party" });
-  await expect(goalOnlyParty.getByText("Guest goal")).toBeVisible();
-  await expect(goalOnlyParty.getByText("12", { exact: true })).toBeVisible();
+  const gameDayParty = page.getByRole("article", { name: "World Cup Final Watch Party" });
+  await expect(gameDayParty.getByText("Guest list")).toBeVisible();
+  await expect(gameDayParty.getByText("5", { exact: true })).toBeVisible();
 });
 
 test("/app tells demo hosts where their parties are actually saved", async ({ page }) => {
@@ -265,6 +316,10 @@ test("sample invite exposes the same practical guest details and calendar action
 }) => {
   await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("textbox", { name: "Group name (optional)" })).toBeVisible();
+  const foodDetails = page.getByText("Dietary needs or allergies?", { exact: true });
+  await expect(foodDetails).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeHidden();
+  await foodDetails.click();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other allergens" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Google Calendar/i })).toBeVisible();
@@ -283,7 +338,7 @@ test("sample invite turns a guest photo into a private event keepsake", async ({
   await expect(booth.getByText("No upload. No account. No photo storage.")).toBeVisible();
   await booth.getByRole("button", { name: "Open the photo booth" }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Your private party booth" });
+  const dialog = page.getByRole("dialog", { name: "Ava & Liam Party Booth" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText(/Confetti never uploads or stores them/i)).toBeVisible();
   await expect(dialog.locator('input[type="file"]')).toHaveCount(2);
@@ -320,7 +375,7 @@ test("a booth QR deep link opens directly into the private camera choice", async
   await page.goto("/sample-invite#party-booth", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/sample-invite#party-booth$/);
 
-  const dialog = page.getByRole("dialog", { name: "Your private party booth" });
+  const dialog = page.getByRole("dialog", { name: "Ava & Liam Party Booth" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Take a photo", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Choose from library", { exact: true })).toBeVisible();

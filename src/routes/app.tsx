@@ -95,6 +95,9 @@ function Dashboard() {
   const featuredPartyImage =
     featuredParty?.heroImageUrl ??
     (featuredParty?.themeId ? themeById(featuredParty.themeId)?.heroImage : undefined);
+  const otherParties = featuredParty
+    ? parties.filter((party) => party.id !== featuredParty.id)
+    : parties;
 
   return (
     <div className="min-h-screen bg-brand-wash">
@@ -316,18 +319,29 @@ function Dashboard() {
             <div className="mb-5 flex items-end justify-between gap-4">
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
-                  The plans in motion
+                  {featuredParty ? "Also in your orbit" : "The plans in motion"}
                 </div>
                 <h2 className="mt-1 font-display text-3xl font-medium tracking-[-0.025em] text-secondary">
-                  Every celebration, one calm place
+                  {featuredParty
+                    ? otherParties.length > 0
+                      ? "Everything else, still in hand"
+                      : "What will you host next?"
+                    : "Every celebration, one calm place"}
                 </h2>
               </div>
               <div className="hidden text-sm text-muted-foreground sm:block">
-                {parties.length} {parties.length === 1 ? "gathering" : "gatherings"}
+                {otherParties.length}{" "}
+                {featuredParty
+                  ? otherParties.length === 1
+                    ? "other gathering"
+                    : "other gatherings"
+                  : otherParties.length === 1
+                    ? "gathering"
+                    : "gatherings"}
               </div>
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {parties.map((p, index) => {
+              {otherParties.map((p, index) => {
                 const days = daysUntil(p.date);
                 const dateTbd = planningDetailIsOpen(p, "date");
                 const guestsTbd = planningDetailIsOpen(p, "guests");
@@ -337,7 +351,7 @@ function Dashboard() {
                 const spent = totalSpent(p);
                 const prog = progressPct(p);
                 const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
-                const isFeatureCard = index === 0;
+                const isFeatureCard = !featuredParty && index === 0;
                 return (
                   <article
                     key={p.id}
@@ -484,7 +498,7 @@ function Dashboard() {
                   <Plus className="h-6 w-6" />
                 </div>
                 <div className="font-display text-lg text-secondary">Start a new party</div>
-                <div className="text-xs">3 quick steps</div>
+                <div className="text-xs">One idea is enough</div>
               </button>
             </div>
           </>

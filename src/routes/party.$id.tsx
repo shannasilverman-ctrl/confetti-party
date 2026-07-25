@@ -52,8 +52,11 @@ import {
   Gift,
   Sparkle,
   Timer,
+  MapPin,
+  Clock as ClockIcon,
 } from "lucide-react";
 import { ThemeTab } from "@/components/theme-tab";
+import { EditDetailsDialog } from "@/components/edit-details-dialog";
 import { ShoppingTab } from "@/components/shopping-tab";
 import { OverviewTab } from "@/components/overview-tab";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
@@ -64,6 +67,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
+import { themeById } from "@/lib/themes";
 
 export type TabKey =
   | "overview"
@@ -121,6 +125,8 @@ function PartyWorkspace() {
   const g = guestCounts(party);
   const spent = totalSpent(party);
   const prog = progressPct(party);
+  const eventVisual =
+    party.heroImageUrl ?? (party.themeId ? themeById(party.themeId)?.heroImage : undefined);
 
   const cartCount = party.shoppingItems.filter(
     (i) => i.status === "needed" || i.status === "in-cart",
@@ -174,21 +180,38 @@ function PartyWorkspace() {
             </div>
           </div>
 
-          <div className="relative mt-4 overflow-hidden rounded-[2rem] bg-festive px-5 py-7 text-primary-foreground shadow-brand sm:rounded-[2.5rem] sm:px-10 sm:py-10">
+          <div className="relative mt-4 min-h-[23rem] overflow-hidden rounded-[2rem] bg-festive text-primary-foreground shadow-brand sm:min-h-[28rem] sm:rounded-[2.5rem]">
+            {eventVisual ? (
+              <img
+                src={eventVisual}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+            ) : (
+              <>
+                <div
+                  className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/16 blur-3xl"
+                  aria-hidden
+                />
+                <div
+                  className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-accent/20 blur-3xl"
+                  aria-hidden
+                />
+              </>
+            )}
             <div
-              className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/16 blur-3xl"
+              className="absolute inset-0 bg-gradient-to-t from-[hsl(270_49%_14%/0.96)] via-[hsl(270_49%_18%/0.38)] to-[hsl(270_49%_14%/0.08)]"
               aria-hidden
             />
-            <div
-              className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-accent/20 blur-3xl"
-              aria-hidden
-            />
-            <div className="relative">
+            <div className="relative flex min-h-[23rem] flex-col justify-end p-5 sm:min-h-[28rem] sm:p-9">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="onFestive">{OCCASION_LABELS[party.occasion]}</Badge>
                 {party.theme.trim() && <Badge variant="onFestive">{party.theme}</Badge>}
+                <div className="ml-auto [&_button]:bg-white/12 [&_button]:text-white [&_button]:hover:bg-white/20">
+                  <EditDetailsDialog partyId={party.id} />
+                </div>
               </div>
-              <h1 className="mt-3 max-w-3xl break-words font-display text-3xl font-medium leading-tight text-white sm:text-5xl">
+              <h1 className="mt-3 max-w-3xl break-words font-display text-4xl font-medium leading-[0.98] text-white sm:text-6xl">
                 {party.name}
               </h1>
               <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/80">
@@ -216,8 +239,24 @@ function PartyWorkspace() {
                   </>
                 )}
               </div>
+              {(party.startTime || party.location) && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/80">
+                  {party.startTime && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <ClockIcon className="h-3.5 w-3.5" aria-hidden />
+                      {party.startTime}
+                    </span>
+                  )}
+                  {party.location && (
+                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      <span className="truncate">{party.location}</span>
+                    </span>
+                  )}
+                </div>
+              )}
 
-              <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-xl sm:gap-3">
+              <div className="mt-6 grid grid-cols-3 gap-2 sm:max-w-2xl sm:gap-3">
                 <Stat
                   label="Progress"
                   value={`${prog}%`}
@@ -239,7 +278,7 @@ function PartyWorkspace() {
                 />
               </div>
 
-              <div className="mt-4">
+              <div className="mt-3">
                 <SaveStatus partyId={party.id} />
               </div>
             </div>

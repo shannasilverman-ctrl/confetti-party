@@ -10,6 +10,7 @@ import {
   RefreshCw,
   HeartHandshake,
   HandHeart,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -460,7 +461,10 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
         </div>
       </section>
 
-      <main className="mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6">
+      <main
+        className="relative z-10 mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6"
+        data-testid="guest-invite-content"
+      >
         {party.host_note && party.host_note.trim() && (
           <div className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
             <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -618,53 +622,66 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
             )}
 
             {rsvp !== "no" && (
-              <div className="space-y-4 rounded-2xl border border-border bg-muted/20 p-4">
-                <div className="flex items-center gap-2 text-secondary">
-                  <HandHeart className="h-4 w-4" aria-hidden />
-                  <span className="text-sm font-semibold">Anything to know?</span>
-                </div>
-                <p className="-mt-2 text-[11px] text-muted-foreground">
-                  Shared only with the host to help them plan food. Never public.
-                </p>
-                <ChipGroup
-                  legend="Dietary needs"
-                  options={DIETARY_OPTIONS}
-                  selected={dietary}
-                  onToggle={toggle(setDietary)}
-                />
-                <div className="space-y-1.5">
-                  <Label htmlFor="dietary-other" className="text-xs">
-                    Other dietary needs
-                  </Label>
-                  <Input
-                    id="dietary-other"
-                    value={dietaryOther}
-                    onChange={(e) => setDietaryOther(e.target.value)}
-                    placeholder="e.g. low sodium"
-                    maxLength={60}
-                    className="min-h-11"
+              <details className="group rounded-2xl border border-border bg-muted/20">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 text-secondary">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
+                    <HandHeart className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-sm font-semibold">Dietary needs or allergies?</span>
+                    <span className="block text-[11px] font-normal text-muted-foreground">
+                      Optional · shared only with the host
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className="h-4 w-4 shrink-0 text-muted-foreground transition group-open:rotate-180"
+                    aria-hidden
                   />
-                </div>
-                <ChipGroup
-                  legend="Allergens to avoid"
-                  options={ALLERGEN_OPTIONS}
-                  selected={allergens}
-                  onToggle={toggle(setAllergens)}
-                />
-                <div className="space-y-1.5">
-                  <Label htmlFor="allergens-other" className="text-xs">
-                    Other allergens
-                  </Label>
-                  <Input
-                    id="allergens-other"
-                    value={allergensOther}
-                    onChange={(e) => setAllergensOther(e.target.value)}
-                    placeholder="e.g. mustard"
-                    maxLength={60}
-                    className="min-h-11"
+                </summary>
+                <div className="space-y-4 border-t border-border/70 p-4">
+                  <p className="text-[11px] text-muted-foreground">
+                    Shared only with the host to help them plan food. Never public.
+                  </p>
+                  <ChipGroup
+                    legend="Dietary needs"
+                    options={DIETARY_OPTIONS}
+                    selected={dietary}
+                    onToggle={toggle(setDietary)}
                   />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="dietary-other" className="text-xs">
+                      Other dietary needs
+                    </Label>
+                    <Input
+                      id="dietary-other"
+                      value={dietaryOther}
+                      onChange={(e) => setDietaryOther(e.target.value)}
+                      placeholder="e.g. low sodium"
+                      maxLength={60}
+                      className="min-h-11"
+                    />
+                  </div>
+                  <ChipGroup
+                    legend="Allergens to avoid"
+                    options={ALLERGEN_OPTIONS}
+                    selected={allergens}
+                    onToggle={toggle(setAllergens)}
+                  />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="allergens-other" className="text-xs">
+                      Other allergens
+                    </Label>
+                    <Input
+                      id="allergens-other"
+                      value={allergensOther}
+                      onChange={(e) => setAllergensOther(e.target.value)}
+                      placeholder="e.g. mustard"
+                      maxLength={60}
+                      className="min-h-11"
+                    />
+                  </div>
                 </div>
-              </div>
+              </details>
             )}
 
             {error && (
