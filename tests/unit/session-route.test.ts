@@ -282,12 +282,13 @@ describe("POST /api/realtime/session", () => {
     const res = await handleMintRealtimeSession(makeReq({ authorization: "Bearer t" }));
     expect(res.status).toBe(200);
     expect(capturedUrl).toBe("https://api.openai.com/v1/realtime/client_secrets");
-    const headers = new Headers((capturedInit as RequestInit).headers);
+    const init = capturedInit as RequestInit;
+    const headers = new Headers(init.headers);
     expect(headers.get("Authorization")).toBe("Bearer sk-test");
     const safetyId = headers.get("OpenAI-Safety-Identifier");
     expect(safetyId).toMatch(/^conf_[0-9a-f]{32}$/);
     expect(headers.get("OpenAI-Beta")).toBeNull();
-    const body = JSON.parse(String((capturedInit as RequestInit).body));
+    const body = JSON.parse(String(init.body));
     expect(body.session.type).toBe("realtime");
     expect(body.session.model).toBe("gpt-realtime-2.1");
     expect(body.session.audio.output.voice).toBe("marin");
