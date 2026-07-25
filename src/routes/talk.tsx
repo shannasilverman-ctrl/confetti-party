@@ -1,15 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Square, Send, ArrowLeft, Loader2 } from "lucide-react";
+import { Mic, MicOff, Square, Send, ArrowLeft, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TalkClient, type TalkEvent, type TalkState } from "@/lib/talk-client";
-import { endSession } from "@/lib/talk.functions";
+import { endSession, createDraft } from "@/lib/talk.functions";
+import { sendTurn, confirmDraft } from "@/lib/talk-brain.functions";
+import { celebrate } from "@/components/confetti-burst";
 
 export const Route = createFileRoute("/talk")({
   ssr: false,
@@ -25,7 +28,7 @@ export const Route = createFileRoute("/talk")({
       {
         property: "og:description",
         content:
-          "A warm, focused voice conversation that turns 'I want to host a...' into a real, coordinated party plan.",
+          "A warm, focused conversation that turns 'I want to host a...' into a real, coordinated party plan.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -34,23 +37,40 @@ export const Route = createFileRoute("/talk")({
   component: TalkRoute,
 });
 
+type ChatMsg = { role: "user" | "assistant"; content: string };
 type Line = { role: "user" | "assistant"; text: string; partial: boolean };
 
 function TalkRoute() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState<"text" | "voice">("text");
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    {
+      role: "assistant",
+      content:
+        "Hi — I'm Confetti. Tell me the brain dump: what are you hoping to host, and how do you want it to feel?",
+    },
+  ]);
+  const [typed, setTyped] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [openQs, setOpenQs] = useState<string[]>([]);
+  const [assumptions, setAssumptions] = useState<string[]>([]);
+  const [readyToConfirm, setReadyToConfirm] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Voice-mode state (kept intact)
   const [state, setState] = useState<TalkState>("idle");
   const [muted, setMuted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lines, setLines] = useState<Line[]>([]);
-  const [typed, setTyped] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceLines, setVoiceLines] = useState<Line[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const clientRef = useRef<TalkClient | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
 
   const authReady = !loading;
 
@@ -59,23 +79,70 @@ function TalkRoute() {
     if (!user) navigate({ to: "/auth" });
   }, [authReady, user, navigate]);
 
-  // Auto-scroll transcript
+  // Create a draft on first mount for signed-in users.
   useEffect(() => {
-    const el = transcriptScrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [lines]);
+    if (!authReady || !user || draftId) return;
+    createDraft()
+      .then((r) => setDraftId(r.id))
+      .catch(() => toast.error("Couldn't start a fresh draft. Please retry."));
+  }, [authReady, user, draftId]);
 
-  const handleEvent = useCallback((evt: TalkEvent) => {
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, thinking]);
+
+  const sendMessage = useCallback(async () => {
+    const text = typed.trim();
+    if (!text || thinking || !draftId) return;
+    const next: ChatMsg[] = [...messages, { role: "user", content: text }];
+    setMessages(next);
+    setTyped("");
+    setThinking(true);
+    try {
+      const res = await sendTurn({ data: { draftId, messages: next } });
+      setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
+      setOpenQs(res.openQuestions ?? []);
+      setAssumptions(res.assumptions ?? []);
+      // Heuristic: assistant offering to confirm the plan.
+      if (/review the plan|confirm/i.test(res.reply)) setReadyToConfirm(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      toast.error(msg);
+    } finally {
+      setThinking(false);
+    }
+  }, [typed, thinking, draftId, messages]);
+
+  const confirmAndCreate = useCallback(async () => {
+    if (!draftId) return;
+    setConfirming(true);
+    try {
+      const { partyId } = await confirmDraft({ data: { draftId } });
+      celebrate("big");
+      toast.success("Plan created — welcome to your workspace.");
+      navigate({ to: "/party/$id", params: { id: partyId } });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Couldn't finalize the plan.";
+      toast.error(msg);
+    } finally {
+      setConfirming(false);
+    }
+  }, [draftId, navigate]);
+
+  // ---------- Voice-mode handlers (unchanged behavior) ----------
+
+  const handleVoiceEvent = useCallback((evt: TalkEvent) => {
     switch (evt.type) {
       case "state":
         setState(evt.state);
         break;
       case "error":
-        setError(evt.message);
+        setVoiceError(evt.message);
         toast.error(evt.message);
         break;
       case "assistant_transcript_delta":
-        setLines((prev) => {
+        setVoiceLines((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === "assistant" && last.partial) {
             return [...prev.slice(0, -1), { ...last, text: last.text + evt.text }];
@@ -84,7 +151,7 @@ function TalkRoute() {
         });
         break;
       case "assistant_transcript_done":
-        setLines((prev) => {
+        setVoiceLines((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === "assistant" && last.partial) {
             return [...prev.slice(0, -1), { role: "assistant", text: evt.text, partial: false }];
@@ -93,7 +160,7 @@ function TalkRoute() {
         });
         break;
       case "user_transcript_delta":
-        setLines((prev) => {
+        setVoiceLines((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === "user" && last.partial) {
             return [...prev.slice(0, -1), { ...last, text: last.text + evt.text }];
@@ -102,7 +169,7 @@ function TalkRoute() {
         });
         break;
       case "user_transcript_done":
-        setLines((prev) => {
+        setVoiceLines((prev) => {
           const last = prev[prev.length - 1];
           if (last?.role === "user" && last.partial) {
             return [...prev.slice(0, -1), { role: "user", text: evt.text, partial: false }];
@@ -115,8 +182,8 @@ function TalkRoute() {
     }
   }, []);
 
-  const start = useCallback(async () => {
-    setError(null);
+  const startVoice = useCallback(async () => {
+    setVoiceError(null);
     setConnecting(true);
     try {
       const { data: sess } = await supabase.auth.getSession();
@@ -126,39 +193,28 @@ function TalkRoute() {
         navigate({ to: "/auth" });
         return;
       }
-
       const res = await fetch("/api/realtime/session", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        const msg = body?.message ?? `Couldn't start the voice session (${res.status}).`;
-        setError(msg);
+        const msg = (body as { message?: string })?.message ?? `Voice unavailable (${res.status}). Use text mode.`;
+        setVoiceError(msg);
         toast.error(msg);
         setConnecting(false);
         return;
       }
       const { clientSecret, model, sessionId } = (await res.json()) as {
-        clientSecret: string;
-        model: string;
-        sessionId: string | null;
+        clientSecret: string; model: string; sessionId: string | null;
       };
-
       if (!audioRef.current) {
         audioRef.current = new Audio();
         audioRef.current.autoplay = true;
       }
-
       const client = new TalkClient({
-        clientSecret,
-        model,
-        audioEl: audioRef.current,
-        onEvent: handleEvent,
+        clientSecret, model, audioEl: audioRef.current, onEvent: handleVoiceEvent,
       });
       clientRef.current = client;
       setSessionId(sessionId);
@@ -166,14 +222,14 @@ function TalkRoute() {
       await client.connect();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      setVoiceError(msg);
       toast.error(msg);
     } finally {
       setConnecting(false);
     }
-  }, [handleEvent, navigate]);
+  }, [handleVoiceEvent, navigate]);
 
-  const stop = useCallback(async () => {
+  const stopVoice = useCallback(async () => {
     clientRef.current?.close("user_ended");
     clientRef.current = null;
     if (sessionId) {
@@ -189,11 +245,9 @@ function TalkRoute() {
     startedAtRef.current = null;
   }, [sessionId]);
 
-  useEffect(() => {
-    return () => {
-      clientRef.current?.close("route_unmount");
-      clientRef.current = null;
-    };
+  useEffect(() => () => {
+    clientRef.current?.close("route_unmount");
+    clientRef.current = null;
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -204,19 +258,11 @@ function TalkRoute() {
     });
   }, []);
 
-  const sendTyped = useCallback(() => {
-    const t = typed.trim();
-    if (!t || !clientRef.current) return;
-    clientRef.current.sendText(t);
-    setLines((prev) => [...prev, { role: "user", text: t, partial: false }]);
-    setTyped("");
-  }, [typed]);
-
   const orbState = useMemo(() => {
-    if (state === "speaking") return "speaking";
-    if (state === "listening") return "listening";
-    if (state === "connecting" || connecting) return "connecting";
-    return "idle";
+    if (state === "speaking") return "speaking" as const;
+    if (state === "listening") return "listening" as const;
+    if (state === "connecting" || connecting) return "connecting" as const;
+    return "idle" as const;
   }, [state, connecting]);
 
   const isLive = state === "listening" || state === "speaking";
@@ -225,224 +271,224 @@ function TalkRoute() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pb-24 pt-4 md:pt-8">
         <header className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate({ to: "/app" })}
-            className="gap-1"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
+          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app" })} className="gap-1">
+            <ArrowLeft className="h-4 w-4" /> Back
           </Button>
           <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Talk it out
           </div>
-          <div className="w-16" />
+          <div className="inline-flex overflow-hidden rounded-lg border border-border text-xs">
+            <button
+              onClick={() => setMode("text")}
+              className={cn("px-2.5 py-1", mode === "text" ? "bg-primary text-primary-foreground" : "bg-background")}
+            >
+              Text
+            </button>
+            <button
+              onClick={() => setMode("voice")}
+              className={cn("px-2.5 py-1", mode === "voice" ? "bg-primary text-primary-foreground" : "bg-background")}
+            >
+              Voice
+            </button>
+          </div>
         </header>
 
-        <main className="mt-6 flex flex-1 flex-col gap-6 md:mt-10 md:flex-row md:gap-8">
-          {/* Left: orb + controls */}
-          <section className="flex flex-1 flex-col items-center gap-6">
-            <VoiceOrb state={orbState} />
-            <StatusLine state={state} connecting={connecting} error={error} />
-
-            {!isLive && !connecting && (
-              <div className="w-full max-w-md space-y-4">
-                <Card className="border-dashed p-5">
-                  <h2 className="text-base font-semibold text-foreground">
-                    Tell Confetti about the gathering
-                  </h2>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Tap the mic and start with the dream — what you're gathering for and how you
-                    want it to feel. Confetti listens only after you tap and stops when you tap
-                    End. V1 is not always listening.
-                  </p>
-                </Card>
-                <Button
-                  variant="festive"
-                  size="lg"
-                  className="w-full"
-                  onClick={start}
-                  disabled={connecting || !authReady}
-                >
-                  <Mic className="mr-2 h-5 w-5" />
-                  Start talking
-                </Button>
-              </div>
-            )}
-
-            {(isLive || connecting) && (
-              <div className="flex w-full max-w-md items-center justify-center gap-3">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onClick={toggleMute}
-                  aria-pressed={muted}
-                  className="gap-2"
-                >
-                  {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                  {muted ? "Unmute" : "Mute"}
-                </Button>
-                <Button variant="destructive" size="lg" onClick={stop} className="gap-2">
-                  <Square className="h-4 w-4" />
-                  End session
-                </Button>
-              </div>
-            )}
-          </section>
-
-          {/* Right: transcript */}
-          <section className="flex flex-1 flex-col">
-            <Card className="flex h-[420px] flex-col md:h-[540px]">
-              <div className="border-b px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Live transcript
-              </div>
-              <div
-                ref={transcriptScrollRef}
-                className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
-                aria-live="polite"
-              >
-                {lines.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Your conversation will appear here as it happens.
-                  </p>
-                ) : (
-                  lines.map((l, i) => (
+        {mode === "text" ? (
+          <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
+            <section className="flex flex-col">
+              <Card className="flex h-[520px] flex-col md:h-[600px]">
+                <div className="border-b px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Conversation
+                </div>
+                <div ref={chatScrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
+                  {messages.map((m, i) => (
                     <div
                       key={i}
                       className={cn(
                         "rounded-2xl px-3 py-2 text-sm",
-                        l.role === "assistant"
+                        m.role === "assistant"
                           ? "bg-muted text-foreground"
                           : "ml-auto max-w-[85%] bg-primary/10 text-foreground",
-                        l.partial && "opacity-70",
                       )}
                     >
                       <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        {l.role === "assistant" ? "Confetti" : "You"}
+                        {m.role === "assistant" ? "Confetti" : "You"}
                       </div>
+                      {m.content}
+                    </div>
+                  ))}
+                  {thinking && (
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+                    </div>
+                  )}
+                </div>
+                <div className="border-t p-3">
+                  <div className="flex items-end gap-2">
+                    <Textarea
+                      value={typed}
+                      onChange={(e) => setTyped(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          sendMessage();
+                        }
+                      }}
+                      placeholder="Tell Confetti the brain dump…"
+                      rows={2}
+                      className="min-h-[52px] resize-none"
+                      disabled={!draftId || thinking}
+                    />
+                    <Button
+                      onClick={sendMessage}
+                      disabled={!draftId || thinking || !typed.trim()}
+                      size="icon"
+                      variant="secondary"
+                      aria-label="Send message"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Nothing is sent, purchased, or booked without your confirmation.
+              </p>
+            </section>
+
+            <aside className="space-y-3">
+              <Card className="p-4">
+                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <Sparkles className="h-3.5 w-3.5" /> What I'm hearing
+                </div>
+                {assumptions.length === 0 && openQs.length === 0 ? (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    I'll surface assumptions and open questions here as we talk.
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-3">
+                    {assumptions.length > 0 && (
+                      <div>
+                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Assumptions</div>
+                        <ul className="space-y-1">
+                          {assumptions.map((a, i) => (
+                            <li key={i}><Badge variant="secondary" className="whitespace-normal text-left">{a}</Badge></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {openQs.length > 0 && (
+                      <div>
+                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Open questions</div>
+                        <ul className="space-y-1 text-sm text-foreground">
+                          {openQs.map((q, i) => <li key={i} className="rounded-lg bg-muted/40 px-2.5 py-1.5">{q}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+              <Button
+                variant="festive"
+                size="lg"
+                className="w-full"
+                onClick={confirmAndCreate}
+                disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
+              >
+                {confirming ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>) : (<><CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan</>)}
+              </Button>
+              <p className="text-[11px] text-muted-foreground">
+                Turns your conversation into a real workspace: tasks, budget, guests, bring board.
+              </p>
+            </aside>
+          </main>
+        ) : (
+          <main className="mt-6 flex flex-1 flex-col items-center gap-6 md:mt-10">
+            <VoiceOrb state={orbState} />
+            <StatusLine state={state} connecting={connecting} error={voiceError} />
+            {!isLive && !connecting && (
+              <div className="w-full max-w-md space-y-4">
+                <Card className="border-dashed p-5">
+                  <h2 className="text-base font-semibold text-foreground">Voice mode (beta)</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Speech-to-speech uses OpenAI Realtime and requires an OPENAI_API_KEY on your project.
+                    Text mode always works.
+                  </p>
+                </Card>
+                <Button variant="festive" size="lg" className="w-full" onClick={startVoice} disabled={connecting || !authReady}>
+                  <Mic className="mr-2 h-5 w-5" /> Start voice session
+                </Button>
+              </div>
+            )}
+            {(isLive || connecting) && (
+              <div className="flex w-full max-w-md items-center justify-center gap-3">
+                <Button variant="outline" size="lg" onClick={toggleMute} aria-pressed={muted} className="gap-2">
+                  {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />} {muted ? "Unmute" : "Mute"}
+                </Button>
+                <Button variant="destructive" size="lg" onClick={stopVoice} className="gap-2">
+                  <Square className="h-4 w-4" /> End session
+                </Button>
+              </div>
+            )}
+            {voiceLines.length > 0 && (
+              <Card className="w-full max-w-2xl p-4">
+                <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Live transcript</div>
+                <div className="space-y-2">
+                  {voiceLines.map((l, i) => (
+                    <div key={i} className={cn("rounded-xl px-3 py-2 text-sm", l.role === "assistant" ? "bg-muted" : "ml-auto max-w-[85%] bg-primary/10", l.partial && "opacity-70")}>
                       {l.text || (l.partial ? "…" : "")}
                     </div>
-                  ))
-                )}
-              </div>
-              <div className="border-t p-3">
-                <div className="flex items-end gap-2">
-                  <Textarea
-                    value={typed}
-                    onChange={(e) => setTyped(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        sendTyped();
-                      }
-                    }}
-                    placeholder={
-                      isLive ? "Or type instead of speaking…" : "Start a session to chat."
-                    }
-                    disabled={!isLive}
-                    rows={2}
-                    className="min-h-[52px] resize-none"
-                  />
-                  <Button
-                    onClick={sendTyped}
-                    disabled={!isLive || !typed.trim()}
-                    size="icon"
-                    variant="secondary"
-                    aria-label="Send message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  ))}
                 </div>
-              </div>
-            </Card>
-            <p className="mt-3 text-xs text-muted-foreground">
-              V1: not always listening · nothing is sent, purchased, or booked without your tap ·
-              tap End to disconnect.
-            </p>
-          </section>
-        </main>
+              </Card>
+            )}
+          </main>
+        )}
       </div>
     </div>
   );
 }
 
-function StatusLine({
-  state,
-  connecting,
-  error,
-}: {
-  state: TalkState;
-  connecting: boolean;
-  error: string | null;
-}) {
-  if (error) {
-    return <p className="text-sm text-destructive">{error}</p>;
-  }
-  if (connecting || state === "connecting") {
-    return (
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        Connecting…
-      </p>
-    );
-  }
-  if (state === "listening") {
-    return (
-      <p className="flex items-center gap-2 text-sm text-foreground" aria-live="assertive">
-        <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:hidden" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-        </span>
-        Listening
-      </p>
-    );
-  }
-  if (state === "speaking") {
-    return <p className="text-sm text-foreground">Confetti is speaking…</p>;
-  }
-  if (state === "closed") {
-    return <p className="text-sm text-muted-foreground">Session ended.</p>;
-  }
+function StatusLine({ state, connecting, error }: { state: TalkState; connecting: boolean; error: string | null }) {
+  if (error) return <p className="text-sm text-destructive">{error}</p>;
+  if (connecting || state === "connecting") return (
+    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Connecting…
+    </p>
+  );
+  if (state === "listening") return (
+    <p className="flex items-center gap-2 text-sm text-foreground" aria-live="assertive">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:hidden" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+      </span>
+      Listening
+    </p>
+  );
+  if (state === "speaking") return <p className="text-sm text-foreground">Confetti is speaking…</p>;
+  if (state === "closed") return <p className="text-sm text-muted-foreground">Session ended.</p>;
   return <p className="text-sm text-muted-foreground">Ready when you are.</p>;
 }
 
 function VoiceOrb({ state }: { state: "idle" | "connecting" | "listening" | "speaking" }) {
   return (
     <div className="relative flex h-40 w-40 items-center justify-center md:h-56 md:w-56">
-      <div
-        className={cn(
-          "absolute inset-0 rounded-full transition-all duration-500",
-          state === "idle" && "bg-gradient-to-br from-primary/20 to-secondary/20",
-          state === "connecting" && "bg-gradient-to-br from-primary/30 to-secondary/30",
-          state === "listening" &&
-            "bg-gradient-to-br from-primary/40 to-secondary/40 shadow-[0_0_60px_-10px_hsl(var(--primary)/0.5)]",
-          state === "speaking" &&
-            "bg-gradient-to-br from-primary/60 to-secondary/60 shadow-[0_0_80px_-10px_hsl(var(--primary)/0.7)]",
-        )}
-      />
-      <div
-        className={cn(
-          "absolute inset-4 rounded-full bg-background/60 backdrop-blur-sm transition-transform duration-500",
-          state === "speaking" && "scale-95 motion-reduce:scale-100",
-          state === "listening" && "scale-100",
-        )}
-      />
-      <div
-        className={cn(
-          "absolute inset-8 rounded-full bg-gradient-to-br from-primary to-secondary opacity-90",
-          state === "listening" && "animate-pulse motion-reduce:animate-none",
-        )}
-      />
-      <span className="sr-only">
-        {state === "listening"
-          ? "Microphone is active"
-          : state === "speaking"
-            ? "Confetti is speaking"
-            : state === "connecting"
-              ? "Connecting"
-              : "Idle"}
-      </span>
+      <div className={cn(
+        "absolute inset-0 rounded-full transition-all duration-500",
+        state === "idle" && "bg-gradient-to-br from-primary/20 to-secondary/20",
+        state === "connecting" && "bg-gradient-to-br from-primary/30 to-secondary/30",
+        state === "listening" && "bg-gradient-to-br from-primary/40 to-secondary/40 shadow-[0_0_60px_-10px_hsl(var(--primary)/0.5)]",
+        state === "speaking" && "bg-gradient-to-br from-primary/60 to-secondary/60 shadow-[0_0_80px_-10px_hsl(var(--primary)/0.7)]",
+      )} />
+      <div className={cn(
+        "absolute inset-4 rounded-full bg-background/60 backdrop-blur-sm transition-transform duration-500",
+        state === "speaking" && "scale-95 motion-reduce:scale-100",
+        state === "listening" && "scale-100",
+      )} />
+      <div className={cn(
+        "absolute inset-8 rounded-full bg-gradient-to-br from-primary to-secondary opacity-90",
+        state === "listening" && "animate-pulse motion-reduce:animate-none",
+      )} />
     </div>
   );
 }

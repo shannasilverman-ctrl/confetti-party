@@ -43,7 +43,45 @@ export const BUCKETS: Bucket[] = [
 ];
 
 export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
-export type Guest = { id: string; name: string; kind: "adult" | "kid"; rsvp: RSVP; source?: "link" };
+export type Guest = {
+  id: string;
+  name: string;
+  kind: "adult" | "kid";
+  rsvp: RSVP;
+  source?: "link";
+  household?: string;
+  dietary?: string[];
+  allergens?: string[];
+};
+
+export type Household = { id: string; label: string; memberGuestIds: string[] };
+
+export type BringCategory =
+  | "Main"
+  | "Sides"
+  | "Dessert"
+  | "Drinks"
+  | "Ice / Serveware"
+  | "Kids"
+  | "Décor";
+
+export type BringItem = {
+  id: string;
+  category: BringCategory;
+  label: string;
+  qty: number;
+  unit?: string;
+  dietaryTags?: string[];
+  status: "open" | "claimed" | "done";
+  source: "host" | "guest";
+  assigneeName?: string;
+  assigneeHousehold?: string;
+  claimedAt?: string;
+  notes?: string;
+};
+
+export type HostUpdate = { id: string; text: string; at: string };
+export type PhotoDropInfo = import("./photo-drop").PhotoDrop;
 export type Expense = { id: string; label: string; amount: number };
 export type BudgetCategory = {
   id: string;
@@ -72,6 +110,12 @@ export type Party = {
   shoppingItems: ShoppingItem[];
   pinnedInspiration: string[]; // e.g. ["unicorn-rainbow:table"]
   hostNote?: string;
+  households?: Household[];
+  bringBoard?: BringItem[];
+  hostUpdates?: HostUpdate[];
+  holidayPackId?: string;
+  photoDrop?: PhotoDropInfo | null;
+  checkins?: Record<string, string>; // guestId -> ISO timestamp
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -458,6 +502,12 @@ function rowToParty(r: {
   timeline: unknown;
   pinned_inspiration?: unknown;
   host_note?: string | null;
+  households?: unknown;
+  bring_board?: unknown;
+  host_updates?: unknown;
+  holiday_pack_id?: string | null;
+  photo_drop?: unknown;
+  checkins?: unknown;
 }): Party {
   return {
     id: r.id,
@@ -478,6 +528,12 @@ function rowToParty(r: {
     timeline: (r.timeline as TimelineItem[]) ?? [],
     pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
     hostNote: r.host_note ?? undefined,
+    households: (r.households as Household[]) ?? [],
+    bringBoard: (r.bring_board as BringItem[]) ?? [],
+    hostUpdates: (r.host_updates as HostUpdate[]) ?? [],
+    holidayPackId: r.holiday_pack_id ?? undefined,
+    photoDrop: (r.photo_drop as PhotoDropInfo | null) ?? null,
+    checkins: (r.checkins as Record<string, string>) ?? {},
   };
 }
 
@@ -501,6 +557,12 @@ function partyToRow(p: Party, userId: string) {
     timeline: p.timeline as unknown as Json,
     pinned_inspiration: p.pinnedInspiration as unknown as Json,
     host_note: p.hostNote ?? null,
+    households: (p.households ?? []) as unknown as Json,
+    bring_board: (p.bringBoard ?? []) as unknown as Json,
+    host_updates: (p.hostUpdates ?? []) as unknown as Json,
+    holiday_pack_id: p.holidayPackId ?? null,
+    photo_drop: (p.photoDrop ?? null) as unknown as Json,
+    checkins: (p.checkins ?? {}) as unknown as Json,
   };
 }
 

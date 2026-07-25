@@ -21,6 +21,9 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
+import { PublicBringBoard } from "@/components/public-bring-board";
+import { PhotoDropCard } from "@/components/photo-drop-card";
+import { HostUpdatesFeed } from "@/components/host-updates-feed";
 
 type RSVPChoice = "yes" | "maybe" | "no";
 
@@ -396,6 +399,7 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
             </p>
           </div>
         )}
+        <HostUpdatesFeed updates={party.host_updates ?? []} />
         {done ? (
           <div className="space-y-5 rounded-3xl border border-border bg-card p-6 text-center shadow-card sm:p-8">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -526,6 +530,8 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
             </p>
           </form>
         )}
+        <PublicBringBoard token={token} items={party.bring_board ?? []} defaultName={name} />
+        <PhotoDropCard drop={party.photo_drop ?? null} />
       </main>
 
       <ConversionFooter />

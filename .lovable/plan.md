@@ -1,391 +1,121 @@
 
-# "Talk it out with Confetti" — V1 Plan
-
-Plan only. No code changes. Signature voice feature: tap-to-start realtime conversation that fills a **GatheringDraft** and, on explicit confirmation, materializes into the existing `Party` model. Built on OpenAI Realtime over WebRTC with a short-lived ephemeral token minted by a TanStack server function; long-lived API key stays server-side.
-
-## 1. Current-code feasibility assessment
-
-Confirmed from repo reads earlier this session:
-
-- **Stack fits.** TanStack Start + `createServerFn` (`src/lib/*.functions.ts`) + Supabase (auth-middleware pattern in `src/integrations/supabase/auth-middleware.ts`). We can mint an ephemeral Realtime session server-side without any new framework.
-- **Party model is in-memory-first but Supabase-backed.** `src/lib/party-context.tsx` owns `Party`, `makeParty`, `addParty`, `updateParty`, and the `parties` table upsert path. Draft → Party is a mapping problem, not a rewrite.
-- **`LOVABLE_API_KEY` and Supabase secrets already present** (from `secrets--fetch_secrets`). We add one new secret: `OPENAI_API_KEY` (voice model billing is not covered by Lovable AI Gateway, since Realtime speech-to-speech isn't proxied there today — call OpenAI directly from the server for token minting only).
-- **No existing voice code, no wake-word, no realtime infra.** Green field on the UI and audio side.
-- **Confetti/celebrate primitives, toast system, Dialog, prefers-reduced-motion handling, mobile-first shell** — all already shipped and reusable for the voice surface.
-- **Composable-gathering plan (previous turn)** is not merged. This feature can ship without it, but the draft schema is designed so the two land cleanly: `GatheringDraft` mirrors the composable dimensions and maps into today's flat `Party` on confirm, and into the new `reveal jsonb` later.
-
-Files likely affected (net-new unless noted):
-
-- `src/routes/api/realtime/session.ts` — new server route (POST). Mints ephemeral Realtime client token.
-- `src/lib/talk.functions.ts` — new. `getDraft`, `saveDraftPatch`, `confirmDraft`, `deleteDraft`, `startSession`, `endSession`.
-- `src/lib/talk-tools.ts` — new. Zod schemas for tool inputs, tool descriptors handed to the Realtime model.
-- `src/routes/talk.tsx` — new. Focused voice surface route (mobile-first).
-- `src/components/talk/*` — new. `VoiceOrb`, `Waveform`, `LiveTranscript`, `WhatImHearingCard`, `MicPermissionGate`, `TypingFallback`, `RetentionSheet`.
-- `src/lib/party-context.tsx` — light additions: `createPartyFromDraft(draft)` mapper, no changes to budget math or shopping wiring.
-- `src/routes/index.tsx` and `src/routes/app.tsx` — add "Talk it out" entry points (hero CTA + workspace top bar).
-- Migration: `gathering_drafts` table + `talk_sessions` audit table + RLS + grants (see §2.5).
-- `src/routes/__root.tsx` — no changes required; `src/lib/error-*` already covers SSR failures.
-
-Non-affected (do not touch): budget math, shopping/cart wiring, RSVP RPCs (`get_rsvp_party`, `submit_rsvp`), themes catalog, seasonal banner, invite dialog, affiliate config.
-
-## 2. Recommended architecture
-
-### 2.1 Data flow
-
-```text
-Browser (talk.tsx)
-  ├── POST /api/realtime/session  (Supabase-authed)
-  │      └── server mints OpenAI Realtime ephemeral client_secret + session config
-  ├── RTCPeerConnection ⇄ api.openai.com (Realtime WebRTC)
-  │      └── audio in/out + data channel (events, tool calls, transcripts)
-  ├── Tool call events → local tool handlers → server fns (saveDraftPatch, confirmDraft, …)
-  │      └── Supabase gathering_drafts (RLS: owner-only)
-  └── On confirm → createPartyFromDraft → existing party upsert path → navigate /party/$id
-```
-
-Key rule: **the voice model never writes to `parties` directly.** Tools mutate `gathering_drafts` only. `confirm_draft` returns a summary; the *host* clicks a UI Confirm button; that click calls `confirmDraft` server-fn which does the party upsert.
-
-### 2.2 Why WebRTC + ephemeral token
-
-- WebRTC gives sub-500ms round-trip and native barge-in; websockets are worse for this UX.
-- Ephemeral token pattern is OpenAI's supported approach for browser Realtime clients. The long-lived `OPENAI_API_KEY` never leaves the server; the browser gets a `client_secret` scoped to one session with a short TTL.
-- Data channel carries transcripts (partial + final), tool calls, and session events. Audio flows over the RTP media stream.
-
-### 2.3 Server-side session mint (contract)
-
-`POST /api/realtime/session` (TanStack server route under `src/routes/api/`, not `/api/public/` — this is authenticated app surface):
-
-- Auth: reuse the Supabase bearer middleware pattern (verify JWT server-side; reject anon).
-- Rate limit: per-user, in-memory + `talk_sessions` row check — max 5 session mints per hour, max 2 concurrent live sessions per user.
-- Body: `{ draftId?: string, locale?: string }`.
-- Server calls OpenAI `POST /v1/realtime/sessions` with:
-  - `model: "gpt-realtime"` (or the current recommended Realtime model at implementation time; documented placeholder — verify against OpenAI Realtime docs before shipping).
-  - `voice`: warm default (e.g. `"marin"`), overridable later.
-  - `modalities: ["audio","text"]`.
-  - `instructions`: the system prompt (see §3.1). Includes the tool contract summary and the "one question at a time / warm co-host" persona.
-  - `tools`: descriptors from `src/lib/talk-tools.ts` (JSON schemas derived from Zod via `zod-to-json-schema`).
-  - `tool_choice: "auto"`.
-  - `turn_detection: { type: "server_vad", threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 500, create_response: true, interrupt_response: true }` — enables barge-in.
-  - `input_audio_transcription: { model: "gpt-4o-mini-transcribe" }` for the on-screen live transcript.
-  - `max_response_output_tokens: 512` — cost cap per turn.
-- Returns to browser: `{ clientSecret, expiresAt, sessionId, draftId }`.
-
-### 2.4 Browser Realtime client
-
-Minimal, using standard WebRTC APIs — no SDK required, but OpenAI's `@openai/agents-realtime` SDK is acceptable if it's stable at implementation time. Either way, keep the peer-connection code isolated in `src/lib/talk-client.ts` behind a thin `TalkClient` interface (`connect`, `disconnect`, `sendText`, `on(event)`) so the model/SDK swap doesn't ripple.
-
-### 2.5 Persistence (migration)
-
-New tables (owner-scoped, RLS on, grants issued in the same migration):
-
-- `gathering_drafts (id uuid pk, user_id uuid references auth.users, draft jsonb not null default '{}', open_questions jsonb default '[]', assumptions jsonb default '[]', status text check in ('active','confirmed','abandoned') default 'active', confirmed_party_id uuid, transcript_retention text check in ('none','summary','full') default 'summary', created_at, updated_at)` + `update_updated_at` trigger.
-- `talk_sessions (id uuid pk, user_id uuid, draft_id uuid, started_at, ended_at, duration_s int, model text, tokens_input int, tokens_output int, audio_seconds_in int, audio_seconds_out int, cost_cents int, disconnect_reason text)`.
-- Optional `talk_transcripts (session_id uuid pk, draft_id uuid, transcript jsonb, created_at)` — inserted only when the user explicitly picks "full" retention; deletable via `deleteDraft`.
-- RLS: `user_id = auth.uid()` on all three. Grants: `SELECT/INSERT/UPDATE/DELETE` to `authenticated`; `ALL` to `service_role`; no `anon`.
-
-## 3. Conversation state machine
-
-States (owned by `TalkClient` + a small XState-free reducer in `talk.tsx`):
-
-```
-idle
- └─ userTapsStart ─▶ requestingMic
-     ├─ denied ─▶ typingFallback
-     └─ granted ─▶ mintingSession
-         ├─ error ─▶ failed(retryable?)
-         └─ ok ─▶ connecting (WebRTC ICE)
-             ├─ error ─▶ reconnecting (exp backoff, max 3) ─▶ failed
-             └─ ok ─▶ listening
-                 ├─ userSpeaking (VAD) ─▶ listening
-                 ├─ modelSpeaking ─▶ (user can barge-in: interrupt → listening)
-                 ├─ toolCall ─▶ toolRunning ─▶ listening
-                 ├─ userPause (>2s silence, nothing to say) ─▶ modelPrompt("what feels most alive about this?")
-                 ├─ userSays "pause"/"stop"/tapsMute ─▶ paused
-                 ├─ userSays "let's review" or model confidence ≥ threshold ─▶ reviewing
-                 └─ maxDuration reached (15 min) ─▶ wrappingUp
-reviewing (voice + on-screen recap card)
- ├─ userSays "change X" ─▶ listening
- ├─ userTapsConfirm ─▶ confirming (server fn) ─▶ createdParty (navigate)
- └─ userTapsSaveDraft ─▶ savedDraft (idle, resumable)
-paused ─▶ listening | idle (user disconnects)
-failed ─▶ typingFallback (always available)
-```
-
-Client-side guardrails:
-- Session hard cap 15 min, warning at 12 min.
-- Idle disconnect after 60 s of pure silence with no partial transcript.
-- Cost cap: after 25k output tokens or $0.50 estimated (whichever first), model is instructed to wrap.
-
-### 3.1 System prompt (persona + rails)
-
-Excerpted content, not final copy. Ships in `src/lib/talk-tools.ts`:
-
-- "You are Confetti, a warm, perceptive co-host. You help someone plan a real gathering. You are not a form. Ask one question at a time. Start with the dream — what are we gathering for and what should it feel like — then adaptively gather only what changes the plan."
-- Explicit list of dimensions to gather (occasion, purpose, date/time certainty, headcount + households + kids, effort level, budget, food approach, dietary/accessibility, contributions, vibe/activities, weather/space/equipment, host-ready target).
-- "Never invent details. If unsure, ask or mark unknown."
-- "Reflect and simplify when the plan is becoming ambitious."
-- "Distinguish fact vs preference vs assumption vs open question when you write to the draft."
-- Tool usage rules: call `update_draft` after any turn that changed the picture; call `mark_unknown` when the host says skip/don't know; call `confirm_draft` only when host explicitly says something like 'yes create it, ready, go ahead'; **never** call `generate_plan` — that's a client-side action after the host taps Confirm.
-- Cultural sensitivity: no assumptions about observance, kashrut, halal, teams, religion, or age. Prompt, don't assume.
-- Length: assistant utterances stay under ~3 sentences unless summarizing.
-
-## 4. GatheringDraft schema (proposal)
-
-TypeScript, lives in `src/lib/gathering-draft.ts`. Zod-parsable. Includes provenance and confirmation status per field.
-
-```ts
-type Provenance = "voice" | "text" | "inferred" | "host-edited";
-type FieldStatus = "unknown" | "assumed" | "stated" | "confirmed";
-
-interface Field<T> {
-  value: T | null;
-  status: FieldStatus;         // controls whether we ask again
-  provenance: Provenance;
-  updatedAt: string;           // ISO
-  note?: string;               // e.g. why it was inferred
-}
-
-interface GatheringDraft {
-  id: string;                  // uuid, matches gathering_drafts.id
-  userId: string;
-  createdAt: string;
-  updatedAt: string;
-
-  identity: {
-    workingTitle: Field<string>;   // "Maya's 8th" or "World Cup Final watch"
-    honoree: Field<{ name: string; ageBand?: "child"|"teen"|"adult"|"senior" } | null>;
-    tone: Field<"playful"|"warm"|"reverent"|"competitive"|"intimate"|"festive">;
-    audience: Field<"adults"|"mixed"|"kids-friendly">;
-    tags: Field<string[]>;         // open set: birthday, shabbat, cookout, watch-party, dinner-party, custom, ...
-    purpose: Field<string>;        // free text: "haven't seen my college friends in a year"
-    memorableMoment: Field<string>;// "the toast", "kickoff", "candle lighting"
-  };
-
-  when: {
-    date: Field<string | null>;                // ISO date
-    dateCertainty: Field<"fixed"|"window"|"tbd">;
-    window: Field<{ from: string; to: string } | null>;
-    startTime: Field<string | null>;           // human ("2 PM"); resolved later
-    anchors: Field<Array<{ kind: string; label: string; at: string }>>; // kickoff, sundown, meal
-  };
-
-  where: {
-    venueKind: Field<"home"|"backyard"|"park"|"venue"|"virtual"|"unknown">;
-    display: Field<string | null>;
-    contingency: Field<{ needed: boolean; kind?: "rain"|"heat"|"cold"|"stream-fail"|"custom"; plan?: string }>;
-  };
-
-  people: {
-    expectedCount: Field<number | null>;
-    households: Field<number | null>;
-    kids: Field<number | null>;
-    guestNotes: Field<string>;                 // "mostly my running club plus 3 neighbors"
-  };
-
-  effort: {
-    level: Field<"low"|"medium"|"high">;
-    hostReadyTarget: Field<string | null>;     // e.g. "T-30 min before first guest"
-  };
-
-  budget: {
-    total: Field<number | null>;
-    stance: Field<"strict"|"flexible"|"no-limit">;
-    notes: Field<string>;
-  };
-
-  food: {
-    approach: Field<"cook"|"catering"|"grocery-prepared"|"potluck"|"mix"|"snacks-only"|"none">;
-    peakMoment: Field<string | null>;          // "halftime", "sundown+15m"
-    portionModel: Field<"per-guest"|"per-adult+kid"|"family-style"|"unknown">;
-  };
-
-  constraints: {
-    dietary: Field<string[]>;                  // aggregate labels only; no per-guest text here
-    accessibility: Field<string[]>;
-    observance: Field<string[]>;               // pack-agnostic; free strings
-    allergies: Field<string[]>;
-  };
-
-  contributions: {
-    mode: Field<"none"|"open-signup"|"assigned"|"potluck-list">;
-    seeds: Field<Array<{ label: string; qty?: number }>>;
-  };
-
-  vibe: {
-    activities: Field<string[]>;
-    creativeDirection: Field<{ palette?: string[]; vibe?: string; teamNeutral?: boolean; teams?: string[] } | null>;
-    broadcast: Field<{ source: "tv"|"stream"|"none"; channel?: string; needsSoundCheck?: boolean } | null>;
-  };
-
-  rituals: Field<Array<{ label: string; instruction?: string; optional: boolean }>>;
-
-  openQuestions: Array<{ id: string; question: string; blocking: boolean }>;
-  assumptions:  Array<{ id: string; text: string; needsConfirmation: boolean }>;
-
-  status: "active"|"confirmed"|"abandoned";
-  confirmedPartyId?: string;
-  transcriptRetention: "none"|"summary"|"full";
-}
-```
-
-Mapping into today's `Party` on confirm (in `createPartyFromDraft`):
-- `identity.workingTitle` → `name`
-- `identity.tags[0]` → `occasion` (fallback `"custom"`), full `tags[]` stashed in `reveal.tags` once the composable model lands.
-- `when.date` → `date`; `when.startTime` → `startTime`; `where.display` → `location`; `identity.purpose`+`memorableMoment` → `hostNote` (concatenated, capped at 280).
-- Guests, budget items, shopping items are **not** auto-populated in V1; the party opens with the existing empty states so the host stays in control. (Post-V1: seed via gathering packs.)
-- Everything else stashed in `reveal.gatheringDraft` for future consumption.
-
-## 5. UI / component map
-
-Route: `/talk?draft=<id?>`. Full-viewport focused surface; not part of the workspace tabs.
-
-- `<TalkRoute>`
-  - `<MicPermissionGate>` — pre-connect state; shows what will happen, "not always listening" copy, tap-to-start button.
-  - `<VoiceOrb>` — Confetti mark with three visual states (idle, listening, speaking). Reduced-motion: swap animation for a soft opacity pulse.
-  - `<Waveform>` — Web Audio `AnalyserNode` on the incoming mic + remote track. Off when reduced motion.
-  - `<TranscriptStream>` — live partial + final lines, scroll-locked to bottom, screen-reader announces new assistant turns via `aria-live="polite"`.
-  - `<WhatImHearingCard>` — right side on ≥md, bottom sheet on mobile. Renders the `GatheringDraft` grouped by section with per-field status badges (unknown/assumed/stated/confirmed). Every value is inline-editable (typing overrides voice with `provenance:"host-edited"` and `status:"confirmed"`).
-  - `<TranscriptFallbackInput>` — text box always visible; user can type instead of / in addition to talking. Sends via data channel.
-  - `<ControlsBar>` — Mute mic · Pause session · End session · Retention toggle (opens `<RetentionSheet>`).
-  - `<ReviewSheet>` — appears in `reviewing` state. Shows a plain-English recap, the open questions, the assumptions, and two buttons: "Create the party" and "Save draft, come back later".
-  - `<ConfirmDialog>` — dedupe guard (see §9); disables when `savingRef` in flight; explicit "Create party" click required.
-  - `<ErrorToast>` / `<CostWarningBanner>` — surface mint failures, ICE failures, cost warnings.
-
-Key visual states: idle, requesting-mic, mic-denied, minting, connecting, listening, model-speaking, tool-running, paused, reviewing, confirming, created, failed, offline. Each has a distinct orb color + status line; all pass axe checks.
-
-Mobile (375px): orb top, WhatImHearing sheet slides up from bottom to 60% height, controls dock at bottom. Desktop (1280px): orb centered left column, WhatImHearing fixed right column.
-
-## 6. Tool contracts and approval boundaries
-
-Defined in `src/lib/talk-tools.ts`. All tool inputs Zod-parsed on the client before forwarding to server fns; server fns re-validate. Owner check on every server fn.
-
-- **`get_draft() → GatheringDraft`** — read-only, always allowed.
-- **`update_draft(patch: DraftPatch)`** — deep-merges a partial into fields; each patched field must include `status` and `provenance`. Idempotent by construction (same patch twice = same state). Rate-limited to 20 calls/min per session.
-- **`mark_unknown(path: string, note?: string)`** — sets `status:"unknown"`; used when host says skip.
-- **`add_open_question(question: string, blocking?: boolean)`** / **`resolve_open_question(id)`**.
-- **`add_assumption(text: string, needsConfirmation?: boolean)`** / **`clear_assumption(id)`**.
-- **`confirm_draft(summary: string)`** — **does not create a party**. Marks the draft as "ready-for-review" (a soft status inside the row) and pushes a UI event so the ReviewSheet opens. Actual party creation is the host's tap on "Create the party", which calls `confirmDraft` server-fn.
-- **`generate_plan()`** — **explicitly not exposed to the model.** Kept as an internal server-fn callable only from the host's confirm click.
-- **`request_end_session(reason?: string)`** — model may call this if user says "we're done"; UI shows the review sheet and disconnects the RTC.
-
-Guardrails:
-- Tool schemas reject unknown fields.
-- No tool can touch `parties`, `guests`, `shopping_items`, budgets, or RSVP data. That's a code-level invariant: the tool handlers only import `talk.functions.ts`.
-- Server fns require the Supabase bearer via existing middleware. Anon calls → 401.
-- `confirmDraft` server-fn is idempotent on `draftId + confirmedAt` (returns existing party if already confirmed within 30 s).
-
-## 7. Privacy, safety, accessibility, failure, cost
-
-### Privacy UX
-- Consent copy on `<MicPermissionGate>`: "Confetti listens only after you tap the mic. It stops when you tap End. V1 is not always listening." Link to a short in-app privacy note.
-- Persistent "recording" indicator (red dot + "Listening" label) whenever the mic is hot; also a browser-native mic indicator.
-- Retention picker (default: **summary only**): none / summary / full. Choice persists per draft, editable any time; changing from full → summary/none deletes stored transcript on save.
-- Delete-my-draft button in `<RetentionSheet>` → `deleteDraft` server-fn hard-deletes `gathering_drafts` + `talk_transcripts` rows for that draft.
-- Server logs never include audio bytes; log only session id, duration, token counts, tool names, error class. No transcript text in logs.
-- Ephemeral tokens are never stored, never logged.
-
-### Safety
-- Model instructed: no purchases, no invitations, no messages, no destructive changes; only draft mutations.
-- Server-side owner check on every draft mutation.
-- Cost + rate caps as in §2.3 and §3 (session length, tokens, mint-per-hour, concurrent sessions).
-- Confirm-idempotency window prevents double-create when a user taps twice or reconnects during confirm (see §9).
-
-### Accessibility
-- All controls keyboard-reachable in a documented tab order; focus ring visible.
-- `aria-live="polite"` for assistant transcript, `aria-live="assertive"` for state changes ("Listening", "Confetti is speaking", "Disconnected — reconnecting").
-- Full typing fallback with the same tool surface, so mic-denied users get the same feature.
-- Reduced-motion: no waveform animation, no orb pulse; use static color states.
-- Colorblind-safe status badges (icon + label, not color alone).
-- Captions on every assistant utterance (already in transcript stream).
-
-### Failure modes
-- Mic denied → `<TypingFallback>` seamlessly, session still mints (text-only modality via data channel).
-- Mint fails (network / 5xx / rate-limited) → toast with retry; if 429, show remaining budget.
-- WebRTC ICE fails / connection drops → auto-reconnect up to 3× with exp backoff (1s/3s/9s), preserving draft. If all fail → "We lost the connection. Your draft is safe. Reconnect or keep going by typing."
-- OpenAI 402/insufficient-quota → surface a clear "This feature is temporarily unavailable" state; do not leak provider errors.
-- SSR: `/talk` is CSR-only (`ssr: false` on the route) since it depends on `navigator.mediaDevices` and `RTCPeerConnection`.
-
-### Cost handling
-- Server tracks tokens + audio-seconds per session in `talk_sessions`; nightly aggregation surfaced to the workspace owner.
-- Client-side cost estimator (order of magnitude only): shows a small "$0.12 so far" line to the host after 5 min, as a nudge.
-- Hard cap: session auto-ends at 15 min or the token/dollar caps in §3, whichever first.
-
-## 8. Vertical implementation slices
-
-Each slice is independently shippable and independently testable. Slice 1 is deliberately narrow.
-
-**Slice 1 — token mint + connect + speak/hear one round trip (smallest genuine slice).**
-- Migration for `gathering_drafts` + `talk_sessions` (no `talk_transcripts` yet). RLS + grants.
-- `OPENAI_API_KEY` secret. `POST /api/realtime/session` route with rate limit + auth.
-- `/talk` route (CSR-only). `<MicPermissionGate>` + `<VoiceOrb>` + minimal `<TranscriptStream>`.
-- `TalkClient` connects, plays audio, shows partial transcripts. No tools yet — the model just chats.
-- End button disconnects; session row is finalized.
-- **Test**: real device, one 30 s conversation, transcript renders, no key in browser bundle (`bun run build` + grep).
-
-**Slice 2 — draft tools + WhatImHearing card.**
-- Zod schemas + `update_draft`/`get_draft`/`mark_unknown`/`add_open_question`/`add_assumption` tools wired both ways.
-- `<WhatImHearingCard>` renders draft with status badges, in-line editable.
-- System prompt persona + rails in place.
-- **Test**: 3-minute conversation for a birthday fills identity, when, people, food; every field shows correct provenance/status.
-
-**Slice 3 — review + confirm + create party.**
-- `<ReviewSheet>`, `confirmDraft` server-fn, `createPartyFromDraft` mapper, idempotency guard.
-- Navigates to `/party/$id` on success.
-- **Test**: full happy path birthday flow → party exists with mapped fields.
-
-**Slice 4 — resilience + accessibility + retention.**
-- Reconnect logic, cost caps, typing fallback, retention picker, delete-draft, reduced-motion polish, keyboard/aria audit, SR announcements.
-- **Test**: acceptance suite (§9) end-to-end.
-
-**Slice 5 — cross-gathering coverage + polish.**
-- Verify with Shabbat, BBQ, watch party, dinner party, potluck. Tune system prompt with what came up in real testing.
-- Add optional `talk_transcripts` table + retention "full" path.
-
-Non-goals for V1 stay out even if easy — see §10.
-
-## 9. Acceptance criteria and tests
-
-Every scenario tested at 375 px and 1280 px, with a real signed-in Supabase user, mic hardware granted unless noted. Playwright (browser-use) for UI + a small integration harness for the server route and tool schemas.
-
-- **A-BIRTHDAY-01** "Maya's 8th, backyard, 12 kids, June, cake and pizza." Draft fills identity/when/where/people/food; ReviewSheet lists 1–3 open questions (theme? start time?); tapping "Create the party" produces a `parties` row with the mapped fields and no phantom guest/budget/shopping entries.
-- **A-SHABBAT-01** "Small Shabbat dinner Friday, 8 adults, some kosher-keeping." Assistant does not assume observance level; adds an open question and an assumption (`needsConfirmation: true`); `constraints.observance` recorded as free strings, not enum. No religious iconography suggested.
-- **A-BBQ-01** "BBQ Saturday, 25ish, mixed adults and kids, potluck sides." `food.approach: "mix"`, `contributions.mode: "open-signup"`, `where.contingency.kind: "heat"` proposed as an assumption to confirm.
-- **A-DINNER-01** "Six-person dinner party, plated, my apartment, no theme." `identity.audience: "adults"`, `food.approach: "cook"`, `identity.tone: "intimate"`, no forced theme/direction fields set.
-- **A-WATCH-01** "World Cup Final party, 20 people." Assistant asks team-affiliation *preference* (neutral vs one side); default recorded as `vibe.creativeDirection.teamNeutral: true` unless host opts in; `when.anchors` includes a `kickoff` anchor sourced as "assumed" until host confirms local time.
-- **A-SUPERBOWL-01** Same shape as A-WATCH-01 with US sports vocabulary; no assumption about which team the host supports.
-- **A-POTLUCK-01** "Potluck for my running club, 15ish." `contributions.mode: "potluck-list"`, seeds captured as free strings; no assumption about who brings what.
-- **A-MIC-DENIED-01** Deny mic in the browser. Feature still works fully via `<TypingFallback>`; token still mints with `modalities: ["text"]`; draft fills the same way.
-- **A-BARGE-IN-01** While assistant is mid-sentence, user speaks. Assistant's audio cuts within ~300 ms; server VAD interruption event fires; new user turn is captured cleanly.
-- **A-CHANGE-01** Mid-conversation: "Actually make it Saturday, not Sunday, and 30 people not 20." `update_draft` overwrites `when.date` and `people.expectedCount` with new `updatedAt`, prior values retrievable in `talk_sessions` audit if `full` retention chosen (otherwise only latest kept).
-- **A-RECONNECT-01** Kill network for 5 s. Client attempts reconnect with backoff. On success, session resumes with same `draftId` and last-known transcript; on failure, draft is safe and typing fallback offered.
-- **A-DUPCONFIRM-01** Tap "Create the party" twice fast. `confirmDraft` returns the same `partyId` for both; only one row exists; navigation happens once.
-- **A-COST-01** Simulate token cap. Model receives system nudge to wrap; session auto-ends at hard cap; `talk_sessions.cost_cents` recorded.
-- **A-A11Y-01** Full keyboard-only flow: tab to Start, connect, submit typed message, open ReviewSheet, tab to Confirm. Every focusable element is reachable; SR announces state changes; passes axe on `/talk` in all major states.
-- **A-REDUCED-MOTION-01** With `prefers-reduced-motion: reduce`, orb pulse and waveform are static; no confetti bursts fire during the session.
-- **A-PRIVACY-01** Set retention to "none", end session. `talk_transcripts` has no row; `gathering_drafts.draft` retains structured fields only. "Delete my draft" removes both rows.
-- **A-BUNDLE-01** `bun run build` output does not contain `sk-` OpenAI key or the phrase `OPENAI_API_KEY` in any client-shipped chunk under `dist/`.
-- **A-RLS-01** Signed-in user B cannot read or mutate user A's draft; anon 401 on `/api/realtime/session` and every talk server-fn.
-
-Plus unit tests for: draft patch merging (deep-merge with status precedence), createPartyFromDraft mapping (all fixtures), tool-input Zod schemas (reject unknown fields, reject over-length strings, cap arrays).
-
-## 10. Non-goals (locked for V1)
-
-- Always-on wake word / "Hey Confetti" without tap. **Not shipped.**
-- Sending invitations, messages, SMS, or emails from the voice flow.
-- Making purchases, adding to cart, or triggering vendor actions.
-- Multi-party co-editing over voice (one host per session).
-- Multiple simultaneous drafts per session.
-- Full transcript retention as default (default is "summary only").
-- Auto-seeding budget items, shopping items, or guest lists from voice — the party opens empty and the host fills it in with existing surfaces.
-- Non-English voice UX polish. V1 targets `en-US` speech; the schema is locale-ready but only English prompts ship.
-- Realtime translation, sentiment analytics, emotion detection.
-- Server-side speech recording downloads.
-- Offline mode.
-
-## 11. Open questions before Batch 1
-
-- **OD-1** Confirm `OPENAI_API_KEY` is acceptable as a new project secret (Lovable AI Gateway does not proxy OpenAI Realtime today; direct OpenAI call is the only viable path).
-- **OD-2** Confirm the exact Realtime model + voice to use at ship time (this plan uses a placeholder — verify against OpenAI Realtime docs the day of implementation).
-- **OD-3** Confirm retention default of "summary only" is acceptable; alternative is "none" default.
-- **OD-4** Confirm 15-minute hard session cap and $0.50/session soft cap.
-- **OD-5** Confirm `/talk` should be a full-viewport focused route (not a modal over the workspace).
+## Depth: Standard plan
+Cross-cutting but scoped to one coherent path. Deeper dives (day-of live sync, vendor APIs) intentionally deferred.
+
+## Verified current state
+- Talk route (`src/routes/talk.tsx`), WebRTC client (`src/lib/talk-client.ts`), token mint route (`src/routes/api/realtime/session.ts`), and draft schema (`src/lib/gathering-draft.ts`, `gathering_drafts`/`talk_sessions`/`talk_transcripts` tables with owner-only RLS) already exist.
+- `OPENAI_API_KEY` is **not** in project secrets → the realtime mint currently returns 503 in production. `LOVABLE_API_KEY` **is** present, so text-mode AI can ship today via Lovable AI Gateway. Voice remains an optional layer.
+- Party model (`src/lib/party-context.tsx`) is occasion-enum based (`birthday | baby-shower | graduation | holiday | dinner-party | game-day | cookout | other`). No holiday packs, no households, no bring-board, no photo-drop, no day-of mode.
+- RSVP path is solid: `parties.rsvp_token`, `get_rsvp_party`/`submit_rsvp` SECURITY DEFINER RPCs granted to `anon`, public `/rsvp/$token` page with SSR OG tags and host note.
+- Design system: warm Confetti tokens, `festive` button variant, `celebrate()` helper, `ConfettiBurst`/`fireCannon`. Reuse everywhere — no new libraries.
+
+## 1. AI integration boundary (ship text now, voice when key exists)
+- New `src/lib/ai.server.ts`: wraps Lovable AI Gateway (`ai.gateway.lovable.dev/v1`, `openai/gpt-5.5`) using `LOVABLE_API_KEY` from `process.env`. Never imported from client.
+- New `src/lib/talk-brain.functions.ts` (`createServerFn`, `requireSupabaseAuth`): `sendTurn({ draftId, messages })` returns `{ reply, draftPatch, openQuestions, assumptions }` using structured `Output.object` against the existing `GatheringDraft` shape. Persists deltas onto `gathering_drafts.draft` (JSON merge) and writes summary lines to `talk_transcripts` when retention ≠ `"none"`.
+- New `applyDraftPatch()` pure helper (unit-tested) that merges Field<T> patches with provenance + `updatedAt` and appends assumptions/open questions without duplicates.
+- Voice: `/api/realtime/session` unchanged; when `OPENAI_API_KEY` missing, UI hides the mic and shows "Voice comes back when the key is set" — text mode remains fully functional.
+- **Deterministic demo fallback**: if `LOVABLE_API_KEY` is also missing OR the caller is the demo user, `sendTurn` routes to `demoBrain()` — a scripted response tree seeded from keywords (thanksgiving, shabbat, headcount, budget, potluck…) that fills the draft the same way. No fake "AI is thinking" — UI labels it "Demo co-host."
+
+## 2. Talk-it-out intake, text-first with voice fallback
+Rework `src/routes/talk.tsx`:
+- Default mode: **text chat** using `useChat`-style transport pointing at `/api/talk/turn` (new server route wrapping `sendTurn` for SSE streaming). Voice toggle appears only when `/api/realtime/session` returns 200.
+- Browser-native voice **input** fallback: `window.SpeechRecognition || webkitSpeechRecognition` populates the composer; no server round-trip, gracefully hidden when unsupported. Distinct from full-duplex Realtime.
+- Right rail becomes **"What I'm hearing"**: live `GatheringDraft` summary — chips for date certainty, headcount, budget stance, food approach, constraints, open questions. Each chip editable inline (host-edited provenance).
+- Confirm gate: "Create the party" button disabled until draft has `identity.workingTitle`, `when.date` (or window), `people.expectedCount`, and no `blocking` open questions. Confirmation calls new `confirmDraft` server fn that maps `GatheringDraft` → `Party` insert (see §4) and navigates to `/party/$id?reveal=1`.
+
+## 3. Holiday Hosting mode + packs
+- New `src/lib/holiday-packs/` directory. One file per pack: `thanksgiving.ts`, `friendsgiving.ts`, `shabbat.ts`, `hanukkah.ts`, `christmas.ts`, `passover.ts`, `easter.ts`, `diwali.ts`, `eid.ts`, `lunar-new-year.ts`. Each exports:
+  ```ts
+  { id, label, blurb, anchors: Anchor[], rituals: Ritual[], suggestedMenu: MenuSeed[],
+    bringBoardSeeds: BringSeed[], taskSeeds: TaskSeed[], toneDefaults, respectNotes }
+  ```
+  All rituals/menu items carry `optional: true` and a `respectNote` (e.g. Shabbat candle-lighting time derived from sundown; kosher/halal notations are hints not defaults).
+- New `src/lib/holiday-packs/index.ts` with `listPacks()`, `getPack(id)`, `applyPackToDraft(draft, packId, opts)` that appends but never overwrites host-stated fields.
+- `OccasionType` extends with `"holiday"` staying, plus a new `holidayPackId?: string` on `Party` and `GatheringDraft.identity.holidayPackId: Field<string>`.
+- Opt-in UX: in Talk, when the brain detects a holiday keyword it proposes "Want to use the Thanksgiving pack? (rituals stay optional)" — never auto-applies. Pack picker also available from Reveal.
+- Reference demo: seeded "Friendsgiving 2026" party using the Thanksgiving pack — full menu, bring board, timeline, and Party Pass populated.
+
+## 4. Holiday/Party Reveal
+- New route `src/routes/party.$id.reveal.tsx` (child under existing `party.$id`, or a full-page mode gated by `?reveal=1`).
+- Sections in a single scroll: **Brief** (from draft), **Assumptions** (accept/edit chips), **Decisions** (date, headcount, budget stance, food approach — inline edit), **Menu**, **Budget snapshot**, **Guests + Households**, **Task timeline**, **Shopping**, **Vendors** (empty state: "no vendor connections yet — plan manually"), **Risk flags** (weather, dietary conflicts, timing), **Next 3 actions** (top of page, pinned).
+- Regenerate button re-runs `sendTurn` with the current draft and diffs the reveal; every change is a discrete host approval, never silent.
+
+## 5. Households + Smart Bring Board
+- Data model (migration): extend `parties.guests` jsonb entries with `householdId?: string`, `dietary?: string[]`, `allergens?: string[]`. New jsonb column `parties.households` (`[{ id, label, memberGuestIds[] }]`) and `parties.bring_board` (`[{ id, category, label, qty, unit, dietaryTags[], assigneeHouseholdId?, assigneeName?, status: "open"|"claimed"|"done", source: "host"|"guest", notes? }]`).
+- `submit_rsvp` extended (new migration, `CREATE OR REPLACE`) to accept optional `household_label`, `dietary text[]`, `allergens text[]`; only appends, never returns them to `get_rsvp_party`.
+- New RPCs granted to `anon`, scoped by token:
+  - `list_bring_board(token uuid)` → items with claim state but no host PII.
+  - `claim_bring_item(token, item_id, guest_name, household_label, qty?)` → optimistic-lock (`status='open'` required), auto-creates household on first use.
+  - `release_bring_item(token, item_id, guest_name)`.
+- Host UI: new `src/components/bring-board-tab.tsx` — categories (Main, Sides, Dessert, Drinks, Ice/Serveware, Kids, Décor), duplicate detection (fuzzy label match), missing-category warnings from the active holiday pack, host override (reassign / bump qty / close), "Copy guest link" reuses `rsvp_token`.
+- Guest UI: new section on `/rsvp/$token` — "What to bring" list with claim/unclaim, quantity picker, dietary badges. Fully no-account.
+
+## 6. Party Pass (guest page) upgrade
+Extend `src/routes/rsvp.$token.tsx`:
+- Household RSVP: single form can add self + members with names, ages (kid/adult), dietary + allergen chips.
+- Sections: hero, host note, schedule (from `startTime` + pack anchors), directions (existing), **What to bring** (§5), **Updates** (host-posted notes — new `parties.host_updates` jsonb, read via extended `get_rsvp_party`), **Photo Drop** (§8, read-only link + QR).
+- Mobile-first: single-column, 44px tap targets, sticky primary CTA, offline-tolerant (last-good SSR snapshot).
+
+## 7. Day-of Host Mode
+- New route `src/routes/party.$id.day-of.tsx` (auto-suggested from Reveal when `daysUntil(party) <= 1`).
+- Calm mobile-first layout: top card = **Next 3 actions** (derived from tasks with `dueAt <= now + 2h` and open bring-items), timeline scrubber (pack anchors + custom), arrivals list (guests with `checked_in` bool — new field on guest jsonb, host-only toggle), late/missing items (unclaimed bring-board within 2h of start), risk banner.
+- One-tap reassignment reopens bring items and copies a short "still need: X" message to clipboard. **No auto-send.**
+
+## 8. Confetti Photo Drop (metadata only)
+- Migration: `parties.photo_drop jsonb` = `{ provider: "dropbox_request"|"google_photos"|"kululu"|"guestpix"|"custom", url, label?, note?, updatedAt }`.
+- Host UI: new `src/components/photo-drop-card.tsx` — provider picker with per-provider help ("Create a Dropbox File Request, paste the URL"), URL validator (`https://`, provider allowlist for known hosts + `custom`), privacy copy ("Confetti never sees your photos; guests upload directly to your account"), QR generated client-side with `qrcode` (add as dep — pure JS, Worker-safe), copy/share/download PNG, printable sign (A5 PDF via `html-to-image` already in project).
+- Guest-side: read-only card on `/rsvp/$token` with the same QR and a "Open uploader" button.
+- No proxy, no ingest, no storage bucket.
+
+## 9. Cohesive UX + accessibility
+- New `src/components/app-shell.tsx` shared across `/app`, `/party/$id`, `/party/$id/reveal`, `/party/$id/day-of`, `/talk` — same top bar, brand, breadcrumbs, seasonal banner, footer. Kills current tab-drift between routes.
+- Reveal, Bring Board, Party Pass, Day-of Mode all use existing tokens + `festive` variant + `celebrate()`. No new palettes.
+- Every new surface: empty state ("Nothing here yet — talk it out"), loading skeleton, error boundary (`errorComponent`/`notFoundComponent` on new routes), 375px verification pass.
+- Accessibility: `aria-live` on Talk transcript and Day-of arrivals, focus rings on all interactive tokens, radio/checkbox groups labeled, prefers-reduced-motion honored by `celebrate()`.
+
+## 10. Trust, security, tests
+- **RLS**: all new columns/tables owner-scoped. Public reads only through SECURITY DEFINER RPCs with tight column projection.
+- **Tokens**: `rsvp_token` already unguessable v4 UUID; bring-board writes are scoped by the same token and item-id, with `status='open'` optimistic lock to prevent double-claim races.
+- **Rate limits**: `sendTurn` server fn checks per-user requests/min via existing `talk_sessions` bucket pattern (add `ai_turns` count column). `/api/realtime/session` already limits mints; extend to also cap text turns.
+- **Validation**: every server fn uses Zod `.inputValidator`. URLs (photo drop) validated against allowlist + `https:` + max length. Names/notes trimmed and length-capped.
+- **Approval gates**: reveal edits, bring assignments, host updates, and message drafts require host tap. Nothing auto-sent. No vendor booking in v1.
+- **Analytics hooks**: `src/lib/analytics.ts` with a `track(name, props)` no-op default that logs in dev; call sites in Talk, Reveal confirm, Bring claim, Photo Drop set, Day-of open.
+- **Tests** (`bunx vitest`):
+  - `applyDraftPatch` merge rules (provenance, no-clobber of host-edited).
+  - `holiday-packs/thanksgiving` fixture → reveal produces expected menu, tasks, bring seeds.
+  - `bring-board` claim race: two claims on same item → one wins.
+  - `submit_rsvp` still respects wildcard-escaped names + null rsvp rejection (regression).
+  - `photo-drop` URL validator: rejects `javascript:`, non-allowlisted host, oversize.
+- **Playwright journey**: Talk (demo mode) → confirm Friendsgiving → Reveal → seed bring board → open `/rsvp/$token` in second context, claim an item, RSVP household of 3 with dietary → back to host, see claim + household → Day-of mode shows next actions.
+
+## Data model / migrations (in order)
+1. `alter table public.parties add column if not exists households jsonb not null default '[]', add bring_board jsonb not null default '[]', add photo_drop jsonb, add host_updates jsonb not null default '[]', add holiday_pack_id text, add checkins jsonb not null default '{}';`
+2. `alter table public.gathering_drafts add column if not exists ai_turns int not null default 0;`
+3. `create or replace function public.get_rsvp_party(token uuid)` — extend to return `holiday_pack_id`, `host_updates`, `bring_board` (public columns only, no host PII), `photo_drop`. Preserve existing filters.
+4. `create or replace function public.submit_rsvp(...)` — accept optional household + dietary + allergens jsonb.
+5. New RPCs: `list_bring_board(token)`, `claim_bring_item(token, item_id, guest_name, household_label, qty)`, `release_bring_item(token, item_id, guest_name)`. `security definer`, `search_path = public`, `grant execute ... to anon`.
+6. No new tables required for v1.
+
+## What ships fully vs. deferred
+**Fully functional now** (no external creds beyond `LOVABLE_API_KEY`, which is present):
+- Text-mode Talk-it-out with structured draft, deterministic demo fallback, one holiday pack (Thanksgiving) end-to-end plus Friendsgiving alias, other packs scaffolded with pack files + labels.
+- Reveal, Households, Bring Board (host + guest), Party Pass upgrades, Photo Drop (all providers via user-pasted URL), Day-of Host Mode.
+- Analytics hooks, tests, RLS.
+
+**Behind flags / needs external creds**:
+- Full-duplex voice (`OPENAI_API_KEY`): mic hidden until set; text mode unaffected.
+- All other holiday packs beyond Thanksgiving get pack files but "beta" badge until content-reviewed.
+- Vendor integrations, SMS/email sending, real payments: explicitly out of v1. UI shows "Approve to send" placeholders that are non-functional and clearly labeled.
+
+## Acceptance criteria
+- Landing → "Talk it out" → send a Thanksgiving brain dump → confirm → land on a real `/party/$id/reveal` with pack-seeded menu, tasks, and bring board within 60s using demo fallback (no key required for demo).
+- `/rsvp/$token` on mobile (375px) lets a guest RSVP a household of 3, add dietary, and claim a bring item without an account, without any host PII leaking.
+- Host on Day-of Mode sees next 3 actions and one late-bring alert when a claim is released within 2h of start.
+- Photo Drop: paste a Dropbox File Request URL → QR renders, printable sign downloads, guest page shows the same URL; no photo bytes traverse Confetti.
+- All new surfaces have empty/loading/error states, pass a11y focus checks, and render cleanly at 375px and 1280px.
+- `bunx vitest run` green; Playwright journey above passes.
+
+## Open decisions (non-blocking; sensible defaults chosen)
+- Household model as jsonb-on-party (chosen) vs new table. Jsonb keeps v1 shippable; can extract later if we add cross-event households.
+- Day-of Mode as separate route (chosen) vs modal — separate route survives refresh on phone.
+- Holiday pack Sundown/date math for Shabbat/Passover/Eid: v1 uses host-entered start time with a helpful hint; automated sunset lookup deferred.
