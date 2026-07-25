@@ -87,7 +87,10 @@ function Landing() {
       </header>
 
       {/* Cinematic hero */}
-      <section className="relative isolate overflow-hidden">
+      <section
+        className="relative isolate overflow-hidden"
+        style={{ backgroundColor: "hsl(268 55% 15%)" }}
+      >
         {/* Image plate */}
         <div className="absolute inset-0 -z-10">
           <img
