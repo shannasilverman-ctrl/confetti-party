@@ -24,12 +24,6 @@ export const Route = createFileRoute("/party/$id_/day-of")({
 
 function DayOfPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch, updateParty } = useParties();
-  const party = parties.find((p) => p.id === id);
-  const [note, setNote] = useState("");
-  // Compute derived state before any early return so hook order is stable
-function DayOfPage() {
-  const { id } = Route.useParams();
   const { updateParty } = useParties();
   const resolved = useResolvedParty(id);
   const party = resolved.state === "ready" ? resolved.party : null;
