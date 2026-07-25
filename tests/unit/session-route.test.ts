@@ -71,21 +71,45 @@ function makeFakeSupabase(state: FakeSupabaseState) {
           };
         },
         update(patch: Record<string, unknown>) {
-          return {
-            eq: (_c: string, id: string) => ({
-              eq: (_c2: string, _uid: string) => ({
-                is: async (_c3: string, _v: null) => {
-                  const row = state.sessions.find((s) => s.id === id);
-                  if (row && row.ended_at === null) {
-                    row.ended_at = String(patch.ended_at ?? new Date().toISOString());
-                    state.updates.push({ id, patch });
-                  }
-                  return { data: null, error: null };
-                },
-              }),
-            }),
+          // Handles both chains used by session.ts:
+          //   .update().eq("id",X).is("ended_at", null)                     (closeReservedSession)
+          //   .update().eq("id",X).eq("user_id",Y).is("ended_at", null)     (performEndSession)
+          const chain: {
+            eq: (c: string, v: string) => typeof chain;
+            is: (c: string, v: null) => Promise<{ data: null; error: null }> & {
+              select: (cols: string) => Promise<{ data: unknown[]; error: null }>;
+            };
+          } = {
+            eq: (_c: string, id: string) => {
+              // remember first eq id for update matching
+              (chain as unknown as { _id?: string })._id = id;
+              return chain;
+            },
+            is: (_c: string, _v: null) => {
+              const id = (chain as unknown as { _id?: string })._id;
+              const doApply = () => {
+                const row = state.sessions.find((s) => s.id === id);
+                if (row && row.ended_at === null) {
+                  row.ended_at = String(patch.ended_at ?? new Date().toISOString());
+                  state.updates.push({ id: id ?? "?", patch });
+                }
+              };
+              const promise = (async () => {
+                doApply();
+                return { data: null, error: null };
+              })() as Promise<{ data: null; error: null }> & {
+                select: (cols: string) => Promise<{ data: unknown[]; error: null }>;
+              };
+              promise.select = async (_cols: string) => {
+                doApply();
+                return { data: [{ id }], error: null };
+              };
+              return promise;
+            },
           };
+          return chain;
         },
+
       };
       return api;
     },
