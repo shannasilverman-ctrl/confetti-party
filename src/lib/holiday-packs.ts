@@ -4,6 +4,7 @@
 import type { OccasionType, Bucket, Task } from "./party-context";
 
 export type PackId =
+  | "generic"
   | "thanksgiving"
   | "friendsgiving"
   | "shabbat"
