@@ -39,11 +39,7 @@ export function makeSupabaseClient(): PartyClient {
       return { data: data as unknown as PartyRow, error: null, conflict: false };
     },
     async fetch(id) {
-      const { data, error } = await supabase
-        .from("parties")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      const { data, error } = await supabase.from("parties").select("*").eq("id", id).maybeSingle();
       if (error) return { data: null, error: classify(error) };
       return { data: (data as unknown as PartyRow) ?? null, error: null };
     },

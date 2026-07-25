@@ -142,16 +142,32 @@ describe("mergeGuests", () => {
 describe("mergeBringBoard", () => {
   it("keeps guest claim while host edits an unrelated field", () => {
     const baseline = [
-      { id: "b1", category: "Sides" as const, label: "Chips", qty: 1, status: "open" as const, source: "host" as const },
-      { id: "b2", category: "Drinks" as const, label: "Soda", qty: 6, status: "open" as const, source: "host" as const },
+      {
+        id: "b1",
+        category: "Sides" as const,
+        label: "Chips",
+        qty: 1,
+        status: "open" as const,
+        source: "host" as const,
+      },
+      {
+        id: "b2",
+        category: "Drinks" as const,
+        label: "Soda",
+        qty: 6,
+        status: "open" as const,
+        source: "host" as const,
+      },
     ];
     // Local: host bumped qty on b2. Server: guest claimed b1.
-    const local = [
-      baseline[0],
-      { ...baseline[1], qty: 12 },
-    ];
+    const local = [baseline[0], { ...baseline[1], qty: 12 }];
     const server = [
-      { ...baseline[0], status: "claimed" as const, assigneeName: "Sam", claimedAt: "2027-01-01T01:00:00Z" },
+      {
+        ...baseline[0],
+        status: "claimed" as const,
+        assigneeName: "Sam",
+        claimedAt: "2027-01-01T01:00:00Z",
+      },
       baseline[1],
     ];
     const merged = mergeBringBoard(baseline, local, server);
@@ -163,7 +179,11 @@ describe("mergeBringBoard", () => {
 
 describe("mergeCheckins", () => {
   it("unions keys and prefers max timestamp", () => {
-    const merged = mergeCheckins({}, { g1: "2027-01-01T01:00:00Z" }, { g2: "2027-01-01T00:30:00Z" });
+    const merged = mergeCheckins(
+      {},
+      { g1: "2027-01-01T01:00:00Z" },
+      { g2: "2027-01-01T00:30:00Z" },
+    );
     expect(merged).toEqual({
       g1: "2027-01-01T01:00:00Z",
       g2: "2027-01-01T00:30:00Z",
@@ -181,10 +201,7 @@ describe("PartyStore — data integrity", () => {
     store.seedBaseline(party, "u");
 
     // Guest RPC path: server-side RSVP change bumps updated_at.
-    const flippedGuests = [
-      { ...party.guests[0], rsvp: "yes" as const },
-      party.guests[1],
-    ];
+    const flippedGuests = [{ ...party.guests[0], rsvp: "yes" as const }, party.guests[1]];
     fake.patchServer("p1", { guests: flippedGuests as unknown as PartyRow["guests"] });
 
     // Host edits timeline concurrently.
@@ -213,12 +230,20 @@ describe("PartyStore — data integrity", () => {
     // Guest claims b1 on server.
     fake.patchServer("p1", {
       bring_board: [
-        { ...(party.bringBoard ?? [])[0], status: "claimed", assigneeName: "Sam", claimedAt: "2027-01-01T01:00:00Z" },
+        {
+          ...(party.bringBoard ?? [])[0],
+          status: "claimed",
+          assigneeName: "Sam",
+          claimedAt: "2027-01-01T01:00:00Z",
+        },
       ] as unknown as PartyRow["bring_board"],
     });
 
     // Host adds a task.
-    store.enqueueUpdate({ ...party, tasks: [{ id: "task1", title: "Prep", bucket: "Day of", done: false }] }, "u");
+    store.enqueueUpdate(
+      { ...party, tasks: [{ id: "task1", title: "Prep", bucket: "Day of", done: false }] },
+      "u",
+    );
     await flush();
 
     const finalRow = fake.rows.get("p1")!;
@@ -266,9 +291,7 @@ describe("PartyStore — data integrity", () => {
     // Server data preserved on the row (not overwritten silently).
     expect(finalRow.name).toBe("Server Name");
     // Store surfaced a conflict state with the local value retained for retry.
-    const conflictEvent = events.find(
-      (e) => e.type === "state" && e.state === "conflict",
-    );
+    const conflictEvent = events.find((e) => e.type === "state" && e.state === "conflict");
     expect(conflictEvent).toBeDefined();
     const st = store.getState("p1");
     expect(st.state).toBe("conflict");
@@ -335,7 +358,8 @@ describe("PartyStore — data integrity", () => {
     fake.seed(partyToColumns(mkParty(), "u"));
     const spy = vi.fn<PartyClient["updateWithConcurrency"]>(async (id, patch, expected) => {
       const cur = fake.rows.get(id);
-      if (!cur || (cur.updated_at ?? "") !== expected) return { data: null, error: null, conflict: true };
+      if (!cur || (cur.updated_at ?? "") !== expected)
+        return { data: null, error: null, conflict: true };
       const next = { ...cur, ...patch, updated_at: fake.tick() };
       fake.rows.set(id, next);
       return { data: next, error: null, conflict: false };
