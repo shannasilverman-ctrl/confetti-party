@@ -12,6 +12,7 @@ import {
   newId,
 } from "@/lib/party-context";
 import { themesForOccasion, type Theme } from "@/lib/themes";
+import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
 import { partiesSummary } from "@/lib/parties-summary";
 
 import { BrandLockup } from "@/components/brand";
