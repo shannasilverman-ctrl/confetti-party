@@ -21,10 +21,22 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 | Build     | `bun run build` (`vite build`)                                                                                                  |
 | E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, `--config dist/server/wrangler.json` webServer, no `reuseExistingServer` in CI) |
 
-Latest local execution (this branch, commit noted in §9): captured in
-the terminal transcript attached to this turn. No release PR exists yet;
-GitHub Actions run URL will be attached once the branch is pushed to
-`origin`.
+Latest local execution on Turn 2 branch (baseline SHA `f665f94` + Turn 2
+edits; SHA finalised on push):
+
+| Gate                          | Result                                     |
+| ----------------------------- | ------------------------------------------ |
+| `bun install --frozen-lockfile` | ok                                       |
+| `bun run format:check`         | Prettier — all files clean                |
+| `bun run lint`                 | ESLint — 0 problems                       |
+| `bun run typecheck`            | `tsc --noEmit` — 0 errors                 |
+| `bun run test`                 | Vitest — 117 passed / 17 files            |
+| `bun run build`                | Vite + Nitro — built in ~0.7s             |
+| `CI=1 … playwright test`       | 76 passed, 48 skipped, 0 failed (exit 0)  |
+
+No release PR exists yet; when the branch is pushed the GitHub Actions
+run URL should be appended here. The `48 skipped` count is the
+mobile-only project skipping desktop tests (and vice-versa) — expected.
 
 ## 2. Bundle byte counts (this commit)
 
