@@ -4,6 +4,7 @@
 import type { OccasionType, Bucket, Task } from "./party-context";
 
 export type PackId =
+  | "generic"
   | "thanksgiving"
   | "friendsgiving"
   | "shabbat"
@@ -148,7 +149,47 @@ function pack(
   };
 }
 
+// Tradition-neutral starter — no culturally specific rituals or menu.
+// Every seed is generic ("main dish", "side", "dessert") and fully editable,
+// so a host who doesn't want any tradition still gets a working checklist +
+// bring board on day one instead of a blank workspace.
+const GENERIC_HOLIDAY: HolidayPack = {
+  id: "generic",
+  label: "Holiday Gathering",
+  blurb: "Tradition-neutral starter. Nothing assumed, everything editable.",
+  emoji: "🎉",
+  respectNote:
+    "This starter avoids any specific tradition. Rename, swap, or remove anything — it's a working shell, not a script.",
+  toneHint: "warm",
+  bringBoardSeeds: [
+    { category: "Main", label: "Main dish", qty: 1, notes: "Host usually covers" },
+    { category: "Sides", label: "Side dish", qty: 2, unit: "dishes" },
+    { category: "Sides", label: "Salad", qty: 1, unit: "big bowl", dietaryTags: ["vegetarian"] },
+    { category: "Sides", label: "Bread or rolls", qty: 1, unit: "basket" },
+    { category: "Dessert", label: "Dessert", qty: 1 },
+    { category: "Drinks", label: "Wine or non-alcoholic drink", qty: 2, unit: "bottles" },
+    { category: "Drinks", label: "Sparkling water", qty: 1, unit: "bottle" },
+    { category: "Ice / Serveware", label: "Bag of ice", qty: 1, unit: "bag" },
+  ],
+  rituals: [{ label: "Toast at the start of the meal", optional: true }],
+  suggestedMenu: [
+    { label: "Main dish", role: "main" },
+    { label: "Two sides", role: "side" },
+    { label: "Dessert", role: "dessert" },
+    { label: "Sparkling water", role: "drink" },
+  ],
+  taskSeeds: [
+    { title: "Confirm headcount and dietary needs", bucket: "3-5 weeks" },
+    { title: "Send the invite with time and location", bucket: "3-5 weeks" },
+    { title: "Assign dishes on the Bring Board", bucket: "1-2 weeks" },
+    { title: "Grocery run for what the host is covering", bucket: "Party week" },
+    { title: "Set the table", bucket: "Day of" },
+    { title: "Chill drinks and put out ice", bucket: "Day of" },
+  ],
+};
+
 export const PACKS: Record<PackId, HolidayPack> = {
+  generic: GENERIC_HOLIDAY,
   thanksgiving: THANKSGIVING,
   friendsgiving: FRIENDSGIVING,
   shabbat: pack(
@@ -535,10 +576,12 @@ export function packOccasion(pack: HolidayPack): OccasionType {
 
 /**
  * Curated Holiday starter list surfaced in the New Party wizard.
- * "generic" carries no pack (empty holidayPackId) so nothing is prescribed.
- * All other entries reference an existing PackId, so no data model fork.
+ * Every starter, including "generic", maps to a real HolidayPack so the
+ * checklist and Bring Board are seeded and immediately editable. No
+ * starter is a true blank; the neutral GENERIC_HOLIDAY pack is the
+ * tradition-free default.
  */
-export type HolidayStarterId = "generic" | PackId;
+export type HolidayStarterId = PackId;
 
 export type HolidayStarter = {
   id: HolidayStarterId;
@@ -553,8 +596,8 @@ export const HOLIDAY_STARTERS: HolidayStarter[] = [
   {
     id: "generic",
     label: "Generic Holiday",
-    emoji: "🎄",
-    blurb: "Blank canvas — no traditions assumed.",
+    emoji: "🎉",
+    blurb: "Tradition-neutral starter. Seeds a basic checklist + bring board.",
     suggestedName: "Holiday Gathering",
   },
   {
@@ -594,13 +637,27 @@ export const HOLIDAY_STARTERS: HolidayStarter[] = [
   },
 ];
 
-export function getStarter(id: string | undefined | null): HolidayStarter | undefined {
-  if (!id) return undefined;
-  return HOLIDAY_STARTERS.find((s) => s.id === id);
+const HOLIDAY_STARTER_IDS: ReadonlySet<HolidayStarterId> = new Set(
+  HOLIDAY_STARTERS.map((s) => s.id),
+);
+
+/** Runtime-safe narrowing: unknown values become undefined instead of crashing. */
+export function toHolidayStarterId(id: unknown): HolidayStarterId | undefined {
+  return typeof id === "string" && HOLIDAY_STARTER_IDS.has(id as HolidayStarterId)
+    ? (id as HolidayStarterId)
+    : undefined;
 }
 
-/** Map a starter selection to its holiday pack (or undefined for "generic"). */
+export function getStarter(id: string | undefined | null): HolidayStarter | undefined {
+  const narrowed = toHolidayStarterId(id);
+  return narrowed ? HOLIDAY_STARTERS.find((s) => s.id === narrowed) : undefined;
+}
+
+/**
+ * Map a starter selection to its holiday pack. Every listed starter has a
+ * pack, so an unknown/absent id returns undefined and no seeding happens.
+ */
 export function starterPack(id: HolidayStarterId | undefined | null): HolidayPack | undefined {
-  if (!id || id === "generic") return undefined;
-  return PACKS[id as PackId];
+  if (!id) return undefined;
+  return PACKS[id];
 }

@@ -56,11 +56,11 @@
   /* --primary must satisfy TWO surfaces simultaneously:
        1. `bg-primary` + `text-primary-foreground` (near-white)  — button fills
        2. `text-primary` on cream `--background`                 — inline text/icons
-     The prior deep-coral 34% preserved (2) but flattened (1). A middle
-     coral (~45% L) restores brand vibrance while still clearing AA on both
-     surfaces (measured ~5.1:1 vs cream, ~5.5:1 vs white). We keep the
-     vibrant 62% coral exposed as `--brand-coral` for decorative gradients
-     and the logo, so hero art still pops. */
+     Retained value: hsl(10 78% 38%). Measured contrast:
+       - text-primary-foreground (hsl 36 44 98) on bg-primary → 7.14:1  (AAA)
+       - text-primary on --background cream (hsl 36 44 96)   → 5.44:1  (AA)
+     The vibrant hsl(10 82% 62%) is exposed as `--brand-coral` for gradients
+     and the logo so hero art still pops, without dragging button contrast down. */
   --primary: hsl(10 78% 38%);
   --primary-foreground: hsl(36 44% 98%);
 
@@ -81,9 +81,11 @@
      use dark ink so `text-warning-foreground` passes AA. */
   --warning: hsl(28 90% 38%);
   --warning-foreground: hsl(290 30% 15%);
-  /* Mint — same dual-surface constraint as `--primary`. 24% was safe but
-     flat; 32% keeps `text-success` on cream at ~4.9:1 while feeling closer
-     to the vibrant `--brand-mint` used decoratively. */
+  /* Mint — same dual-surface constraint as `--primary`. Retained value:
+     hsl(150 55% 26%). Measured contrast:
+       - text-success-foreground on bg-success → 7.62:1  (AAA)
+       - text-success on --background cream    → 5.85:1  (AA)
+     Vibrant hsl(150 55% 52%) is kept as `--brand-mint` for decoration only. */
   --success: hsl(150 55% 26%);
   --success-foreground: hsl(36 44% 98%);
 

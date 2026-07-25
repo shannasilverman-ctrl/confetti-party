@@ -42,18 +42,30 @@ test("home exposes the primary CTA", async ({ page }) => {
   await expect(cta).toBeVisible();
 });
 
-test("RSVP page renders a sanitized not-found state for an unknown token", async ({ page }) => {
+test("RSVP page: malformed token → deterministic not-found copy at 200", async ({ page }) => {
+  const resp = await page.goto("/rsvp/not-a-uuid", { waitUntil: "domcontentloaded" });
+  // Sanitized UI is intentional: return 200 so shared invite links don't
+  // trigger scary browser error pages.
+  expect(resp?.status()).toBe(200);
+  const body = (await page.textContent("body")) ?? "";
+  // Malformed input can ONLY be not-found — assert exact status copy.
+  expect(body).toMatch(/This invite link doesn.?t look right/i);
+  expect(body).not.toMatch(/temporarily unavailable/i);
+  expect(body).not.toMatch(/JWT|PostgREST|SQLSTATE|stack|TypeError|500|internal server/i);
+});
+
+test("RSVP page: well-formed but unknown token → deterministic not-found copy at 200", async ({
+  page,
+}) => {
   const resp = await page.goto("/rsvp/00000000-0000-0000-0000-000000000000", {
     waitUntil: "domcontentloaded",
   });
-  // Deliberate deterministic status: TanStack renders the InvalidInvite UI at 200.
   expect(resp?.status()).toBe(200);
   const body = (await page.textContent("body")) ?? "";
-  // Human-readable copy from either sanitized status (not-found or temporarily-unavailable)
-  // — never raw RPC / server error strings.
-  expect(body).toMatch(
-    /This invite link doesn.?t look right|This invite is temporarily unavailable/i,
-  );
+  // A well-formed UUID that doesn't resolve MUST render not-found copy,
+  // never a raw error. Temporarily-unavailable is reserved for real
+  // outages and is exercised by rsvp-loader.test.ts unit coverage.
+  expect(body).toMatch(/This invite link doesn.?t look right/i);
   expect(body).not.toMatch(/JWT|PostgREST|SQLSTATE|stack|TypeError|500|internal server/i);
 });
 
