@@ -532,3 +532,75 @@ export function packOccasion(pack: HolidayPack): OccasionType {
   // All packs currently map to the generic "holiday" occasion.
   return "holiday";
 }
+
+/**
+ * Curated Holiday starter list surfaced in the New Party wizard.
+ * "generic" carries no pack (empty holidayPackId) so nothing is prescribed.
+ * All other entries reference an existing PackId, so no data model fork.
+ */
+export type HolidayStarterId = "generic" | PackId;
+
+export type HolidayStarter = {
+  id: HolidayStarterId;
+  label: string;
+  emoji: string;
+  blurb: string;
+  /** Suggested (editable) party name when the starter is picked. */
+  suggestedName: string;
+};
+
+export const HOLIDAY_STARTERS: HolidayStarter[] = [
+  {
+    id: "generic",
+    label: "Generic Holiday",
+    emoji: "🎄",
+    blurb: "Blank canvas — no traditions assumed.",
+    suggestedName: "Holiday Gathering",
+  },
+  {
+    id: "thanksgiving",
+    label: "Thanksgiving",
+    emoji: "🍁",
+    blurb: "The classic gather-and-feed.",
+    suggestedName: "Thanksgiving Dinner",
+  },
+  {
+    id: "hanukkah",
+    label: "Hanukkah",
+    emoji: "🕎",
+    blurb: "Latkes, sufganiyot, candles.",
+    suggestedName: "Hanukkah Night",
+  },
+  {
+    id: "christmas",
+    label: "Christmas",
+    emoji: "🎄",
+    blurb: "Feed the family, protect the calm.",
+    suggestedName: "Christmas Dinner",
+  },
+  {
+    id: "new-years",
+    label: "New Year's",
+    emoji: "🥂",
+    blurb: "Countdown, bubbles, one last toast.",
+    suggestedName: "New Year's Eve",
+  },
+  {
+    id: "shabbat",
+    label: "Shabbat / Holiday Dinner",
+    emoji: "🕯️",
+    blurb: "A weekly pause. Light candles, break bread.",
+    suggestedName: "Shabbat Dinner",
+  },
+];
+
+export function getStarter(id: string | undefined | null): HolidayStarter | undefined {
+  if (!id) return undefined;
+  return HOLIDAY_STARTERS.find((s) => s.id === id);
+}
+
+/** Map a starter selection to its holiday pack (or undefined for "generic"). */
+export function starterPack(id: HolidayStarterId | undefined | null): HolidayPack | undefined {
+  if (!id || id === "generic") return undefined;
+  return PACKS[id as PackId];
+}
