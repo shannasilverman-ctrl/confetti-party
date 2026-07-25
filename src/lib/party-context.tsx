@@ -1110,6 +1110,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
+        if (user?.id) void clearRejectedDraft(user.id);
         if (!user) return { error: null };
         const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
