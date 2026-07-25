@@ -610,7 +610,7 @@ function NewPartyWizard({
         )}
 
         {step === 3 && (
-          <div className="py-4">
+          <div className="py-4" data-testid="wizard-step-3">
             {themeOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No themes yet for this occasion. You can still create the party and pick one later.
@@ -622,11 +622,13 @@ function NewPartyWizard({
                   return (
                     <button
                       key={t.id}
+                      type="button"
+                      data-testid={`wizard-theme-${t.id}`}
                       onClick={(e) => {
                         if (theme?.id !== t.id) celebrateAtEvent("small", e);
                         setTheme(t);
                       }}
-                      className={`group overflow-hidden rounded-2xl border text-left transition ${
+                      className={`group min-h-11 overflow-hidden rounded-2xl border text-left transition ${
                         selected
                           ? "border-primary shadow-card ring-2 ring-primary/30"
                           : "border-border hover:border-primary/40"
