@@ -206,7 +206,7 @@ function downloadIcs(party: PartyView) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${party.name.replace(/[^\w\-]+/g, "_") || "party"}.ics`;
+  a.download = `${party.name.replace(/[^\w-]+/g, "_") || "party"}.ics`;
   document.body.appendChild(a);
   a.click();
   a.remove();
