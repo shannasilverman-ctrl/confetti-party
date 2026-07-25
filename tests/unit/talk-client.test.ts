@@ -76,7 +76,7 @@ describe("TalkClient handshake", () => {
     await client.connect();
 
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toContain("https://api.openai.com/v1/realtime?model=gpt-realtime-2.1");
     const headers = new Headers(init.headers);
     expect(headers.get("Authorization")).toBe("Bearer ek_test");
