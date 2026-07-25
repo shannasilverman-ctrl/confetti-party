@@ -28,39 +28,24 @@ function DayOfPage() {
   const party = parties.find((p) => p.id === id);
   const [note, setNote] = useState("");
   // Compute derived state before any early return so hook order is stable
+function DayOfPage() {
+  const { id } = Route.useParams();
+  const { updateParty } = useParties();
+  const resolved = useResolvedParty(id);
+  const party = resolved.state === "ready" ? resolved.party : null;
+  const [note, setNote] = useState("");
+  // Compute derived state before any early return so hook order is stable
   // across renders where the party may briefly disappear (e.g. delete).
   const nextThree = useMemo(
     () => (party?.tasks ?? []).filter((t) => !t.done).slice(0, 3),
     [party?.tasks],
   );
 
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div role="status" className="text-sm text-muted-foreground">
-          Loading your party…
-        </div>
-      </div>
-    );
-  }
+  if (resolved.state === "loading") return <PartyModeLoading />;
+  if (resolved.state === "error") return <PartyModeError retry={resolved.retry} />;
+  if (resolved.state === "missing")
+    return <PartyModeMissing id={id} retry={resolved.retry} mode="day-of" />;
 
-  if (status === "error") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="max-w-sm text-center">
-          <h1 className="font-display text-2xl text-secondary">We couldn’t load your party</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Check your connection and try again. Your plan is still safe.
-          </p>
-          <Button className="mt-4" variant="festive" onClick={refetch}>
-            Try again
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!party) throw notFound();
   const timeline = party.timeline ?? [];
   const yesGuests = party.guests.filter((g) => g.rsvp === "yes");
   const checkins = party.checkins ?? {};
