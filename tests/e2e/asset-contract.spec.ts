@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -87,6 +88,20 @@ test.describe("first-party image asset contract", () => {
     expect(manifest.shortcuts?.map((shortcut) => shortcut.url)).toEqual(
       expect.arrayContaining(["/app", "/talk"]),
     );
+  });
+
+  test("release endpoint identifies the exact build commit", async ({ request }) => {
+    test.skip(test.info().project.name !== "desktop", "release contract runs once");
+
+    const expectedRelease = execFileSync("git", ["rev-parse", "HEAD"], {
+      encoding: "utf8",
+    }).trim();
+    const response = await request.get("/release.json");
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/json");
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({ release: expectedRelease });
   });
 
   test("document advertises the manifest and mobile app identity", async ({ page }) => {
