@@ -581,6 +581,8 @@ function seedAvaLiam(): Party {
 
 // ---- Context ----
 
+type SaveStateSnapshot = import("./party-persistence").SaveState;
+
 type Ctx = {
   parties: Party[];
   status: "loading" | "ready" | "error";
@@ -603,6 +605,10 @@ type Ctx = {
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
   deleteParty: (id: string) => Promise<{ error: string | null }>;
+  /** Save state per party id (idle | saving | saved | offline | error | conflict). */
+  saveStates: Record<string, SaveStateSnapshot>;
+  /** Manually retry a party stuck in error/offline/conflict. */
+  retrySave: (id: string) => void;
 };
 
 import {
