@@ -73,8 +73,9 @@ export function LogoLockup({
   const type = size === "hero" ? "text-2xl sm:text-3xl" : "text-xl";
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
-      <LogoMark className={markSize} />
+      <LogoMark className={markSize} decorative />
       <span
+
         className={`font-display font-semibold tracking-tight text-secondary ${type} ${wordmarkClassName}`}
       >
         Confetti
