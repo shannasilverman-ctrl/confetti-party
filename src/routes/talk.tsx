@@ -337,7 +337,15 @@ function TalkRoute() {
 
   const startVoice = useCallback(async () => {
     setVoiceError(null);
+    // Voice requires an authenticated session — never call the mint API
+    // from the signed-out demo path.
+    if (isDemo || !user) {
+      toast.error("Please sign in to talk with Confetti.");
+      navigate({ to: "/auth" });
+      return;
+    }
     setConnecting(true);
+    setStatusAnnouncement("Connecting to voice.");
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
@@ -352,12 +360,11 @@ function TalkRoute() {
         body: JSON.stringify({}),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const msg =
-          (body as { message?: string })?.message ??
-          `Voice unavailable (${res.status}). Use text mode.`;
+        // Discard the raw response body — never render provider text.
+        const msg = friendlyTalkError("voice_connect", new Error(`status_${res.status}`));
         setVoiceError(msg);
         toast.error(msg);
+        setStatusAnnouncement(msg);
         setConnecting(false);
         return;
       }
@@ -380,14 +387,17 @@ function TalkRoute() {
       setSessionId(sessionId);
       startedAtRef.current = Date.now();
       await client.connect();
+      setStatusAnnouncement("Voice connected.");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = friendlyTalkError("voice_connect", err);
       setVoiceError(msg);
       toast.error(msg);
+      setStatusAnnouncement(msg);
     } finally {
       setConnecting(false);
     }
-  }, [handleVoiceEvent, navigate]);
+  }, [handleVoiceEvent, navigate, isDemo, user]);
+
 
   const stopVoice = useCallback(async () => {
     clientRef.current?.close("user_ended");
