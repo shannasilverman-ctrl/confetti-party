@@ -17,6 +17,7 @@ import {
   type RSVP,
 } from "@/lib/party-context";
 import { BrandLockup } from "@/components/brand";
+import { DeletePartyButton } from "@/components/delete-party-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -155,6 +156,13 @@ function PartyWorkspace() {
                   <Timer className="h-4 w-4" /> Day-of
                 </Link>
               </Button>
+              <DeletePartyButton
+                partyId={party.id}
+                partyName={party.name}
+                redirectOnDelete
+                variant="ghost"
+                size="sm"
+              />
             </div>
           </div>
 
