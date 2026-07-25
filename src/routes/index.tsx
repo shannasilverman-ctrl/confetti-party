@@ -84,7 +84,7 @@ function Landing() {
     <div className="min-h-screen bg-background text-foreground">
       <SeasonalBanner />
       {/* Nav */}
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <header className="relative z-20 mx-auto mt-3 flex max-w-5xl items-center justify-between rounded-full border border-white/80 bg-white/90 px-4 py-3 shadow-elevated backdrop-blur-xl sm:mt-5 sm:px-6">
         <BrandLockup />
         <nav className="flex items-center gap-3 sm:gap-5">
           <Link
@@ -106,7 +106,7 @@ function Landing() {
         {/* Cinematic hero */}
         <section
           className="relative isolate overflow-hidden"
-          style={{ backgroundColor: "hsl(268 55% 15%)" }}
+          style={{ backgroundColor: "hsl(270 25% 97%)" }}
         >
           {/* Image plate */}
           <div className="absolute inset-0 -z-10">
@@ -120,27 +120,27 @@ function Landing() {
               decoding="async"
               className="h-full w-full object-cover"
             />
-            {/* Plum veil for AA contrast on display type */}
+            {/* Dreamy paper veil from the original confettiapp.ai hero. */}
             <div
               className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(180deg, hsl(268 55% 12% / 0.55) 0%, hsl(268 55% 12% / 0.35) 55%, hsl(36 44% 97% / 0.98) 100%)",
+                  "linear-gradient(180deg, hsl(270 25% 97% / 0.88) 0%, hsl(270 25% 97% / 0.77) 52%, hsl(270 25% 97% / 0.98) 100%), radial-gradient(90% 65% at 50% 20%, hsl(0 0% 100% / 0.52), transparent 72%)",
               }}
               aria-hidden
             />
           </div>
 
-          <div className="relative mx-auto max-w-4xl px-6 pb-24 pt-16 text-center sm:pb-32 sm:pt-24">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90 backdrop-blur">
+          <div className="relative mx-auto max-w-5xl px-6 pb-24 pt-16 text-center sm:pb-32 sm:pt-24">
+            <span className="inline-flex items-center gap-2 rounded-full border border-secondary/10 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[hsl(39_42%_44%)] shadow-soft backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" /> Your calm co-host
             </span>
-            <h1 className="mt-6 font-display text-[2.75rem] font-semibold leading-[1.02] tracking-tight text-white drop-shadow-[0_2px_20px_hsl(268_55%_10%/0.5)] sm:text-6xl md:text-7xl">
+            <h1 className="mt-6 font-display text-[3rem] font-medium leading-[1.01] tracking-[-0.035em] text-foreground sm:text-7xl md:text-[5.4rem]">
               Throw the party
               <br />
-              everyone remembers.
+              everyone <span className="italic text-secondary">remembers.</span>
             </h1>
-            <p className="mx-auto mt-6 max-w-xl text-base text-white/85 sm:text-lg">
+            <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-relaxed text-muted-foreground sm:text-xl">
               From the first idea to the final toast — guests, checklist, budget, day-of, and the
               memories after. Confetti gets you there, calmly.
             </p>
@@ -156,12 +156,14 @@ function Landing() {
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+                className="border-white/90 bg-white/70 text-foreground shadow-soft backdrop-blur hover:bg-white"
               >
                 <Link to="/sample-invite">Open a sample invite</Link>
               </Button>
             </div>
-            <p className="mt-4 text-xs text-white/70">Free. No sign-up needed to look around.</p>
+            <p className="mt-4 text-xs font-medium text-muted-foreground">
+              Free. No sign-up needed to look around.
+            </p>
           </div>
         </section>
 

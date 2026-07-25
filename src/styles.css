@@ -36,22 +36,22 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --font-display: "Fraunces", "Cormorant Garamond", ui-serif, Georgia, "Times New Roman", serif;
-  --font-body: "Nunito", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-body: "Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: var(--font-body);
 }
 
 :root {
   --radius: 1rem;
 
-  /* Soft cream background, dark plum text */
-  --background: hsl(36 44% 97%);
-  --foreground: hsl(290 30% 15%);
+  /* Original Confetti canvas: pale lilac paper with deep aubergine ink. */
+  --background: hsl(270 25% 97%);
+  --foreground: hsl(265 28% 14%);
 
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(290 30% 15%);
+  --card-foreground: hsl(265 28% 14%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(290 30% 15%);
+  --popover-foreground: hsl(265 28% 14%);
 
   /* --primary must satisfy TWO surfaces simultaneously:
        1. `bg-primary` + `text-primary-foreground` (near-white)  — button fills
@@ -65,22 +65,22 @@
   --primary-foreground: hsl(36 44% 98%);
 
   /* Deep violet */
-  --secondary: hsl(268 55% 32%);
+  --secondary: hsl(270 49% 35%);
   --secondary-foreground: hsl(36 44% 98%);
 
   /* Golden amber */
   --accent: hsl(38 92% 58%);
-  --accent-foreground: hsl(290 30% 15%);
+  --accent-foreground: hsl(265 28% 14%);
 
-  --muted: hsl(36 30% 92%);
-  --muted-foreground: hsl(290 15% 30%);
+  --muted: hsl(266 40% 94%);
+  --muted-foreground: hsl(266 8% 40%);
 
   --destructive: hsl(0 72% 40%);
   --destructive-foreground: hsl(36 44% 98%);
   /* Warning text/foreground must sit on warning/10-15 tints, which are light —
      use dark ink so `text-warning-foreground` passes AA. */
   --warning: hsl(28 90% 38%);
-  --warning-foreground: hsl(290 30% 15%);
+  --warning-foreground: hsl(265 28% 14%);
   /* Mint — same dual-surface constraint as `--primary`. Retained value:
      hsl(150 55% 26%). Measured contrast:
        - text-success-foreground on bg-success → 7.62:1  (AAA)
@@ -89,15 +89,15 @@
   --success: hsl(150 55% 26%);
   --success-foreground: hsl(36 44% 98%);
 
-  --border: hsl(30 25% 88%);
-  --input: hsl(30 25% 88%);
+  --border: hsl(265 20% 88%);
+  --input: hsl(265 20% 88%);
   --ring: hsl(10 78% 45%);
 
   /* Brand accents (used by Logo and gradients) */
-  --brand-plum: hsl(268 55% 32%);
-  --brand-coral: hsl(10 82% 62%);
-  --brand-gold: hsl(38 92% 58%);
-  --brand-mint: hsl(150 55% 52%);
+  --brand-plum: hsl(270 49% 35%);
+  --brand-coral: hsl(347 56% 58%);
+  --brand-gold: hsl(39 55% 50%);
+  --brand-mint: hsl(161 46% 45%);
 
   /* Festive gradient */
   --gradient-festive: linear-gradient(
@@ -112,11 +112,15 @@
     hsl(268 55% 18% / 0.05) 0%,
     hsl(268 55% 18% / 0.7) 100%
   );
-  --shadow-soft: 0 2px 10px -6px hsl(268 55% 20% / 0.18), 0 1px 3px -1px hsl(268 55% 20% / 0.08);
-  --shadow-card: 0 4px 20px -8px hsl(268 55% 32% / 0.15);
+  --shadow-soft: 0 10px 28px -20px hsl(265 28% 14% / 0.24), 0 2px 8px -4px hsl(265 28% 14% / 0.08);
+  --shadow-card: 0 20px 50px -30px hsl(265 28% 14% / 0.24);
   --shadow-elevated:
     0 24px 60px -24px hsl(268 55% 26% / 0.28), 0 4px 12px -6px hsl(268 55% 26% / 0.12);
   --shadow-lift: 0 40px 80px -30px hsl(268 55% 20% / 0.35);
+  --gradient-brand-wash:
+    radial-gradient(circle at 6% 2%, hsl(215 70% 92% / 0.7), transparent 34%),
+    radial-gradient(circle at 84% 8%, hsl(347 70% 94% / 0.75), transparent 36%),
+    radial-gradient(circle at 52% 78%, hsl(270 55% 94% / 0.75), transparent 40%), hsl(270 25% 97%);
 
   /* Confetti dot pattern — softer, larger tile so it feels editorial */
   --pattern-confetti:
@@ -134,9 +138,12 @@
   background-image: var(--gradient-sunrise);
 }
 @utility bg-confetti {
-  background-color: hsl(36 44% 97%);
+  background-color: hsl(270 25% 97%);
   background-image: var(--pattern-confetti);
   background-size: 260px 260px;
+}
+@utility bg-brand-wash {
+  background: var(--gradient-brand-wash);
 }
 @utility shadow-soft {
   box-shadow: var(--shadow-soft);
