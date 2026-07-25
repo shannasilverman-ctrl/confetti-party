@@ -537,33 +537,7 @@ function StoryRow({
 }
 
 
-function InviteMini() {
-  return (
-    <div className="rotate-[-1.5deg] overflow-hidden rounded-3xl border border-border bg-card shadow-card">
-      <div className="bg-festive p-5 text-primary-foreground">
-        <div className="text-[10px] uppercase tracking-wider opacity-80">You're invited</div>
-        <div className="mt-1 font-display text-xl font-semibold">Maya's 8th Birthday</div>
-        <div className="mt-2 flex items-center gap-2 text-xs opacity-90">
-          <Calendar className="h-3.5 w-3.5" /> Sat, Aug 15
-          <span className="opacity-60">·</span>
-          <Clock className="h-3.5 w-3.5" /> 2:00 PM
-        </div>
-        <div className="mt-1 flex items-center gap-1.5 text-xs opacity-90">
-          <MapPin className="h-3.5 w-3.5" /> Our backyard
-        </div>
-      </div>
-      <div className="flex items-center justify-between p-4">
-        <div className="text-xs text-muted-foreground">confetti.app/rsvp/…</div>
-        <button
-          type="button"
-          className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground"
-        >
-          RSVP
-        </button>
-      </div>
-    </div>
-  );
-}
+
 
 function ChecklistMini() {
   const rows: { tag: string; tagVariant: "muted" | "coral"; text: string; done?: boolean }[] = [
