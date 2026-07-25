@@ -327,16 +327,24 @@ export function PersonalizedPhotoBooth({
             </DialogTrigger>
             <DialogContent className="max-h-[92dvh] max-w-xl overflow-y-auto p-0">
               <DialogHeader className="px-5 pt-6 text-left sm:px-6">
-                <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                  <Camera className="h-5 w-5" aria-hidden />
+                <div className="mb-2 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <Camera className="h-5 w-5" aria-hidden />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+                      {theme?.name ?? "A Confetti original"}
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{dateLabel}</div>
+                  </div>
                 </div>
                 <DialogTitle className="font-display text-2xl">
-                  {photo ? "Make it party-official" : "Your private party booth"}
+                  {photo ? "Make it party-official" : `${photoBoothTitle(eventName)} Party Booth`}
                 </DialogTitle>
                 <DialogDescription>
                   {photo
                     ? `Choose a ${theme?.name ? `${theme.name} ` : ""}finish for ${photoBoothTitle(eventName)}.`
-                    : "Take a new photo or choose a favorite from your library."}
+                    : `Take a photo, add the frame made for ${photoBoothTitle(eventName)}, and keep it on your phone.`}
                 </DialogDescription>
               </DialogHeader>
 
@@ -447,7 +455,7 @@ export function PersonalizedPhotoBooth({
                 <div className="flex items-start gap-2 rounded-2xl bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
                   <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
                   <p>
-                    Private by design: your original and finished photo stay on this device.
+                    No app or account needed. Your original and finished photo stay on this device;
                     Confetti never uploads or stores them.
                   </p>
                 </div>

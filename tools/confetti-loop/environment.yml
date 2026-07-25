@@ -1,0 +1,9 @@
+name: confetti-quality-loop
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - langgraph==1.2.9
+      - pytest>=8.4,<9

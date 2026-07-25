@@ -34,3 +34,10 @@ dist-ssr
 coverage
 test-results
 playwright-report
+.loop/**/STATE.json
+**/__pycache__/
+*.py[cod]
+
+# Local design explorations are preserved for review, but rejected/private
+# logo rounds and source media do not belong in production release commits.
+design/

@@ -21,6 +21,8 @@ type Scenario = {
   containers?: string[];
   /** REQUIRED sticky/fixed anchors — must be present, in-viewport, and not occluded. */
   requiredSticky?: string[];
+  /** Elements that must paint above the surface they intentionally overlap. */
+  foregroundPairs?: Array<{ foreground: string; background: string }>;
   setup?: (page: Page) => Promise<void>;
 };
 
@@ -29,6 +31,17 @@ const SCENARIOS: Scenario[] = [
   { slug: "landing", route: "/", containers: ["header", "footer"] },
   { slug: "talk-signed-out", route: "/talk", containers: ["main"] },
   { slug: "app-dashboard", route: "/app", containers: ["main"] },
+  {
+    slug: "sample-invite",
+    route: "/sample-invite",
+    containers: ["main", '[data-testid="sample-invite-content"]'],
+    foregroundPairs: [
+      {
+        foreground: '[data-testid="sample-invite-content"]',
+        background: "section",
+      },
+    ],
+  },
   {
     slug: "new-party-dialog",
     route: "/app",
@@ -303,6 +316,33 @@ test.describe("mobile matrix — no horizontal overflow", () => {
               `${scenario.slug}@${width}px — required sticky ${s.selector} bottom ${s.bottom} > viewport height`,
             ).toBeLessThanOrEqual(900);
           }
+        }
+        for (const pair of scenario.foregroundPairs ?? []) {
+          const paintOrder = await page.evaluate(({ foreground, background }) => {
+            const front = document.querySelector(foreground) as HTMLElement | null;
+            const back = document.querySelector(background) as HTMLElement | null;
+            if (!front || !back) return { found: false, frontOwnsOverlap: false };
+            const fr = front.getBoundingClientRect();
+            const br = back.getBoundingClientRect();
+            const overlapTop = Math.max(fr.top, br.top);
+            const overlapBottom = Math.min(fr.bottom, br.bottom);
+            if (overlapBottom <= overlapTop) return { found: true, frontOwnsOverlap: false };
+            const x = Math.max(fr.left + 1, Math.min(fr.right - 1, fr.left + fr.width / 2));
+            const y = overlapTop + Math.min(8, (overlapBottom - overlapTop) / 2);
+            const hit = document.elementFromPoint(x, y);
+            return {
+              found: true,
+              frontOwnsOverlap: !!hit && (hit === front || front.contains(hit)),
+            };
+          }, pair);
+          expect(
+            paintOrder.found,
+            `${scenario.slug}@${width}px — foreground/background overlap pair must exist`,
+          ).toBe(true);
+          expect(
+            paintOrder.frontOwnsOverlap,
+            `${scenario.slug}@${width}px — ${pair.background} paints over ${pair.foreground}`,
+          ).toBe(true);
         }
         // Sanity-check safe-area probe values are numeric px strings.
         for (const side of ["top", "right", "bottom", "left"] as const) {

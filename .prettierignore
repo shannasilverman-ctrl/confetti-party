@@ -13,3 +13,4 @@ playwright-report
 
 src/integrations/supabase/types.ts
 PHASE4_QA_evidence.json
+tools/confetti-loop/*.py

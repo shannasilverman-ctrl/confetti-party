@@ -12,7 +12,16 @@ import { resolve } from "node:path";
  * fast at collection time if the assets are removed.
  */
 
-const REQUIRED_PUBLIC_FILES = ["public/brand/confetti-hero.jpg", "public/brand/ava-liam.jpg"];
+const REQUIRED_PUBLIC_FILES = [
+  "public/brand/confetti-hero.jpg",
+  "public/brand/ava-liam.jpg",
+  "public/brand/birthday-hero-v1.jpg",
+  "public/brand/kids-party-v1.jpg",
+  "public/brand/hosting-dinner-v1.jpg",
+  "public/brand/confetti-hero-poster.jpg",
+  "public/brand/confetti-hero-loop-v1.webm",
+  "public/brand/world-cup-watch-v1.jpg",
+];
 const MANIFEST_PATH = "public/manifest.webmanifest";
 const APP_ICON_FILES = [
   "public/apple-touch-icon.png",
@@ -25,7 +34,13 @@ const APP_ICON_FILES = [
 // current compressed output, not the current byte count.
 const MAX_BYTES: Record<string, number> = {
   "public/brand/ava-liam.jpg": 450 * 1024, // wedding banner ceiling
-  "public/brand/confetti-hero.jpg": 300 * 1024, // landing hero ceiling
+  "public/brand/confetti-hero.jpg": 300 * 1024, // Party Booth story ceiling
+  "public/brand/birthday-hero-v1.jpg": 300 * 1024,
+  "public/brand/kids-party-v1.jpg": 425 * 1024,
+  "public/brand/hosting-dinner-v1.jpg": 325 * 1024,
+  "public/brand/confetti-hero-poster.jpg": 200 * 1024,
+  "public/brand/confetti-hero-loop-v1.webm": 650 * 1024,
+  "public/brand/world-cup-watch-v1.jpg": 300 * 1024, // game-day banner ceiling
 };
 
 test.describe("first-party image asset contract", () => {
@@ -148,20 +163,23 @@ test.describe("first-party image asset contract", () => {
     await page.goto("/app");
     await page.getByRole("button", { name: "Dismiss" }).click();
 
-    const installPrompt = await page.evaluateHandle(() => {
-      const event = new Event("beforeinstallprompt", { cancelable: true });
-      Object.assign(event, {
-        prompt: () => Promise.resolve(),
-        userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }),
-      });
-      window.dispatchEvent(event);
-      return event;
-    });
+    const installRegion = page.getByRole("region", { name: "Install Confetti" });
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => {
+          const event = new Event("beforeinstallprompt", { cancelable: true });
+          Object.assign(event, {
+            prompt: () => Promise.resolve(),
+            userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }),
+          });
+          window.dispatchEvent(event);
+        });
+        return installRegion.isVisible();
+      })
+      .toBe(true);
 
-    await expect(page.getByRole("region", { name: "Install Confetti" })).toBeVisible();
     await page.getByRole("button", { name: "Install Confetti" }).click();
-    await expect(page.getByRole("region", { name: "Install Confetti" })).toBeHidden();
-    await installPrompt.dispose();
+    await expect(installRegion).toBeHidden();
   });
 
   test("landing + sample workspace image URLs return 2xx and no /__l5e/ refs", async ({
@@ -185,7 +203,16 @@ test.describe("first-party image asset contract", () => {
     }
 
     // Both branded images must be requested and return 2xx.
-    const required = ["/brand/confetti-hero.jpg", "/brand/ava-liam.jpg"];
+    const required = [
+      "/brand/confetti-hero.jpg",
+      "/brand/ava-liam.jpg",
+      "/brand/birthday-hero-v1.jpg",
+      "/brand/kids-party-v1.jpg",
+      "/brand/hosting-dinner-v1.jpg",
+      "/brand/confetti-hero-poster.jpg",
+      "/brand/confetti-hero-loop-v1.webm",
+      "/brand/world-cup-watch-v1.jpg",
+    ];
     for (const path of required) {
       const res = await request.get(path);
       expect(res.status(), `${path} must return 2xx`).toBeLessThan(400);

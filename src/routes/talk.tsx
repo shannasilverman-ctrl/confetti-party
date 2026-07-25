@@ -24,6 +24,7 @@ import { sendTurn, confirmDraft, previewDraft } from "@/lib/talk-brain.functions
 import { demoReply, DEMO_MAX_TURNS } from "@/lib/talk-demo";
 import { createTalkLifecycle } from "@/lib/talk-lifecycle";
 import { celebrate } from "@/components/confetti-burst";
+import { BrandLockup, BrandMark } from "@/components/brand";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +60,13 @@ export const Route = createFileRoute("/talk")({
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 type Line = { role: "user" | "assistant"; text: string; partial: boolean };
+
+const STARTER_PROMPTS = [
+  "A backyard birthday that feels easy",
+  "Shabbat dinner this Friday",
+  "Holiday dinner for the whole family",
+  "A watch party at home",
+] as const;
 
 // Stable friendly copy. Raw caught error / provider messages must never
 // reach the toast or DOM — they can leak upstream identifiers, stack
@@ -518,7 +526,7 @@ function TalkRoute() {
   const isLive = state === "listening" || state === "speaking";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-brand-wash">
       {/* Polite screen-reader announcements: thinking, send/connect
           errors, connection lifecycle, demo-limit reached. */}
       <div role="status" aria-live="polite" className="sr-only">
@@ -526,26 +534,27 @@ function TalkRoute() {
       </div>
 
       <div
-        className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 pt-4 md:pt-8"
+        className="mx-auto flex min-h-screen max-w-6xl flex-col px-3 pt-3 sm:px-6 sm:pt-5"
         style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
-        <header className="flex items-center justify-between gap-2">
+        <header className="flex items-center justify-between gap-2 rounded-full border border-white/80 bg-white/90 px-2.5 py-1.5 shadow-brand backdrop-blur-xl sm:px-4">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate({ to: "/app" })}
-            className="gap-1 min-h-11"
+            className="min-h-11 gap-1"
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
-          <h1 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            <a href="/" aria-label="Confetti — home" className="hover:text-foreground">
-              Talk it out · Confetti
-            </a>
-          </h1>
+          <a href="/" aria-label="Confetti — home" className="flex min-h-11 items-center sm:hidden">
+            <BrandMark className="h-8 w-8" />
+          </a>
+          <div className="hidden shrink-0 sm:block">
+            <BrandLockup />
+          </div>
 
           <div
-            className="inline-flex overflow-hidden rounded-lg border border-border text-xs"
+            className="inline-flex overflow-hidden rounded-full border border-border bg-muted/30 text-xs"
             role="tablist"
             aria-label="Talk mode"
           >
@@ -554,7 +563,7 @@ function TalkRoute() {
               aria-selected={mode === "text"}
               onClick={() => setMode("text")}
               className={cn(
-                "min-h-9 px-3 py-1",
+                "min-h-10 px-3.5 py-1",
                 mode === "text" ? "bg-primary text-primary-foreground" : "bg-background",
               )}
             >
@@ -565,7 +574,7 @@ function TalkRoute() {
               aria-selected={mode === "voice"}
               onClick={() => setMode("voice")}
               className={cn(
-                "min-h-9 px-3 py-1",
+                "min-h-10 px-3.5 py-1",
                 mode === "voice" ? "bg-primary text-primary-foreground" : "bg-background",
               )}
             >
@@ -575,209 +584,274 @@ function TalkRoute() {
         </header>
 
         {mode === "text" ? (
-          <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
-            <section className="flex flex-col">
-              {isDemo && (
-                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-primary/5 px-4 py-2.5 text-xs text-secondary">
-                  <Badge variant="secondary" className="uppercase tracking-wide">
-                    Demo
-                  </Badge>
-                  <span className="min-w-0 flex-1">
-                    You're chatting with a preview brain — {DEMO_MAX_TURNS} turns, no account
-                    needed. Sign up free to save the plan and unlock voice.
-                  </span>
-                  <Button asChild size="sm" variant="festive">
-                    <a href="/auth?mode=signup">Sign up free</a>
-                  </Button>
-                </div>
-              )}
-              <Card className="flex h-[520px] flex-col md:h-[600px]">
-                <div className="border-b px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Conversation
-                </div>
-
-                <div
-                  ref={chatScrollRef}
-                  className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
-                  aria-live="polite"
-                >
-                  {messages.map((m, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "rounded-2xl px-3 py-2 text-sm",
-                        m.role === "assistant"
-                          ? "bg-muted text-foreground"
-                          : "ml-auto max-w-[85%] bg-primary/10 text-foreground",
-                      )}
-                    >
-                      <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        {m.role === "assistant" ? "Confetti" : "You"}
-                      </div>
-                      {m.content}
-                    </div>
-                  ))}
-                  {thinking && (
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
-                    </div>
-                  )}
-                </div>
-                <div className="border-t p-3">
-                  <div className="flex items-end gap-2">
-                    <Textarea
-                      value={typed}
-                      onChange={(e) => setTyped(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          sendMessage();
-                        }
-                      }}
-                      placeholder={
-                        demoLimitReached
-                          ? "Demo turns used — sign up free to keep going."
-                          : "Tell Confetti the brain dump…"
-                      }
-                      rows={2}
-                      className="min-h-[52px] resize-none"
-                      aria-label="Message Confetti"
-                      disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
-                    />
-                    <Button
-                      onClick={sendMessage}
-                      disabled={
-                        (!isDemo && !draftId) || thinking || !typed.trim() || demoLimitReached
-                      }
-                      size="icon"
-                      variant="secondary"
-                      aria-label="Send message"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
-                    {speechSupported && (
-                      <Button
-                        type="button"
-                        onClick={dictating ? stopDictation : startDictation}
-                        size="icon"
-                        variant={dictating ? "festive" : "outline"}
-                        aria-label={dictating ? "Stop dictation" : "Start dictation"}
-                        title={dictating ? "Stop dictation" : "Dictate (browser voice input)"}
-                        disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
-                      >
-                        {dictating ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                      </Button>
-                    )}
-                  </div>
-                  {dictating && (
-                    <div className="mt-2 text-[11px] text-muted-foreground">
-                      Listening… speak, then tap the mic again to stop.
-                    </div>
-                  )}
-                </div>
-              </Card>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Nothing is sent, purchased, or booked without your confirmation.
+          <main className="mt-7 flex-1 md:mt-10">
+            <section className="mb-6 max-w-4xl">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-gold)]">
+                Your calm cohost
+              </div>
+              <h1 className="mt-2 max-w-3xl font-display text-4xl font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl md:text-6xl">
+                Start messy.{" "}
+                <span className="italic text-secondary">We’ll shape the party together.</span>
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+                Tell me what you know, what you’re unsure about, and what you want the gathering to
+                feel like. Leave anything blank—we can come back to it.
               </p>
             </section>
 
-            <aside className="space-y-3">
-              <Card className="p-4">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <Sparkles className="h-3.5 w-3.5" /> What I'm hearing
-                </div>
-                {assumptions.length === 0 && openQs.length === 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    I'll surface assumptions and open questions here as we talk.
-                  </p>
-                ) : (
-                  <div className="mt-2 space-y-3">
-                    {assumptions.length > 0 && (
-                      <div>
-                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Assumptions
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_320px]">
+              <section className="flex flex-col">
+                {isDemo && (
+                  <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-white/80 bg-white/72 px-4 py-3 text-xs text-secondary shadow-soft backdrop-blur">
+                    <Badge variant="secondary" className="uppercase tracking-wide">
+                      Demo
+                    </Badge>
+                    <span className="min-w-0 flex-1">
+                      You're chatting with a preview brain — {DEMO_MAX_TURNS} turns, no account
+                      needed. Sign up free to save the plan and unlock voice.
+                    </span>
+                    <Button asChild size="sm" variant="festive">
+                      <a href="/auth?mode=signup">Sign up free</a>
+                    </Button>
+                  </div>
+                )}
+                <Card className="flex h-[540px] flex-col overflow-hidden rounded-[1.75rem] border-white/80 bg-white/92 shadow-lift md:h-[440px]">
+                  <div className="flex items-center gap-2 border-b border-border/70 bg-white/60 px-5 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full bg-[var(--brand-coral)]" aria-hidden />
+                    Planning together
+                  </div>
+
+                  <div
+                    ref={chatScrollRef}
+                    className="flex-1 space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.055),transparent_38%)] px-4 py-5 sm:px-5"
+                    aria-live="polite"
+                  >
+                    {messages.map((m, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "rounded-[1.35rem] px-4 py-3 text-sm leading-6",
+                          m.role === "assistant"
+                            ? "max-w-[92%] rounded-tl-md bg-[hsl(267_32%_93%)] text-foreground"
+                            : "ml-auto max-w-[85%] rounded-tr-md bg-primary/10 text-foreground",
+                        )}
+                      >
+                        <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {m.role === "assistant" ? "Confetti" : "You"}
                         </div>
-                        <ul className="space-y-1">
-                          {assumptions.map((a, i) => (
-                            <li key={i}>
-                              <Badge variant="secondary" className="whitespace-normal text-left">
-                                {a}
-                              </Badge>
-                            </li>
+                        {m.content}
+                      </div>
+                    ))}
+                    {messages.length === 1 && !thinking && (
+                      <div className="pt-1">
+                        <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                          Start wherever it feels easiest
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {STARTER_PROMPTS.map((prompt) => (
+                            <button
+                              key={prompt}
+                              type="button"
+                              onClick={() => setTyped(prompt)}
+                              className="min-h-11 rounded-full border border-primary/15 bg-white/85 px-3 py-2 text-left text-xs font-medium text-secondary shadow-sm transition hover:border-primary/35 hover:bg-white"
+                            >
+                              {prompt}
+                            </button>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
-                    {openQs.length > 0 && (
-                      <div>
-                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Open questions
-                        </div>
-                        <ul className="space-y-1 text-sm text-foreground">
-                          {openQs.map((q, i) => (
-                            <li key={i} className="rounded-lg bg-muted/40 px-2.5 py-1.5">
-                              {q}
-                            </li>
-                          ))}
-                        </ul>
+                    {thinking && (
+                      <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
                       </div>
                     )}
                   </div>
-                )}
-              </Card>
-              {isDemo ? (
-                <>
-                  <Button asChild variant="festive" size="lg" className="w-full">
-                    <a href="/auth?mode=signup">
-                      <CheckCircle2 className="mr-2 h-4 w-4" /> Sign up to save this plan
-                    </a>
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground">
-                    Demo replies are canned so you can feel the flow. Real Confetti tailors the
-                    plan, saves your workspace, and unlocks voice.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Button
-                    variant="festive"
-                    size="lg"
-                    className="w-full"
-                    onClick={openReview}
-                    disabled={
-                      !draftId ||
-                      confirming ||
-                      reviewLoading ||
-                      (!readyToConfirm && messages.length < 4)
-                    }
-                    data-testid="talk-open-review"
-                  >
-                    {reviewLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing review…
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> Review &amp; create the plan
-                      </>
+                  <div className="border-t border-border/70 bg-white/80 p-3 backdrop-blur">
+                    <div className="flex items-end gap-2">
+                      <Textarea
+                        value={typed}
+                        onChange={(e) => setTyped(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage();
+                          }
+                        }}
+                        placeholder={
+                          demoLimitReached
+                            ? "Demo turns used — sign up free to keep going."
+                            : "Tell Confetti the brain dump…"
+                        }
+                        rows={2}
+                        className="min-h-[54px] resize-none rounded-2xl border-border/80 bg-white"
+                        aria-label="Message Confetti"
+                        disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
+                      />
+                      <Button
+                        onClick={sendMessage}
+                        disabled={
+                          (!isDemo && !draftId) || thinking || !typed.trim() || demoLimitReached
+                        }
+                        size="icon"
+                        variant="festive"
+                        aria-label="Send message"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                      {speechSupported && (
+                        <Button
+                          type="button"
+                          onClick={dictating ? stopDictation : startDictation}
+                          size="icon"
+                          variant={dictating ? "festive" : "outline"}
+                          aria-label={dictating ? "Stop dictation" : "Start dictation"}
+                          title={dictating ? "Stop dictation" : "Dictate (browser voice input)"}
+                          disabled={(!isDemo && !draftId) || thinking || demoLimitReached}
+                        >
+                          {dictating ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                    {dictating && (
+                      <div className="mt-2 text-[11px] text-muted-foreground">
+                        Listening… speak, then tap the mic again to stop.
+                      </div>
                     )}
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground">
-                    Turns your conversation into a real workspace: tasks, budget, guests, bring
-                    board.
-                  </p>
-                </>
-              )}
-            </aside>
+                  </div>
+                </Card>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Nothing is sent, purchased, or booked without your confirmation.
+                </p>
+              </section>
+
+              <aside className="space-y-3">
+                <Card className="rounded-3xl border-white/80 bg-white/88 p-5 shadow-card backdrop-blur">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" /> What I'm hearing
+                  </div>
+                  {assumptions.length === 0 && openQs.length === 0 ? (
+                    <div className="mt-3">
+                      <p className="text-sm leading-6 text-secondary">
+                        I’ll listen for the pieces that turn an idea into a plan:
+                      </p>
+                      <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+                        {["The feeling you want", "People, food, and place", "What can wait"].map(
+                          (item) => (
+                            <li
+                              key={item}
+                              className="flex items-center gap-2 rounded-xl bg-muted/45 px-3 py-2"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 text-primary" aria-hidden />
+                              {item}
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="mt-2 space-y-3">
+                      {assumptions.length > 0 && (
+                        <div>
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Assumptions
+                          </div>
+                          <ul className="space-y-1">
+                            {assumptions.map((a, i) => (
+                              <li key={i}>
+                                <Badge variant="secondary" className="whitespace-normal text-left">
+                                  {a}
+                                </Badge>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {openQs.length > 0 && (
+                        <div>
+                          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Open questions
+                          </div>
+                          <ul className="space-y-1 text-sm text-foreground">
+                            {openQs.map((q, i) => (
+                              <li key={i} className="rounded-lg bg-muted/40 px-2.5 py-1.5">
+                                {q}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Card>
+                {isDemo ? (
+                  <>
+                    <Button asChild variant="festive" size="lg" className="w-full">
+                      <a href="/auth?mode=signup">
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Sign up to save this plan
+                      </a>
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      Demo replies are canned so you can feel the flow. Real Confetti tailors the
+                      plan, saves your workspace, and unlocks voice.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="festive"
+                      size="lg"
+                      className="w-full"
+                      onClick={openReview}
+                      disabled={
+                        !draftId ||
+                        confirming ||
+                        reviewLoading ||
+                        (!readyToConfirm && messages.length < 4)
+                      }
+                      data-testid="talk-open-review"
+                    >
+                      {reviewLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing review…
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4" /> Review &amp; create the plan
+                        </>
+                      )}
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      Turns your conversation into a real workspace: tasks, budget, guests, bring
+                      board.
+                    </p>
+                  </>
+                )}
+              </aside>
+            </div>
           </main>
         ) : (
-          <main className="mt-6 flex flex-1 flex-col items-center gap-6 md:mt-10">
+          <main className="mt-7 flex flex-1 flex-col items-center gap-6 md:mt-10">
+            <div className="max-w-2xl text-center">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--brand-gold)]">
+                Hey Confetti
+              </div>
+              <h1 className="mt-2 font-display text-4xl font-medium leading-[0.98] tracking-[-0.04em] text-foreground sm:text-5xl">
+                Say it out loud.{" "}
+                <span className="italic text-secondary">I’ll help make sense of it.</span>
+              </h1>
+              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+                Talk through the feeling, the people, the food, or the one thing you know for sure.
+              </p>
+            </div>
             <VoiceOrb state={orbState} />
             <StatusLine state={state} connecting={connecting} error={voiceError} />
             {!isLive && !connecting && (
               <div className="w-full max-w-md space-y-4">
-                <Card className="border-dashed p-5">
-                  <h2 className="text-base font-semibold text-foreground">Voice mode (beta)</h2>
+                <Card className="rounded-3xl border-white/80 bg-white/88 p-5 text-center shadow-card backdrop-blur">
+                  <h2 className="font-display text-xl font-semibold text-secondary">
+                    Voice mode is in beta
+                  </h2>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {isDemo
                       ? "Real voice is authenticated so we can save your session. Try text mode as a demo, or sign up free to talk out loud."

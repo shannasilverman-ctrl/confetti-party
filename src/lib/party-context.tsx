@@ -510,6 +510,45 @@ function seedMaya(): Party {
     timeline,
     shoppingItems,
     pinnedInspiration: ["unicorn-rainbow:table", "unicorn-rainbow:decor"],
+    bringBoard: [
+      {
+        id: uid(),
+        category: "Sides",
+        label: "Fruit tray",
+        qty: 1,
+        status: "claimed",
+        source: "host",
+        assigneeName: "Sarah Chen",
+        assigneeHousehold: "Chen family",
+      },
+      {
+        id: uid(),
+        category: "Dessert",
+        label: "Nut-free mini cupcakes",
+        qty: 18,
+        status: "open",
+        source: "host",
+        dietaryTags: ["Nut-free"],
+      },
+      {
+        id: uid(),
+        category: "Drinks",
+        label: "Juice boxes",
+        qty: 2,
+        unit: "packs",
+        status: "open",
+        source: "host",
+      },
+      {
+        id: uid(),
+        category: "Ice / Serveware",
+        label: "Bag of ice",
+        qty: 2,
+        status: "claimed",
+        source: "host",
+        assigneeName: "Priya Patel",
+      },
+    ],
     hostNote:
       "So excited to celebrate Maya turning 8! Come hungry — pizza at 2:45. Street parking is easy on Elm.",
   };
@@ -517,22 +556,88 @@ function seedMaya(): Party {
 
 function seedGrad(): Party {
   const date = "2027-06-05";
-  const tasks = generateTasks("graduation", date);
+  const tasks = generateTasks("graduation", date).map((task, index) => ({
+    ...task,
+    done: index < 3,
+  }));
+  const guests: Guest[] = [
+    { id: uid(), name: "Jordan Lee (graduate)", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Sam Lee", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Tasha Green", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Miles Green", kind: "kid", rsvp: "yes" },
+    { id: uid(), name: "Priya Shah", kind: "adult", rsvp: "maybe" },
+    { id: uid(), name: "Andre Williams", kind: "adult", rsvp: "invited" },
+  ];
+  const budgetCategories = defaultCategoriesFor("cookout").map((category, index) =>
+    index === 0
+      ? {
+          ...category,
+          expenses: [{ id: uid(), label: "BBQ catering deposit", amount: 175 }],
+        }
+      : category,
+  );
   return {
     id: "grad-bbq",
     name: "Backyard Graduation BBQ",
     occasion: "graduation",
     date,
+    startTime: "4:00 PM",
+    location: "Our backyard",
     guestEstimate: 35,
     budget: 900,
     theme: "Backyard Fiesta",
     themeId: "backyard-fiesta",
     tasks,
-    guests: [],
-    budgetCategories: DEFAULT_CATEGORIES(),
-    timeline: [],
+    guests,
+    budgetCategories,
+    timeline: [
+      { id: uid(), time: "1:00 PM", activity: "Set tables, shade, and drink station" },
+      { id: uid(), time: "3:30 PM", activity: "Food arrives; hold hot trays safely" },
+      { id: uid(), time: "4:00 PM", activity: "Guests arrive and sign the memory book" },
+      { id: uid(), time: "5:00 PM", activity: "BBQ buffet opens" },
+      { id: uid(), time: "6:15 PM", activity: "Toast, cake, and family photos" },
+      { id: uid(), time: "7:30 PM", activity: "Golden-hour lawn games" },
+    ],
     shoppingItems: generateShoppingItems("graduation", "backyard-fiesta", 35),
-    pinnedInspiration: [],
+    pinnedInspiration: ["backyard-fiesta:table", "backyard-fiesta:photoSpot"],
+    bringBoard: [
+      {
+        id: uid(),
+        category: "Sides",
+        label: "Big green salad",
+        qty: 1,
+        status: "claimed",
+        source: "host",
+        assigneeName: "Tasha Green",
+      },
+      {
+        id: uid(),
+        category: "Dessert",
+        label: "Brownie tray",
+        qty: 2,
+        status: "open",
+        source: "host",
+      },
+      {
+        id: uid(),
+        category: "Drinks",
+        label: "Cooler of sparkling water",
+        qty: 1,
+        status: "open",
+        source: "host",
+      },
+      {
+        id: uid(),
+        category: "Ice / Serveware",
+        label: "Bag of ice",
+        qty: 4,
+        status: "claimed",
+        source: "host",
+        assigneeName: "Sam Lee",
+      },
+    ],
+    hostNote:
+      "Come celebrate Jordan! The buffet opens at 5. Dress for the backyard and bring a favorite memory for the guest book.",
   };
 }
 
@@ -543,6 +648,21 @@ function seedWorldCup(): Party {
     ...t,
     done: i < 2,
   }));
+  const guests: Guest[] = [
+    { id: uid(), name: "Nico Alvarez", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Maya Alvarez", kind: "kid", rsvp: "yes" },
+    { id: uid(), name: "Devin Brooks", kind: "adult", rsvp: "yes" },
+    { id: uid(), name: "Leila Haddad", kind: "adult", rsvp: "maybe" },
+    { id: uid(), name: "Theo Martin", kind: "kid", rsvp: "invited" },
+  ];
+  const budgetCategories = defaultCategoriesFor("game-day").map((category, index) =>
+    index === 0
+      ? {
+          ...category,
+          expenses: [{ id: uid(), label: "Wing order deposit", amount: 45 }],
+        }
+      : category,
+  );
   return {
     id: "world-cup-final-watch",
     name: "World Cup Final Watch Party",
@@ -552,13 +672,58 @@ function seedWorldCup(): Party {
     location: "Our place",
     guestEstimate: 12,
     budget: 250,
-    theme: "",
+    theme: "Stadium at Home",
     tasks,
-    guests: [],
-    budgetCategories: defaultCategoriesFor("game-day"),
+    guests,
+    budgetCategories,
     timeline: seedGameDayTimeline(startTime),
     shoppingItems: generateShoppingItems("game-day", undefined, 12),
     pinnedInspiration: [],
+    bringBoard: [
+      {
+        id: uid(),
+        category: "Main",
+        label: "Italian party tray",
+        qty: 1,
+        status: "open",
+        source: "host",
+      },
+      {
+        id: uid(),
+        category: "Sides",
+        label: "Game-day dip",
+        qty: 2,
+        status: "claimed",
+        source: "host",
+        assigneeName: "Devin Brooks",
+      },
+      {
+        id: uid(),
+        category: "Drinks",
+        label: "Soda and sparkling water",
+        qty: 2,
+        status: "open",
+        source: "host",
+      },
+      {
+        id: uid(),
+        category: "Ice / Serveware",
+        label: "Bag of ice",
+        qty: 2,
+        status: "open",
+        source: "host",
+      },
+    ],
+    hostUpdates: [
+      {
+        id: uid(),
+        text: "Doors open at 9:30 so everyone is settled before kickoff.",
+        at: "2026-07-16T18:00:00.000Z",
+      },
+    ],
+    hostNote:
+      "Come early for coffee and breakfast bites. Kids are welcome; the den will have a quieter second screen.",
+    heroImageUrl: "/brand/world-cup-watch-v1.jpg",
   };
 }
 
