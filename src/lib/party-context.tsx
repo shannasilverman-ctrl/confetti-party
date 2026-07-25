@@ -116,6 +116,14 @@ export type Party = {
   holidayPackId?: string;
   photoDrop?: PhotoDropInfo | null;
   checkins?: Record<string, string>; // guestId -> ISO timestamp
+  retrospective?: PartyRetrospective | null;
+};
+
+export type PartyRetrospective = {
+  updatedAt: string;
+  worked?: string;
+  ranOut?: string;
+  changeNext?: string;
 };
 
 const uid = () => Math.random().toString(36).slice(2, 10);
@@ -509,6 +517,7 @@ function rowToParty(r: {
   holiday_pack_id?: string | null;
   photo_drop?: unknown;
   checkins?: unknown;
+  retrospective?: unknown;
 }): Party {
   return {
     id: r.id,
@@ -535,6 +544,7 @@ function rowToParty(r: {
     holidayPackId: r.holiday_pack_id ?? undefined,
     photoDrop: (r.photo_drop as PhotoDropInfo | null) ?? null,
     checkins: (r.checkins as Record<string, string>) ?? {},
+    retrospective: (r.retrospective as PartyRetrospective | null) ?? null,
   };
 }
 
@@ -564,6 +574,7 @@ function partyToRow(p: Party, userId: string) {
     holiday_pack_id: p.holidayPackId ?? null,
     photo_drop: (p.photoDrop ?? null) as unknown as Json,
     checkins: (p.checkins ?? {}) as unknown as Json,
+    retrospective: (p.retrospective ?? null) as unknown as Json,
   };
 }
 
