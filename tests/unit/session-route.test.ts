@@ -97,16 +97,18 @@ function makeFakeSupabase(state: FakeSupabaseState) {
             is: (_c: string, _v: null) => {
               const id = (chain as unknown as { _id?: string })._id;
               const doApply = () => {
+                if (state.updateError) return { data: null, error: state.updateError };
                 const row = state.sessions.find((s) => s.id === id);
                 if (row && row.ended_at === null) {
                   row.ended_at = String(patch.ended_at ?? new Date().toISOString());
                   state.updates.push({ id: id ?? "?", patch });
                 }
-              };
-              const promise = (async () => {
-                doApply();
                 return { data: null, error: null };
-              })() as Promise<{ data: null; error: null }> & {
+              };
+              const promise = (async () => doApply())() as Promise<{
+                data: null;
+                error: null;
+              }> & {
                 select: (cols: string) => Promise<{ data: unknown[]; error: null }>;
               };
               promise.select = async (_cols: string) => {
