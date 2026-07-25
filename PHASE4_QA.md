@@ -19,7 +19,7 @@ All commands run against a frozen `bun install --frozen-lockfile` tree.
 | Unit      | `bun run test` (`vitest run`)                                                                                                   |
 | Coverage  | `bun run test:coverage` (`vitest run --coverage`)                                                                               |
 | Build     | `bun run build` (`vite build`)                                                                                                  |
-| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, `--config dist/server/wrangler.json` webServer, no `reuseExistingServer` in CI) |
+| E2E + axe | `CI=1 PW_REUSE=0 bun run test:e2e` (Playwright, webServer via `scripts/wrangler-config-path.mjs` → `.output/server/wrangler.json` on CI / `dist/server/wrangler.json` in the Lovable sandbox; no `reuseExistingServer` in CI) |
 
 Latest local execution on Turn 2 branch (baseline SHA `f665f94` + Turn 2
 edits; SHA finalised on push):
