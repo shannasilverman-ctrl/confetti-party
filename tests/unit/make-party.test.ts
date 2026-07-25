@@ -40,7 +40,7 @@ describe("makeParty", () => {
       "id-4",
     );
     expect(p.holidayPackId).toBeUndefined();
-    expect(p.bringBoard.length).toBe(0);
+    expect(p.bringBoard?.length ?? 0).toBe(0);
   });
 
   it("extraTasks are appended once (no duplication with pack or generated)", () => {
