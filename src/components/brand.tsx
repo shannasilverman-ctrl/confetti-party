@@ -10,8 +10,9 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
       className={`relative inline-flex overflow-visible ${className}`}
       onMouseEnter={() => setBurst((n) => n + 1)}
       onTouchStart={() => setBurst((n) => n + 1)}
+      aria-hidden="true"
     >
-      <LogoMark className="h-full w-full" title="Confetti" />
+      <LogoMark className="h-full w-full" decorative />
       <ConfettiBurst active={burst > 0} count={10} spread={44} />
     </span>
   );
@@ -20,22 +21,21 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
 /**
  * Wordmark, rendered in the display serif so it reads as the
  * approved brand lockup. `animated` fades letters in on mount.
+ * The visible glyphs are aria-hidden — the parent lockup Link
+ * owns the single accessible name.
  */
 function Wordmark({ text, animated = false }: { text: string; animated?: boolean }) {
   return (
-    <span>
-      <span className="sr-only">{text}</span>
-      <span aria-hidden>
-        {text.split("").map((ch, i) => (
-          <span
-            key={i}
-            className={"inline-block " + (animated ? "animate-letter-pop motion-reduce-fade" : "")}
-            style={{ animationDelay: animated ? `${i * 55}ms` : undefined }}
-          >
-            {ch === " " ? "\u00a0" : ch}
-          </span>
-        ))}
-      </span>
+    <span aria-hidden="true">
+      {text.split("").map((ch, i) => (
+        <span
+          key={i}
+          className={"inline-block " + (animated ? "animate-letter-pop motion-reduce-fade" : "")}
+          style={{ animationDelay: animated ? `${i * 55}ms` : undefined }}
+        >
+          {ch === " " ? "\u00a0" : ch}
+        </span>
+      ))}
     </span>
   );
 }
@@ -55,5 +55,6 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
     </Link>
   );
 }
+
 
 export { Wordmark as AnimatedWordmark };
