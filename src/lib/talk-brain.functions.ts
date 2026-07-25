@@ -13,7 +13,7 @@ import {
   type DraftPatch,
   type ReviewSummary,
 } from "./talk-materialize";
-import { DraftPatchZ, StringListZ, sanitizeStringList } from "./talk-schemas";
+import { DraftPatchZ, safeParseDraftPatch, sanitizeStringList } from "./talk-schemas";
 
 const MAX_TURNS_PER_HOUR = 40;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
