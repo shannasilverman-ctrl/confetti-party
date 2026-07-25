@@ -21,8 +21,13 @@ function DayOfPage() {
   const { parties, updateParty } = useParties();
   const party = parties.find((p) => p.id === id);
   const [note, setNote] = useState("");
+  // Compute derived state before any early return so hook order is stable
+  // across renders where the party may briefly disappear (e.g. delete).
+  const nextThree = useMemo(
+    () => (party?.tasks ?? []).filter((t) => !t.done).slice(0, 3),
+    [party?.tasks],
+  );
   if (!party) throw notFound();
-  const nextThree = useMemo(() => party.tasks.filter((t) => !t.done).slice(0, 3), [party.tasks]);
   const timeline = party.timeline ?? [];
   const yesGuests = party.guests.filter((g) => g.rsvp === "yes");
   const checkins = party.checkins ?? {};
