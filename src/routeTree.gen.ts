@@ -15,6 +15,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
+import { Route as ApiTalkTurnRouteImport } from './routes/api/talk/turn'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
 
 const TalkRoute = TalkRouteImport.update({
@@ -47,6 +48,11 @@ const PartyIdRoute = PartyIdRouteImport.update({
   path: '/party/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTalkTurnRoute = ApiTalkTurnRouteImport.update({
+  id: '/api/talk/turn',
+  path: '/api/talk/turn',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
   id: '/api/realtime/session',
   path: '/api/realtime/session',
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/api/talk/turn': typeof ApiTalkTurnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/api/talk/turn': typeof ApiTalkTurnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/api/talk/turn': typeof ApiTalkTurnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/api/talk/turn'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/api/talk/turn'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/api/talk/turn'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   PartyIdRoute: typeof PartyIdRoute
   RsvpTokenRoute: typeof RsvpTokenRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
+  ApiTalkTurnRoute: typeof ApiTalkTurnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PartyIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/talk/turn': {
+      id: '/api/talk/turn'
+      path: '/api/talk/turn'
+      fullPath: '/api/talk/turn'
+      preLoaderRoute: typeof ApiTalkTurnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/realtime/session': {
       id: '/api/realtime/session'
       path: '/api/realtime/session'
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartyIdRoute: PartyIdRoute,
   RsvpTokenRoute: RsvpTokenRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
+  ApiTalkTurnRoute: ApiTalkTurnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
