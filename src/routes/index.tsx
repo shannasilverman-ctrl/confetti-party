@@ -107,6 +107,9 @@ function Landing() {
             <Button size="lg" variant="festive" onClick={startPlanning}>
               Start planning <ArrowRight />
             </Button>
+            <Button asChild size="lg" variant="secondary">
+              <Link to="/talk">Talk it out</Link>
+            </Button>
             <Button asChild size="lg" variant="outline">
               <Link to="/party/$id" params={{ id: "maya-8th" }}>
                 Crash a sample party
