@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
+import { sanitizeReturnTo } from "@/lib/safe-return-to";
 
 type AuthMode = "signin" | "signup" | "forgot";
-type AuthSearch = { mode?: AuthMode };
+type AuthSearch = { mode?: AuthMode; returnTo?: string };
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -21,6 +22,10 @@ export const Route = createFileRoute("/auth")({
           : s.mode === "forgot"
             ? "forgot"
             : undefined,
+    returnTo:
+      typeof s.returnTo === "string" && s.returnTo.length > 0 && s.returnTo.length <= 512
+        ? s.returnTo
+        : undefined,
   }),
   head: () => ({
     meta: [
