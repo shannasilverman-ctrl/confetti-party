@@ -97,7 +97,7 @@ export async function performEndSession(
 /** Mark a talk_sessions row as ended (records duration + disconnect reason). */
 export const endSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => endSessionInput.parse(input))
+  .validator((input: unknown) => endSessionInput.parse(input))
   .handler(async ({ data, context }) => {
     return performEndSession(
       context.supabase as unknown as Parameters<typeof performEndSession>[0],
@@ -109,7 +109,7 @@ export const endSession = createServerFn({ method: "POST" })
 /** Hard-delete a draft and its transcripts (retention control). */
 export const deleteDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ draftId: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ draftId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { error } = await supabase.from("gathering_drafts").delete().eq("id", data.draftId);

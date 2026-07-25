@@ -13,12 +13,27 @@ import { resolve } from "node:path";
 
 const REQUIRED_PUBLIC_FILES = ["public/brand/confetti-hero.jpg", "public/brand/ava-liam.jpg"];
 
+// Performance contract: enforce upper-bound sizes on branded imagery so
+// we do not silently regress LCP. Values are generous ceilings above the
+// current compressed output, not the current byte count.
+const MAX_BYTES: Record<string, number> = {
+  "public/brand/ava-liam.jpg": 450 * 1024, // wedding banner ceiling
+  "public/brand/confetti-hero.jpg": 300 * 1024, // landing hero ceiling
+};
+
 test.describe("first-party image asset contract", () => {
-  test("public/ contains the branded images", () => {
+  test("public/ contains the branded images within size budget", () => {
     for (const rel of REQUIRED_PUBLIC_FILES) {
       const s = statSync(resolve(process.cwd(), rel));
       expect(s.isFile(), `${rel} must exist as a file`).toBe(true);
       expect(s.size, `${rel} must be non-empty`).toBeGreaterThan(1024);
+      const cap = MAX_BYTES[rel];
+      if (cap) {
+        expect(
+          s.size,
+          `${rel} must stay under ${Math.round(cap / 1024)} kB (was ${Math.round(s.size / 1024)} kB)`,
+        ).toBeLessThanOrEqual(cap);
+      }
     }
   });
 

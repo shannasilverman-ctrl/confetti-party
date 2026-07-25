@@ -140,7 +140,7 @@ export async function resolveRsvpLoaderData(
 }
 
 export const getRsvpLoaderData = createServerFn({ method: "GET" })
-  .inputValidator((data: { token: string }) => data)
+  .validator((data: { token: string }) => data)
   .handler(async ({ data }): Promise<RsvpLoaderData> => {
     // Never let this handler throw — the RSVP route renders a sanitized
     // UI at HTTP 200 for any non-ok state. Raw errors must not reach the client.
