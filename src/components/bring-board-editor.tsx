@@ -122,7 +122,8 @@ export function BringBoardEditor({ partyId }: { partyId: string }) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="bring-board">
+
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
