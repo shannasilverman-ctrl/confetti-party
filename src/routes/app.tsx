@@ -727,6 +727,7 @@ function NewPartyWizard({
               <Button
                 variant="ghost"
                 data-testid="wizard-close"
+                className="min-h-[45px]"
                 onClick={() => {
                   onOpenChange(false);
                   reset();
@@ -734,7 +735,12 @@ function NewPartyWizard({
               >
                 Close
               </Button>
-              <Button variant="festive" data-testid="wizard-open-plan" onClick={openPlan}>
+              <Button
+                variant="festive"
+                data-testid="wizard-open-plan"
+                className="min-h-[45px]"
+                onClick={openPlan}
+              >
                 <Sparkles /> Open your party plan
               </Button>
             </>
@@ -743,6 +749,7 @@ function NewPartyWizard({
               <Button
                 variant="ghost"
                 data-testid="wizard-back"
+                className="min-h-[45px]"
                 onClick={() =>
                   step === 1 ? onOpenChange(false) : setStep(((step as number) - 1) as 1 | 2)
                 }
@@ -753,6 +760,7 @@ function NewPartyWizard({
                 <Button
                   variant="festive"
                   data-testid="wizard-continue"
+                  className="min-h-[45px]"
                   disabled={(step === 1 && !occasion) || (step === 2 && (!date || !name))}
                   onClick={() => setStep(((step as number) + 1) as 2 | 3)}
                 >
@@ -762,6 +770,7 @@ function NewPartyWizard({
                 <Button
                   variant="festive"
                   data-testid="wizard-create"
+                  className="min-h-[45px]"
                   disabled={!theme}
                   onClick={finish}
                 >

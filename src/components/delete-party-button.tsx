@@ -76,8 +76,8 @@ export function DeletePartyButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this party?</AlertDialogTitle>
           <AlertDialogDescription>
-            "{partyName}" and all of its checklist, guests, shopping, and bring-board items
-            will be permanently removed. This cannot be undone.
+            "{partyName}" and all of its checklist, guests, shopping, and bring-board items will be
+            permanently removed. This cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -573,7 +573,7 @@ function seedAvaLiam(): Party {
     pinnedInspiration: [],
     hostNote:
       "We can't wait to celebrate with you in Tuscany. Dinner is at the long table under the vines — bring a light layer for after sunset.",
-    heroImageUrl: "/__l5e/assets-v1/fb43d5b6-1a02-4feb-9f8c-421d86fc8f5e/ava-liam.jpg",
+    heroImageUrl: "/brand/ava-liam.jpg",
   };
 }
 

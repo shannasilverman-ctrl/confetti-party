@@ -90,9 +90,7 @@ function ResetPasswordPage() {
 
       <main className="mx-auto flex max-w-md flex-col items-stretch px-6 py-10">
         <div className="rounded-3xl border border-border bg-card p-8 shadow-card">
-          <h1 className="font-display text-2xl font-semibold text-secondary">
-            Set a new password
-          </h1>
+          <h1 className="font-display text-2xl font-semibold text-secondary">Set a new password</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Choose a password with at least 8 characters.
           </p>
