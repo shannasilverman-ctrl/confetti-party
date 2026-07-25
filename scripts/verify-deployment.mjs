@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 
 export const DEFAULT_DEPLOYMENT_URL =
   "https://confetti-independent-preview.shannasilverman-apps.workers.dev";
-export const DEFAULT_VERIFY_ATTEMPTS = 10;
+export const DEFAULT_VERIFY_ATTEMPTS = 15;
 export const DEFAULT_VERIFY_DELAY_MS = 3_000;
 
 const HTML_ROUTES = ["/", "/app", "/talk"];

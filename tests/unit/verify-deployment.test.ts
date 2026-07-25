@@ -26,9 +26,9 @@ function secureHeaders(overrides: Record<string, string> = {}) {
 
 describe("deployment verification", () => {
   it("allows a bounded Cloudflare edge-propagation window", () => {
-    expect(DEFAULT_VERIFY_ATTEMPTS).toBe(10);
+    expect(DEFAULT_VERIFY_ATTEMPTS).toBe(15);
     expect(DEFAULT_VERIFY_DELAY_MS).toBe(3_000);
-    expect((DEFAULT_VERIFY_ATTEMPTS - 1) * DEFAULT_VERIFY_DELAY_MS).toBe(27_000);
+    expect((DEFAULT_VERIFY_ATTEMPTS - 1) * DEFAULT_VERIFY_DELAY_MS).toBe(42_000);
   });
 
   it("normalizes an HTTPS deployment origin", () => {
