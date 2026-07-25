@@ -3,6 +3,28 @@ import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
+export type PublicBringItem = {
+  id: string;
+  category: string;
+  label: string;
+  qty: number;
+  unit?: string | null;
+  dietaryTags?: string[];
+  status: "open" | "claimed" | "done";
+  assigneeName?: string | null;
+  assigneeHousehold?: string | null;
+  notes?: string | null;
+};
+
+export type PublicPhotoDrop = {
+  provider: string;
+  label?: string;
+  url: string;
+  notes?: string;
+} | null;
+
+export type HostUpdateView = { id: string; text: string; at: string };
+
 export type PartyView = {
   name: string;
   date: string;
@@ -12,6 +34,10 @@ export type PartyView = {
   theme_id: string | null;
   theme: string | null;
   host_note: string | null;
+  holiday_pack_id: string | null;
+  host_updates: HostUpdateView[];
+  bring_board: PublicBringItem[];
+  photo_drop: PublicPhotoDrop;
   guest_first_names: string[];
   yes_count: number;
   maybe_count: number;
