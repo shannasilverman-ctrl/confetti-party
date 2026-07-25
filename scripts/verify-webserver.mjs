@@ -27,16 +27,7 @@ const CONFIG = resolveWranglerConfigPath();
 
 // The command below MUST stay in sync with playwright.config.ts webServer.command.
 const CMD = "bunx";
-const ARGS = [
-  "wrangler",
-  "dev",
-  "--config",
-  CONFIG,
-  "--port",
-  String(PORT),
-  "--ip",
-  "127.0.0.1",
-];
+const ARGS = ["wrangler", "dev", "--config", CONFIG, "--port", String(PORT), "--ip", "127.0.0.1"];
 
 console.log(`[verify-webserver] spawning: ${CMD} ${ARGS.join(" ")}`);
 const child = spawn(CMD, ARGS, {
