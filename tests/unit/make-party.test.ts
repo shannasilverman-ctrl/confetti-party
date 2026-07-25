@@ -26,7 +26,7 @@ describe("makeParty", () => {
   it('"generic" starter seeds real (tradition-neutral) tasks + bring board', () => {
     const p = makeParty({ ...baseInput, holidayPackId: "generic" }, "id-2");
     expect(p.holidayPackId).toBe("generic");
-    expect(p.bringBoard.length).toBeGreaterThan(0);
+    expect(p.bringBoard?.length ?? 0).toBeGreaterThan(0);
     // Pack tasks land alongside generated tasks — total exceeds generateTasks
     // for the same occasion alone.
     const withoutPack = makeParty(baseInput, "id-3");
