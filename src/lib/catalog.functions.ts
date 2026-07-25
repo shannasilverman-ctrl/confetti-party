@@ -47,7 +47,7 @@ type CatalogItem = {
 };
 
 export const searchCatalogProducts = createServerFn({ method: "POST" })
-  .inputValidator(parseSearchInput)
+  .validator(parseSearchInput)
   .handler(async ({ data }): Promise<CatalogProduct[]> => {
     const body = {
       jsonrpc: "2.0",

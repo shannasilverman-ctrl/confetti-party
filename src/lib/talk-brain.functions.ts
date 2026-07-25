@@ -216,7 +216,7 @@ function demoBrain(messages: TurnMessages): TurnResult {
 
 export const sendTurn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => TurnInput.parse(input))
+  .validator((input: unknown) => TurnInput.parse(input))
   .handler(async ({ data, context }): Promise<TurnResult> => {
     const { supabase, userId } = context;
 
@@ -380,7 +380,7 @@ const PreviewInput = z.object({ draftId: z.string().uuid() });
 
 export const previewDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => PreviewInput.parse(input))
+  .validator((input: unknown) => PreviewInput.parse(input))
   .handler(
     async ({
       data,
@@ -424,7 +424,7 @@ const ConfirmInput = z.object({
 
 export const confirmDraft = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => ConfirmInput.parse(input))
+  .validator((input: unknown) => ConfirmInput.parse(input))
   .handler(async ({ data, context }): Promise<{ partyId: string; alreadyConfirmed: boolean }> => {
     const { supabase } = context;
     const { merged, draftRow } = await readMergedPatch(supabase, data.draftId, context.userId);
