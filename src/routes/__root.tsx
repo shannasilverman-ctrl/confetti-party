@@ -4,16 +4,23 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { PartyProvider } from "../lib/party-context";
-import { AuthProvider } from "../lib/auth";
 import { Toaster } from "@/components/ui/sonner";
+import { routeProviderNeeds } from "@/lib/route-providers";
+
+const LazyAuthProvider = lazy(() =>
+  import("../lib/auth").then((module) => ({ default: module.AuthProvider })),
+);
+const LazyPartyProvider = lazy(() =>
+  import("../lib/party-context").then((module) => ({ default: module.PartyProvider })),
+);
 
 function NotFoundComponent() {
   return (
@@ -129,15 +136,35 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const needs = routeProviderNeeds(pathname);
+  const routedOutlet = needs.party ? (
+    <LazyPartyProvider>
+      <Outlet />
+    </LazyPartyProvider>
+  ) : (
+    <Outlet />
+  );
+  const outlet = needs.auth ? (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div role="status" className="text-sm text-muted-foreground">
+            Opening Confetti…
+          </div>
+        </div>
+      }
+    >
+      <LazyAuthProvider>{routedOutlet}</LazyAuthProvider>
+    </Suspense>
+  ) : (
+    routedOutlet
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <PartyProvider>
-          <Outlet />
-          <Toaster />
-        </PartyProvider>
-      </AuthProvider>
+      {outlet}
+      <Toaster />
     </QueryClientProvider>
   );
 }
