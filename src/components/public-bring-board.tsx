@@ -155,8 +155,9 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
                 const taken = it.status !== "open";
                 const mine =
                   taken &&
-                  !!name.trim() &&
-                  it.assigneeName?.trim().toLowerCase() === name.trim().toLowerCase();
+                  (!!secrets[it.id] ||
+                    (!!name.trim() &&
+                      it.assigneeName?.trim().toLowerCase() === name.trim().toLowerCase()));
                 return (
                   <li
                     key={it.id}
