@@ -40,9 +40,10 @@ function DayOfPage() {
   if (resolved.state === "missing")
     return <PartyModeMissing id={id} retry={resolved.retry} mode="day-of" />;
 
-  const timeline = party.timeline ?? [];
-  const yesGuests = party.guests.filter((g) => g.rsvp === "yes");
-  const checkins = party.checkins ?? {};
+  const readyParty = resolved.party;
+  const timeline = readyParty.timeline ?? [];
+  const yesGuests = readyParty.guests.filter((g) => g.rsvp === "yes");
+  const checkins = readyParty.checkins ?? {};
 
   function toggleTask(taskId: string, evt?: React.MouseEvent) {
     updateParty(party!.id, (p) => ({
