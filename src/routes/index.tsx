@@ -8,7 +8,7 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import { daysUntilLocal, formatDateOnly, toDateOnlyLocal } from "@/lib/date-only";
+import { daysUntilLocal, formatDateOnly, localDateToDateOnly } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 const heroImage = { url: "/brand/confetti-hero.jpg" };
 // Rolling illustrative party date: the Saturday at least 21 days out from
@@ -17,7 +17,7 @@ function nextIllustrativeSaturday(now: Date = new Date()): string {
   const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 21);
   const daysToSat = (6 - base.getDay() + 7) % 7;
   base.setDate(base.getDate() + daysToSat);
-  return toDateOnlyLocal(base);
+  return localDateToDateOnly(base);
 }
 import {
   ArrowRight,
