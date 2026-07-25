@@ -84,7 +84,10 @@ export function loadSampleState(): SampleState {
   }
 }
 
-export function saveSampleState(state: SampleState): { ok: boolean; reason?: "quota" | "oversized" } {
+export function saveSampleState(state: SampleState): {
+  ok: boolean;
+  reason?: "quota" | "oversized";
+} {
   if (!isBrowser()) return { ok: true };
   const payload = JSON.stringify(state);
   if (payload.length > MAX_BYTES) return { ok: false, reason: "oversized" };

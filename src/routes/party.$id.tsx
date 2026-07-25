@@ -583,7 +583,9 @@ function GuestsTab({ partyId }: { partyId: string }) {
                   mode={guest.rsvp === "invited" ? "undo" : "confirm"}
                   itemLabel={guest.name || "guest"}
                   onConfirm={() => remove(guest.id)}
-                  onUndo={() => updateParty(partyId, (p) => ({ ...p, guests: [...p.guests, guest] }))}
+                  onUndo={() =>
+                    updateParty(partyId, (p) => ({ ...p, guests: [...p.guests, guest] }))
+                  }
                   trigger={
                     <button
                       type="button"

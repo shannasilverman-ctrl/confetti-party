@@ -209,11 +209,7 @@ function SampleInvitePage() {
         </div>
 
         {done ? (
-          <SuccessCard
-            entry={state.rsvp!}
-            counts={counts}
-            onChange={onChangeResponse}
-          />
+          <SuccessCard entry={state.rsvp!} counts={counts} onChange={onChangeResponse} />
         ) : (
           <RsvpForm counts={counts} onSubmit={onSubmit} />
         )}
@@ -473,10 +469,7 @@ function SuccessCard({
   counts: { yes: number; maybe: number };
   onChange: () => void;
 }) {
-  const copy: Record<
-    SampleRSVP,
-    { headline: string; body: string; icon: React.ReactNode }
-  > = {
+  const copy: Record<SampleRSVP, { headline: string; body: string; icon: React.ReactNode }> = {
     yes: {
       headline: "You're on the list!",
       body: `Thanks ${entry.name} — in a real invite, we'd help you save the date and get directions.`,

@@ -54,11 +54,7 @@ function Landing() {
   // contradicts today's actual calendar.
   const sampleDays = useMemo(() => daysUntilLocal(SAMPLE_CARD_DATE), []);
   const sampleCountdown =
-    sampleDays > 0
-      ? `${sampleDays} days out`
-      : sampleDays === 0
-        ? "Today"
-        : "Just wrapped";
+    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Just wrapped";
   useEffect(() => {
     // Gentle cannon behind the headline once the wordmark letters have popped in.
     const t = setTimeout(() => {
@@ -76,7 +72,6 @@ function Landing() {
     // Let the burst breathe for a beat before navigating.
     setTimeout(() => navigate({ to: "/app", search: { new: true } }), 220);
   };
-
 
   return (
     <div className="min-h-screen bg-background text-foreground">
