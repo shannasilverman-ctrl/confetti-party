@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactElement } from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -12,16 +13,23 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+export type ConfirmResult = { ok: true } | { ok: false; error: string };
+
 /**
  * Confirm-before-delete affordance for destructive row actions.
  *
- * Two modes:
- *  - `mode="confirm"` shows an AlertDialog (used when the row carries
- *    meaningful state: a claim, an RSVP, a submitted expense).
- *  - `mode="undo"` deletes immediately but emits a toast with Undo
- *    (used for safe local rows: empty tasks, unpurchased shopping items).
+ * `trigger` MUST be a single focusable element (e.g. a `<button>` with an
+ * `aria-label`). Both modes forward click/keyboard to that element via a
+ * Radix Slot — no wrapping button is added, so nested-interactive HTML is
+ * impossible.
  *
- * `trigger` should already carry an accessible name (e.g. `aria-label="Remove Ava Rossi"`).
+ * `mode="confirm"` opens an AlertDialog and awaits `onConfirm`. If the
+ * promise rejects or resolves `{ ok: false }`, the dialog stays open with
+ * an inline error and the caller can retry.
+ *
+ * `mode="undo"` deletes immediately and shows a toast with an Undo action
+ * only when `onUndo` is provided (never fake an undo). If `onUndo` returns
+ * `{ ok: false }`, a Retry toast is emitted.
  */
 export function ConfirmDelete({
   mode,
@@ -31,43 +39,64 @@ export function ConfirmDelete({
   trigger,
   title,
   description,
+  impact,
 }: {
   mode: "confirm" | "undo";
   itemLabel: string;
-  onConfirm: () => void;
-  onUndo?: () => void;
-  trigger: ReactNode;
+  onConfirm: () => void | Promise<void | ConfirmResult>;
+  onUndo?: () => void | Promise<void | ConfirmResult>;
+  trigger: ReactElement;
   title?: string;
   description?: string;
+  impact?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runUndo() {
+    if (!onUndo) return;
+    const result = await onUndo();
+    if (result && "ok" in result && !result.ok) {
+      toast.error(`Couldn't restore ${itemLabel}`, {
+        description: result.error,
+        action: { label: "Retry", onClick: () => void runUndo() },
+      });
+    }
+  }
 
   if (mode === "undo") {
-    return (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          onConfirm();
-          if (onUndo) {
-            toast(`Removed ${itemLabel}`, {
-              action: { label: "Undo", onClick: onUndo },
-              duration: 5000,
-            });
-          } else {
-            toast(`Removed ${itemLabel}`);
-          }
-        }}
-        // Pass-through — the caller is expected to style its own trigger.
-        className="contents"
-      >
-        {trigger}
-      </button>
-    );
+    const handleClick = () => {
+      void (async () => {
+        const result = await onConfirm();
+        if (result && "ok" in result && !result.ok) {
+          toast.error(`Couldn't remove ${itemLabel}`, { description: result.error });
+          return;
+        }
+        if (onUndo) {
+          toast(`Removed ${itemLabel}`, {
+            action: { label: "Undo", onClick: () => void runUndo() },
+            duration: 5000,
+          });
+        } else {
+          toast(`Removed ${itemLabel}`);
+        }
+      })();
+    };
+    // Slot forwards onClick + all other props onto the caller's element.
+    return <Slot onClick={handleClick}>{trigger}</Slot>;
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending) {
+          setOpen(next);
+          if (!next) setError(null);
+        }
+      }}
+    >
       <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -76,17 +105,45 @@ export function ConfirmDelete({
             {description ??
               "This can't be undone from here. Any linked RSVPs or claims will be lost."}
           </AlertDialogDescription>
+          {impact ? (
+            <p className="mt-2 text-sm font-medium text-foreground" role="note">
+              {impact}
+            </p>
+          ) : null}
+          {error ? (
+            <p className="mt-2 text-sm text-destructive" role="alert" aria-live="polite">
+              {error}
+            </p>
+          ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel>
+          <AlertDialogCancel className="min-h-11" disabled={pending}>
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
-              onConfirm();
-              setOpen(false);
+            disabled={pending}
+            onClick={(event) => {
+              event.preventDefault();
+              setError(null);
+              setPending(true);
+              void (async () => {
+                try {
+                  const result = await onConfirm();
+                  if (result && "ok" in result && !result.ok) {
+                    setError(result.error);
+                    return;
+                  }
+                  setOpen(false);
+                } catch (caught) {
+                  setError(caught instanceof Error ? caught.message : "Please try again.");
+                } finally {
+                  setPending(false);
+                }
+              })();
             }}
             className="min-h-11 bg-destructive text-destructive-foreground hover:bg-destructive/90"
           >
-            Remove
+            {pending ? "Removing…" : "Remove"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

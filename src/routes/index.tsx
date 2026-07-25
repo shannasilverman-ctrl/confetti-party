@@ -8,12 +8,17 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import { daysUntilLocal } from "@/lib/date-only";
+import { daysUntilLocal, formatDateOnly, localDateToDateOnly } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 const heroImage = { url: "/brand/confetti-hero.jpg" };
-// Mock party date used in the "chaos → calm" card. Countdown is derived
-// live via daysUntilLocal so the number stays truthful vs. the shown date.
-const SAMPLE_CARD_DATE = "2026-08-15";
+// Rolling illustrative party date: the Saturday at least 21 days out from
+// today. Recomputed per mount so the card never contradicts the calendar.
+function nextIllustrativeSaturday(now: Date = new Date()): string {
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 21);
+  const daysToSat = (6 - base.getDay() + 7) % 7;
+  base.setDate(base.getDate() + daysToSat);
+  return localDateToDateOnly(base);
+}
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
@@ -50,11 +55,16 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const navigate = useNavigate();
-  // Live countdown for the "chaos → calm" mock card, so the badge never
-  // contradicts today's actual calendar.
-  const sampleDays = useMemo(() => daysUntilLocal(SAMPLE_CARD_DATE), []);
+  // Live countdown for the "chaos → calm" mock card, using a rolling
+  // illustrative Saturday so the badge never contradicts the calendar.
+  const sampleCardDate = useMemo(() => nextIllustrativeSaturday(), []);
+  const sampleDays = useMemo(() => daysUntilLocal(sampleCardDate), [sampleCardDate]);
   const sampleCountdown =
-    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Just wrapped";
+    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Soon";
+  const sampleCardDateLabel = useMemo(
+    () => formatDateOnly(sampleCardDate, { weekday: "short", month: "short", day: "numeric" }),
+    [sampleCardDate],
+  );
   useEffect(() => {
     // Gentle cannon behind the headline once the wordmark letters have popped in.
     const t = setTimeout(() => {
@@ -200,7 +210,7 @@ function Landing() {
                   <div className="font-display text-lg font-semibold text-secondary">
                     Maya's 8th Birthday
                   </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Sat, Aug 15 · 2:00 PM</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">{sampleCardDateLabel} · 2:00 PM</div>
                 </div>
                 <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
                   {sampleCountdown}
