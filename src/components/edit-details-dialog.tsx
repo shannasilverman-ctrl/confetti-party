@@ -68,11 +68,7 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
           <div className="grid gap-4 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="ed-name">Party name</Label>
-              <Input
-                id="ed-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <Input id="ed-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ed-date">Date</Label>
@@ -115,7 +111,9 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Shown on your RSVP page — parking tips, what to bring, the vibe.</span>
-                <span className="tabular-nums">{hostNote.length}/{HOST_NOTE_MAX}</span>
+                <span className="tabular-nums">
+                  {hostNote.length}/{HOST_NOTE_MAX}
+                </span>
               </div>
             </div>
           </div>
@@ -132,4 +130,3 @@ export function EditDetailsDialog({ partyId }: { partyId: string }) {
     </>
   );
 }
-

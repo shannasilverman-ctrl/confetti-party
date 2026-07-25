@@ -13,13 +13,7 @@ export interface Field<T> {
   note?: string;
 }
 
-export type Tone =
-  | "playful"
-  | "warm"
-  | "reverent"
-  | "competitive"
-  | "intimate"
-  | "festive";
+export type Tone = "playful" | "warm" | "reverent" | "competitive" | "intimate" | "festive";
 
 export type Audience = "adults" | "mixed" | "kids-friendly";
 
@@ -140,7 +134,16 @@ function field<T>(value: T | null = null, extra?: Partial<Field<T>>): Field<T> {
 }
 
 /** Build an empty draft suitable for inserting into `gathering_drafts.draft`. */
-export function emptyDraftBody(): Omit<GatheringDraft, "id" | "userId" | "createdAt" | "updatedAt" | "status" | "confirmedPartyId" | "transcriptRetention"> {
+export function emptyDraftBody(): Omit<
+  GatheringDraft,
+  | "id"
+  | "userId"
+  | "createdAt"
+  | "updatedAt"
+  | "status"
+  | "confirmedPartyId"
+  | "transcriptRetention"
+> {
   return {
     identity: {
       workingTitle: field<string>(),
@@ -161,7 +164,11 @@ export function emptyDraftBody(): Omit<GatheringDraft, "id" | "userId" | "create
     where: {
       venueKind: field<"home" | "backyard" | "park" | "venue" | "virtual" | "unknown">(),
       display: field<string | null>(),
-      contingency: field<{ needed: boolean; kind?: "rain" | "heat" | "cold" | "stream-fail" | "custom"; plan?: string }>({ needed: false }),
+      contingency: field<{
+        needed: boolean;
+        kind?: "rain" | "heat" | "cold" | "stream-fail" | "custom";
+        plan?: string;
+      }>({ needed: false }),
     },
     people: {
       expectedCount: field<number | null>(),
@@ -195,8 +202,17 @@ export function emptyDraftBody(): Omit<GatheringDraft, "id" | "userId" | "create
     },
     vibe: {
       activities: field<string[]>([]),
-      creativeDirection: field<{ palette?: string[]; vibe?: string; teamNeutral?: boolean; teams?: string[] } | null>(),
-      broadcast: field<{ source: "tv" | "stream" | "none"; channel?: string; needsSoundCheck?: boolean } | null>(),
+      creativeDirection: field<{
+        palette?: string[];
+        vibe?: string;
+        teamNeutral?: boolean;
+        teams?: string[];
+      } | null>(),
+      broadcast: field<{
+        source: "tv" | "stream" | "none";
+        channel?: string;
+        needsSoundCheck?: boolean;
+      } | null>(),
     },
     rituals: field<Array<{ label: string; instruction?: string; optional: boolean }>>([]),
     openQuestions: [],

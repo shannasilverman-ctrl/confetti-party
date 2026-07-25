@@ -87,9 +87,7 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       saveSecret(token, item.id, secret);
       setSecrets((prev) => ({ ...prev, [item.id]: secret }));
     }
-    setRows((prev) =>
-      prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)),
-    );
+    setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)));
     celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
     toast.success(`You're on ${item.label}. Thanks!`);
   }
@@ -119,11 +117,8 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
       delete next[item.id];
       return next;
     });
-    setRows((prev) =>
-      prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)),
-    );
+    setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "open" } : r)));
   }
-
 
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -162,19 +157,13 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-medium text-foreground">
-                          {it.label}
-                        </span>
+                        <span className="text-sm font-medium text-foreground">{it.label}</span>
                         <span className="text-xs text-muted-foreground">
                           × {it.qty}
                           {it.unit ? ` ${it.unit}` : ""}
                         </span>
                       </div>
-                      {taken && (
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-                          Claimed
-                        </div>
-                      )}
+                      {taken && <div className="mt-0.5 text-xs text-muted-foreground">Claimed</div>}
                     </div>
 
                     {taken ? (
@@ -191,11 +180,7 @@ export function PublicBringBoard({ token, items, defaultName }: Props) {
                         <span className="text-xs text-muted-foreground">Taken</span>
                       )
                     ) : (
-                      <Button
-                        size="sm"
-                        disabled={busyId === it.id}
-                        onClick={(e) => claim(it, e)}
-                      >
+                      <Button size="sm" disabled={busyId === it.id} onClick={(e) => claim(it, e)}>
                         I'll bring it
                       </Button>
                     )}

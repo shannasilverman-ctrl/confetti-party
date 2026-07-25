@@ -12,9 +12,9 @@ type Piece = {
 };
 
 const PALETTE = [
-  "hsl(var(--primary))",     // coral
-  "hsl(var(--accent))",      // amber
-  "hsl(var(--secondary))",   // violet
+  "hsl(var(--primary))", // coral
+  "hsl(var(--accent))", // amber
+  "hsl(var(--secondary))", // violet
 ];
 
 function makePieces(count: number, spread: number, rand: () => number): Piece[] {
@@ -28,7 +28,7 @@ function makePieces(count: number, spread: number, rand: () => number): Piece[] 
       shape: shapes[i % shapes.length],
       tx: Math.cos(angle) * dist,
       ty: Math.sin(angle) * dist,
-      tr: (rand() * 720 - 360),
+      tr: rand() * 720 - 360,
       size: 6 + Math.round(rand() * 6),
       delay: Math.round(rand() * 120),
     });
@@ -58,7 +58,12 @@ function Piece({ p }: { p: Piece }) {
     ["--tr" as string]: `${p.tr}deg`,
     animationDelay: `${p.delay}ms`,
   } as React.CSSProperties;
-  return <span className="absolute -translate-x-1/2 -translate-y-1/2 animate-piece-fly motion-reduce-fade" style={style} />;
+  return (
+    <span
+      className="absolute -translate-x-1/2 -translate-y-1/2 animate-piece-fly motion-reduce-fade"
+      style={style}
+    />
+  );
 }
 
 /**
@@ -87,11 +92,17 @@ export function ConfettiBurst({
     return () => clearTimeout(t);
   }, [active]);
 
-  const pieces = useMemo(() => makePieces(count, spread, seeded(key * 9973 + 17)), [count, spread, key]);
+  const pieces = useMemo(
+    () => makePieces(count, spread, seeded(key * 9973 + 17)),
+    [count, spread, key],
+  );
   if (!visible) return null;
 
   return (
-    <div className={`pointer-events-none absolute inset-0 overflow-visible ${className}`} aria-hidden>
+    <div
+      className={`pointer-events-none absolute inset-0 overflow-visible ${className}`}
+      aria-hidden
+    >
       {pieces.map((p, i) => (
         <Piece key={`${key}-${i}`} p={p} />
       ))}
@@ -103,7 +114,9 @@ export function ConfettiBurst({
  * Fire a one-off full-viewport confetti burst from the center (or a point).
  * Safe to call from event handlers; auto-cleans DOM after animation.
  */
-export function fireConfetti(opts: { origin?: { x: number; y: number }; count?: number; spread?: number } = {}) {
+export function fireConfetti(
+  opts: { origin?: { x: number; y: number }; count?: number; spread?: number } = {},
+) {
   if (typeof window === "undefined") return;
   // Respect prefers-reduced-motion: the paired toast still communicates the moment.
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -147,11 +160,11 @@ export function fireConfetti(opts: { origin?: { x: number; y: number }; count?: 
  * spans self-clean after the animation. Distinct from the radial `fireConfetti`.
  */
 const CANNON_PALETTE = [
-  "hsl(10 82% 62%)",   // coral (primary)
-  "hsl(268 55% 42%)",  // violet (secondary)
-  "hsl(38 92% 58%)",   // amber (accent)
-  "hsl(340 75% 62%)",  // pink
-  "hsl(210 82% 60%)",  // blue
+  "hsl(10 82% 62%)", // coral (primary)
+  "hsl(268 55% 42%)", // violet (secondary)
+  "hsl(38 92% 58%)", // amber (accent)
+  "hsl(340 75% 62%)", // pink
+  "hsl(210 82% 60%)", // blue
 ];
 
 export function fireCannon(opts: { origin?: { x: number; y: number }; count?: number } = {}) {
@@ -196,7 +209,7 @@ export function fireCannon(opts: { origin?: { x: number; y: number }; count?: nu
     const vy = Math.sin(angle) * speed;
     const dur = 1100 + rand() * 800; // ms
     const t = dur / 1000; // s
-    const rot = (rand() * 1440 - 720);
+    const rot = rand() * 1440 - 720;
 
     // Sample the arc so easing applies to a real trajectory.
     const steps = 8;
@@ -234,10 +247,7 @@ export function fireCannon(opts: { origin?: { x: number; y: number }; count?: nu
  */
 let __lastCelebrateAt = 0;
 export type CelebrateIntensity = "micro" | "small" | "big" | "cannon";
-export function celebrate(
-  intensity: CelebrateIntensity,
-  origin?: { x: number; y: number },
-) {
+export function celebrate(intensity: CelebrateIntensity, origin?: { x: number; y: number }) {
   if (typeof window === "undefined") return;
   const now = Date.now();
   if (now - __lastCelebrateAt < 300) return;
@@ -246,7 +256,10 @@ export function celebrate(
     fireCannon({ origin });
     return;
   }
-  const presets: Record<Exclude<CelebrateIntensity, "cannon">, { count: number; spread: number }> = {
+  const presets: Record<
+    Exclude<CelebrateIntensity, "cannon">,
+    { count: number; spread: number }
+  > = {
     micro: { count: 7, spread: 50 },
     small: { count: 14, spread: 100 },
     big: { count: 32, spread: 180 },

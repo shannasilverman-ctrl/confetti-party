@@ -86,12 +86,22 @@
   --brand-mint: hsl(150 55% 52%);
 
   /* Festive gradient */
-  --gradient-festive: linear-gradient(135deg, hsl(10 82% 62%) 0%, hsl(340 75% 58%) 45%, hsl(268 55% 42%) 100%);
+  --gradient-festive: linear-gradient(
+    135deg,
+    hsl(10 82% 62%) 0%,
+    hsl(340 75% 58%) 45%,
+    hsl(268 55% 42%) 100%
+  );
   --gradient-sunrise: linear-gradient(135deg, hsl(38 92% 62%) 0%, hsl(10 82% 62%) 100%);
-  --gradient-plum-veil: linear-gradient(180deg, hsl(268 55% 18% / 0.05) 0%, hsl(268 55% 18% / 0.7) 100%);
+  --gradient-plum-veil: linear-gradient(
+    180deg,
+    hsl(268 55% 18% / 0.05) 0%,
+    hsl(268 55% 18% / 0.7) 100%
+  );
   --shadow-soft: 0 2px 10px -6px hsl(268 55% 20% / 0.18), 0 1px 3px -1px hsl(268 55% 20% / 0.08);
   --shadow-card: 0 4px 20px -8px hsl(268 55% 32% / 0.15);
-  --shadow-elevated: 0 24px 60px -24px hsl(268 55% 26% / 0.28), 0 4px 12px -6px hsl(268 55% 26% / 0.12);
+  --shadow-elevated:
+    0 24px 60px -24px hsl(268 55% 26% / 0.28), 0 4px 12px -6px hsl(268 55% 26% / 0.12);
   --shadow-lift: 0 40px 80px -30px hsl(268 55% 20% / 0.35);
 
   /* Confetti dot pattern — softer, larger tile so it feels editorial */
@@ -143,50 +153,82 @@
 }
 
 @keyframes pop-check {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.25) rotate(-8deg); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.25) rotate(-8deg);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 @utility animate-pop {
   animation: pop-check 0.4s ease-out;
 }
 
 @keyframes confetti-burst {
-  0% { transform: translateY(0) scale(0.6); opacity: 1; }
-  100% { transform: translateY(-24px) scale(1.1); opacity: 0; }
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-24px) scale(1.1);
+    opacity: 0;
+  }
 }
 @utility animate-confetti {
   animation: confetti-burst 0.7s ease-out forwards;
 }
 
 @keyframes letter-pop {
-  0%   { transform: translateY(14px) scale(0.6) rotate(0deg); opacity: 0; }
-  60%  { transform: translateY(-2px) scale(1.12) rotate(var(--letter-rot, 0deg)); opacity: 1; }
-  100% { transform: translateY(0) scale(1) rotate(var(--letter-rot, 0deg)); opacity: 1; }
+  0% {
+    transform: translateY(14px) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(-2px) scale(1.12) rotate(var(--letter-rot, 0deg));
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1) rotate(var(--letter-rot, 0deg));
+    opacity: 1;
+  }
 }
 @utility animate-letter-pop {
-  animation: letter-pop 0.45s cubic-bezier(.34,1.56,.64,1) both;
+  animation: letter-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 @keyframes piece-fly {
-  0%   { transform: translate(0,0) rotate(0deg) scale(0.4); opacity: 0; }
-  20%  { opacity: 1; }
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(0.4);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
   100% {
-    transform:
-      translate(var(--tx, 0), var(--ty, 0))
-      rotate(var(--tr, 180deg))
-      scale(1);
+    transform: translate(var(--tx, 0), var(--ty, 0)) rotate(var(--tr, 180deg)) scale(1);
     opacity: 0;
   }
 }
 @utility animate-piece-fly {
-  animation: piece-fly 1s cubic-bezier(.2,.7,.3,1) forwards;
+  animation: piece-fly 1s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
 }
 
 @keyframes logo-shimmer {
-  0%, 100% { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
-  40%      { opacity: 0.55; }
-  60%      { transform: translateX(120%) skewX(-18deg); opacity: 0; }
+  0%,
+  100% {
+    transform: translateX(-120%) skewX(-18deg);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.55;
+  }
+  60% {
+    transform: translateX(120%) skewX(-18deg);
+    opacity: 0;
+  }
 }
 @utility animate-logo-shimmer {
   animation: logo-shimmer 4.5s ease-in-out infinite;
@@ -205,8 +247,12 @@
   }
 }
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @layer base {
@@ -224,7 +270,10 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.01em;

@@ -189,12 +189,8 @@ function buildIcs(party: PartyView): string {
     "BEGIN:VEVENT",
     `UID:${uid}`,
     `DTSTAMP:${now}`,
-    p.icsAllDay
-      ? `DTSTART;VALUE=DATE:${p.icsStart}`
-      : `DTSTART:${p.icsStart}`,
-    p.icsAllDay
-      ? `DTEND;VALUE=DATE:${p.icsEnd}`
-      : `DTEND:${p.icsEnd}`,
+    p.icsAllDay ? `DTSTART;VALUE=DATE:${p.icsStart}` : `DTSTART:${p.icsStart}`,
+    p.icsAllDay ? `DTEND;VALUE=DATE:${p.icsEnd}` : `DTEND:${p.icsEnd}`,
     `SUMMARY:${esc(party.name)}`,
     party.location ? `LOCATION:${esc(party.location)}` : "",
     "DESCRIPTION:See you there — sent via Confetti.",
@@ -243,7 +239,6 @@ function WhosComing({ yes, maybe }: { yes: number; maybe: number }) {
     </div>
   );
 }
-
 
 function CalendarAndDirections({ party }: { party: PartyView }) {
   return (
@@ -341,7 +336,6 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
 
   const displayYes = party.yes_count + (done && rsvp === "yes" ? 1 : 0);
 
-
   return (
     <div className="min-h-screen bg-background">
       <section className="relative overflow-hidden" style={heroStyle}>
@@ -402,7 +396,8 @@ function RsvpForm({ token, party }: { token: string; party: PartyView }) {
                 You're on the list!
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Thanks {name.trim()} — we'll see you there. Add it to your calendar so you don't forget.
+                Thanks {name.trim()} — we'll see you there. Add it to your calendar so you don't
+                forget.
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2">

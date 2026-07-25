@@ -140,9 +140,7 @@ function Landing() {
               </Link>
             </Button>
           </div>
-          <p className="mt-4 text-xs text-white/70">
-            Free. No sign-up needed to look around.
-          </p>
+          <p className="mt-4 text-xs text-white/70">Free. No sign-up needed to look around.</p>
         </div>
       </section>
 
@@ -246,7 +244,11 @@ function Landing() {
               chapter="Chapter 02"
               title="The Reveal."
               body="A single calm page: what you're hosting, when, for whom, with the risks flagged. No dashboards to decode, no ten tabs of setup."
-              cta={{ label: "See a sample reveal", to: "/party/$id/reveal", params: { id: "ava-liam-wedding" } }}
+              cta={{
+                label: "See a sample reveal",
+                to: "/party/$id/reveal",
+                params: { id: "ava-liam-wedding" },
+              }}
               tone="mint"
               flip
               art={<RevealMini />}
@@ -272,7 +274,11 @@ function Landing() {
               chapter="Chapter 05"
               title="Day-of Mode."
               body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
-              cta={{ label: "Open Day-of Mode", to: "/party/$id/day-of", params: { id: "maya-8th" } }}
+              cta={{
+                label: "Open Day-of Mode",
+                to: "/party/$id/day-of",
+                params: { id: "maya-8th" },
+              }}
               tone="cream"
               art={<TimelineMini />}
             />
@@ -280,7 +286,11 @@ function Landing() {
               chapter="Chapter 06"
               title="Memories, so next time is easier."
               body="A five-minute retrospective after the toast: what worked, what ran out, what to change. It carries into the next gathering as suggestions — not a blank page."
-              cta={{ label: "Read Ava & Liam's retro", to: "/party/$id/reveal", params: { id: "ava-liam-wedding" } }}
+              cta={{
+                label: "Read Ava & Liam's retro",
+                to: "/party/$id/reveal",
+                params: { id: "ava-liam-wedding" },
+              }}
               tone="gold"
               flip
               art={<MemoriesMini />}
@@ -288,7 +298,6 @@ function Landing() {
           </div>
         </div>
       </section>
-
 
       {/* Closing band */}
       <section className="relative overflow-hidden bg-confetti py-20 sm:py-24">
@@ -444,11 +453,7 @@ function ChecklistRow({ done, children }: { done?: boolean; children: React.Reac
       >
         {done && <Check className="h-3.5 w-3.5" />}
       </span>
-      <span
-        className={
-          done ? "text-muted-foreground line-through" : "text-secondary"
-        }
-      >
+      <span className={done ? "text-muted-foreground line-through" : "text-secondary"}>
         {children}
       </span>
     </div>
@@ -536,9 +541,6 @@ function StoryRow({
   );
 }
 
-
-
-
 function ChecklistMini() {
   const rows: { tag: string; tagVariant: "muted" | "coral"; text: string; done?: boolean }[] = [
     { tag: "6 WKS", tagVariant: "muted", text: "Book the venue", done: true },
@@ -557,7 +559,10 @@ function ChecklistMini() {
       </div>
       <div className="mt-4 space-y-2">
         {rows.map((r, i) => (
-          <div key={i} className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2 text-sm">
+          <div
+            key={i}
+            className="flex items-center gap-2.5 rounded-xl bg-muted/50 px-3 py-2 text-sm"
+          >
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-md border ${
                 r.done
@@ -586,7 +591,6 @@ function ChecklistMini() {
   );
 }
 
-
 function TimelineMini() {
   const rows = [
     { time: "10:00", label: "Pick up balloons", now: false, done: true },
@@ -606,9 +610,7 @@ function TimelineMini() {
           <div
             key={r.time}
             className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
-              r.now
-                ? "bg-primary/10 ring-1 ring-primary/30"
-                : "bg-muted/40"
+              r.now ? "bg-primary/10 ring-1 ring-primary/30" : "bg-muted/40"
             }`}
           >
             <span
@@ -646,9 +648,15 @@ function TimelineMini() {
 function TalkMini() {
   const turns: { who: "user" | "confetti"; text: string }[] = [
     { who: "user", text: "hosting friendsgiving, 12 people, maybe some vegetarians" },
-    { who: "confetti", text: "Got it — I'll flag two vegetarian mains. Any allergies to plan around?" },
+    {
+      who: "confetti",
+      text: "Got it — I'll flag two vegetarian mains. Any allergies to plan around?",
+    },
     { who: "user", text: "one nut allergy. no time for a full sit-down." },
-    { who: "confetti", text: "Buffet-style then. I'll build the checklist backwards from Thursday 4pm." },
+    {
+      who: "confetti",
+      text: "Buffet-style then. I'll build the checklist backwards from Thursday 4pm.",
+    },
   ];
   return (
     <div className="rounded-3xl border border-border bg-card p-5 shadow-card">
@@ -685,10 +693,16 @@ function RevealMini() {
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Sparkles className="h-3 w-3 text-primary" /> Your reveal
       </div>
-      <div className="mt-1 font-display text-lg font-semibold text-secondary">Friendsgiving 2026</div>
+      <div className="mt-1 font-display text-lg font-semibold text-secondary">
+        Friendsgiving 2026
+      </div>
       <div className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
-        <span className="rounded-full bg-secondary/10 px-2 py-0.5 font-medium text-secondary">Dinner party</span>
-        <span className="rounded-full bg-accent/25 px-2 py-0.5 font-medium text-secondary">Warm rustic</span>
+        <span className="rounded-full bg-secondary/10 px-2 py-0.5 font-medium text-secondary">
+          Dinner party
+        </span>
+        <span className="rounded-full bg-accent/25 px-2 py-0.5 font-medium text-secondary">
+          Warm rustic
+        </span>
       </div>
       <div className="mt-4 space-y-2 text-sm">
         <div className="flex items-center gap-2 text-secondary">
@@ -795,9 +809,7 @@ function MemoriesMini() {
       <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Sparkles className="h-3 w-3 text-accent" /> Retrospective
       </div>
-      <div className="font-display text-lg font-semibold text-secondary">
-        Friendsgiving 2025
-      </div>
+      <div className="font-display text-lg font-semibold text-secondary">Friendsgiving 2025</div>
       <ul className="mt-3 space-y-2">
         {bullets.map((b, i) => (
           <li key={i} className="rounded-xl bg-muted/40 p-3">

@@ -52,7 +52,8 @@ export function RetrospectiveDialog({ partyId }: { partyId: string }) {
         <DialogHeader>
           <DialogTitle>How did it go?</DialogTitle>
           <DialogDescription>
-            Only you can see this. Next time you clone this party we'll surface these notes as suggested improvements.
+            Only you can see this. Next time you clone this party we'll surface these notes as
+            suggested improvements.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -91,8 +92,12 @@ export function RetrospectiveDialog({ partyId }: { partyId: string }) {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button variant="festive" onClick={save}>Save retrospective</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="festive" onClick={save}>
+            Save retrospective
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

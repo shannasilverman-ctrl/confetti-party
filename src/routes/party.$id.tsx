@@ -69,7 +69,6 @@ export type TabKey =
   | "budget"
   | "timeline";
 
-
 export const Route = createFileRoute("/party/$id")({
   component: PartyWorkspace,
   head: ({ params }) => ({
@@ -109,7 +108,6 @@ function PartyWorkspace() {
     );
   }
 
-
   const days = daysUntil(party.date);
   const g = guestCounts(party);
   const spent = totalSpent(party);
@@ -131,7 +129,6 @@ function PartyWorkspace() {
     { key: "budget", label: "Budget", icon: Wallet },
     { key: "timeline", label: "Timeline", icon: Clock },
   ];
-
 
   return (
     <div className="min-h-screen bg-background pb-nav-safe md:pb-0">
@@ -186,14 +183,25 @@ function PartyWorkspace() {
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-3 sm:max-w-lg">
-              <Stat label="Progress" value={`${prog}%`} sub={`${party.tasks.filter(t=>t.done).length}/${party.tasks.length} tasks`} />
-              <Stat label="RSVPs" value={`${g.yes}`} sub={`${g.maybe} maybe · ${g.invited} pending`} />
+              <Stat
+                label="Progress"
+                value={`${prog}%`}
+                sub={`${party.tasks.filter((t) => t.done).length}/${party.tasks.length} tasks`}
+              />
+              <Stat
+                label="RSVPs"
+                value={`${g.yes}`}
+                sub={`${g.maybe} maybe · ${g.invited} pending`}
+              />
               <Stat label="Budget" value={`$${spent}`} sub={`of $${party.budget}`} />
             </div>
           </div>
 
           {/* Desktop tabs */}
-          <nav className="mt-6 hidden gap-1 border-b border-transparent md:flex" aria-label="Party sections">
+          <nav
+            className="mt-6 hidden gap-1 border-b border-transparent md:flex"
+            aria-label="Party sections"
+          >
             {tabs.map((t) => (
               <button
                 key={t.key}
@@ -217,7 +225,6 @@ function PartyWorkspace() {
         </div>
       </header>
 
-
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
         {tab === "theme" && <ThemeTab partyId={party.id} />}
@@ -232,7 +239,6 @@ function PartyWorkspace() {
         )}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
         {tab === "timeline" && <TimelineTab partyId={party.id} />}
-
       </main>
 
       {/* Mobile bottom tab nav - horizontally scrollable, respects safe area */}
@@ -264,7 +270,6 @@ function PartyWorkspace() {
           ))}
         </div>
       </nav>
-
     </div>
   );
 }
@@ -304,7 +309,6 @@ function ChecklistTab({ partyId }: { partyId: string }) {
     }
     wasComplete.current = complete;
   }, [party.tasks]);
-
 
   const toggle = (id: string) => {
     const t = party.tasks.find((x) => x.id === id);
@@ -420,7 +424,10 @@ function ChecklistTab({ partyId }: { partyId: string }) {
 
 /* ---------------- Guests ---------------- */
 
-const RSVP_STYLES: Record<RSVP, { label: string; variant: "success" | "warning" | "destructive" | "soft" }> = {
+const RSVP_STYLES: Record<
+  RSVP,
+  { label: string; variant: "success" | "warning" | "destructive" | "soft" }
+> = {
   yes: { label: "Yes", variant: "success" },
   maybe: { label: "Maybe", variant: "warning" },
   no: { label: "No", variant: "destructive" },
@@ -583,9 +590,7 @@ function BudgetTab({ partyId }: { partyId: string }) {
     updateParty(partyId, (p) => ({
       ...p,
       budgetCategories: p.budgetCategories.map((c) =>
-        c.id === catId
-          ? { ...c, expenses: [...c.expenses, { id: newId(), label, amount }] }
-          : c,
+        c.id === catId ? { ...c, expenses: [...c.expenses, { id: newId(), label, amount }] } : c,
       ),
     }));
 
@@ -612,9 +617,7 @@ function BudgetTab({ partyId }: { partyId: string }) {
         </div>
         <div
           className={`rounded-2xl border p-5 shadow-card ${
-            remaining < 0
-              ? "border-warning bg-warning/10"
-              : "border-border bg-card"
+            remaining < 0 ? "border-warning bg-warning/10" : "border-border bg-card"
           }`}
         >
           <div className="text-xs uppercase tracking-wide text-muted-foreground">

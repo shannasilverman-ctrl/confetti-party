@@ -21,7 +21,9 @@ type SearchInput = { query: string; limit?: number };
 
 function parseSearchInput(input: unknown): SearchInput {
   const raw = input as Partial<SearchInput> | undefined;
-  const query = String(raw?.query ?? "").trim().slice(0, 120);
+  const query = String(raw?.query ?? "")
+    .trim()
+    .slice(0, 120);
   if (!query) throw new Error("query is required");
   const limit = Math.min(Math.max(Number(raw?.limit ?? 3) || 3, 1), 6);
   return { query, limit };
@@ -57,7 +59,10 @@ export const searchCatalogProducts = createServerFn({ method: "POST" })
           meta: { "ucp-agent": { profile: UCP_AGENT_PROFILE } },
           catalog: {
             query: data.query,
-            context: { address_country: "US", intent: "Party host shopping for decorations and supplies" },
+            context: {
+              address_country: "US",
+              intent: "Party host shopping for decorations and supplies",
+            },
             pagination: { limit: data.limit ?? 3 },
             view: "compact",
           },
@@ -98,14 +103,16 @@ export const searchCatalogProducts = createServerFn({ method: "POST" })
       const url = variant?.checkout_url || variant?.url;
       if (!url || !p.title) return [];
       const image = p.media?.find((m) => m?.type === "image")?.url ?? null;
-      return [{
-        id: String(p.id ?? url),
-        title: String(p.title),
-        image,
-        priceMinor: typeof price?.amount === "number" ? price.amount : null,
-        currency: price?.currency ?? null,
-        url,
-        seller: variant?.seller?.name ?? null,
-      }];
+      return [
+        {
+          id: String(p.id ?? url),
+          title: String(p.title),
+          image,
+          priceMinor: typeof price?.amount === "number" ? price.amount : null,
+          currency: price?.currency ?? null,
+          url,
+          seller: variant?.seller?.name ?? null,
+        },
+      ];
     });
   });

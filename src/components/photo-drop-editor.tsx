@@ -7,7 +7,12 @@ import { Camera, Copy, Printer, Share2, ExternalLink } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { useParties } from "@/lib/party-context";
-import { validatePhotoDropUrl, PROVIDERS, type PhotoDropProvider, type PhotoDrop } from "@/lib/photo-drop";
+import {
+  validatePhotoDropUrl,
+  PROVIDERS,
+  type PhotoDropProvider,
+  type PhotoDrop,
+} from "@/lib/photo-drop";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,7 +82,9 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
     if (typeof navigator !== "undefined" && "share" in navigator) {
       try {
         await navigator.share({ title: existing.label || "Photo Drop", url: existing.url });
-      } catch { /* user cancel */ }
+      } catch {
+        /* user cancel */
+      }
     }
   }
 
@@ -107,7 +114,9 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
               </SelectTrigger>
               <SelectContent>
                 {(Object.keys(PROVIDERS) as PhotoDropProvider[]).map((k) => (
-                  <SelectItem key={k} value={k}>{PROVIDERS[k].label}</SelectItem>
+                  <SelectItem key={k} value={k}>
+                    {PROVIDERS[k].label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -119,7 +128,10 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
               id="pd-url"
               placeholder="https://…"
               value={url}
-              onChange={(e) => { setUrl(e.target.value); setError(null); }}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setError(null);
+              }}
               inputMode="url"
               autoComplete="off"
             />
@@ -149,15 +161,19 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button variant="festive" onClick={save}>Save Photo Drop</Button>
+            <Button variant="festive" onClick={save}>
+              Save Photo Drop
+            </Button>
             {existing && (
-              <Button variant="outline" onClick={clear}>Remove</Button>
+              <Button variant="outline" onClick={clear}>
+                Remove
+              </Button>
             )}
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Anyone with the QR / link can upload according to your provider's settings.
-            Review your provider's privacy controls before sharing publicly.
+            Anyone with the QR / link can upload according to your provider's settings. Review your
+            provider's privacy controls before sharing publicly.
           </p>
         </div>
       </div>

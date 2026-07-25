@@ -1,4 +1,3 @@
-
 # Security hardening — token RPCs and public projections
 
 I'm in plan mode and can't run the migration without approval. Approving this plan runs the migration and code changes in one batch.
@@ -12,6 +11,7 @@ One additive Supabase migration replacing five SECURITY DEFINER functions in pla
 ### 1. `get_rsvp_party(token uuid)` — tighten public projection
 
 Return only:
+
 - `name`, `date`, `start_time`, `location`, `occasion`, `theme_id`, `theme`, `host_note`, `holiday_pack_id`
 - `host_updates` sanitized to `{ id, text, at }` only (drop any other keys)
 - `photo_drop` limited to `{ provider, label, url, notes }` when configured, else null
@@ -47,6 +47,7 @@ Return items with `{ id, category, label, qty, unit, status }` only. Drop `dieta
 ### 6. Grants
 
 At end of migration:
+
 ```
 REVOKE EXECUTE ON FUNCTION
   public.get_rsvp_party(uuid),
@@ -58,6 +59,7 @@ FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION ... TO anon, authenticated;
 ```
+
 (exact arg lists matched to current signatures).
 
 ## Frontend changes

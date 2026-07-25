@@ -11,13 +11,7 @@ export type TalkEvent =
   | { type: "error"; message: string }
   | { type: "closed"; reason?: string };
 
-export type TalkState =
-  | "idle"
-  | "connecting"
-  | "listening"
-  | "speaking"
-  | "closed"
-  | "error";
+export type TalkState = "idle" | "connecting" | "listening" | "speaking" | "closed" | "error";
 
 export interface TalkClientOptions {
   clientSecret: string;
@@ -170,10 +164,14 @@ export class TalkClient {
   close(reason?: string) {
     try {
       this.dc?.close();
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     try {
       this.pc?.close();
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
     this.stream?.getTracks().forEach((t) => t.stop());
     this.opts.audioEl.srcObject = null;
     this.setState("closed");

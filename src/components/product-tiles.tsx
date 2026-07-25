@@ -99,9 +99,7 @@ function ProductCard({ product }: { product: CatalogProduct }) {
             {product.seller ?? "Shopify"}
           </span>
           {price && (
-            <span className="tabular-nums text-[11px] font-semibold text-secondary">
-              {price}
-            </span>
+            <span className="tabular-nums text-[11px] font-semibold text-secondary">{price}</span>
           )}
         </div>
       </div>

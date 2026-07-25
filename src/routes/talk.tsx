@@ -1,6 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Square, Send, ArrowLeft, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import {
+  Mic,
+  MicOff,
+  Square,
+  Send,
+  ArrowLeft,
+  Loader2,
+  Sparkles,
+  CheckCircle2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -68,10 +77,14 @@ function TalkRoute() {
   const recognitionRef = useRef<any>(null);
   const speechSupported =
     typeof window !== "undefined" &&
-    (("SpeechRecognition" in window) || ("webkitSpeechRecognition" in window));
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
 
   const stopDictation = useCallback(() => {
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      /* noop */
+    }
     setDictating(false);
   }, []);
 
@@ -107,9 +120,12 @@ function TalkRoute() {
     };
     recognitionRef.current = rec;
     setDictating(true);
-    try { rec.start(); } catch { setDictating(false); }
+    try {
+      rec.start();
+    } catch {
+      setDictating(false);
+    }
   }, []);
-
 
   // Voice-mode state (kept intact)
   const [state, setState] = useState<TalkState>("idle");
@@ -250,21 +266,28 @@ function TalkRoute() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        const msg = (body as { message?: string })?.message ?? `Voice unavailable (${res.status}). Use text mode.`;
+        const msg =
+          (body as { message?: string })?.message ??
+          `Voice unavailable (${res.status}). Use text mode.`;
         setVoiceError(msg);
         toast.error(msg);
         setConnecting(false);
         return;
       }
       const { clientSecret, model, sessionId } = (await res.json()) as {
-        clientSecret: string; model: string; sessionId: string | null;
+        clientSecret: string;
+        model: string;
+        sessionId: string | null;
       };
       if (!audioRef.current) {
         audioRef.current = new Audio();
         audioRef.current.autoplay = true;
       }
       const client = new TalkClient({
-        clientSecret, model, audioEl: audioRef.current, onEvent: handleVoiceEvent,
+        clientSecret,
+        model,
+        audioEl: audioRef.current,
+        onEvent: handleVoiceEvent,
       });
       clientRef.current = client;
       setSessionId(sessionId);
@@ -295,10 +318,13 @@ function TalkRoute() {
     startedAtRef.current = null;
   }, [sessionId]);
 
-  useEffect(() => () => {
-    clientRef.current?.close("route_unmount");
-    clientRef.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      clientRef.current?.close("route_unmount");
+      clientRef.current = null;
+    },
+    [],
+  );
 
   const toggleMute = useCallback(() => {
     setMuted((m) => {
@@ -324,18 +350,30 @@ function TalkRoute() {
         style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}
       >
         <header className="flex items-center justify-between gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/app" })} className="gap-1 min-h-11">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate({ to: "/app" })}
+            className="gap-1 min-h-11"
+          >
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
           <div className="hidden text-xs font-medium uppercase tracking-wider text-muted-foreground sm:block">
             Talk it out
           </div>
-          <div className="inline-flex overflow-hidden rounded-lg border border-border text-xs" role="tablist" aria-label="Talk mode">
+          <div
+            className="inline-flex overflow-hidden rounded-lg border border-border text-xs"
+            role="tablist"
+            aria-label="Talk mode"
+          >
             <button
               role="tab"
               aria-selected={mode === "text"}
               onClick={() => setMode("text")}
-              className={cn("min-h-9 px-3 py-1", mode === "text" ? "bg-primary text-primary-foreground" : "bg-background")}
+              className={cn(
+                "min-h-9 px-3 py-1",
+                mode === "text" ? "bg-primary text-primary-foreground" : "bg-background",
+              )}
             >
               Text
             </button>
@@ -343,13 +381,15 @@ function TalkRoute() {
               role="tab"
               aria-selected={mode === "voice"}
               onClick={() => setMode("voice")}
-              className={cn("min-h-9 px-3 py-1", mode === "voice" ? "bg-primary text-primary-foreground" : "bg-background")}
+              className={cn(
+                "min-h-9 px-3 py-1",
+                mode === "voice" ? "bg-primary text-primary-foreground" : "bg-background",
+              )}
             >
               Voice
             </button>
           </div>
         </header>
-
 
         {mode === "text" ? (
           <main className="mt-6 grid flex-1 gap-6 md:mt-10 md:grid-cols-[1fr_320px]">
@@ -358,7 +398,11 @@ function TalkRoute() {
                 <div className="border-b px-4 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   Conversation
                 </div>
-                <div ref={chatScrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
+                <div
+                  ref={chatScrollRef}
+                  className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                  aria-live="polite"
+                >
                   {messages.map((m, i) => (
                     <div
                       key={i}
@@ -445,19 +489,31 @@ function TalkRoute() {
                   <div className="mt-2 space-y-3">
                     {assumptions.length > 0 && (
                       <div>
-                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Assumptions</div>
+                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Assumptions
+                        </div>
                         <ul className="space-y-1">
                           {assumptions.map((a, i) => (
-                            <li key={i}><Badge variant="secondary" className="whitespace-normal text-left">{a}</Badge></li>
+                            <li key={i}>
+                              <Badge variant="secondary" className="whitespace-normal text-left">
+                                {a}
+                              </Badge>
+                            </li>
                           ))}
                         </ul>
                       </div>
                     )}
                     {openQs.length > 0 && (
                       <div>
-                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Open questions</div>
+                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Open questions
+                        </div>
                         <ul className="space-y-1 text-sm text-foreground">
-                          {openQs.map((q, i) => <li key={i} className="rounded-lg bg-muted/40 px-2.5 py-1.5">{q}</li>)}
+                          {openQs.map((q, i) => (
+                            <li key={i} className="rounded-lg bg-muted/40 px-2.5 py-1.5">
+                              {q}
+                            </li>
+                          ))}
                         </ul>
                       </div>
                     )}
@@ -471,7 +527,15 @@ function TalkRoute() {
                 onClick={confirmAndCreate}
                 disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
               >
-                {confirming ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>) : (<><CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan</>)}
+                {confirming ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan
+                  </>
+                )}
               </Button>
               <p className="text-[11px] text-muted-foreground">
                 Turns your conversation into a real workspace: tasks, budget, guests, bring board.
@@ -487,19 +551,32 @@ function TalkRoute() {
                 <Card className="border-dashed p-5">
                   <h2 className="text-base font-semibold text-foreground">Voice mode (beta)</h2>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Speech-to-speech uses OpenAI Realtime and requires an OPENAI_API_KEY on your project.
-                    Text mode always works.
+                    Speech-to-speech uses OpenAI Realtime and requires an OPENAI_API_KEY on your
+                    project. Text mode always works.
                   </p>
                 </Card>
-                <Button variant="festive" size="lg" className="w-full" onClick={startVoice} disabled={connecting || !authReady}>
+                <Button
+                  variant="festive"
+                  size="lg"
+                  className="w-full"
+                  onClick={startVoice}
+                  disabled={connecting || !authReady}
+                >
                   <Mic className="mr-2 h-5 w-5" /> Start voice session
                 </Button>
               </div>
             )}
             {(isLive || connecting) && (
               <div className="flex w-full max-w-md items-center justify-center gap-3">
-                <Button variant="outline" size="lg" onClick={toggleMute} aria-pressed={muted} className="gap-2">
-                  {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />} {muted ? "Unmute" : "Mute"}
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={toggleMute}
+                  aria-pressed={muted}
+                  className="gap-2"
+                >
+                  {muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}{" "}
+                  {muted ? "Unmute" : "Mute"}
                 </Button>
                 <Button variant="destructive" size="lg" onClick={stopVoice} className="gap-2">
                   <Square className="h-4 w-4" /> End session
@@ -508,10 +585,19 @@ function TalkRoute() {
             )}
             {voiceLines.length > 0 && (
               <Card className="w-full max-w-2xl p-4">
-                <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Live transcript</div>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Live transcript
+                </div>
                 <div className="space-y-2">
                   {voiceLines.map((l, i) => (
-                    <div key={i} className={cn("rounded-xl px-3 py-2 text-sm", l.role === "assistant" ? "bg-muted" : "ml-auto max-w-[85%] bg-primary/10", l.partial && "opacity-70")}>
+                    <div
+                      key={i}
+                      className={cn(
+                        "rounded-xl px-3 py-2 text-sm",
+                        l.role === "assistant" ? "bg-muted" : "ml-auto max-w-[85%] bg-primary/10",
+                        l.partial && "opacity-70",
+                      )}
+                    >
                       {l.text || (l.partial ? "…" : "")}
                     </div>
                   ))}
@@ -525,22 +611,32 @@ function TalkRoute() {
   );
 }
 
-function StatusLine({ state, connecting, error }: { state: TalkState; connecting: boolean; error: string | null }) {
+function StatusLine({
+  state,
+  connecting,
+  error,
+}: {
+  state: TalkState;
+  connecting: boolean;
+  error: string | null;
+}) {
   if (error) return <p className="text-sm text-destructive">{error}</p>;
-  if (connecting || state === "connecting") return (
-    <p className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Connecting…
-    </p>
-  );
-  if (state === "listening") return (
-    <p className="flex items-center gap-2 text-sm text-foreground" aria-live="assertive">
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:hidden" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-      </span>
-      Listening
-    </p>
-  );
+  if (connecting || state === "connecting")
+    return (
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Connecting…
+      </p>
+    );
+  if (state === "listening")
+    return (
+      <p className="flex items-center gap-2 text-sm text-foreground" aria-live="assertive">
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75 motion-reduce:hidden" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+        </span>
+        Listening
+      </p>
+    );
   if (state === "speaking") return <p className="text-sm text-foreground">Confetti is speaking…</p>;
   if (state === "closed") return <p className="text-sm text-muted-foreground">Session ended.</p>;
   return <p className="text-sm text-muted-foreground">Ready when you are.</p>;
@@ -549,22 +645,30 @@ function StatusLine({ state, connecting, error }: { state: TalkState; connecting
 function VoiceOrb({ state }: { state: "idle" | "connecting" | "listening" | "speaking" }) {
   return (
     <div className="relative flex h-40 w-40 items-center justify-center md:h-56 md:w-56">
-      <div className={cn(
-        "absolute inset-0 rounded-full transition-all duration-500",
-        state === "idle" && "bg-gradient-to-br from-primary/20 to-secondary/20",
-        state === "connecting" && "bg-gradient-to-br from-primary/30 to-secondary/30",
-        state === "listening" && "bg-gradient-to-br from-primary/40 to-secondary/40 shadow-[0_0_60px_-10px_hsl(var(--primary)/0.5)]",
-        state === "speaking" && "bg-gradient-to-br from-primary/60 to-secondary/60 shadow-[0_0_80px_-10px_hsl(var(--primary)/0.7)]",
-      )} />
-      <div className={cn(
-        "absolute inset-4 rounded-full bg-background/60 backdrop-blur-sm transition-transform duration-500",
-        state === "speaking" && "scale-95 motion-reduce:scale-100",
-        state === "listening" && "scale-100",
-      )} />
-      <div className={cn(
-        "absolute inset-8 rounded-full bg-gradient-to-br from-primary to-secondary opacity-90",
-        state === "listening" && "animate-pulse motion-reduce:animate-none",
-      )} />
+      <div
+        className={cn(
+          "absolute inset-0 rounded-full transition-all duration-500",
+          state === "idle" && "bg-gradient-to-br from-primary/20 to-secondary/20",
+          state === "connecting" && "bg-gradient-to-br from-primary/30 to-secondary/30",
+          state === "listening" &&
+            "bg-gradient-to-br from-primary/40 to-secondary/40 shadow-[0_0_60px_-10px_hsl(var(--primary)/0.5)]",
+          state === "speaking" &&
+            "bg-gradient-to-br from-primary/60 to-secondary/60 shadow-[0_0_80px_-10px_hsl(var(--primary)/0.7)]",
+        )}
+      />
+      <div
+        className={cn(
+          "absolute inset-4 rounded-full bg-background/60 backdrop-blur-sm transition-transform duration-500",
+          state === "speaking" && "scale-95 motion-reduce:scale-100",
+          state === "listening" && "scale-100",
+        )}
+      />
+      <div
+        className={cn(
+          "absolute inset-8 rounded-full bg-gradient-to-br from-primary to-secondary opacity-90",
+          state === "listening" && "animate-pulse motion-reduce:animate-none",
+        )}
+      />
     </div>
   );
 }

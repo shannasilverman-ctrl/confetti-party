@@ -18,9 +18,7 @@ function formatRelative(iso: string) {
 
 export function HostUpdatesFeed({ updates }: { updates: HostUpdateView[] }) {
   if (!updates || updates.length === 0) return null;
-  const ordered = [...updates].sort(
-    (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
-  );
+  const ordered = [...updates].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   return (
     <section className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="mb-2 flex items-center gap-2">
@@ -33,9 +31,7 @@ export function HostUpdatesFeed({ updates }: { updates: HostUpdateView[] }) {
         {ordered.slice(0, 5).map((u) => (
           <li key={u.id} className="rounded-xl bg-muted/40 px-3 py-2">
             <div className="text-sm text-foreground whitespace-pre-wrap">{u.text}</div>
-            <div className="mt-0.5 text-[11px] text-muted-foreground">
-              {formatRelative(u.at)}
-            </div>
+            <div className="mt-0.5 text-[11px] text-muted-foreground">{formatRelative(u.at)}</div>
           </li>
         ))}
       </ul>

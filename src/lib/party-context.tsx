@@ -34,13 +34,7 @@ export type RSVP = "invited" | "yes" | "no" | "maybe";
 
 export type Bucket = "6+ weeks out" | "3-5 weeks" | "1-2 weeks" | "Party week" | "Day of";
 
-export const BUCKETS: Bucket[] = [
-  "6+ weeks out",
-  "3-5 weeks",
-  "1-2 weeks",
-  "Party week",
-  "Day of",
-];
+export const BUCKETS: Bucket[] = ["6+ weeks out", "3-5 weeks", "1-2 weeks", "Party week", "Day of"];
 
 export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
 export type Guest = {
@@ -391,13 +385,62 @@ function seedMaya(): Party {
       linkedExpenseId: tablewareExpId,
       actualPrice: 20,
     },
-    { id: uid(), name: "Unicorn party favor kits", category: "Favors", qty: 3, estPrice: 8, status: "needed" },
-    { id: uid(), name: "Iridescent tablecloth", category: "Decorations", qty: 1, estPrice: 15, status: "in-cart" },
-    { id: uid(), name: "Star fairy lights", category: "Decorations", qty: 2, estPrice: 12, status: "needed" },
-    { id: uid(), name: "Rainbow confetti", category: "Decorations", qty: 1, estPrice: 6, status: "in-cart" },
-    { id: uid(), name: "Cotton candy cloud favors", category: "Favors", qty: 3, estPrice: 10, status: "needed" },
-    { id: uid(), name: "Paper plates and cups", category: "Food & Drink", qty: 3, estPrice: 9, status: "needed" },
-    { id: uid(), name: "Birthday candles", category: "Cake & Desserts", qty: 1, estPrice: 4, status: "needed" },
+    {
+      id: uid(),
+      name: "Unicorn party favor kits",
+      category: "Favors",
+      qty: 3,
+      estPrice: 8,
+      status: "needed",
+    },
+    {
+      id: uid(),
+      name: "Iridescent tablecloth",
+      category: "Decorations",
+      qty: 1,
+      estPrice: 15,
+      status: "in-cart",
+    },
+    {
+      id: uid(),
+      name: "Star fairy lights",
+      category: "Decorations",
+      qty: 2,
+      estPrice: 12,
+      status: "needed",
+    },
+    {
+      id: uid(),
+      name: "Rainbow confetti",
+      category: "Decorations",
+      qty: 1,
+      estPrice: 6,
+      status: "in-cart",
+    },
+    {
+      id: uid(),
+      name: "Cotton candy cloud favors",
+      category: "Favors",
+      qty: 3,
+      estPrice: 10,
+      status: "needed",
+    },
+    {
+      id: uid(),
+      name: "Paper plates and cups",
+      category: "Food & Drink",
+      qty: 3,
+      estPrice: 9,
+      status: "needed",
+    },
+    {
+      id: uid(),
+      name: "Birthday candles",
+      category: "Cake & Desserts",
+      qty: 1,
+      estPrice: 4,
+      status: "needed",
+    },
   ];
   return {
     id: "maya-8th",
@@ -620,18 +663,21 @@ function partyToRow(p: Party, userId: string) {
   };
 }
 
-function makeParty(input: {
-  name: string;
-  occasion: OccasionType;
-  date: string;
-  startTime?: string;
-  location?: string;
-  guestEstimate: number;
-  budget: number;
-  theme: string;
-  themeId?: string;
-  extraTasks?: Task[];
-}, id: string): Party {
+function makeParty(
+  input: {
+    name: string;
+    occasion: OccasionType;
+    date: string;
+    startTime?: string;
+    location?: string;
+    guestEstimate: number;
+    budget: number;
+    theme: string;
+    themeId?: string;
+    extraTasks?: Task[];
+  },
+  id: string,
+): Party {
   return {
     id,
     name: input.name,
@@ -643,16 +689,11 @@ function makeParty(input: {
     budget: input.budget,
     theme: input.theme,
     themeId: input.themeId,
-    tasks: [
-      ...generateTasks(input.occasion, input.date),
-      ...(input.extraTasks ?? []),
-    ],
+    tasks: [...generateTasks(input.occasion, input.date), ...(input.extraTasks ?? [])],
     guests: [],
     budgetCategories: defaultCategoriesFor(input.occasion),
     timeline:
-      input.occasion === "game-day" && input.startTime
-        ? seedGameDayTimeline(input.startTime)
-        : [],
+      input.occasion === "game-day" && input.startTime ? seedGameDayTimeline(input.startTime) : [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
     pinnedInspiration: [],
   };
@@ -750,7 +791,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     [user],
   );
 
-
   const value = useMemo<Ctx>(
     () => ({
       parties,
@@ -760,9 +800,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
         const id =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : uid();
+          typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
         const p = makeParty(input, id);
         setParties((prev) => [...prev, p]);
         if (user) void persist(p);
@@ -783,9 +821,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         const src = parties.find((x) => x.id === id);
         if (!src) return null;
         const newId =
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : uid();
+          typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
         // Deep-copy via JSON: safe for our plain-data Party shape.
         const copy: Party = JSON.parse(JSON.stringify(src));
         copy.id = newId;
@@ -817,7 +853,6 @@ export function PartyProvider({ children }: { children: ReactNode }) {
 
   return <PartyContext.Provider value={value}>{children}</PartyContext.Provider>;
 }
-
 
 export function useParties() {
   const c = useContext(PartyContext);
@@ -884,11 +919,7 @@ export function shoppingProjectedRemaining(p: Party): number {
     .reduce((s, i) => s + i.qty * i.estPrice, 0);
 }
 
-export function markShoppingPurchased(
-  p: Party,
-  itemId: string,
-  actualPrice: number,
-): Party {
+export function markShoppingPurchased(p: Party, itemId: string, actualPrice: number): Party {
   const item = p.shoppingItems.find((i) => i.id === itemId);
   if (!item || item.status === "purchased") return p;
   const catIndex = p.budgetCategories.findIndex((c) => c.name === item.category);
@@ -918,9 +949,7 @@ export function unmarkShoppingPurchased(p: Party, itemId: string): Party {
   if (!item || item.status !== "purchased" || !item.linkedExpenseId) return p;
   const linkedId = item.linkedExpenseId;
   const budgetCategories = p.budgetCategories.map((c) =>
-    c.name === item.category
-      ? { ...c, expenses: c.expenses.filter((e) => e.id !== linkedId) }
-      : c,
+    c.name === item.category ? { ...c, expenses: c.expenses.filter((e) => e.id !== linkedId) } : c,
   );
   const shoppingItems = p.shoppingItems.map((i) =>
     i.id === itemId
@@ -930,20 +959,14 @@ export function unmarkShoppingPurchased(p: Party, itemId: string): Party {
   return { ...p, budgetCategories, shoppingItems };
 }
 
-export function setShoppingStatus(
-  p: Party,
-  itemId: string,
-  status: "needed" | "in-cart",
-): Party {
+export function setShoppingStatus(p: Party, itemId: string, status: "needed" | "in-cart"): Party {
   // If currently purchased, unmark first to strip the linked expense.
   const item = p.shoppingItems.find((i) => i.id === itemId);
   if (!item) return p;
   const base = item.status === "purchased" ? unmarkShoppingPurchased(p, itemId) : p;
   return {
     ...base,
-    shoppingItems: base.shoppingItems.map((i) =>
-      i.id === itemId ? { ...i, status } : i,
-    ),
+    shoppingItems: base.shoppingItems.map((i) => (i.id === itemId ? { ...i, status } : i)),
   };
 }
 
@@ -953,10 +976,7 @@ export function addShoppingItem(
 ): Party {
   return {
     ...p,
-    shoppingItems: [
-      ...p.shoppingItems,
-      { id: uid(), status: "needed", ...item },
-    ],
+    shoppingItems: [...p.shoppingItems, { id: uid(), status: "needed", ...item }],
   };
 }
 
@@ -966,11 +986,7 @@ export function removeShoppingItem(p: Party, itemId: string): Party {
   return { ...base, shoppingItems: base.shoppingItems.filter((i) => i.id !== itemId) };
 }
 
-export function setPreferredRetailer(
-  p: Party,
-  itemId: string,
-  retailer: Retailer,
-): Party {
+export function setPreferredRetailer(p: Party, itemId: string, retailer: Retailer): Party {
   return {
     ...p,
     shoppingItems: p.shoppingItems.map((i) =>
@@ -1020,4 +1036,3 @@ export function addThemeToShopping(
     estTotal,
   };
 }
-

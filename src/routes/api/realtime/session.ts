@@ -71,7 +71,11 @@ export const Route = createFileRoute("/api/realtime/session")({
           .gte("started_at", oneHourAgo);
         if ((recent?.length ?? 0) >= 5) {
           return Response.json(
-            { error: "rate_limited", message: "You've started a lot of voice sessions in the last hour. Try again in a bit." },
+            {
+              error: "rate_limited",
+              message:
+                "You've started a lot of voice sessions in the last hour. Try again in a bit.",
+            },
             { status: 429 },
           );
         }
@@ -127,9 +131,17 @@ export const Route = createFileRoute("/api/realtime/session")({
 
         if (!openaiRes.ok) {
           const text = await openaiRes.text().catch(() => "");
-          console.error("[realtime] mint failed", { userId, status: openaiRes.status, body: text.slice(0, 500) });
+          console.error("[realtime] mint failed", {
+            userId,
+            status: openaiRes.status,
+            body: text.slice(0, 500),
+          });
           return Response.json(
-            { error: "upstream_error", status: openaiRes.status, message: "Voice service refused." },
+            {
+              error: "upstream_error",
+              status: openaiRes.status,
+              message: "Voice service refused.",
+            },
             { status: 502 },
           );
         }
@@ -152,7 +164,10 @@ export const Route = createFileRoute("/api/realtime/session")({
           .single();
 
         if (sessionErr) {
-          console.error("[realtime] session row insert failed", { userId, err: sessionErr.message });
+          console.error("[realtime] session row insert failed", {
+            userId,
+            err: sessionErr.message,
+          });
           // Non-fatal — we can still return the client secret. Cost tracking will be missing.
         }
 
