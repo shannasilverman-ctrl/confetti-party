@@ -92,7 +92,13 @@ function Dashboard() {
                 <span className="hidden sm:inline">Talk it out</span>
               </Link>
             </Button>
-            <Button variant="festive" size="sm" onClick={() => setWizardOpen(true)}>
+            <Button
+              variant="festive"
+              size="sm"
+              onClick={() => setWizardOpen(true)}
+              data-testid="new-party-trigger"
+              aria-label="New Party"
+            >
               <Plus />
               <span className="hidden sm:inline">New Party</span>
             </Button>
