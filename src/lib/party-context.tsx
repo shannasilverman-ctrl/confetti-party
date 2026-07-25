@@ -120,6 +120,8 @@ export type Party = {
   retrospective?: PartyRetrospective | null;
   /** Optional cinematic banner image URL, seeded on curated samples only. */
   heroImageUrl?: string;
+  /** Server-known optimistic concurrency token (updated_at). Not user-visible. */
+  updatedAt?: string;
 };
 
 export type PartyRetrospective = {
@@ -579,6 +581,8 @@ function seedAvaLiam(): Party {
 
 // ---- Context ----
 
+type SaveStateSnapshot = import("./party-persistence").SaveState;
+
 type Ctx = {
   parties: Party[];
   status: "loading" | "ready" | "error";
@@ -601,6 +605,10 @@ type Ctx = {
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
   deleteParty: (id: string) => Promise<{ error: string | null }>;
+  /** Save state per party id (idle | saving | saved | offline | error | conflict). */
+  saveStates: Record<string, SaveStateSnapshot>;
+  /** Manually retry a party stuck in error/offline/conflict. */
+  retrySave: (id: string) => void;
 };
 
 import {
@@ -615,90 +623,17 @@ function baseSeeds(): Party[] {
 
 const PartyContext = createContext<Ctx | null>(null);
 
-function rowToParty(r: {
-  id: string;
-  name: string;
-  occasion: string;
-  date: string;
-  start_time?: string | null;
-  location?: string | null;
-  guest_estimate: number;
-  budget: number;
-  theme: string;
-  theme_id: string | null;
-  rsvp_token?: string | null;
-  tasks: unknown;
-  guests: unknown;
-  budget_categories: unknown;
-  shopping_items: unknown;
-  timeline: unknown;
-  pinned_inspiration?: unknown;
-  host_note?: string | null;
-  households?: unknown;
-  bring_board?: unknown;
-  host_updates?: unknown;
-  holiday_pack_id?: string | null;
-  photo_drop?: unknown;
-  checkins?: unknown;
-  retrospective?: unknown;
-}): Party {
-  return {
-    id: r.id,
-    name: r.name,
-    occasion: r.occasion as OccasionType,
-    date: r.date,
-    startTime: r.start_time ?? undefined,
-    location: r.location ?? undefined,
-    guestEstimate: r.guest_estimate,
-    budget: Number(r.budget),
-    theme: r.theme,
-    themeId: r.theme_id ?? undefined,
-    rsvpToken: r.rsvp_token ?? undefined,
-    tasks: (r.tasks as Task[]) ?? [],
-    guests: (r.guests as Guest[]) ?? [],
-    budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
-    shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
-    timeline: (r.timeline as TimelineItem[]) ?? [],
-    pinnedInspiration: (r.pinned_inspiration as string[]) ?? [],
-    hostNote: r.host_note ?? undefined,
-    households: (r.households as Household[]) ?? [],
-    bringBoard: (r.bring_board as BringItem[]) ?? [],
-    hostUpdates: (r.host_updates as HostUpdate[]) ?? [],
-    holidayPackId: r.holiday_pack_id ?? undefined,
-    photoDrop: (r.photo_drop as PhotoDropInfo | null) ?? null,
-    checkins: (r.checkins as Record<string, string>) ?? {},
-    retrospective: (r.retrospective as PartyRetrospective | null) ?? null,
-  };
-}
+// rowToParty and partyToRow now live in party-persistence.ts so tests can
+// share them. Re-export the shapes used elsewhere in this module.
+import { rowToParty as _rowToParty, partyToColumns, type PartyRow } from "./party-persistence";
+import { PartyStore, type StoreEvent } from "./party-store";
+import { makeSupabaseClient } from "./party-supabase-client";
 
-function partyToRow(p: Party, userId: string) {
-  return {
-    id: p.id,
-    user_id: userId,
-    name: p.name,
-    occasion: p.occasion,
-    date: p.date,
-    start_time: p.startTime ?? null,
-    location: p.location ?? null,
-    guest_estimate: p.guestEstimate,
-    budget: p.budget,
-    theme: p.theme,
-    theme_id: p.themeId ?? null,
-    tasks: p.tasks as unknown as Json,
-    guests: p.guests as unknown as Json,
-    budget_categories: p.budgetCategories as unknown as Json,
-    shopping_items: p.shoppingItems as unknown as Json,
-    timeline: p.timeline as unknown as Json,
-    pinned_inspiration: p.pinnedInspiration as unknown as Json,
-    host_note: p.hostNote ?? null,
-    households: (p.households ?? []) as unknown as Json,
-    bring_board: (p.bringBoard ?? []) as unknown as Json,
-    host_updates: (p.hostUpdates ?? []) as unknown as Json,
-    holiday_pack_id: p.holidayPackId ?? null,
-    photo_drop: (p.photoDrop ?? null) as unknown as Json,
-    checkins: (p.checkins ?? {}) as unknown as Json,
-    retrospective: (p.retrospective ?? null) as unknown as Json,
-  };
+function rowToParty(r: unknown): Party {
+  return _rowToParty(r as PartyRow);
+}
+function partyToRow(p: Party, userId: string): PartyRow {
+  return partyToColumns(p, userId);
 }
 
 export function makeParty(
@@ -756,12 +691,41 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const [parties, setParties] = useState<Party[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadKey, setReloadKey] = useState(0);
-  const savingRef = useRef<Map<string, "in-flight" | Party>>(new Map());
+  const [saveStates, setSaveStates] = useState<Record<string, SaveStateSnapshot>>({});
   // Ids that have been deleted this session; blocks in-flight saves from
   // resurrecting a row after deleteParty() completed.
   const tombstonesRef = useRef<Set<string>>(new Set());
   const [demoWarning, setDemoWarning] = useState<null | "corrupt" | "quota" | "oversized">(null);
   const warnedRef = useRef<Set<string>>(new Set());
+
+  // Persistence store — deterministic queue with column-diffed writes,
+  // optimistic concurrency, 3-way merges, and bounded retry.
+  const storeRef = useRef<PartyStore | null>(null);
+  if (!storeRef.current) {
+    storeRef.current = new PartyStore({
+      client: makeSupabaseClient(),
+      isTombstoned: (id) => tombstonesRef.current.has(id),
+      onEvent: (ev: StoreEvent) => {
+        if (ev.type === "state") {
+          setSaveStates((prev) => ({ ...prev, [ev.id]: ev.state }));
+        } else if (ev.type === "server-row") {
+          setParties((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
+        } else if (ev.type === "toast") {
+          if (ev.kind === "error") toast.error(ev.message);
+          else toast.message(ev.message);
+        }
+      },
+    });
+  }
+  const store = storeRef.current;
+
+  // Online-recovery: flush queued saves when the browser regains network.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOnline = () => store.flushAll();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [store]);
 
   // Load data based on auth state.
   useEffect(() => {
@@ -791,7 +755,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           setStatus("error");
           return;
         }
-        setParties((data ?? []).map(rowToParty));
+        const loaded = (data ?? []).map((r) => rowToParty(r));
+        setParties(loaded);
+        // Seed baselines so subsequent updates diff against real server state.
+        for (const p of loaded) store.seedBaseline(p, user.id);
         setStatus("ready");
         // Signed in: demo storage is no longer authoritative.
         _clearDemoState();
@@ -799,7 +766,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, reloadKey]);
+  }, [user, authLoading, reloadKey, store]);
 
   // Persist demo parties to localStorage whenever they change (signed-out only).
   useEffect(() => {
@@ -825,73 +792,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     setDemoWarning(null);
   }, [demoWarning]);
 
-  const persist = useCallback(
-    async (p: Party) => {
-      if (!user) return;
-      // Guard: if this row was deleted this session, never resurrect it.
-      if (tombstonesRef.current.has(p.id)) {
-        savingRef.current.delete(p.id);
-        return;
-      }
-      const state = savingRef.current.get(p.id);
-      if (state) {
-        // Save already in flight (or queued); record the latest pending state.
-        savingRef.current.set(p.id, p);
-        return;
-      }
-      savingRef.current.set(p.id, "in-flight");
-      let current: Party = p;
-      try {
-        while (true) {
-          if (tombstonesRef.current.has(current.id)) {
-            savingRef.current.delete(current.id);
-            return;
-          }
-          const { data, error } = await supabase
-            .from("parties")
-            .upsert(partyToRow(current, user.id))
-            .select("rsvp_token")
-            .maybeSingle();
-          if (error) {
-            console.error("[parties] save failed", error);
-            toast.error("Couldn't save changes. Check your connection.");
-            const pending = savingRef.current.get(current.id);
-            if (!pending || pending === "in-flight") {
-              savingRef.current.set(current.id, current);
-            }
-            return;
-          }
-          const token = data?.rsvp_token;
-          if (token && !current.rsvpToken) {
-            setParties((prev) =>
-              prev.map((pp) => (pp.id === current.id ? { ...pp, rsvpToken: token } : pp)),
-            );
-          }
-          const pending = savingRef.current.get(current.id);
-          if (pending && pending !== "in-flight") {
-            current = pending;
-            savingRef.current.set(current.id, "in-flight");
-            continue;
-          }
-          break;
-        }
-        savingRef.current.delete(p.id);
-      } catch (e) {
-        console.error("[parties] save threw", e);
-        const pending = savingRef.current.get(p.id);
-        if (!pending || pending === "in-flight") {
-          savingRef.current.set(p.id, current);
-        }
-      }
-    },
-    [user],
-  );
-
   const value = useMemo<Ctx>(
     () => ({
       parties,
       status,
       isDemo,
+      saveStates,
+      retrySave: (id) => store.retry(id),
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
@@ -899,7 +806,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
         const p = makeParty(input, id);
         setParties((prev) => [...prev, p]);
-        if (user) void persist(p);
+        if (user) store.enqueueInsert(p, user.id);
         return id;
       },
       updateParty: (id, updater) => {
@@ -911,20 +818,19 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             return updated;
           }),
         );
-        if (user && updated) void persist(updated);
+        if (user && updated) store.enqueueUpdate(updated, user.id);
       },
       cloneParty: (id, overrides) => {
         const src = parties.find((x) => x.id === id);
         if (!src) return null;
         const newId =
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
-        // Deep-copy via JSON: safe for our plain-data Party shape.
         const copy: Party = JSON.parse(JSON.stringify(src));
         copy.id = newId;
         copy.name = overrides?.name ?? `${src.name} (copy)`;
         copy.date = overrides?.date ?? src.date;
-        copy.rsvpToken = undefined; // fresh token minted server-side
-        // Reset per-event runtime state; keep templates, theme, budget plan, seeded tasks.
+        copy.rsvpToken = undefined;
+        copy.updatedAt = undefined;
         copy.tasks = copy.tasks.map((t) => ({ ...t, done: false }));
         copy.guests = [];
         copy.hostUpdates = [];
@@ -936,43 +842,37 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           assigneeHousehold: undefined,
           claimedAt: undefined,
         }));
-        // Zero out logged expenses; preserve planned amounts.
         copy.budgetCategories = copy.budgetCategories.map((c) => ({ ...c, expenses: [] }));
         copy.shoppingItems = copy.shoppingItems.map((s) => ({ ...s, status: "needed" }));
         setParties((prev) => [...prev, copy]);
-        if (user) void persist(copy);
+        if (user) store.enqueueInsert(copy, user.id);
         return newId;
       },
       deleteParty: async (id) => {
         const target = parties.find((p) => p.id === id);
         if (!target) return { error: null };
-        // Tombstone first so any queued/in-flight save cannot recreate it.
         tombstonesRef.current.add(id);
-        // Cancel any pending save.
-        savingRef.current.delete(id);
-        // Optimistic remove — only the target.
+        store.drop(id);
         setParties((list) => list.filter((p) => p.id !== id));
+        setSaveStates((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
         if (!user) return { error: null };
-        // Require RLS-scoped delete to actually match a row we own; the
-        // `.select()` return set is empty if RLS filtered the row out.
         const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
           console.error("[parties] delete failed", error);
           tombstonesRef.current.delete(id);
-          // Reinsert ONLY the target if it is still missing; do not stomp
-          // unrelated concurrent local changes.
           setParties((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
           return { error: "Couldn't delete this party. Try again." };
         }
         if (!data || data.length === 0) {
-          // RLS denied or row already gone — treat as success from the
-          // user's perspective; keep the tombstone.
           return { error: null };
         }
         return { error: null };
       },
     }),
-    [parties, status, isDemo, user, persist],
+    [parties, status, isDemo, user, store, saveStates],
   );
 
   return <PartyContext.Provider value={value}>{children}</PartyContext.Provider>;
