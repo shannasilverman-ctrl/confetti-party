@@ -1,76 +1,69 @@
-# Showroom Truth + Brand Continuity — execution plan
+## Persistence Second-Pass Corrections — plan
 
-This batch spans landing, guest RSVP, host workspace tabs, and shared vocabulary — ~4,500 lines across the highest-signal files plus tests. To ship it responsibly in one pass I want to confirm scope and sequencing before editing.
+Scope of this batch (coordinated with, not blocking, the queued Host Wizard batch). No deploy; unit-tested against the persistence store and adapters.
 
-## What I will implement in this batch
+### Audit findings before implementing
 
-### 1. Sample guest invitation route (item 1) — new
+Two of the seven items in the review are already fixed on `main`:
 
-- Add `src/routes/sample-invite.tsx` (no `$token`) that renders the real `rsvp.$token` guest UI against a **local demo adapter** — no RPC, no token, no user record.
-- Extract the guest-facing view from `src/routes/rsvp.$token.tsx` into `src/components/guest-invite-view.tsx` so both routes share one presentation contract.
-- Create `src/lib/sample-invite-state.ts`: versioned, capped `localStorage` state for the demo's RSVP/claims, with a persistent “Sample — try it. Nothing is sent.” banner and a Reset button.
-- Point landing “Open a sample invite,” nav sample CTAs, and any other invite-preview links to `/sample-invite`. The host-workspace link to `/party/maya-8th` stays as “Peek at a sample workspace” (labeled truthfully).
+- **Item 1 (mixed conflict overlay)** — `party-store.resolveConflict` already overlays `pending.safeMergedValues` for BOTH `"mine"` and `"theirs"`. Auto-merged columns are preserved regardless of choice. This batch adds the missing test (local name + independently mergeable tasks + shopping) to lock it in.
+- **Item 3 (raw error text in logs)** — `party-context.tsx` load and delete paths already only log `{ code }` from the Supabase error object; no `messagePreview`, no `error.message.slice(...)` anywhere in the persistence code. This batch adds an explicit redaction test (PII/secret at char 0) that asserts logs and toasts never contain it.
 
-### 2. Domain / URL truth (item 2)
+### Corrections implemented
 
-- Replace every `confetti.app/rsvp/…` string with neutral copy (“Your private RSVP link,” “A link only your guests see”).
-- Remove any other unsupported domain/marketplace/production claims from landing, share dialogs, invite dialog, footers, and metadata.
+1. **Item 2 — "Keep theirs" semantics + labels.**
+   Current behavior (Option A): server wins for the semantically-conflicting columns, safe auto-merges from other columns still persist, and `saved` is only emitted after the follow-up write completes (or a fresh server-row event when nothing else changed). This is the intended semantics but the UI label doesn't communicate it. Rework the conflict card:
+   - Impact-specific button copy per conflict column set. For guest/bring_board conflicts:
+     - `Keep my version (may replace someone else's changes)` (mine)
+     - `Use latest from cloud (drops my guest/claim edits)` (theirs)
+   - For non-guest columns keep generic `Use mine` / `Use latest from cloud` labels.
+   - Above the buttons show which local edits will still be persisted after "Use latest from cloud" so the user knows Saved doesn't lie.
+   - Add a `party-store` unit test asserting: after `resolveConflict('theirs')` with independent local task edits, the store emits `state: 'saving'` then `saved`, the update patch contains the task change only, and a fresh `server-row` event carries the auto-merged party.
 
-### 3. Vocabulary centralization (item 3)
+2. **Item 3 — log redaction contract.** Add `tests/unit/party-store-log-redaction.test.ts` that injects a `logError` spy and an `onEvent` toast spy, drives insert/update/conflict/permission errors whose messages contain `sb_secret_xxxx` / an email / a UUID, and asserts:
+   - `logError` calls only contain the allowlisted keys (`op`/`partyIdLen`/`kind`/`attempts`).
+   - No toast message string contains any of those literals.
+   Same shape for `party-context` delete/load using a mock supabase.
 
-- Add `src/lib/vocab.ts` exporting `VOCAB = { guestInvite, bringBoard, photoDrop, dayOf, reveal, hostNotes }`.
-- Rewrite user-visible “Party Pass,” “Guest World,” “RSVP link,” and raw route/RPC names in `src/routes/index.tsx`, `party.$id.tsx`, `party.$id.day-of.tsx`, `party.$id.reveal.tsx`, `overview-tab.tsx`, `bring-board-editor.tsx`, `public-bring-board.tsx`, `invite-dialog.tsx`, `rsvp-share-button.tsx`.
+3. **Item 4 — versioned, user-bound recoverable draft store.**
+   New `src/lib/rejected-draft-store.ts`:
+   - Storage key `confetti.rejectedDraft.v1`. Value = `{ version: 1, drafts: Record<userIdHash, Draft> }` capped at 4 KB per user, single draft per user.
+   - `userIdHash = sha256(userId).slice(0,16)` — never store raw user id or email.
+   - Draft payload contains only structural fields: `id`, `name`, `occasion`, `date`, `startTime?`, `location?`, `guestEstimate`, `budget`, `themeId?`, `holidayPackId?`, `hostNote?`, `timeZone?`. No guests, no bring board, no shopping items, no claim secrets, no host updates.
+   - Strict Zod validation on read; corrupt payload is reset silently.
+   - Written on insert-rejected event (only when authenticated). Cleared on successful insert or explicit discard.
+   - `useRejectedDraftRecovery(userId)` hook exposes `draft | null` and `dismiss()`. `AuthedRoot` renders a `<ResumeRejectedDraftCard>` on `/app` when a draft for the current user exists but no matching party is loaded.
+   - Change the "Not saved to the cloud" copy: `Kept in this browser tab. If you close it before Retry succeeds, the plan will be gone.` (removes the false "kept on this device" claim). When the recoverable draft is written successfully, append `Details are also saved to this browser for one recovery attempt.`
+   - Unit tests: reload survives insert rejection; user A → user B never sees A's draft; corrupt JSON is reset; oversized payload is refused with a truthful `saveDraftResult.warning`.
 
-### 4. Sample coherence (item 4)
+4. **Item 6 — assertive live region + focus behavior.**
+   - Split `<SaveStatus>` into a polite pill (saving/saved/offline) and an assertive card (`role="alert"`, `aria-live="assertive"`) that hosts the conflict and rejected banners. Conflict/rejected cards do NOT steal focus; the Retry / Use mine / Use latest buttons live inside the assertive region so screen readers announce them without a focus jump.
+   - Component test: renders the alert with the right buttons for a guest conflict, verifies aria semantics and button labels.
 
-- Rebuild Ava/Liam and Maya sample data so every surface agrees:
-  - Budget total = sum of category allocations (fix the $12,500 vs $600 contradiction).
-  - Shopping/Bring Board seeded to non-empty for showcased categories.
-  - RSVP counts, headcount, timeline, updates internally consistent with a date computed via the new date-only contract.
-  - Landing’s static "34 days out" and any mock date computed live from the seeded date via `daysUntilLocal`.
+5. **Item 5 — awaitable create/clone (coordination).**
+   Add `createPartyAsync` and `clonePartyAsync` returning `Promise<{ id: string; result: 'saved' | 'pending-local' | 'rejected' }>` alongside the existing sync methods. Internals subscribe to `store.subscribe` (idempotency key = party id) and resolve when the party's next terminal state fires. Sync `createParty` remains for demo mode and stays immediate. The wizard/celebration is owned by the Host Wizard batch; this batch only exposes the API and a test.
 
-### 5. Empty states (item 5) — bounded
+### Not in scope this batch (explicit coordination flags)
 
-- Add branded, action-led empty states for: shopping, tasks, guests, bring, timeline, updates, photo drop, budget.
-- One shared `<EmptyState>` component in `src/components/empty-state.tsx` (icon slot, headline in Fraunces, one primary CTA, warm cream card).
-- Reuse across the 8 surfaces above.
+- The wizard/celebration timing change (Item 5, second half) belongs to the queued Host Wizard batch. This batch only exposes the awaitable API.
+- Deployment, secrets, external messages, and production data are untouched.
 
-### 6. Destructive-action safety + a11y labels (item 6)
+### Technical details
 
-- Repeated rows (guest name, bring item, task, shopping row, expense): every editable input gets an `aria-label` derived from `row.name || row.id`; every icon-only delete gets `aria-label={\`Remove \${row.name}\`}`.
-- Delete affordance: `<ConfirmDelete>` wrapper.
-  - Guest/bring rows with RSVP or claim data → AlertDialog confirmation.
-  - Safe local rows (empty tasks, empty shopping) → immediate delete with undo toast (5s).
-- All destructive icon buttons `min-h-11 min-w-11`.
+- `party-persistence.ts`: no change needed; `PendingConflict.safeMergedValues` already contains the mergeable overlay.
+- `party-store.ts`: add `subscribe(id, listener)` (single-shot terminal-state notifier) for the awaitable API. Existing `onEvent` sink remains for provider bridging.
+- `party-context.tsx`: adds `createPartyAsync`, `clonePartyAsync`; wires `rejected-draft-store` on `insertRejected` events and on `store.reset` (identity change → discard in-memory recovery, do not touch storage — the sha16 key already isolates users).
+- No DB migration.
+- No new npm packages.
 
-### 7. Hero motif carry (item 7) — bounded
+### Test additions (approximate)
 
-- Reuse existing `--gradient-*` and party-hands/sparkle motifs from landing on: workspace tab headers, empty states, and the Reveal/Day-of hero bands.
-- No new animation libraries. Respect `prefers-reduced-motion` on the existing `celebrate()` calls (already throttled).
-- Explicitly out of scope: redesigning individual form fields or reworking `theme-tab.tsx`.
+- `tests/unit/party-store-mixed-conflict.test.ts` — Item 1 assertion.
+- `tests/unit/party-store-keep-theirs.test.ts` — Item 2 assertion including DB patch shape.
+- `tests/unit/party-store-log-redaction.test.ts` — Item 3.
+- `tests/unit/party-context-load-log-redaction.test.ts` — Item 3 across load/delete.
+- `tests/unit/rejected-draft-store.test.ts` — Item 4 (reload/cross-user/corrupt/quota).
+- `tests/unit/save-status.test.tsx` — Item 6 semantics + labels.
+- `tests/unit/create-party-async.test.ts` — Item 5 (awaitable saved / pending-local / rejected states).
 
-### 8. Tests (item 8)
-
-- Unit: sample-state isolation (no production writes), vocab constants, budget coherence invariant for seeded parties, empty-state renders.
-- Playwright: nav truth (`/sample-invite` reachable from every advertised CTA), destructive confirm/undo, axe on landing + `/sample-invite` + `/app`, 320/375/390/430 overflow.
-- Playwright is still unexecutable in-sandbox (missing `libglib-2.0.so.0`); specs will be added and lint-clean but I will report browser runs as not-executed-here.
-
-### 9. Gates
-
-- Prettier, ESLint, tsgo, Vitest (with new tests), TZ-matrix, production build. Playwright as caveated in #8.
-
-## Explicitly NOT in this batch (call out for a follow-up)
-
-- Refactoring `theme-tab.tsx` or Shopify surfaces.
-- Any changes to auth flows, RLS, RPCs, or migrations.
-- New animation libs, new fonts, or logo changes.
-- Custom-domain wiring, publish, real messages, real analytics.
-
-## Risk / size notes
-
-Total edited surface ≈ 4,500 lines across ~15 files, plus ~6 new files and ~5 new test files. This is the largest batch to date; I will do it in one pass but the empty-state and hero-motif items (5, 7) will be applied only to the surfaces listed — I won’t chase every card in the app.
-
-## Confirm or adjust
-
-- Any of the 8 items you’d rather I defer, or any additional surface you want in scope?
-- If “yes, proceed as written,” I’ll execute end-to-end and report SHA + gate totals.
+Full gates (format, lint, typecheck, tests, build) run at the end; SHA reported.
