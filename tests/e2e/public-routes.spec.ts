@@ -16,7 +16,7 @@ for (const path of ROUTES) {
     expect(resp?.ok(), `HTTP status for ${path}`).toBeTruthy();
 
     // Full "Confetti" wordmark visible in the shared brand lockup
-    await expect(page.getByText("Confetti", { exact: true }).first()).toBeVisible();
+    await expect(page.locator("body").getByText("Confetti", { exact: true }).first()).toBeVisible();
 
     // Landmarks / structure — every page should have a semantic <main> or <h1>
     const hasMain = await page.locator("main").count();
