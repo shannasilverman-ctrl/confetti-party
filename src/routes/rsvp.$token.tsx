@@ -526,6 +526,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 
         {done ? (
           <SuccessCard
+            token={token}
             party={party}
             choice={submittedChoice ?? "yes"}
             name={name.trim()}
@@ -764,6 +765,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 /* ---------- Success card ---------- */
 
 function SuccessCard({
+  token,
   party,
   choice,
   name,
@@ -773,6 +775,7 @@ function SuccessCard({
   refreshing,
   relLabel,
 }: {
+  token: string;
   party: PartyView;
   choice: RSVPChoice;
   name: string;
