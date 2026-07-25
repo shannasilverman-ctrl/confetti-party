@@ -575,27 +575,45 @@ function TalkRoute() {
                   </div>
                 )}
               </Card>
-              <Button
-                variant="festive"
-                size="lg"
-                className="w-full"
-                onClick={confirmAndCreate}
-                disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
-              >
-                {confirming ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan
-                  </>
-                )}
-              </Button>
-              <p className="text-[11px] text-muted-foreground">
-                Turns your conversation into a real workspace: tasks, budget, guests, bring board.
-              </p>
+              {isDemo ? (
+                <>
+                  <Button asChild variant="festive" size="lg" className="w-full">
+                    <a href="/auth?mode=signup">
+                      <CheckCircle2 className="mr-2 h-4 w-4" /> Sign up to save this plan
+                    </a>
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Demo replies are canned so you can feel the flow. Real Confetti tailors the
+                    plan, saves your workspace, and unlocks voice.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="festive"
+                    size="lg"
+                    className="w-full"
+                    onClick={confirmAndCreate}
+                    disabled={!draftId || confirming || (!readyToConfirm && messages.length < 4)}
+                  >
+                    {confirming ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" /> Create the plan
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground">
+                    Turns your conversation into a real workspace: tasks, budget, guests, bring
+                    board.
+                  </p>
+                </>
+              )}
             </aside>
+
           </main>
         ) : (
           <main className="mt-6 flex flex-1 flex-col items-center gap-6 md:mt-10">
