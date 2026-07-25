@@ -171,8 +171,16 @@ function UnavailableInvite() {
     />
   );
 }
+function PublicRsvpPage() {
+  const { token } = Route.useParams();
+  const { party, status } = Route.useLoaderData();
+  if (status === "temporarily_unavailable") return <UnavailableInvite />;
+  if (!party) return <InvalidInvite />;
+  return <RsvpForm token={token} party={party} />;
+}
 
 /* ---------- Calendar helpers ---------- */
+
 
 function calendarInput(token: string, party: PartyView) {
   return {
