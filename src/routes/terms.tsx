@@ -33,10 +33,8 @@ function TermsPage() {
       <main className="mx-auto max-w-3xl px-6 py-6 pb-24">
         <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">Terms</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated{" "}
-          {new Date().toLocaleDateString(undefined, { month: "long", year: "numeric" })}.
-          Plain-language product information for using Confetti (currently in beta). Not legal
-          counsel.
+          Last updated November 2025. Plain-language product information for using Confetti
+          (currently in beta). Not legal counsel.
         </p>
 
         <section className="prose prose-slate mt-8 max-w-none text-secondary">
