@@ -244,6 +244,7 @@ function PartyWorkspace() {
 
       {/* Mobile bottom tab nav - horizontally scrollable, respects safe area */}
       <nav
+        data-testid="party-mobile-nav"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Party sections"
