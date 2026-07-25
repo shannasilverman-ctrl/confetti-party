@@ -59,6 +59,7 @@ import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
+import { ConfirmDelete } from "@/components/confirm-delete";
 import { formatDateOnly } from "@/lib/date-only";
 
 export type TabKey =
@@ -537,6 +538,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
                   <Input
                     className="max-w-[220px] border-transparent bg-transparent focus-visible:border-input"
                     value={guest.name}
+                    aria-label={`Edit name for ${guest.name || "guest"}`}
                     onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
                   />
                   {guest.source === "link" && (
@@ -549,7 +551,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
                   value={guest.kind}
                   onValueChange={(v) => updateGuest(guest.id, { kind: v as "adult" | "kid" })}
                 >
-                  <SelectTrigger className="w-24">
+                  <SelectTrigger className="w-24" aria-label={`Kind for ${guest.name || "guest"}`}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -561,7 +563,10 @@ function GuestsTab({ partyId }: { partyId: string }) {
                   value={guest.rsvp}
                   onValueChange={(v) => updateGuest(guest.id, { rsvp: v as RSVP })}
                 >
-                  <SelectTrigger className="ml-auto w-32">
+                  <SelectTrigger
+                    className="ml-auto w-32"
+                    aria-label={`RSVP for ${guest.name || "guest"}`}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -574,13 +579,21 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <Badge variant={RSVP_STYLES[guest.rsvp].variant} className="hidden sm:inline-flex">
                   {RSVP_STYLES[guest.rsvp].label}
                 </Badge>
-                <button
-                  onClick={() => remove(guest.id)}
-                  className="text-muted-foreground transition hover:text-destructive"
-                  aria-label="Remove guest"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <ConfirmDelete
+                  mode={guest.rsvp === "invited" ? "undo" : "confirm"}
+                  itemLabel={guest.name || "guest"}
+                  onConfirm={() => remove(guest.id)}
+                  onUndo={() => updateParty(partyId, (p) => ({ ...p, guests: [...p.guests, guest] }))}
+                  trigger={
+                    <button
+                      type="button"
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground transition hover:text-destructive"
+                      aria-label={`Remove ${guest.name || "guest"}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  }
+                />
               </li>
             ))}
           </ul>
