@@ -46,6 +46,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [confirmingCustom, setConfirmingCustom] = useState(false);
   const printableQrRef = useRef<HTMLDivElement | null>(null);
+  const pendingCustomUrl = confirmingCustom ? validatePhotoDropUrl(provider, url) : null;
 
   function save(evt?: React.MouseEvent) {
     const v = validatePhotoDropUrl(provider, url);
@@ -78,9 +79,9 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
     setUrl("");
     setLabel("");
     setNote("");
+    setConfirmingCustom(false);
     toast.success("Photo Drop removed.");
   }
-
 
   async function copyLink() {
     if (!existing?.url) return;
@@ -133,7 +134,14 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
         <div className="mt-4 grid gap-3">
           <div>
             <Label htmlFor="pd-provider">Provider</Label>
-            <Select value={provider} onValueChange={(v) => setProvider(v as PhotoDropProvider)}>
+            <Select
+              value={provider}
+              onValueChange={(v) => {
+                setProvider(v as PhotoDropProvider);
+                setConfirmingCustom(false);
+                setError(null);
+              }}
+            >
               <SelectTrigger id="pd-provider" className="mt-1">
                 <SelectValue />
               </SelectTrigger>
@@ -155,6 +163,7 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
+                setConfirmingCustom(false);
                 setError(null);
               }}
               inputMode="url"
@@ -200,10 +209,10 @@ export function PhotoDropEditor({ partyId }: { partyId: string }) {
               </Button>
             )}
           </div>
-          {confirmingCustom && (
+          {confirmingCustom && pendingCustomUrl?.ok && (
             <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
-              Guests will upload to <strong>{new URL(url.trim()).hostname}</strong>. Confirm to
-              publish this custom destination.
+              Guests will upload to <strong>{new URL(pendingCustomUrl.url).hostname}</strong>.
+              Confirm to publish this custom destination.
             </p>
           )}
 
