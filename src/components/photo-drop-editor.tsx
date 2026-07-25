@@ -10,6 +10,7 @@ import { useParties } from "@/lib/party-context";
 import {
   validatePhotoDropUrl,
   PROVIDERS,
+  sanitizePublicPhotoDrop,
   type PhotoDropProvider,
   type PhotoDrop,
 } from "@/lib/photo-drop";
