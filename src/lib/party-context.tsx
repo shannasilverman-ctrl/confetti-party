@@ -802,6 +802,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       parties,
       status,
       isDemo,
+      saveStates,
+      retrySave: (id) => store.retry(id),
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
       createParty: (input) => {
@@ -809,7 +811,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
         const p = makeParty(input, id);
         setParties((prev) => [...prev, p]);
-        if (user) void persist(p);
+        if (user) store.enqueueInsert(p, user.id);
         return id;
       },
       updateParty: (id, updater) => {
@@ -821,20 +823,19 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             return updated;
           }),
         );
-        if (user && updated) void persist(updated);
+        if (user && updated) store.enqueueUpdate(updated, user.id);
       },
       cloneParty: (id, overrides) => {
         const src = parties.find((x) => x.id === id);
         if (!src) return null;
         const newId =
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
-        // Deep-copy via JSON: safe for our plain-data Party shape.
         const copy: Party = JSON.parse(JSON.stringify(src));
         copy.id = newId;
         copy.name = overrides?.name ?? `${src.name} (copy)`;
         copy.date = overrides?.date ?? src.date;
-        copy.rsvpToken = undefined; // fresh token minted server-side
-        // Reset per-event runtime state; keep templates, theme, budget plan, seeded tasks.
+        copy.rsvpToken = undefined;
+        copy.updatedAt = undefined;
         copy.tasks = copy.tasks.map((t) => ({ ...t, done: false }));
         copy.guests = [];
         copy.hostUpdates = [];
@@ -846,44 +847,39 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           assigneeHousehold: undefined,
           claimedAt: undefined,
         }));
-        // Zero out logged expenses; preserve planned amounts.
         copy.budgetCategories = copy.budgetCategories.map((c) => ({ ...c, expenses: [] }));
         copy.shoppingItems = copy.shoppingItems.map((s) => ({ ...s, status: "needed" }));
         setParties((prev) => [...prev, copy]);
-        if (user) void persist(copy);
+        if (user) store.enqueueInsert(copy, user.id);
         return newId;
       },
       deleteParty: async (id) => {
         const target = parties.find((p) => p.id === id);
         if (!target) return { error: null };
-        // Tombstone first so any queued/in-flight save cannot recreate it.
         tombstonesRef.current.add(id);
-        // Cancel any pending save.
-        savingRef.current.delete(id);
-        // Optimistic remove — only the target.
+        store.drop(id);
         setParties((list) => list.filter((p) => p.id !== id));
+        setSaveStates((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
         if (!user) return { error: null };
-        // Require RLS-scoped delete to actually match a row we own; the
-        // `.select()` return set is empty if RLS filtered the row out.
         const { data, error } = await supabase.from("parties").delete().eq("id", id).select("id");
         if (error) {
           console.error("[parties] delete failed", error);
           tombstonesRef.current.delete(id);
-          // Reinsert ONLY the target if it is still missing; do not stomp
-          // unrelated concurrent local changes.
           setParties((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
           return { error: "Couldn't delete this party. Try again." };
         }
         if (!data || data.length === 0) {
-          // RLS denied or row already gone — treat as success from the
-          // user's perspective; keep the tombstone.
           return { error: null };
         }
         return { error: null };
       },
     }),
-    [parties, status, isDemo, user, persist],
+    [parties, status, isDemo, user, store, saveStates],
   );
+
 
   return <PartyContext.Provider value={value}>{children}</PartyContext.Provider>;
 }
