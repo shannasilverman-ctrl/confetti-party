@@ -6,6 +6,7 @@ const PARTY: PartyView = {
   name: "Ava & Liam's Wedding",
   date: "2027-05-22",
   start_time: "6:30 PM",
+  time_zone: null,
   location: "Garden Hall, 10 Main St",
   occasion: "wedding",
   theme_id: null,
