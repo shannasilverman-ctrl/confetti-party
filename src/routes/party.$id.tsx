@@ -511,6 +511,12 @@ const RSVP_STYLES: Record<
   invited: { label: "No reply", variant: "soft" },
 };
 
+const ARRIVAL_PLAN_LABELS = {
+  "from-start": "Joining from the start",
+  "arriving-later": "Arriving later",
+  "not-sure": "Arrival time not sure yet",
+} as const;
+
 function GuestsTab({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
@@ -601,17 +607,55 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <Input
-                    className="min-w-0 border-transparent bg-transparent focus-visible:border-input sm:max-w-[220px]"
-                    value={guest.name}
-                    aria-label={`Edit name for ${guest.name || "guest"}`}
-                    onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
-                  />
-                  {guest.source === "link" && (
-                    <Badge variant="soft" className="hidden shrink-0 text-[10px] sm:inline-flex">
-                      via link
-                    </Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Input
+                      className="min-w-0 border-transparent bg-transparent focus-visible:border-input sm:max-w-[220px]"
+                      value={guest.name}
+                      aria-label={`Edit name for ${guest.name || "guest"}`}
+                      onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
+                    />
+                    {guest.source === "link" && (
+                      <Badge variant="soft" className="hidden shrink-0 text-[10px] sm:inline-flex">
+                        via link
+                      </Badge>
+                    )}
+                  </div>
+                  {(guest.responseDetails?.arrivalPlan ||
+                    guest.responseDetails?.accessNotes ||
+                    guest.dietary?.length ||
+                    guest.allergens?.length) && (
+                    <div
+                      className="mt-1.5 flex flex-wrap gap-1.5 px-3 text-[11px] leading-4 text-muted-foreground"
+                      data-testid={`guest-planning-details-${guest.id}`}
+                    >
+                      {guest.responseDetails?.arrivalPlan && (
+                        <span className="rounded-full bg-primary/8 px-2 py-1 text-secondary">
+                          {ARRIVAL_PLAN_LABELS[guest.responseDetails.arrivalPlan]}
+                        </span>
+                      )}
+                      {guest.dietary?.map((item, index) => (
+                        <span
+                          key={`dietary-${index}-${item}`}
+                          className="rounded-full bg-muted px-2 py-1"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                      {guest.allergens?.map((item, index) => (
+                        <span
+                          key={`allergen-${index}-${item}`}
+                          className="rounded-full bg-destructive/8 px-2 py-1 text-destructive"
+                        >
+                          Avoid {item}
+                        </span>
+                      ))}
+                      {guest.responseDetails?.accessNotes && (
+                        <span className="w-full whitespace-pre-wrap break-words text-secondary">
+                          Comfort/access: {guest.responseDetails.accessNotes}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="col-start-2 flex min-w-0 items-center gap-2 sm:contents">

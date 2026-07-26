@@ -170,4 +170,26 @@ describe("migration contract: DB hardening batch", () => {
     expect(returnProjection).not.toMatch(/'planning_profile', p\.planning_profile/);
     expect(returnProjection).not.toMatch(/'honoreeAge'/);
   });
+
+  test("contextual RSVP v2 exposes only a coarse workflow and validates minimal answers", () => {
+    const projection = latestFunctionBody("get_rsvp_party_v2");
+    expect(projection).toMatch(/base := public\.get_rsvp_party\(token\)/);
+    expect(projection).toMatch(/'kind', 'preschool-birthday'/);
+    expect(projection).toMatch(/'kind', 'school-age-birthday'/);
+    expect(projection).toMatch(/'kind', 'adult-birthday'/);
+    expect(projection).not.toMatch(/jsonb_build_object\('honoreeAge'/);
+    expect(projection).not.toMatch(/'effort'/);
+
+    const submission = latestFunctionBody("submit_rsvp_v2");
+    expect(submission).toMatch(/pg_column_size\(response_details\) > 1024/);
+    expect(submission).toMatch(/key NOT IN \('arrivalPlan', 'accessNotes'\)/);
+    expect(submission).toMatch(/char_length\(clean_access\) > 200/);
+    expect(submission).toMatch(/result := public\.submit_rsvp\(/);
+    expect(submission).toMatch(/'responseDetails', clean_details/);
+    expect(submission).toMatch(/'contextSaved'/);
+    expect(submission).not.toMatch(/phone|email|emergencyContact/i);
+    expect(allSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.submit_rsvp_v2\([\s\S]*?\) TO anon, authenticated/,
+    );
+  });
 });

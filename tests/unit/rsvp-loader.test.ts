@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendanceCopy, resolveRsvpLoaderData } from "@/lib/rsvp.functions";
+import { attendanceCopy, contextualRsvpCopy, resolveRsvpLoaderData } from "@/lib/rsvp.functions";
 
 const cfg = { origin: "https://x", supabaseUrl: "https://u", supabaseKey: "sb_publishable_x" };
 const T = "00000000-0000-0000-0000-000000000001";
@@ -94,6 +94,26 @@ describe("adaptive RSVP attendance copy", () => {
       kidLabel: "Kids",
       kidHint: null,
       intro: null,
+    });
+  });
+
+  it("starts a child birthday with the invited child, not one generic adult", () => {
+    expect(contextualRsvpCopy({ kind: "school-age-birthday" })).toMatchObject({
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      defaultAdults: 0,
+      defaultKids: 1,
+      arrivalQuestion: null,
+    });
+  });
+
+  it("asks an adult birthday only for plan-changing arrival and access context", () => {
+    expect(contextualRsvpCopy({ kind: "adult-birthday" })).toMatchObject({
+      adultLabel: "Adults coming",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "When do you expect to join?",
+      accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
     });
   });
 });

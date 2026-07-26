@@ -22,7 +22,9 @@ non-sandbox host, or `dist/server/wrangler.json` inside the Lovable
 sandbox. `scripts/wrangler-config-path.mjs` resolves the path from
 whichever directory actually exists, so you must have run
 `bun run build` at least once (CI does this in-order). Override the port
-with `PW_PORT`.
+with `PW_PORT`. Playwright intentionally uses one worker locally and in
+CI: concurrent browser contexts can exhaust the single preview Worker and
+turn otherwise healthy routes into misleading connection-refused failures.
 
 GitHub runs `test:e2e:desktop` and `test:e2e:mobile` as separate steps.
 Both execute the same suite, but each starts a fresh Wrangler process so
@@ -59,8 +61,8 @@ and does not need this override.
 ## Database integration harness (`bun run test:db`)
 
 `supabase/tests/rpc_harness.sql` exercises the token-scoped RPCs
-(`get_rsvp_party`, `list_bring_board`, `submit_rsvp`, `claim_bring_item`,
-`release_bring_item`). The entire script runs inside a single
+(`get_rsvp_party`, `get_rsvp_party_v2`, `list_bring_board`, `submit_rsvp`,
+`submit_rsvp_v2`, `claim_bring_item`, `release_bring_item`). The entire script runs inside a single
 `BEGIN ... ROLLBACK` with `ON_ERROR_STOP=1`; every fixture row is tagged
 with a unique per-run marker (`rpc_harness_fixture_<epoch-ns>`) so a
 post-run persistence check can prove zero rows leaked.
@@ -71,9 +73,12 @@ Assertions:
   both `anon` and `authenticated` grants present; the obsolete 5-argument
   `submit_rsvp` overload is absent; function bodies retain
   `SECURITY DEFINER`, explicit `search_path`, wildcard `ESCAPE` in
-  `submit_rsvp`, and `FOR UPDATE` row locks in
+  `submit_rsvp`, the v2 public projection exposes only a coarse contextual
+  RSVP kind, v2 answer details are allow-listed and size-bounded, and
+  `FOR UPDATE` row locks remain in
   `claim_bring_item` / `release_bring_item`.
-- **Behavioural (Phase B)**: `get_rsvp_party` / `list_bring_board` return
+- **Behavioural (Phase B)**: `get_rsvp_party` / `get_rsvp_party_v2` /
+  `list_bring_board` return
   only allow-listed keys (no `assigneeName`, `assigneeHousehold`,
   `claimSecret`, `dietary`, or item `notes`), and sanitized
   `host_updates` / `photo_drop` projections match an exact key set.
@@ -83,7 +88,9 @@ Assertions:
   by a `raised` sentinel so the harness cannot pass on its own thrown
   error), and byte-identical snapshots of `guests` and `bring_board`
   prove state was unchanged after each rejection. `submit_rsvp` happy
-  path updates `yes_count`; first `claim_bring_item` returns `ok=true`
+  path updates `yes_count`; v2 submission stores only the allowed arrival
+  plan and short comfort/access note on the matched primary guest; first
+  `claim_bring_item` returns `ok=true`
   with a non-empty `claimSecret`, the second returns `unavailable`;
   `release_bring_item` fails without and with a wrong receipt and only
   succeeds with the exact receipt; the receipt never appears in either

@@ -80,6 +80,25 @@ describe("demo-storage", () => {
     expect(out.warning).toBe("corrupt");
   });
 
+  it("drops only the invalid party while preserving other saved parties", () => {
+    const s = new MemStorage();
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: {
+          a: { ...seed("a"), name: "" },
+        },
+        custom: [{ nonsense: true }, seed("valid-custom")],
+      }),
+    );
+
+    const out = loadDemoState([seed("a")], s);
+    expect(out.warning).toBe("corrupt");
+    expect(out.parties.map((party) => party.id)).toEqual(["a", "valid-custom"]);
+    expect(out.parties[0]?.name).toBe("Party a");
+  });
+
   it("splits samples from custom parties on save/load roundtrip", () => {
     const s = new MemStorage();
     const seeds = [seed("a")];
@@ -95,6 +114,18 @@ describe("demo-storage", () => {
     const out = loadDemoState(seeds, s);
     expect(out.parties.map((p) => p.id)).toEqual(["a", "custom-1"]);
     expect(out.parties[0]?.name).toBe("Edited seed");
+  });
+
+  it("keeps a decide-later party with no date across a save/load roundtrip", () => {
+    const s = new MemStorage();
+    const custom = seed("date-tbd", { date: "" });
+
+    expect(saveDemoState([custom], [], s).ok).toBe(true);
+
+    const out = loadDemoState([], s);
+    expect(out.warning).toBeUndefined();
+    expect(out.parties).toHaveLength(1);
+    expect(out.parties[0]).toMatchObject({ id: "date-tbd", date: "" });
   });
 
   it("does not resurrect orphaned seed overrides after seed removal", () => {

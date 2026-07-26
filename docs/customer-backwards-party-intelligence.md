@@ -252,7 +252,10 @@ Material gaps:
 - quantities are not consistently tied to adult/kid counts and serving format;
 - tasks have coordination owners, rationale, and linked actions, but not yet
   dependencies, notifications, or collaborator permissions;
-- RSVP questions are not yet fully generated from the playbook;
+- birthday RSVP defaults now adapt to preschool, school-age, and adult
+  planning context, and optional host-only arrival/access answers feed the
+  guest list; other occasion-specific questions and downstream automation
+  are still incomplete;
 - cohost permissions and targeted communications are incomplete;
 - recommendations do not yet show confidence or verified-vs-estimated status;
 - retrospectives do not yet improve future playbooks.

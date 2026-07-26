@@ -33,6 +33,7 @@ import {
   type PartyPlanningProfile,
 } from "./party-intelligence";
 import { generatedTaskMetadata, withTaskGuidance } from "./task-guidance";
+import type { RsvpResponseDetails } from "./rsvp.functions";
 
 export type OccasionType =
   | "birthday"
@@ -94,6 +95,7 @@ export type Guest = {
   household?: string;
   dietary?: string[];
   allergens?: string[];
+  responseDetails?: RsvpResponseDetails;
 };
 
 export type Household = { id: string; label: string; memberGuestIds: string[] };

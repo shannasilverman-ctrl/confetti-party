@@ -31,7 +31,10 @@ const PartySchema = z
     id: z.string().min(1),
     name: z.string().min(1),
     occasion: z.string().min(1),
-    date: z.string().min(1),
+    // A date is intentionally optional during Smart Start. Keep the empty
+    // string so "decide later" parties survive refresh instead of being
+    // mistaken for corrupt storage.
+    date: z.string(),
     startTime: z.string().optional(),
     location: z.string().optional(),
     guestEstimate: z.coerce.number().finite().nonnegative().default(0),
@@ -59,10 +62,10 @@ const PartySchema = z
   // rely on them.
   .passthrough();
 
-const StoredShape = z.object({
+const StoredEnvelope = z.object({
   v: z.literal(2),
-  samples: z.record(PartySchema).default({}),
-  custom: z.array(PartySchema).default([]),
+  samples: z.record(z.unknown()).default({}),
+  custom: z.array(z.unknown()).default([]),
 });
 
 export type DemoStoreResult = {
@@ -116,28 +119,45 @@ export function loadDemoState(
   } catch {
     return { parties: seeds, warning: "corrupt" };
   }
-  const outcome = StoredShape.safeParse(parsed);
+  const outcome = StoredEnvelope.safeParse(parsed);
   if (!outcome.success) {
     return { parties: seeds, warning: "corrupt" };
   }
   const store = outcome.data;
+  let droppedInvalidParty = false;
 
   // Merge samples: seed base, override with stored copy when the id still
   // exists in code. Orphaned overrides (deleted from code) are discarded.
   const merged = seeds.map((s) => {
-    const override = store.samples[s.id];
-    if (!override) return s;
+    const rawOverride = store.samples[s.id];
+    if (!rawOverride) return s;
+    const parsedOverride = PartySchema.safeParse(rawOverride);
+    if (!parsedOverride.success) {
+      droppedInvalidParty = true;
+      return s;
+    }
     // Preserve the seed id explicitly — never let a stored blob rewrite id.
-    return { ...(override as unknown as Party), id: s.id };
+    return { ...(parsedOverride.data as unknown as Party), id: s.id };
   });
 
   // Custom parties: drop any whose id collides with a seed to avoid duplicate
   // ids in the list, and cap total count.
-  const custom = (store.custom as unknown as Party[])
-    .filter((p) => !seedIds.has(p.id))
+  const custom = store.custom
+    .flatMap((candidate) => {
+      const parsedParty = PartySchema.safeParse(candidate);
+      if (!parsedParty.success) {
+        droppedInvalidParty = true;
+        return [];
+      }
+      return [parsedParty.data as unknown as Party];
+    })
+    .filter((party) => !seedIds.has(party.id))
     .slice(0, DEMO_MAX_PARTIES);
 
-  return { parties: [...merged, ...custom] };
+  return {
+    parties: [...merged, ...custom],
+    ...(droppedInvalidParty ? { warning: "corrupt" as const } : {}),
+  };
 }
 
 /**

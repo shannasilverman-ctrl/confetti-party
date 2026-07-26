@@ -19,7 +19,7 @@ export default defineConfig({
   // Keep local verification deterministic too. An unrestricted CPU-derived
   // worker count can overwhelm the single Wrangler preview process and turn
   // healthy routes into ERR_CONNECTION_REFUSED noise.
-  workers: process.env.CI ? 1 : 2,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",

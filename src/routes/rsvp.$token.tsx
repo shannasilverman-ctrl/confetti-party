@@ -22,9 +22,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
-import { attendanceCopy, getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
+import {
+  contextualRsvpCopy,
+  getRsvpLoaderData,
+  type ArrivalPlan,
+  type PartyView,
+} from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
 import { daysUntilLocal, formatDateOnly } from "@/lib/date-only";
 import { occasionHeroImage } from "@/lib/party-visual";
@@ -284,13 +290,16 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   const theme = themeById(party.theme_id ?? undefined);
   const heroImage = theme?.heroImage ?? occasionHeroImage(party.occasion);
   const days = daysUntilLocal(party.date);
+  const contextual = contextualRsvpCopy(initialParty.rsvp_context);
 
   // Form state — preserved across submit failures and change-response cycles.
   const [name, setName] = useState("");
   const [household, setHousehold] = useState("");
   const [rsvp, setRsvp] = useState<RSVPChoice>("yes");
-  const [adults, setAdults] = useState(1);
-  const [kids, setKids] = useState(0);
+  const [adults, setAdults] = useState(contextual.defaultAdults);
+  const [kids, setKids] = useState(contextual.defaultKids);
+  const [arrivalPlan, setArrivalPlan] = useState<ArrivalPlan | "">("");
+  const [accessNotes, setAccessNotes] = useState("");
   const [dietary, setDietary] = useState<string[]>([]);
   const [dietaryOther, setDietaryOther] = useState("");
   const [allergens, setAllergens] = useState<string[]>([]);
@@ -362,8 +371,10 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   }, [refresh]);
 
   const totalAttendees = adults + kids;
-  const preschoolBirthday = party.rsvp_context?.kind === "preschool-birthday";
-  const attendance = attendanceCopy(party.rsvp_context);
+  const childBirthday =
+    party.rsvp_context?.kind === "preschool-birthday" ||
+    party.rsvp_context?.kind === "school-age-birthday";
+  const attendance = contextualRsvpCopy(party.rsvp_context);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,7 +402,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
     ];
 
     try {
-      const res = await supabase.rpc("submit_rsvp", {
+      const res = await supabase.rpc("submit_rsvp_v2", {
         token,
         guest_name: trimmedName,
         rsvp,
@@ -400,6 +411,13 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
         household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
         dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
         allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
+        response_details:
+          rsvp !== "no" && (arrivalPlan || accessNotes.trim())
+            ? ({
+                ...(arrivalPlan ? { arrivalPlan } : {}),
+                ...(accessNotes.trim() ? { accessNotes: accessNotes.trim().slice(0, 200) } : {}),
+              } as unknown as Json)
+            : undefined,
       });
       if (res.error) {
         setError("We couldn't send your RSVP. Your answers are still here — please try again.");
@@ -595,9 +613,9 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 
             {rsvp === "yes" && (
               <div
-                className={`rounded-2xl ${preschoolBirthday ? "border border-primary/15 bg-primary/[0.04] p-4" : ""}`}
+                className={`rounded-2xl ${childBirthday ? "border border-primary/15 bg-primary/[0.04] p-4" : ""}`}
               >
-                {preschoolBirthday && (
+                {attendance.intro && (
                   <div className="mb-3">
                     <div className="text-sm font-semibold text-secondary">
                       Help the host plan the right setup
@@ -639,6 +657,71 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                 </div>
                 {attendance.kidHint && (
                   <p className="mt-2 text-[11px] text-muted-foreground">{attendance.kidHint}</p>
+                )}
+              </div>
+            )}
+
+            {rsvp !== "no" && (attendance.arrivalQuestion || attendance.accessPrompt) && (
+              <div
+                className="space-y-4 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4"
+                data-testid="contextual-rsvp-questions"
+              >
+                <div>
+                  <div className="text-sm font-semibold text-secondary">
+                    The details that change the plan
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
+                    Optional · shared only with the host so they can plan around your group.
+                  </p>
+                </div>
+
+                {attendance.arrivalQuestion && (
+                  <fieldset className="space-y-2">
+                    <legend className="text-sm font-medium text-secondary">
+                      {attendance.arrivalQuestion}
+                    </legend>
+                    <RadioGroup
+                      aria-label={attendance.arrivalQuestion}
+                      value={arrivalPlan}
+                      onValueChange={(value) => setArrivalPlan(value as ArrivalPlan)}
+                      className="grid gap-2 sm:grid-cols-3"
+                    >
+                      {[
+                        ["from-start", "From the start"],
+                        ["arriving-later", "Arriving later"],
+                        ["not-sure", "Not sure yet"],
+                      ].map(([value, label]) => (
+                        <label
+                          key={value}
+                          className={`flex min-h-11 cursor-pointer items-center justify-center rounded-xl border px-3 py-2 text-center text-xs transition ${
+                            arrivalPlan === value
+                              ? "border-primary bg-primary/10 font-medium text-primary"
+                              : "border-border bg-background text-secondary hover:bg-muted/60"
+                          }`}
+                        >
+                          <RadioGroupItem value={value} className="sr-only" />
+                          {label}
+                        </label>
+                      ))}
+                    </RadioGroup>
+                  </fieldset>
+                )}
+
+                {attendance.accessPrompt && (
+                  <div className="space-y-2">
+                    <Label htmlFor="access-notes">{attendance.accessPrompt}</Label>
+                    <Textarea
+                      id="access-notes"
+                      value={accessNotes}
+                      onChange={(event) => setAccessNotes(event.target.value)}
+                      placeholder="Optional — share only what would help the host prepare"
+                      maxLength={200}
+                      className="min-h-20 resize-y bg-background"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Please don&apos;t include medical records or emergency contact details.
+                    </p>
+                  </div>
                 )}
               </div>
             )}

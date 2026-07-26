@@ -3,7 +3,11 @@ import { expect, test } from "@playwright/test";
 
 test.describe("customer-backwards party intelligence", () => {
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem("confetti:e2e-storage-ready")) return;
+      localStorage.clear();
+      sessionStorage.setItem("confetti:e2e-storage-ready", "true");
+    });
   });
 
   test("turning four creates an age-aware plan, not a generic birthday checklist", async ({
@@ -161,6 +165,42 @@ test.describe("customer-backwards party intelligence", () => {
     ).toBeVisible();
     await expect(
       page.getByText("Rides, leftovers, gifts, payment, and host closeout"),
+    ).toBeVisible();
+
+    const partyId = page.url().split("/party/")[1]?.split(/[?#]/)[0];
+    expect(partyId).toBeTruthy();
+    await page.evaluate((id) => {
+      const key = "confetti:demo:v2";
+      const stored = JSON.parse(localStorage.getItem(key) ?? "null") as {
+        custom?: Array<{ id: string; guests: unknown[] }>;
+      } | null;
+      const party = stored?.custom?.find((candidate) => candidate.id === id);
+      if (!party) throw new Error("Created demo party was not persisted.");
+      party.guests = [
+        {
+          id: "contextual-guest",
+          name: "Sam Rivera",
+          kind: "adult",
+          rsvp: "yes",
+          source: "link",
+          dietary: ["Vegetarian"],
+          allergens: ["Peanuts"],
+          responseDetails: {
+            arrivalPlan: "arriving-later",
+            accessNotes: "A chair away from the speaker would help.",
+          },
+        },
+      ];
+      localStorage.setItem(key, JSON.stringify(stored));
+    }, partyId);
+    await page.reload();
+    await page.getByRole("button", { name: "Guests", exact: true }).click();
+    const planningDetails = page.getByTestId("guest-planning-details-contextual-guest");
+    await expect(planningDetails.getByText("Arriving later")).toBeVisible();
+    await expect(planningDetails.getByText("Vegetarian")).toBeVisible();
+    await expect(planningDetails.getByText("Avoid Peanuts")).toBeVisible();
+    await expect(
+      planningDetails.getByText("Comfort/access: A chair away from the speaker would help."),
     ).toBeVisible();
   });
 
