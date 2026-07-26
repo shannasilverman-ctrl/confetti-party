@@ -77,6 +77,13 @@ test.describe("accountable, actionable party work", () => {
 
     const editor = page.getByRole("dialog");
     await expect(editor.getByText(/never messages someone or gives them access/i)).toBeVisible();
+    await expect(editor.getByText("This needs attention now")).toBeVisible();
+    await editor.getByRole("button", { name: "Add reminder" }).click();
+    await expect(page.getByRole("menuitem", { name: "Google Calendar" })).toHaveAttribute(
+      "href",
+      /calendar\.google\.com\/calendar\/render/,
+    );
+    await page.keyboard.press("Escape");
     await editor.getByLabel("Who owns this? (optional)").fill("Jordan");
     await editor
       .getByLabel("What does done look like? (optional)")

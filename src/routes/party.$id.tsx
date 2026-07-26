@@ -73,6 +73,7 @@ import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { TaskOwnershipFollowThrough } from "@/components/task-ownership-follow-through";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
+import { taskTimingWindow } from "@/lib/task-timing";
 import { generatedTaskMetadata } from "@/lib/task-guidance";
 
 export type TabKey =
@@ -382,6 +383,7 @@ function ChecklistTab({
 }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
+  const dateTbd = planningDetailIsOpen(party, "date");
   const [newTitle, setNewTitle] = useState("");
   const [newBucket, setNewBucket] = useState<Bucket>("1-2 weeks");
   const [poppedId, setPoppedId] = useState<string | null>(null);
@@ -471,10 +473,14 @@ function ChecklistTab({
         const items = party.tasks.filter((t) => t.bucket === bucket);
         if (items.length === 0) return null;
         const doneCount = items.filter((t) => t.done).length;
+        const timing = dateTbd ? null : taskTimingWindow(party.date, bucket);
         return (
           <section key={bucket}>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-secondary">{bucket}</h2>
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-secondary">{bucket}</h2>
+                {timing && <p className="text-xs font-medium text-primary">{timing.windowLabel}</p>}
+              </div>
               <span className="text-xs text-muted-foreground">
                 {doneCount}/{items.length} done
               </span>

@@ -50,6 +50,17 @@ describe("calendar export", () => {
     expect(ics).not.toContain("\r\nATTENDEE:");
   });
 
+  it("uses custom reminder details without allowing injected ICS lines", () => {
+    const details = "Suggested by Confetti,\r\nATTENDEE:bad@example.com";
+    const entry = { ...PARTY, start_time: null, details };
+    const ics = buildIcs(entry, new Date("2027-01-02T03:04:05.000Z"));
+    const url = new URL(googleCalUrl(entry));
+
+    expect(url.searchParams.get("details")).toBe(details);
+    expect(ics).toContain("DESCRIPTION:Suggested by Confetti\\,\\nATTENDEE:bad@example.com");
+    expect(ics).not.toContain("\r\nATTENDEE:");
+  });
+
   it("folds every physical line to 75 UTF-8 octets or fewer", () => {
     const ics = buildIcs(
       { ...PARTY, name: `A celebration ${"🎉".repeat(40)} with everybody` },
