@@ -73,21 +73,18 @@ import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { TaskOwnershipFollowThrough } from "@/components/task-ownership-follow-through";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
+import { partyTabFromSearch, type PartyTabKey } from "@/lib/party-tabs";
 import { taskTimingWindow } from "@/lib/task-timing";
 import { generatedTaskMetadata } from "@/lib/task-guidance";
 
-export type TabKey =
-  | "overview"
-  | "theme"
-  | "shopping"
-  | "checklist"
-  | "guests"
-  | "bring"
-  | "budget"
-  | "timeline";
+export type TabKey = PartyTabKey;
 
 export const Route = createFileRoute("/party/$id")({
   component: PartyWorkspace,
+  validateSearch: (search: Record<string, unknown>): { tab?: PartyTabKey } => {
+    const tab = partyTabFromSearch(search.tab);
+    return tab === "overview" ? {} : { tab };
+  },
   head: ({ params }) => ({
     meta: [
       { title: "Party workspace · Confetti" },
@@ -100,9 +97,30 @@ export const Route = createFileRoute("/party/$id")({
 
 function PartyWorkspace() {
   const { id } = Route.useParams();
+  const search = Route.useSearch();
+  const tab = partyTabFromSearch(search.tab);
+  const navigate = Route.useNavigate();
   const { getParty, status } = useParties();
   const party = getParty(id);
-  const [tab, setTab] = useState<TabKey>("overview");
+  const shouldScrollToContent = useRef(false);
+
+  useEffect(() => {
+    if (!shouldScrollToContent.current) return;
+    shouldScrollToContent.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document
+        .getElementById("party-workspace-content")
+        ?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tab]);
+
+  const openTab = (nextTab: TabKey) => {
+    if (nextTab === tab) return;
+    shouldScrollToContent.current = true;
+    void navigate({ search: nextTab === "overview" ? {} : { tab: nextTab } });
+  };
 
   if (status === "loading") {
     return (
@@ -287,7 +305,7 @@ function PartyWorkspace() {
               <button
                 key={t.key}
                 data-testid={`party-tab-${t.key}`}
-                onClick={() => setTab(t.key)}
+                onClick={() => openTab(t.key)}
                 className={`flex min-h-11 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
                   tab === t.key
                     ? "border-primary text-primary"
@@ -307,11 +325,14 @@ function PartyWorkspace() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-        {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
+      <main
+        id="party-workspace-content"
+        className="mx-auto scroll-mt-4 max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
+      >
+        {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={openTab} />}
         {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "shopping" && <ShoppingTab partyId={party.id} />}
-        {tab === "checklist" && <ChecklistTab partyId={party.id} onNavigate={setTab} />}
+        {tab === "checklist" && <ChecklistTab partyId={party.id} onNavigate={openTab} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
         {tab === "bring" && (
           <div className="space-y-10">
@@ -335,7 +356,7 @@ function PartyWorkspace() {
             <button
               key={t.key}
               data-testid={`party-tab-mobile-${t.key}`}
-              onClick={() => setTab(t.key)}
+              onClick={() => openTab(t.key)}
               className={`relative flex min-h-[56px] min-w-[68px] flex-1 shrink-0 flex-col items-center justify-center gap-1 py-2 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
               }`}
@@ -776,6 +797,7 @@ function BudgetTab({ partyId }: { partyId: string }) {
 
   return (
     <div className="space-y-6">
+      <h2 className="sr-only">Budget breakdown</h2>
       {/* Totals */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-festive p-5 text-primary-foreground shadow-card">
