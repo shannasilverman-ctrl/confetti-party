@@ -22,6 +22,20 @@ export type ShoppingItem = {
   linkedExpenseId?: string; // set when purchased
   actualPrice?: number; // total paid, set when purchased
   preferredRetailer?: Retailer;
+  /**
+   * Present only on untouched Confetti-generated quantities. A manual quantity
+   * edit removes this metadata so future guest changes never overwrite the host.
+   */
+  sizing?: {
+    basis: "party-size";
+    servesPerUnit: number;
+  };
+};
+
+export type ShoppingResizeResult = {
+  items: ShoppingItem[];
+  resized: number;
+  protected: number;
 };
 
 type Seed = {
@@ -209,7 +223,40 @@ export function generateShoppingItems(
     qty: s.serves ? Math.max(1, Math.ceil(guests / s.serves)) : 1,
     estPrice: s.estPrice,
     status: "needed" as const,
+    ...(s.serves
+      ? {
+          sizing: {
+            basis: "party-size" as const,
+            servesPerUnit: s.serves,
+          },
+        }
+      : {}),
   }));
+}
+
+/**
+ * Re-sizes only untouched, still-needed Confetti quantities. Items already in
+ * a cart or purchased are reported as protected instead of being rewritten.
+ */
+export function resizePartySizedShopping(
+  items: ShoppingItem[],
+  guests: number,
+): ShoppingResizeResult {
+  const safeGuests = Number.isFinite(guests) ? Math.max(1, Math.min(500, Math.floor(guests))) : 1;
+  let resized = 0;
+  let protectedCount = 0;
+  const next = items.map((item) => {
+    if (item.sizing?.basis !== "party-size") return item;
+    const target = Math.max(1, Math.ceil(safeGuests / item.sizing.servesPerUnit));
+    if (target === item.qty) return item;
+    if (item.status !== "needed") {
+      protectedCount += 1;
+      return item;
+    }
+    resized += 1;
+    return { ...item, qty: target };
+  });
+  return { items: next, resized, protected: protectedCount };
 }
 
 export const STATUS_LABEL: Record<ShoppingStatus, string> = {

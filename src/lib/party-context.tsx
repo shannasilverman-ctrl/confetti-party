@@ -73,8 +73,9 @@ export type Task = {
   action?: TaskAction;
   /** Whether task guidance is hand-authored for a playbook or inferred from a generic title. */
   guidanceSource?: "curated" | "inferred";
-  source?: "confetti-playbook";
+  source?: "confetti-playbook" | "guest-impact";
   playbookId?: string;
+  guestImpactId?: "allergens" | "dietary" | "access" | "supervision";
 };
 
 export const TASK_ACTION_LABELS: Record<TaskAction, string> = {
@@ -137,8 +138,9 @@ export type TimelineItem = {
   id: string;
   time: string;
   activity: string;
-  source?: "confetti-playbook";
+  source?: "confetti-playbook" | "guest-impact";
   playbookId?: string;
+  guestImpactId?: "arrival";
 };
 
 export type Party = {
@@ -1455,7 +1457,7 @@ export const OCCASION_LABELS: Record<OccasionType, string> = {
 // ---- Shopping helpers ----
 
 export type { ShoppingItem, ShoppingCategoryName, Retailer } from "./shopping";
-export { STATUS_LABEL } from "./shopping";
+export { resizePartySizedShopping, STATUS_LABEL } from "./shopping";
 
 export function shoppingProjectedRemaining(p: Party): number {
   return p.shoppingItems
@@ -1521,6 +1523,26 @@ export function addShoppingItem(
   return {
     ...p,
     shoppingItems: [...p.shoppingItems, { id: uid(), status: "needed", ...item }],
+  };
+}
+
+export function setShoppingQuantity(p: Party, itemId: string, quantity: number): Party {
+  const safeQuantity = Number.isFinite(quantity)
+    ? Math.max(1, Math.min(999, Math.floor(quantity)))
+    : 1;
+  return {
+    ...p,
+    shoppingItems: p.shoppingItems.map((item) =>
+      item.id === itemId
+        ? {
+            ...item,
+            qty: safeQuantity,
+            // A host edit becomes authoritative. Future RSVP changes must not
+            // silently replace it.
+            sizing: undefined,
+          }
+        : item,
+    ),
   };
 }
 

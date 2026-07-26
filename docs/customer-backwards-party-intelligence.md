@@ -249,6 +249,28 @@ Confetti's adaptation rules:
   check without assuming the host has no helpers; and
 - no RSVP answer silently rewrites the host's plan.
 
+### From insight to durable work
+
+The useful destination is not another alert. It is connected, editable party
+state:
+
+- accepting a guest-count change re-sizes only untouched Confetti-generated
+  shopping quantities with a stored per-unit serving ratio;
+- custom quantities, in-cart items, and purchases remain host-authoritative;
+- changing a generated quantity by hand opts that item out of future automatic
+  sizing;
+- allergen and dietary answers create review tasks rather than guessed menu
+  substitutions;
+- private comfort/access text never gets copied into a general task;
+- later arrivals can create one editable arrival-window timeline item;
+- child supervision signals can create one assignable responsibility; and
+- every guest-impact action is idempotent, so returning to the card never creates
+  duplicate work.
+
+This is the consumer version of a connected event operations record: one change
+propagates to the places it actually matters, within explicit safety and ownership
+boundaries.
+
 ## Current-state audit
 
 Already valuable:
@@ -279,9 +301,10 @@ Material gaps:
   dependencies, notifications, or collaborator permissions;
 - birthday RSVP defaults now adapt to preschool, school-age, and adult
   planning context; optional host-only answers now feed an explainable impact
-  layer for headcount, food, access, arrival, and supervision, with an explicit
-  action to align quantities; other occasion-specific questions and deeper
-  shopping/timeline automation are still incomplete;
+  layer for headcount, food, access, arrival, and supervision; accepted count
+  changes safely resize untouched generated shopping quantities, while other
+  impacts become deduplicated, editable tasks or timeline work; other
+  occasion-specific questions are still incomplete;
 - cohost permissions and targeted communications are incomplete;
 - recommendations do not yet show confidence or verified-vs-estimated status;
 - retrospectives do not yet improve future playbooks.
@@ -307,6 +330,9 @@ Material gaps:
 - [Evite poll and meal selections](https://support.evite.com/products/invitations/create-and-edit/poll-feature)
 - [Paperless Post RSVP tracking](https://paperlesspost.zendesk.com/hc/en-us/articles/207620646-Tracking-Responses-Where-are-my-RSVPs)
 - [Planning Pod guest and seating workflow](https://planningpod.com/event-floor-plan-software)
+- [Listo per-guest quantity and task workflow](https://listorun.com/)
+- [Havenue connected catering and dietary workflow](https://havenue.co/)
+- [PlanIt party planning workflow](https://apps.apple.com/gb/app/planit-party-planner/id6654909940)
 - [Punchbowl potluck workflow](https://www.punchbowl.com/potluck)
 - [Evite signup sheets](https://www.evite.com/pages/signup-sheets/potluck/)
 - [HealthyChildren: playful birthday party guidance](https://www.healthychildren.org/English/family-life/power-of-play/Pages/playful-birthday-party-ideas-and-tips-for-young-children.aspx)

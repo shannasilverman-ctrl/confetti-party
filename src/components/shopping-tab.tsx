@@ -4,6 +4,7 @@ import {
   markShoppingPurchased,
   removeShoppingItem,
   setPreferredRetailer,
+  setShoppingQuantity,
   setShoppingStatus,
   totalSpent,
   unmarkShoppingPurchased,
@@ -32,7 +33,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Check, Plus, ShoppingCart, Trash2, AlertTriangle, Copy, ExternalLink } from "lucide-react";
+import {
+  Check,
+  Plus,
+  Minus,
+  ShoppingCart,
+  Trash2,
+  AlertTriangle,
+  Copy,
+  ExternalLink,
+} from "lucide-react";
 import { toast } from "sonner";
 import { celebrate } from "@/components/confetti-burst";
 import {
@@ -293,6 +303,9 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
                       item={it}
                       query={buildQuery(it, party)}
                       onStatus={(s) => cycleStatus(it, s)}
+                      onQuantity={(next) =>
+                        updateParty(partyId, (p) => setShoppingQuantity(p, it.id, next))
+                      }
                       onRemove={() => removeItem(it.id)}
                     />
                   ))}
@@ -581,11 +594,13 @@ function ShoppingRow({
   item,
   query,
   onStatus,
+  onQuantity,
   onRemove,
 }: {
   item: ShoppingItem;
   query: string;
   onStatus: (s: ShoppingItem["status"]) => void;
+  onQuantity: (quantity: number) => void;
   onRemove: () => void;
 }) {
   const [showShop, setShowShop] = useState(false);
@@ -600,11 +615,42 @@ function ShoppingRow({
     <li className="group rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[140px]">
-          <div className="text-sm font-medium text-secondary">{item.name}</div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="text-sm font-medium text-secondary">{item.name}</div>
+            {item.sizing?.basis === "party-size" && item.status === "needed" && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                Auto-sized
+              </span>
+            )}
+          </div>
           <div className="text-xs text-muted-foreground">
             Qty {item.qty} · ${item.estPrice} each · {priceLabel}
           </div>
         </div>
+        {!isPurchased && (
+          <div className="flex items-center rounded-full border border-border bg-background">
+            <button
+              type="button"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-l-full text-muted-foreground transition hover:text-primary disabled:opacity-35"
+              onClick={() => onQuantity(item.qty - 1)}
+              disabled={item.qty <= 1}
+              aria-label={`Decrease ${item.name} quantity`}
+            >
+              <Minus className="h-3.5 w-3.5" aria-hidden />
+            </button>
+            <span className="min-w-7 text-center text-xs font-semibold text-secondary">
+              {item.qty}
+            </span>
+            <button
+              type="button"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-r-full text-muted-foreground transition hover:text-primary"
+              onClick={() => onQuantity(item.qty + 1)}
+              aria-label={`Increase ${item.name} quantity`}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-1">
           <StatusChip
             active={item.status === "needed"}

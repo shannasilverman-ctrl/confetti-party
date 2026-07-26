@@ -15,6 +15,7 @@ import {
   newId,
   planningDetailForTask,
   planningDetailIsOpen,
+  resizePartySizedShopping,
   resolvePlanningDetails,
   type PlanningDetail,
   type Task,
@@ -40,6 +41,7 @@ import {
 import { partyQuantityPlan, type PartyQuantityPlan } from "@/lib/party-quantities";
 import {
   guestPlanSnapshot,
+  materializeGuestImpact,
   type GuestPlanImpact,
   type GuestPlanSnapshot,
 } from "@/lib/guest-plan-impact";
@@ -476,10 +478,12 @@ function GuestPlanImpactCard({
         expectedKids: suggestion.kids,
       };
       const reconciled = reconcilePartyPlaybook(party, profile, newId);
+      const resizedShopping = resizePartySizedShopping(reconciled.shoppingItems, suggestion.total);
       return resolvePlanningDetails(
         {
           ...reconciled,
           guestEstimate: suggestion.total,
+          shoppingItems: resizedShopping.items,
         },
         ["guests"],
       );
@@ -494,6 +498,15 @@ function GuestPlanImpactCard({
     if (impact.id === "headcount" && snapshot.countSuggestion) {
       applyCurrentReplies();
       return;
+    }
+    if (impact.id !== "headcount" && !impact.applied) {
+      updateParty(partyId, (party) => materializeGuestImpact(party, impact, newId).party);
+      toast.success(
+        impact.id === "arrival"
+          ? "Arrival plan added to the timeline"
+          : "Planning check added to the checklist",
+      );
+      celebrate("micro");
     }
     onNavigate(impact.action);
   };
