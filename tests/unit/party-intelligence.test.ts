@@ -2,11 +2,66 @@ import { describe, expect, it } from "vitest";
 import {
   materializePlaybook,
   partyPlaybook,
+  preschoolPartyPaths,
   reconcilePartyPlaybook,
 } from "@/lib/party-intelligence";
 import { makeParty } from "@/lib/party-context";
 
 describe("party intelligence", () => {
+  it("makes an editable preschool path recommendation instead of returning option soup", () => {
+    const paths = preschoolPartyPaths({
+      version: 1,
+      honoreeAge: 4,
+      expectedKids: 5,
+      expectedAdults: 6,
+      effort: "balanced",
+      format: "help-me-choose",
+    });
+
+    expect(paths).toHaveLength(2);
+    expect(paths[0]).toMatchObject({
+      id: "home-play",
+      format: "home",
+      recommended: true,
+    });
+    expect(paths[0]?.recommendationReason).toContain("5-child starting list");
+    expect(paths[0]?.tradeoff).toContain("setup");
+    expect(paths[1]?.tradeoff).toContain("package time");
+  });
+
+  it("recommends containment for a lower-effort or larger preschool party", () => {
+    for (const profile of [
+      {
+        version: 1 as const,
+        honoreeAge: 4,
+        expectedKids: 5,
+        effort: "easy" as const,
+        format: "help-me-choose" as const,
+      },
+      {
+        version: 1 as const,
+        honoreeAge: 5,
+        expectedKids: 8,
+        effort: "balanced" as const,
+        format: "help-me-choose" as const,
+      },
+    ]) {
+      expect(preschoolPartyPaths(profile)[0]?.format).toBe("venue");
+    }
+  });
+
+  it("respects a host's explicit preschool format choice", () => {
+    const [path] = preschoolPartyPaths({
+      version: 1,
+      honoreeAge: 4,
+      effort: "easy",
+      format: "home",
+    });
+
+    expect(path?.format).toBe("home");
+    expect(path?.recommendationReason).toContain("You chose home");
+  });
+
   it("builds an age-aware four-year-old birthday instead of a generic birthday", () => {
     const playbook = partyPlaybook({
       occasion: "birthday",
