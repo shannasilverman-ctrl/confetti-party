@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { EditDetailsDialog } from "@/components/edit-details-dialog";
+import { QuantityTunerDialog } from "@/components/quantity-tuner-dialog";
 import {
   BUCKETS,
   TASK_ACTION_LABELS,
@@ -151,7 +152,9 @@ export function OverviewTab({
       {guestPlan && (
         <GuestPlanImpactCard partyId={party.id} snapshot={guestPlan} onNavigate={onNavigate} />
       )}
-      {quantities && <PartyQuantityCard partyId={party.id} plan={quantities} />}
+      {quantities && (
+        <PartyQuantityCard partyId={party.id} plan={quantities} onNavigate={onNavigate} />
+      )}
 
       {/* Next-best actions: unresolved inputs become actions, never checkboxes. */}
       <section
@@ -600,7 +603,15 @@ function GuestPlanImpactCard({
   );
 }
 
-function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuantityPlan }) {
+function PartyQuantityCard({
+  partyId,
+  plan,
+  onNavigate,
+}: {
+  partyId: string;
+  plan: PartyQuantityPlan;
+  onNavigate: (tab: NavTab) => void;
+}) {
   return (
     <section
       aria-labelledby="party-quantity-title"
@@ -617,7 +628,7 @@ function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuan
           </span>
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-              Working estimate
+              {plan.confidence === "tuned" ? "Tuned estimate" : "Working estimate"}
             </div>
             <h3
               id="party-quantity-title"
@@ -627,12 +638,45 @@ function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuan
               {plan.adults} {plan.adults === 1 ? "adult" : "adults"}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              A useful starting point—with every assumption visible.
+              {plan.confidence === "tuned"
+                ? "Built from the food plan you confirmed."
+                : "A useful starting point—with every assumption visible."}
             </p>
           </div>
         </div>
-        <EditDetailsDialog partyId={partyId} triggerLabel="Adjust counts" />
+        <div className="flex flex-wrap gap-2">
+          <EditDetailsDialog partyId={partyId} triggerLabel="Adjust counts" />
+          <QuantityTunerDialog partyId={partyId} />
+        </div>
       </div>
+
+      <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Quantity estimate facts">
+        {plan.knownFacts.map((fact) => (
+          <span
+            key={fact}
+            className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-secondary"
+          >
+            {fact}
+          </span>
+        ))}
+      </div>
+
+      {plan.assumptions.length > 0 && (
+        <div
+          className="mt-4 rounded-2xl border border-primary/15 bg-primary/[0.045] p-3"
+          data-testid="quantity-assumptions"
+        >
+          <div className="text-xs font-semibold text-secondary">
+            Confetti is still assuming {plan.openQuestions.length}{" "}
+            {plan.openQuestions.length === 1 ? "detail" : "details"}
+          </div>
+          <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] leading-5 text-muted-foreground">
+            {plan.assumptions.map((assumption) => (
+              <li key={assumption}>{assumption}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
         {plan.estimates.map((item) => (
@@ -647,7 +691,18 @@ function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuan
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[10px] leading-4 text-muted-foreground">{plan.note}</p>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[10px] leading-4 text-muted-foreground">{plan.note}</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-11 shrink-0"
+          onClick={() => onNavigate("shopping")}
+        >
+          Use while shopping <ArrowRight aria-hidden />
+        </Button>
+      </div>
     </section>
   );
 }

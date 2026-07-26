@@ -232,6 +232,26 @@ describe("materializeDraft — age-aware birthday", () => {
       ),
     ).toBe(true);
   });
+
+  it("carries explicitly discussed food decisions into quantity planning", () => {
+    const { party } = materializeDraft(
+      {
+        identity: {
+          workingTitle: "Eliana turns four",
+          occasion: "birthday",
+          honoreeAge: 4,
+        },
+        people: { expectedCount: 11, kids: 5, adults: 6 },
+        food: { approach: "snacks-only", portionModel: "family-style" },
+      },
+      { mkId: counterMkId(), now: FIXED_NOW },
+    );
+
+    expect(party.planningProfile).toMatchObject({
+      foodRole: "light-bites",
+      foodServiceStyle: "family-style",
+    });
+  });
 });
 
 describe("summarize", () => {

@@ -100,6 +100,7 @@ export function EditDetailsDialog({
         details,
       );
       const profile = {
+        ...p.planningProfile,
         version: 1 as const,
         ...(p.occasion === "birthday" && Number(honoreeAge) > 0
           ? { honoreeAge: Number(honoreeAge) }

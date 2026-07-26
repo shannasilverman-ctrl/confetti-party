@@ -2,6 +2,8 @@ import type { Bucket, OccasionType, Party, Task, TimelineItem } from "./party-co
 
 export type HostEffort = "easy" | "balanced" | "all-out";
 export type PartyFormat = "home" | "venue" | "help-me-choose";
+export type FoodRole = "light-bites" | "full-meal" | "grazing";
+export type FoodServiceStyle = "self-serve" | "family-style" | "served";
 
 /**
  * Durable facts that change Confetti's recommendations.
@@ -17,6 +19,13 @@ export type PartyPlanningProfile = {
   expectedAdults?: number;
   effort?: HostEffort;
   format?: PartyFormat;
+  /**
+   * Optional, durable quantity inputs. They stay out of quick creation and can
+   * be added later when the host is ready to make food decisions.
+   */
+  foodRole?: FoodRole;
+  foodServiceStyle?: FoodServiceStyle;
+  durationMinutes?: number;
 };
 
 export type PreschoolPartyPath = {

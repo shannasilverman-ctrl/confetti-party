@@ -82,7 +82,11 @@ export type DraftPatch = {
   people?: { expectedCount?: number; households?: number; kids?: number; adults?: number };
   effort?: { level?: "low" | "medium" | "high"; hostReadyTarget?: string };
   budget?: { total?: number; stance?: "strict" | "flexible" | "no-limit" };
-  food?: { approach?: string; peakMoment?: string };
+  food?: {
+    approach?: string;
+    peakMoment?: string;
+    portionModel?: "per-guest" | "per-adult+kid" | "family-style" | "unknown";
+  };
   constraints?: {
     dietary?: string[];
     accessibility?: string[];
@@ -364,6 +368,10 @@ export function materializeDraft(
     ...(occasion === "birthday" && honoreeAge != null ? { honoreeAge } : {}),
     ...(kids != null ? { expectedKids: kids } : {}),
     ...(adults != null ? { expectedAdults: adults } : {}),
+    ...(merged.food?.approach === "snacks-only" ? { foodRole: "light-bites" as const } : {}),
+    ...(merged.food?.portionModel === "family-style"
+      ? { foodServiceStyle: "family-style" as const }
+      : {}),
     effort,
     format,
   };

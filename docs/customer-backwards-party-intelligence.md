@@ -295,6 +295,28 @@ This is deliberately provider-neutral until Confetti has real contact consent,
 deliverability, opt-out, message-history, and support infrastructure. It solves
 the reasoning and drafting job now without introducing fake communications.
 
+### From a headcount to a quantity plan a host can trust
+
+Most quantity calculators hide their assumptions and return a precise-looking
+number. That shifts the risk back to the host: they still have to decide whether
+the tool imagined appetizers, a meal, a two-hour birthday, or an all-afternoon
+gathering.
+
+Confetti keeps direct creation fast, then asks only three high-leverage questions
+when the host wants a sharper estimate:
+
+- is the food light bites, a full meal, or available throughout;
+- how long guests will be eating and drinking; and
+- whether food is self-serve, family-style, or portioned per guest.
+
+The estimate then separates known facts from working assumptions and labels
+itself as a starting or tuned plan. The same serving guide appears beside the
+real shopping list so the host does not have to remember or recalculate it.
+Confetti does not invent package sizes, prices, or vendor yields: the recipe,
+package label, or caterer's stated servings remains the final conversion before
+buying. Explicit food decisions captured in Talk carry into the same planning
+profile rather than being asked twice.
+
 ## Current-state audit
 
 Already valuable:
@@ -320,7 +342,10 @@ Material gaps:
 - the few durable facts captured in direct creation are not yet used by every
   occasion and workflow;
 - local search is query generation, not a ranked/verified marketplace;
-- quantities are not consistently tied to adult/kid counts and serving format;
+- birthday, holiday, game-day, and cookout quantities now use known child/adult
+  counts, expose assumptions and confidence, and can be tuned by food role,
+  duration, and service style; broader menu-, recipe-, package-, and
+  vendor-specific conversion remains incomplete;
 - tasks have coordination owners, rationale, and linked actions, but not yet
   dependencies, notifications, or collaborator permissions;
 - birthday RSVP defaults now adapt to preschool, school-age, and adult
@@ -331,7 +356,9 @@ Material gaps:
   occasion-specific questions are still incomplete;
 - cohost permissions and actual message delivery remain incomplete; targeted
   host follow-ups now have intent-aware audiences and privacy-safe editable copy;
-- recommendations do not yet show confidence or verified-vs-estimated status;
+- quantity recommendations now distinguish starting assumptions from confirmed
+  facts; local and vendor recommendations do not yet consistently show
+  confidence or verified-vs-estimated status;
 - retrospectives do not yet improve future playbooks.
 
 ## Delivery sequence
@@ -368,3 +395,6 @@ Material gaps:
 - [CPSC: balloon suffocation hazard](https://www.cpsc.gov/safety-education/safety-guides/toys/balloons-can-be-suffocation-danger-kids)
 - [FoodSafety.gov: people at risk of food poisoning](https://www.foodsafety.gov/people-at-risk)
 - [FARE: parties and allergy communication](https://www.foodallergy.org/resources/parties)
+- [University of Minnesota Extension: planning food quantities for an occasion](https://extension.umn.edu/cooking-safely-crowd/planning-quantity-food-occasion)
+- [Washington State University Catering: hors d'oeuvres serving guidance](https://catering.wsu.edu/menus/hors-doeuvres/)
+- [University of Michigan Taubman College: catering and service-format guidance](https://intranet.tcaup.umich.edu/knowledge-base/catering/)
