@@ -54,6 +54,7 @@ import {
 } from "@/lib/affiliates";
 import { ProductTiles } from "@/components/product-tiles";
 import { EmptyState } from "@/components/empty-state";
+import { ShoppingQuantityGuide } from "@/components/shopping-quantity-guide";
 
 const RETAILERS: { key: Retailer; label: string }[] = [
   { key: "amazon", label: "Amazon" },
@@ -195,6 +196,8 @@ export function ShoppingTab({ partyId }: { partyId: string }) {
 
   return (
     <div className="space-y-8">
+      <ShoppingQuantityGuide partyId={partyId} />
+
       {/* Summary */}
       <section
         className={`rounded-2xl border p-5 shadow-card ${

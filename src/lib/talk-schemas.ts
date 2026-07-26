@@ -111,6 +111,7 @@ const FoodZ = z
       .enum(["cook", "catering", "grocery-prepared", "potluck", "mix", "snacks-only"])
       .optional(),
     peakMoment: SHORT.optional(),
+    portionModel: z.enum(["per-guest", "per-adult+kid", "family-style", "unknown"]).optional(),
   })
   .strict();
 

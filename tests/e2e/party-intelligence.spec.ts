@@ -93,6 +93,25 @@ test.describe("customer-backwards party intelligence", () => {
     await editDialog.getByRole("button", { name: "Save changes" }).click();
     await expect(quantities.getByText("Enough for 6 children and 7 adults")).toBeVisible();
 
+    await expect(quantities.getByTestId("quantity-assumptions")).toBeVisible();
+    await quantities.getByRole("button", { name: "Sharpen estimate" }).click();
+    const quantityDialog = page.getByRole("dialog");
+    await expect(quantityDialog.getByText("Make the quantity estimate yours")).toBeVisible();
+    await quantityDialog.getByRole("button", { name: /Cake \+ light bites/ }).click();
+    await quantityDialog.getByRole("button", { name: "1½ hours" }).click();
+    await quantityDialog.getByRole("button", { name: /Portioned per guest/ }).click();
+    await quantityDialog.getByRole("button", { name: "Use these details" }).click();
+    await expect(quantities.getByText("Tuned estimate")).toBeVisible();
+    await expect(quantities.getByText("39–65", { exact: true })).toBeVisible();
+    await expect(quantities.getByText("Large pizzas")).toHaveCount(0);
+
+    await quantities.getByRole("button", { name: "Use while shopping" }).click();
+    const shoppingGuide = page.getByTestId("shopping-quantity-guide");
+    await expect(shoppingGuide.getByText("Your tuned quantities")).toBeVisible();
+    await expect(shoppingGuide.getByText("39–65", { exact: true })).toBeVisible();
+    await expect(shoppingGuide.getByRole("button", { name: "Adjust food plan" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
     await intelligence.getByRole("button", { name: "Review the 90-minute flow" }).click();
     await expect(page.getByText("Easy arrival play while families settle in")).toBeVisible();
     await expect(page.getByText("Party ends before the room runs out of steam")).toBeVisible();
