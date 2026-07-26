@@ -134,6 +134,15 @@ function ageBand(age?: number): PartyPlaybook["ageBand"] {
   return "adult";
 }
 
+function ordinal(value: number): string {
+  const mod100 = value % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+  if (value % 10 === 1) return `${value}st`;
+  if (value % 10 === 2) return `${value}nd`;
+  if (value % 10 === 3) return `${value}rd`;
+  return `${value}th`;
+}
+
 function addMinutes(time: string, minutes: number): string {
   const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
   if (!match) return "";
@@ -217,6 +226,108 @@ const PRESCHOOL_TASKS: PlaybookTask[] = [
     "Collect broken balloons immediately and keep uninflated balloons out of reach",
     "Day of",
     "Broken and uninflated balloons are a choking risk for young children.",
+    "timeline",
+  ),
+];
+
+const SCHOOL_AGE_BIRTHDAY_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask the birthday child for one must-have, one nice-to-have, and one hard no",
+    "3-5 weeks",
+    "A short priority list makes the party feel like them without turning every idea into a requirement.",
+    "theme",
+  ),
+  playbookTask(
+    "Confirm invited children, siblings, adult-stay expectations, and the pickup plan",
+    "3-5 weeks",
+    "The real child and adult counts determine supervision, space, food, and whether handoff can stay calm.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose one anchor activity and one flexible backup—not a packed schedule",
+    "1-2 weeks",
+    "School-age children can stay engaged longer, but free social time and a backup work better than constant transitions.",
+    "timeline",
+  ),
+  playbookTask(
+    "Confirm venue rules, waivers, accessibility, bathrooms, and food boundaries",
+    "1-2 weeks",
+    "Practical constraints need to shape the invitation and plan before families arrive or money becomes nonrefundable.",
+    "guests",
+  ),
+  playbookTask(
+    "Collect allergies, dietary needs, and any participation accommodations",
+    "1-2 weeks",
+    "Food and activities should fit the invited children from the start instead of singling someone out on the day.",
+    "guests",
+  ),
+  playbookTask(
+    "Assign check-in, activity support, food, photos, and pickup to named adults",
+    "Party week",
+    "Clear zones and owners let the host celebrate instead of monitoring every transition alone.",
+    "timeline",
+  ),
+  playbookTask(
+    "Send the exact arrival window, clothing note, waiver link, and pickup time",
+    "Party week",
+    "Parents can prepare children properly and the party can start and finish without a trail of clarification texts.",
+    "guests",
+  ),
+  playbookTask(
+    "Stage water, labeled food, candles, a lighter, cake tools, wipes, and take-home items",
+    "Day of",
+    "The birthday moment and the practical reset should not stop because a basic is still in a cupboard or car.",
+    "shopping",
+  ),
+];
+
+const ADULT_BIRTHDAY_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Define the celebration brief: how it should feel, three priorities, and three things to skip",
+    "3-5 weeks",
+    "A clear experience brief protects the guest of honor from a generic party and keeps spending tied to what matters.",
+    "theme",
+  ),
+  playbookTask(
+    "Set the guest-list rule, plus-one approach, and private must-invite list",
+    "3-5 weeks",
+    "Guest chemistry and capacity shape the format more than a theme does, and unclear plus-ones create avoidable friction.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose one hosting model: home, restaurant, venue, activity, or a deliberate two-stop plan",
+    "3-5 weeks",
+    "One operating model aligns budget, timing, transportation, food, and the amount of work the host is accepting.",
+    "timeline",
+  ),
+  playbookTask(
+    "Plan the menu and drinks from headcount, dietary needs, service style, and host effort",
+    "1-2 weeks",
+    "The food plan should fit the people and the service window—not become a second event the host has to perform.",
+    "shopping",
+  ),
+  playbookTask(
+    "Design arrival, one shared moment, cake or toast, and a natural wind-down",
+    "1-2 weeks",
+    "A few visible beats create a memorable arc while leaving room for the conversations people actually came to have.",
+    "timeline",
+  ),
+  playbookTask(
+    "Confirm accessibility, seating, sound level, parking, and a safe trip home",
+    "Party week",
+    "Guests should know they can arrive, participate, rest, hear, and leave without privately solving basic access needs.",
+    "guests",
+  ),
+  playbookTask(
+    "Assign greeting, food, photos, the shared moment, and final payment or cleanup",
+    "Party week",
+    "Named owners keep the organizer from disappearing into logistics during the celebration.",
+    "timeline",
+  ),
+  playbookTask(
+    "Prepare the host closeout: leftovers, gifts, vendor tips, rides, keys, and final sweep",
+    "Day of",
+    "A ten-minute closing plan prevents the last hour from becoming scattered decisions after everyone is tired.",
     "timeline",
   ),
 ];
@@ -516,6 +627,114 @@ export function partyPlaybook(input: {
           source: "FoodSafety.gov",
           level: "safety",
         },
+      ],
+    };
+  }
+
+  if (input.occasion === "birthday" && band === "school-age") {
+    return {
+      id: "birthday-school-age-v1",
+      title: `${age ? `${ordinal(age)} birthday` : "School-age birthday"} with room to actually play`,
+      promise:
+        "One memorable anchor, enough unstructured social time, clear parent handoffs, and the practical details families need before they arrive.",
+      ageBand: band,
+      recommendedDurationMinutes: 150,
+      tasks: SCHOOL_AGE_BIRTHDAY_TASKS,
+      timeline: timedTimeline(input.startTime, [
+        { offset: 0, activity: "Arrival activity and easy check-in while everyone lands" },
+        { offset: 20, activity: "Main activity, game, workshop, or venue play begins" },
+        { offset: 75, activity: "Food, water, and a social reset" },
+        { offset: 105, activity: "Cake, candles, and the birthday moment" },
+        { offset: 125, activity: "Flexible play, photos, and take-home items" },
+        { offset: 150, activity: "Clear pickup window and adult handoff" },
+      ]),
+      rsvpQuestions: [
+        "Which invited children and siblings are coming?",
+        "Will an adult stay, or will this be drop-off and pickup?",
+        "Any allergies, dietary needs, or participation accommodations?",
+        "Does your child need a waiver, specific clothing, or equipment?",
+        "Who should the host contact if pickup plans change?",
+      ],
+      guardrails: [
+        {
+          id: "school-age-duration",
+          title: "Give school-age play enough room",
+          detail:
+            "Use roughly two to three hours as a starting range, then shorten it for a high-intensity venue or lengthen only when the format supports real downtime.",
+          source: "American Academy of Pediatrics",
+          level: "recommendation",
+        },
+        {
+          id: "school-age-one-anchor",
+          title: "Build around one anchor",
+          detail:
+            "Choose one activity worth remembering and leave flexible time around it instead of forcing children through a packed rotation.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        {
+          id: "school-age-handoff",
+          title: "Make supervision and pickup explicit",
+          detail:
+            "State whether adults stay, who is supervising, the exact pickup window, and how the host should handle a changed pickup plan.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        ...standardGuardrails(),
+      ],
+    };
+  }
+
+  if (input.occasion === "birthday" && band === "adult") {
+    return {
+      id: "birthday-adult-v1",
+      title: `A ${age ? ordinal(age) : "grown-up"} birthday that feels like the person`,
+      promise:
+        "The guest mix, hosting load, food, setting, and meaningful moments follow a clear celebration brief—so the result is personal without becoming overproduced.",
+      ageBand: band,
+      recommendedDurationMinutes: 180,
+      tasks: ADULT_BIRTHDAY_TASKS,
+      timeline: timedTimeline(input.startTime, [
+        { offset: 0, activity: "Arrival drink, food cue, and a clear place to land" },
+        { offset: 30, activity: "Guests settle into the main activity or conversation" },
+        { offset: 90, activity: "Shared moment: toast, story, surprise, or activity reveal" },
+        { offset: 115, activity: "Cake, dessert, and photos without stopping the whole night" },
+        { offset: 150, activity: "Last food or drink wave and a natural wind-down" },
+        { offset: 180, activity: "Rides, leftovers, gifts, payment, and host closeout" },
+      ]),
+      rsvpQuestions: [
+        "Can you make it, and are you bringing a guest?",
+        "Any allergies, dietary needs, or foods you avoid?",
+        "Anything that would make seating, sound, or access more comfortable?",
+        "Will you join from the start or arrive later?",
+        "Would you like to contribute a photo, story, toast, song, or practical help?",
+      ],
+      guardrails: [
+        {
+          id: "adult-honoree-consent",
+          title: "Celebrate the person, not the planner's performance",
+          detail:
+            "Confirm the guest of honor's comfort with surprises, public attention, photos, speeches, and who is invited before locking the plan.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        {
+          id: "adult-one-shared-moment",
+          title: "Create one meaningful shared moment",
+          detail:
+            "One intentional toast, story, activity, or reveal is usually more memorable than a night packed with programmed beats.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        {
+          id: "adult-buffet-window",
+          title: "Serve food in safe waves",
+          detail:
+            "Keep cold food at 40°F or below and hot food at 140°F or above; replace smaller platters and discard perishables left at room temperature beyond two hours.",
+          source: "USDA",
+          level: "safety",
+        },
+        ...standardGuardrails(),
       ],
     };
   }

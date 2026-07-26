@@ -1054,6 +1054,7 @@ function BirthdaySmartStart({
   startTime: string;
 }) {
   const parsedAge = Number(age);
+  const adultBirthday = parsedAge >= 18;
   const playbook = partyPlaybook({
     occasion: "birthday",
     profile: {
@@ -1117,7 +1118,7 @@ function BirthdaySmartStart({
             />
           </div>
           <div>
-            <Label htmlFor="expected-kids">Children</Label>
+            <Label htmlFor="expected-kids">{adultBirthday ? "Children coming" : "Children"}</Label>
             <Input
               id="expected-kids"
               type="number"
@@ -1132,7 +1133,9 @@ function BirthdaySmartStart({
             />
           </div>
           <div>
-            <Label htmlFor="expected-adults">Adults staying</Label>
+            <Label htmlFor="expected-adults">
+              {adultBirthday ? "Adults coming" : "Adults staying"}
+            </Label>
             <Input
               id="expected-adults"
               type="number"
@@ -1294,10 +1297,11 @@ function BirthdaySmartStart({
                 About {playbook.recommendedDurationMinutes} minutes
               </span>
               <span className="rounded-full bg-muted px-3 py-1.5">
-                {playbook.tasks.length} age-aware safeguards
+                {playbook.tasks.length} party-specific jobs covered
               </span>
               <span className="rounded-full bg-muted px-3 py-1.5">
-                {playbook.rsvpQuestions.length} parent-ready RSVP questions
+                {playbook.rsvpQuestions.length} {adultBirthday ? "guest-ready" : "parent-ready"}{" "}
+                RSVP questions
               </span>
             </div>
           </div>

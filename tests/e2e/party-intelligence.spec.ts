@@ -122,6 +122,48 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(firstLocalPath.getByRole("button", { name: /Build this version/ })).toBeVisible();
   });
 
+  test("school-age and adult birthdays change the workflow instead of reusing preschool copy", async ({
+    page,
+  }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("wizard-occasion-birthday").click();
+    const smartStart = dialog.getByTestId("birthday-smart-start");
+
+    await smartStart.getByLabel("Age they're turning").fill("8");
+    await expect(smartStart.getByText("8th birthday with room to actually play")).toBeVisible();
+    await expect(smartStart.getByText("About 150 minutes")).toBeVisible();
+    await expect(smartStart.getByText("5 parent-ready RSVP questions")).toBeVisible();
+    await expect(smartStart.getByLabel("Adults staying")).toBeVisible();
+
+    await smartStart.getByLabel("Age they're turning").fill("40");
+    await expect(smartStart.getByText("A 40th birthday that feels like the person")).toBeVisible();
+    await expect(smartStart.getByText("About 180 minutes")).toBeVisible();
+    await expect(smartStart.getByText("5 guest-ready RSVP questions")).toBeVisible();
+    await expect(smartStart.getByLabel("Adults coming")).toBeVisible();
+    await expect(smartStart.getByLabel("Children coming")).toBeVisible();
+    await expect(smartStart.getByText("8 party-specific jobs covered")).toBeVisible();
+
+    await dialog.getByLabel("Start with the idea").fill("Jordan turns forty");
+    await smartStart.getByLabel("Adults coming").fill("28");
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    const intelligence = page.getByTestId("party-intelligence-card");
+    await expect(
+      intelligence.getByText("A 40th birthday that feels like the person"),
+    ).toBeVisible();
+    await intelligence.getByRole("button", { name: "Review the 180-minute flow" }).click();
+    await expect(
+      page.getByText("Shared moment: toast, story, surprise, or activity reveal"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Rides, leftovers, gifts, payment, and host closeout"),
+    ).toBeVisible();
+  });
+
   test("Shabbat smart start builds the table, timing, quantities, and guest questions together", async ({
     page,
   }) => {

@@ -114,6 +114,81 @@ describe("party intelligence", () => {
     ).toBeNull();
   });
 
+  it("builds a school-age birthday around one anchor and a clear parent handoff", () => {
+    const playbook = partyPlaybook({
+      occasion: "birthday",
+      profile: {
+        version: 1,
+        honoreeAge: 8,
+        expectedKids: 10,
+        expectedAdults: 3,
+        format: "venue",
+      },
+      startTime: "14:00",
+    });
+
+    expect(playbook).toMatchObject({
+      id: "birthday-school-age-v1",
+      ageBand: "school-age",
+      recommendedDurationMinutes: 150,
+    });
+    expect(playbook?.timeline[1]).toEqual({
+      time: "14:20",
+      activity: "Main activity, game, workshop, or venue play begins",
+    });
+    expect(playbook?.timeline.at(-1)).toEqual({
+      time: "16:30",
+      activity: "Clear pickup window and adult handoff",
+    });
+    expect(playbook?.tasks.some((task) => task.title.includes("one anchor activity"))).toBe(true);
+    expect(playbook?.rsvpQuestions.some((question) => question.includes("drop-off"))).toBe(true);
+    expect(
+      playbook?.guardrails.some(
+        (guardrail) =>
+          guardrail.source === "American Academy of Pediatrics" &&
+          guardrail.detail.includes("two to three hours"),
+      ),
+    ).toBe(true);
+  });
+
+  it("builds an adult birthday around the person, guest mix, and hosting load", () => {
+    const playbook = partyPlaybook({
+      occasion: "birthday",
+      profile: {
+        version: 1,
+        honoreeAge: 40,
+        expectedAdults: 28,
+        effort: "balanced",
+        format: "home",
+      },
+      startTime: "19:00",
+    });
+
+    expect(playbook).toMatchObject({
+      id: "birthday-adult-v1",
+      ageBand: "adult",
+      recommendedDurationMinutes: 180,
+    });
+    expect(playbook?.title).toContain("40th");
+    expect(playbook?.tasks.some((task) => task.title.includes("celebration brief"))).toBe(true);
+    expect(playbook?.tasks.some((task) => task.title.includes("plus-one"))).toBe(true);
+    expect(playbook?.rsvpQuestions.some((question) => question.includes("photo, story"))).toBe(
+      true,
+    );
+    expect(playbook?.guardrails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "adult-honoree-consent" }),
+        expect.objectContaining({ source: "USDA", level: "safety" }),
+      ]),
+    );
+    expect(
+      partyPlaybook({
+        occasion: "birthday",
+        profile: { version: 1, honoreeAge: 21 },
+      })?.title,
+    ).toContain("21st");
+  });
+
   it("builds a culturally respectful Shabbat workflow instead of a generic holiday list", () => {
     const playbook = partyPlaybook({
       occasion: "holiday",
