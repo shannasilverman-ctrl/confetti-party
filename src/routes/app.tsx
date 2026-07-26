@@ -590,17 +590,18 @@ function NewPartyWizard({
   function finish() {
     const chosenOccasion = occasion ?? "other";
     const chosenTheme = theme ?? themesForOccasion(chosenOccasion)[0] ?? null;
-    const planningProfile: PartyPlanningProfile | undefined =
-      chosenOccasion === "birthday"
-        ? {
-            version: 1,
-            ...(Number(honoreeAge) > 0 ? { honoreeAge: Number(honoreeAge) } : {}),
-            ...(Number(expectedKids) > 0 ? { expectedKids: Number(expectedKids) } : {}),
-            ...(Number(expectedAdults) > 0 ? { expectedAdults: Number(expectedAdults) } : {}),
-            effort,
-            format: partyFormat,
-          }
-        : undefined;
+    const planningProfile: PartyPlanningProfile | undefined = occasion
+      ? {
+          version: 1,
+          ...(chosenOccasion === "birthday" && Number(honoreeAge) > 0
+            ? { honoreeAge: Number(honoreeAge) }
+            : {}),
+          ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
+          ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
+          effort,
+          format: partyFormat,
+        }
+      : undefined;
     const audienceEstimate = (Number(expectedKids) || 0) + (Number(expectedAdults) || 0);
     const resolvedGuestEstimate = Number(guestEstimate) || audienceEstimate;
     const planningTasks: Task[] = [
@@ -696,10 +697,6 @@ function NewPartyWizard({
     if (o !== "holiday") setHolidayStarter(null);
     if (o !== "birthday") {
       setHonoreeAge("");
-      setExpectedKids("");
-      setExpectedAdults("");
-      setEffort("balanced");
-      setPartyFormat("help-me-choose");
     }
   }
 
@@ -828,6 +825,21 @@ function NewPartyWizard({
               <BirthdaySmartStart
                 age={honoreeAge}
                 onAgeChange={setHonoreeAge}
+                expectedKids={expectedKids}
+                onExpectedKidsChange={setExpectedKids}
+                expectedAdults={expectedAdults}
+                onExpectedAdultsChange={setExpectedAdults}
+                effort={effort}
+                onEffortChange={setEffort}
+                format={partyFormat}
+                onFormatChange={setPartyFormat}
+                startTime={startTime}
+              />
+            )}
+            {occasion && occasion !== "birthday" && (
+              <GatheringSmartStart
+                occasion={occasion}
+                holidayPackId={holidayStarter ?? undefined}
                 expectedKids={expectedKids}
                 onExpectedKidsChange={setExpectedKids}
                 expectedAdults={expectedAdults}
@@ -1190,6 +1202,182 @@ function BirthdaySmartStart({
               </span>
               <span className="rounded-full bg-muted px-3 py-1.5">
                 {playbook.rsvpQuestions.length} parent-ready RSVP questions
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function GatheringSmartStart({
+  occasion,
+  holidayPackId,
+  expectedKids,
+  onExpectedKidsChange,
+  expectedAdults,
+  onExpectedAdultsChange,
+  effort,
+  onEffortChange,
+  format,
+  onFormatChange,
+  startTime,
+}: {
+  occasion: OccasionType;
+  holidayPackId?: string;
+  expectedKids: string;
+  onExpectedKidsChange: (value: string) => void;
+  expectedAdults: string;
+  onExpectedAdultsChange: (value: string) => void;
+  effort: HostEffort;
+  onEffortChange: (value: HostEffort) => void;
+  format: PartyFormat;
+  onFormatChange: (value: PartyFormat) => void;
+  startTime: string;
+}) {
+  const playbook = partyPlaybook({
+    occasion,
+    profile: {
+      version: 1,
+      ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
+      ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
+      effort,
+      format,
+    },
+    startTime,
+    holidayPackId,
+  });
+
+  return (
+    <section
+      aria-labelledby="gathering-smart-start-title"
+      className="rounded-3xl border border-primary/20 bg-primary/[0.055] p-4 sm:p-5"
+      data-testid="gathering-smart-start"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-xl"
+          aria-hidden
+        >
+          ✨
+        </span>
+        <div>
+          <h3
+            id="gathering-smart-start-title"
+            className="font-display text-lg font-semibold text-secondary"
+          >
+            Help Confetti understand this gathering
+          </h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            A rough audience and effort level are enough to change the quantities, flow, checklist,
+            and local shortcuts we build.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="gathering-expected-adults">Adults</Label>
+            <Input
+              id="gathering-expected-adults"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedAdults}
+              onChange={(event) => onExpectedAdultsChange(event.target.value)}
+              placeholder="Not sure"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="gathering-expected-kids">Children</Label>
+            <Input
+              id="gathering-expected-kids"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedKids}
+              onChange={(event) => onExpectedKidsChange(event.target.value)}
+              placeholder="None or not sure"
+              className="mt-1"
+            />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">Where will people gather?</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              ["help-me-choose", "Help me choose"],
+              ["home", "At home"],
+              ["venue", "At a venue"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onFormatChange(value as PartyFormat)}
+                aria-pressed={format === value}
+                className={`min-h-11 rounded-full border px-4 py-2 text-sm ${
+                  format === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">
+            How much should the host carry?
+          </legend>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {[
+              ["easy", "Make it easy"],
+              ["balanced", "Balanced"],
+              ["all-out", "Go all out"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onEffortChange(value as HostEffort)}
+                aria-pressed={effort === value}
+                className={`min-h-11 rounded-2xl border px-2 py-2 text-xs sm:text-sm ${
+                  effort === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {playbook && (
+          <div className="rounded-2xl border border-primary/20 bg-background p-3.5">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Confetti gets it
+            </div>
+            <div className="mt-1 font-display text-lg font-semibold text-secondary">
+              {playbook.title}
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{playbook.promise}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-secondary">
+              {playbook.recommendedDurationMinutes && (
+                <span className="rounded-full bg-muted px-3 py-1.5">
+                  A {playbook.recommendedDurationMinutes}-minute starting flow
+                </span>
+              )}
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.tasks.length} easy-to-miss jobs covered
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.rsvpQuestions.length} useful guest questions
               </span>
             </div>
           </div>

@@ -96,8 +96,12 @@ export function OverviewTab({
     occasion: party.occasion,
     profile: party.planningProfile,
     startTime: party.startTime,
+    holidayPackId: party.holidayPackId,
   });
-  const quantities = partyQuantityPlan(party.planningProfile);
+  const quantities = partyQuantityPlan(party.planningProfile, {
+    occasion: party.occasion,
+    holidayPackId: party.holidayPackId,
+  });
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -503,7 +507,8 @@ function PartyIntelligenceCard({
             {playbook.rsvpQuestions.length} useful RSVP questions
           </span>
           <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
-            {playbook.guardrails.length} age-aware guardrails
+            {playbook.guardrails.length}{" "}
+            {playbook.ageBand ? "age-aware guardrails" : "planning guardrails"}
           </span>
         </div>
       </div>

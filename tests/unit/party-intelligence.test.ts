@@ -58,6 +58,72 @@ describe("party intelligence", () => {
     ).toBeNull();
   });
 
+  it("builds a culturally respectful Shabbat workflow instead of a generic holiday list", () => {
+    const playbook = partyPlaybook({
+      occasion: "holiday",
+      holidayPackId: "shabbat",
+      profile: {
+        version: 1,
+        expectedKids: 3,
+        expectedAdults: 8,
+        effort: "easy",
+        format: "home",
+      },
+      startTime: "18:00",
+    });
+
+    expect(playbook).toMatchObject({
+      id: "shabbat-dinner-v1",
+      title: "A Shabbat dinner that protects the pause",
+      recommendedDurationMinutes: 150,
+    });
+    expect(playbook?.timeline[1]).toEqual({
+      time: "18:20",
+      activity: "Optional candle lighting and welcome rituals",
+    });
+    expect(playbook?.tasks.some((task) => task.title.includes("level of observance"))).toBe(true);
+    expect(playbook?.rsvpQuestions.some((question) => question.includes("kosher"))).toBe(true);
+    expect(playbook?.guardrails.some((item) => item.source === "Jewish community practice")).toBe(
+      true,
+    );
+  });
+
+  it("anchors watch-party prep before kickoff and covers the actual broadcast path", () => {
+    const playbook = partyPlaybook({
+      occasion: "game-day",
+      profile: { version: 1, expectedAdults: 12, effort: "balanced", format: "home" },
+      startTime: "16:00",
+    });
+
+    expect(playbook?.id).toBe("game-day-v1");
+    expect(playbook?.timeline[0]).toEqual({
+      time: "15:00",
+      activity: "Doors open; drinks and cold snacks are ready",
+    });
+    expect(playbook?.timeline[2]).toEqual({
+      time: "16:00",
+      activity: "Kickoff—stream, sound, and backup are confirmed",
+    });
+    expect(playbook?.tasks.some((task) => task.title.includes("blackout rules"))).toBe(true);
+  });
+
+  it("turns cookout food and fire risks into named, actionable jobs", () => {
+    const playbook = partyPlaybook({
+      occasion: "cookout",
+      profile: { version: 1, expectedKids: 4, expectedAdults: 10 },
+    });
+
+    expect(playbook?.id).toBe("cookout-v1");
+    expect(playbook?.guardrails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: "USDA", level: "safety" }),
+        expect.objectContaining({ source: "NFPA", level: "safety" }),
+      ]),
+    );
+    expect(playbook?.tasks.some((task) => task.title.includes("weather decision time"))).toBe(true);
+    expect(playbook?.timeline[0]?.time).toBe("-60 min");
+  });
+
   it("materializes stable app-domain ids without mutating the playbook", () => {
     let id = 0;
     const playbook = partyPlaybook({
@@ -102,6 +168,38 @@ describe("party intelligence", () => {
     expect(party.tasks.some((task) => task.title.includes("allergies, sibling attendance"))).toBe(
       true,
     );
+  });
+
+  it("materializes Shabbat intelligence alongside the selected holiday pack", () => {
+    const party = makeParty(
+      {
+        name: "Friday night together",
+        occasion: "holiday",
+        date: "2026-09-11",
+        startTime: "18:00",
+        guestEstimate: 11,
+        budget: 300,
+        theme: "Warm table",
+        holidayPackId: "shabbat",
+        planningProfile: {
+          version: 1,
+          expectedKids: 3,
+          expectedAdults: 8,
+          effort: "easy",
+          format: "home",
+        },
+      },
+      "shabbat-party",
+    );
+
+    expect(party.holidayPackId).toBe("shabbat");
+    expect(party.timeline.some((item) => item.activity.includes("candle lighting"))).toBe(true);
+    expect(
+      party.tasks.some(
+        (task) => task.source === "confetti-playbook" && task.title.includes("level of observance"),
+      ),
+    ).toBe(true);
+    expect(party.bringBoard?.some((item) => item.label === "Challah")).toBe(true);
   });
 
   it("refreshes Confetti recommendations without touching host work or completion", () => {

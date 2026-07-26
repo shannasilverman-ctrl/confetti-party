@@ -1015,6 +1015,7 @@ export function makeParty(
       occasion: input.occasion,
       profile: input.planningProfile,
       startTime: input.startTime,
+      holidayPackId: pack?.id,
     }),
     () => newId(),
   );

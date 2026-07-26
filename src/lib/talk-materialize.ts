@@ -350,22 +350,20 @@ export function materializeDraft(
       : merged.effort?.level === "high"
         ? ("all-out" as const)
         : ("balanced" as const);
-  const planningProfile: PartyPlanningProfile | null =
-    occasion === "birthday"
-      ? {
-          version: 1,
-          ...(honoreeAge != null ? { honoreeAge } : {}),
-          ...(kids != null ? { expectedKids: kids } : {}),
-          ...(adults != null ? { expectedAdults: adults } : {}),
-          effort,
-          format,
-        }
-      : null;
+  const planningProfile: PartyPlanningProfile = {
+    version: 1,
+    ...(occasion === "birthday" && honoreeAge != null ? { honoreeAge } : {}),
+    ...(kids != null ? { expectedKids: kids } : {}),
+    ...(adults != null ? { expectedAdults: adults } : {}),
+    effort,
+    format,
+  };
   const smart = materializePlaybook(
     partyPlaybook({
       occasion,
-      profile: planningProfile ?? undefined,
+      profile: planningProfile,
       startTime: startTime ?? undefined,
+      holidayPackId: pack?.id,
     }),
     mkId,
   );

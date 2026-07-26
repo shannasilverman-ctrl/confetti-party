@@ -48,4 +48,53 @@ describe("party quantity planning", () => {
     });
     expect(plan?.estimates.some((item) => item.id === "favors")).toBe(false);
   });
+
+  it("uses meal math—not pizza and favors—for a holiday table", () => {
+    const plan = partyQuantityPlan(
+      { version: 1, expectedKids: 3, expectedAdults: 8 },
+      { occasion: "holiday", holidayPackId: "shabbat" },
+    );
+
+    expect(plan?.estimates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "meal-servings", recommendation: "13" }),
+        expect.objectContaining({ id: "side-servings", recommendation: "22–33" }),
+        expect.objectContaining({ id: "dessert-servings", recommendation: "13" }),
+      ]),
+    );
+    expect(plan?.estimates.some((item) => item.id === "pizza")).toBe(false);
+    expect(plan?.estimates.some((item) => item.id === "favors")).toBe(false);
+  });
+
+  it("plans food waves and ice for a multi-hour watch party", () => {
+    const plan = partyQuantityPlan(
+      { version: 1, expectedKids: 4, expectedAdults: 12 },
+      { occasion: "game-day" },
+    );
+
+    expect(plan?.estimates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "snack-servings", recommendation: "64–96" }),
+        expect.objectContaining({ id: "ice", recommendation: "2–3" }),
+      ]),
+    );
+  });
+
+  it("separates cookout mains, sides, drinks, and cooler assumptions", () => {
+    const plan = partyQuantityPlan(
+      { version: 1, expectedKids: 4, expectedAdults: 10 },
+      { occasion: "cookout" },
+    );
+
+    expect(plan?.estimates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "grill-mains", recommendation: "17–26" }),
+        expect.objectContaining({ id: "side-servings", recommendation: "28–42" }),
+        expect.objectContaining({
+          id: "ice",
+          assumption: expect.stringMatching(/food coolers need their own/i),
+        }),
+      ]),
+    );
+  });
 });
