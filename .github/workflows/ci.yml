@@ -64,11 +64,24 @@ jobs:
           PW_PORT: "4271"
         run: bun run verify:webserver
 
-      # Run each responsive matrix in a fresh Wrangler process. The local
-      # Worker runtime can exit after a long mixed-device suite on constrained
-      # runners, which turns otherwise passing cases into connection errors.
-      - name: E2E tests — desktop
-        run: bun run test:e2e:desktop
+      # Each command gets its own Playwright-managed Wrangler process. Keeping
+      # the production Worker lifecycle bounded by behavior area prevents a
+      # constrained runner from turning one preview-process exit into dozens
+      # of unrelated connection-refused failures.
+      - name: E2E tests — desktop asset contract
+        run: bunx playwright test tests/e2e/asset-contract.spec.ts --project=desktop
+
+      - name: E2E tests — desktop dialog contract
+        run: bunx playwright test tests/e2e/dialog-contract.spec.ts --project=desktop
+
+      - name: E2E tests — desktop party intelligence
+        run: bunx playwright test tests/e2e/party-intelligence.spec.ts --project=desktop
+
+      - name: E2E tests — desktop route identity
+        run: bunx playwright test tests/e2e/party-identity.spec.ts --project=desktop
+
+      - name: E2E tests — desktop public journeys
+        run: bunx playwright test tests/e2e/public-routes.spec.ts --project=desktop
 
       - name: E2E tests — mobile
         run: bun run test:e2e:mobile
