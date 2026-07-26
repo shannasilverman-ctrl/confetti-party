@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guestPlanSnapshot } from "@/lib/guest-plan-impact";
+import { guestPlanSnapshot, materializeGuestImpact } from "@/lib/guest-plan-impact";
 import { makeParty, type Guest, type Party } from "@/lib/party-context";
 
 function birthdayParty(
@@ -146,5 +146,73 @@ describe("guest plan impact", () => {
         birthdayParty([{ id: "pending", name: "Ari", kind: "kid", rsvp: "invited" }]),
       ),
     ).toBeNull();
+  });
+
+  it("turns a food impact into one durable editable task", () => {
+    const party = birthdayParty([
+      {
+        id: "yes",
+        name: "Ari",
+        kind: "kid",
+        rsvp: "yes",
+        allergens: ["Peanuts"],
+      },
+    ]);
+    const impact = guestPlanSnapshot(party)?.impacts.find((item) => item.id === "allergens");
+    expect(impact).toBeDefined();
+
+    const first = materializeGuestImpact(party, impact!, () => "impact-task");
+    const nextImpact = guestPlanSnapshot(first.party)?.impacts.find(
+      (item) => item.id === "allergens",
+    );
+    const second = materializeGuestImpact(first.party, nextImpact!, () => "duplicate");
+
+    expect(first.created).toBe(true);
+    expect(first.party.tasks.at(-1)).toMatchObject({
+      id: "impact-task",
+      title: "Confirm the allergen-safe food plan",
+      source: "guest-impact",
+      guestImpactId: "allergens",
+      action: "shopping",
+    });
+    expect(first.party.tasks.at(-1)?.reason).toMatch(/peanuts/i);
+    expect(nextImpact).toMatchObject({ applied: true, actionLabel: "Open food check" });
+    expect(second.created).toBe(false);
+    expect(second.party.tasks).toHaveLength(first.party.tasks.length);
+  });
+
+  it("adds one editable arrival-window moment without copying a private note", () => {
+    const party = birthdayParty([
+      {
+        id: "yes",
+        name: "Ari",
+        kind: "adult",
+        rsvp: "yes",
+        responseDetails: {
+          arrivalPlan: "arriving-later",
+          accessNotes: "Please keep this wording private.",
+        },
+      },
+    ]);
+    const snapshot = guestPlanSnapshot(party)!;
+    const arrival = snapshot.impacts.find((item) => item.id === "arrival")!;
+    const access = snapshot.impacts.find((item) => item.id === "access")!;
+
+    const withArrival = materializeGuestImpact(party, arrival, () => "arrival-item").party;
+    const withAccess = materializeGuestImpact(withArrival, access, () => "access-task").party;
+
+    expect(withArrival.timeline.at(-1)).toMatchObject({
+      id: "arrival-item",
+      time: "Arrival window",
+      source: "guest-impact",
+      guestImpactId: "arrival",
+    });
+    expect(withAccess.tasks.at(-1)).toMatchObject({
+      id: "access-task",
+      source: "guest-impact",
+      guestImpactId: "access",
+      action: "guests",
+    });
+    expect(JSON.stringify(withAccess.tasks)).not.toContain("Please keep this wording private.");
   });
 });

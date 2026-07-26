@@ -14,6 +14,7 @@ export type GuestPlanImpact = {
   action: "guests" | "shopping" | "timeline" | "checklist";
   actionLabel: string;
   priority: "action" | "watch";
+  applied: boolean;
 };
 
 export type GuestCountSuggestion = AttendanceBreakdown & {
@@ -68,45 +69,52 @@ export function guestPlanSnapshot(party: Party): GuestPlanSnapshot | null {
   ];
 
   if (allergens.length > 0) {
+    const applied = hasAppliedImpact(party, "allergens");
     impacts.push({
       id: "allergens",
       title: `${allergens.length} allergen ${allergens.length === 1 ? "signal" : "signals"} to plan around`,
       summary: humanList(allergens),
       reason:
         "Confirm ingredients, preparation boundaries, and labels with the guest and food provider before ordering.",
-      action: "shopping",
-      actionLabel: "Review food plan",
+      action: "checklist",
+      actionLabel: applied ? "Open food check" : "Add food check",
       priority: "action",
+      applied,
     });
   }
 
   if (dietary.length > 0) {
+    const applied = hasAppliedImpact(party, "dietary");
     impacts.push({
       id: "dietary",
       title: `${dietary.length} dietary ${dietary.length === 1 ? "need" : "needs"} in the current replies`,
       summary: humanList(dietary),
       reason:
         "Make sure each attending guest has a real main option, not only a side dish or an assumption.",
-      action: "shopping",
-      actionLabel: "Check menu",
+      action: "checklist",
+      actionLabel: applied ? "Open menu check" : "Add menu check",
       priority: "action",
+      applied,
     });
   }
 
   if (accessNotes > 0) {
+    const applied = hasAppliedImpact(party, "access");
     impacts.push({
       id: "access",
       title: `${accessNotes} private comfort/access ${accessNotes === 1 ? "note" : "notes"} to review`,
       summary: "The notes stay in the host guest list.",
       reason:
         "Review the guest's own words before finalizing seating, sound, access, or participation details.",
-      action: "guests",
-      actionLabel: "Review notes",
+      action: "checklist",
+      actionLabel: applied ? "Open private review" : "Add private review",
       priority: "action",
+      applied,
     });
   }
 
   if (laterArrivals > 0) {
+    const applied = hasAppliedImpact(party, "arrival");
     impacts.push({
       id: "arrival",
       title: `${laterArrivals} ${laterArrivals === 1 ? "guest expects" : "guests expect"} to arrive later`,
@@ -114,12 +122,14 @@ export function guestPlanSnapshot(party: Party): GuestPlanSnapshot | null {
       reason:
         "A late-arrival path keeps one delayed group from interrupting the shared moment or holding the meal.",
       action: "timeline",
-      actionLabel: "Check timeline",
+      actionLabel: applied ? "Open arrival plan" : "Add arrival plan",
       priority: "watch",
+      applied,
     });
   }
 
   if (isChildBirthday(party) && confirmed.kids > 0 && confirmed.adults === 0) {
+    const applied = hasAppliedImpact(party, "supervision");
     impacts.push({
       id: "supervision",
       title: "Confirm the grown-up and pickup plan",
@@ -127,8 +137,9 @@ export function guestPlanSnapshot(party: Party): GuestPlanSnapshot | null {
       reason:
         "The host may already have helpers; Confetti is flagging the handoff so supervision and pickup do not live only in someone's head.",
       action: "checklist",
-      actionLabel: "Review responsibilities",
+      actionLabel: applied ? "Open responsibility" : "Add responsibility",
       priority: "action",
+      applied,
     });
   }
 
@@ -166,6 +177,7 @@ function headcountImpact(
       action: "guests",
       actionLabel: "Use current replies",
       priority: "action",
+      applied: false,
     };
   }
   return {
@@ -182,7 +194,132 @@ function headcountImpact(
     action: "guests",
     actionLabel: "Review replies",
     priority: "watch",
+    applied: false,
   };
+}
+
+export type MaterializedGuestImpact = {
+  party: Party;
+  created: boolean;
+  destination: GuestPlanImpact["action"];
+};
+
+/**
+ * Turns one visible consequence into durable, editable host work. Repeated
+ * clicks are idempotent, and private note contents never leave the guest list.
+ */
+export function materializeGuestImpact(
+  party: Party,
+  impact: GuestPlanImpact,
+  idFactory: () => string,
+): MaterializedGuestImpact {
+  if (impact.id === "headcount" || impact.applied || hasAppliedImpact(party, impact.id)) {
+    return { party, created: false, destination: impact.action };
+  }
+  const snapshot = guestPlanSnapshot(party);
+  if (!snapshot) return { party, created: false, destination: impact.action };
+
+  if (impact.id === "arrival") {
+    return {
+      party: {
+        ...party,
+        timeline: [
+          ...party.timeline,
+          {
+            id: idFactory(),
+            time: "Arrival window",
+            activity: `Flexible welcome and first-plate plan for ${snapshot.laterArrivals} ${
+              snapshot.laterArrivals === 1 ? "later guest" : "later guests"
+            }`,
+            source: "guest-impact",
+            guestImpactId: "arrival",
+          },
+        ],
+      },
+      created: true,
+      destination: "timeline",
+    };
+  }
+
+  const task = taskForImpact(impact.id, snapshot, idFactory());
+  if (!task) return { party, created: false, destination: impact.action };
+  return {
+    party: { ...party, tasks: [...party.tasks, task] },
+    created: true,
+    destination: "checklist",
+  };
+}
+
+function hasAppliedImpact(party: Party, id: Exclude<GuestPlanImpact["id"], "headcount">): boolean {
+  if (id === "arrival") {
+    return party.timeline.some(
+      (item) => item.source === "guest-impact" && item.guestImpactId === "arrival",
+    );
+  }
+  return party.tasks.some((task) => task.source === "guest-impact" && task.guestImpactId === id);
+}
+
+function taskForImpact(
+  id: Exclude<GuestPlanImpact["id"], "headcount" | "arrival">,
+  snapshot: GuestPlanSnapshot,
+  taskId: string,
+): Party["tasks"][number] | null {
+  if (id === "allergens") {
+    return {
+      id: taskId,
+      title: "Confirm the allergen-safe food plan",
+      bucket: "Party week",
+      done: false,
+      reason: `Review ${humanList(snapshot.allergens)} with the affected guests and food provider; confirm ingredients, preparation boundaries, and labels.`,
+      action: "shopping",
+      guidanceSource: "curated",
+      source: "guest-impact",
+      guestImpactId: "allergens",
+    };
+  }
+  if (id === "dietary") {
+    return {
+      id: taskId,
+      title: "Confirm complete dietary options",
+      bucket: "Party week",
+      done: false,
+      reason: `Make sure ${humanList(snapshot.dietary)} guests have a real main option, not only sides or an assumption.`,
+      action: "shopping",
+      guidanceSource: "curated",
+      source: "guest-impact",
+      guestImpactId: "dietary",
+    };
+  }
+  if (id === "access") {
+    return {
+      id: taskId,
+      title: "Review private comfort and access notes",
+      bucket: "1-2 weeks",
+      done: false,
+      reason: `Review ${snapshot.accessNotes} private ${
+        snapshot.accessNotes === 1 ? "note" : "notes"
+      } in the guest list before finalizing seating, sound, access, or participation.`,
+      action: "guests",
+      guidanceSource: "curated",
+      source: "guest-impact",
+      guestImpactId: "access",
+    };
+  }
+  if (id === "supervision") {
+    return {
+      id: taskId,
+      title: "Assign supervision, handoff, and pickup",
+      bucket: "Party week",
+      done: false,
+      reason:
+        "Name the host helper covering active supervision, guest handoff, and pickup so the responsibility is visible.",
+      action: "guests",
+      guidanceSource: "curated",
+      source: "guest-impact",
+      guestImpactId: "supervision",
+    };
+  }
+  return null;
 }
 
 function suggestCounts(

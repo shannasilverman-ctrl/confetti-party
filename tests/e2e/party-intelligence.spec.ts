@@ -217,6 +217,38 @@ test.describe("customer-backwards party intelligence", () => {
 
     await guestPlan.getByRole("button", { name: "Use current replies" }).click();
     await expect(page.getByText("Enough for 0 children and 1 adult")).toBeVisible();
+
+    await page
+      .locator(
+        '[data-testid="party-tab-shopping"]:visible, [data-testid="party-tab-mobile-shopping"]:visible',
+      )
+      .click();
+    const plates = page.getByRole("listitem").filter({ hasText: "Paper plates and cups" });
+    await expect(plates.getByText("Auto-sized")).toBeVisible();
+    await plates.getByRole("button", { name: "Increase Paper plates and cups quantity" }).click();
+    await expect(plates.getByText(/Qty 2 ·/)).toBeVisible();
+    await expect(plates.getByText("Auto-sized")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    await page
+      .getByTestId("guest-plan-impact-allergens")
+      .getByRole("button", { name: "Add food check" })
+      .click();
+    await expect(page.getByText("Confirm the allergen-safe food plan")).toBeVisible();
+    await expect(page.getByText(/Review Peanuts with the affected guests/)).toBeVisible();
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    await page
+      .getByTestId("guest-plan-impact-arrival")
+      .getByRole("button", { name: "Add arrival plan" })
+      .click();
+    const arrival = page.getByText("Flexible welcome and first-plate plan for 1 later guest");
+    await expect(arrival).toBeVisible();
+    await page.getByRole("button", { name: "Edit Flexible welcome" }).click();
+    const activity = page.getByLabel("Timeline activity");
+    await activity.fill("Save a welcome plate for Sam");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Save a welcome plate for Sam")).toBeVisible();
   });
 
   test("Shabbat smart start builds the table, timing, quantities, and guest questions together", async ({

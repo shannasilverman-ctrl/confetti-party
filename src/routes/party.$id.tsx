@@ -45,6 +45,9 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  Pencil,
+  Check,
+  X,
   Sparkles,
   Palette,
   ShoppingCart,
@@ -911,6 +914,11 @@ function TimelineTab({ partyId }: { partyId: string }) {
   const party = getParty(partyId)!;
   const [time, setTime] = useState("");
   const [activity, setActivity] = useState("");
+  const [editing, setEditing] = useState<{
+    id: string;
+    time: string;
+    activity: string;
+  } | null>(null);
 
   const add = () => {
     if (!time.trim() || !activity.trim()) return;
@@ -934,6 +942,23 @@ function TimelineTab({ partyId }: { partyId: string }) {
       [arr[idx], arr[next]] = [arr[next], arr[idx]];
       return { ...p, timeline: arr };
     });
+
+  const saveEdit = () => {
+    if (!editing?.time.trim() || !editing.activity.trim()) return;
+    updateParty(partyId, (p) => ({
+      ...p,
+      timeline: p.timeline.map((item) =>
+        item.id === editing.id
+          ? {
+              ...item,
+              time: editing.time.trim().slice(0, 60),
+              activity: editing.activity.trim().slice(0, 240),
+            }
+          : item,
+      ),
+    }));
+    setEditing(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -968,37 +993,103 @@ function TimelineTab({ partyId }: { partyId: string }) {
           {party.timeline.map((item, idx) => (
             <li key={item.id} className="group relative">
               <span className="absolute -left-[31px] top-2 h-4 w-4 rounded-full border-2 border-primary bg-background" />
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4 shadow-card sm:gap-3">
-                <div className="font-display text-lg font-semibold text-primary">{item.time}</div>
-                <div className="min-w-0 flex-1 text-sm text-secondary">{item.activity}</div>
-                <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                  <button
-                    type="button"
-                    onClick={() => move(item.id, -1)}
-                    disabled={idx === 0}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
-                    aria-label="Move up"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => move(item.id, 1)}
-                    disabled={idx === party.timeline.length - 1}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
-                    aria-label="Move down"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(item.id)}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive sm:min-h-8 sm:min-w-8"
-                    aria-label="Remove"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+              <div
+                data-testid={`timeline-item-${item.id}`}
+                className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4 shadow-card sm:gap-3"
+              >
+                {editing?.id === item.id ? (
+                  <>
+                    <Input
+                      className="min-h-11 sm:w-44"
+                      value={editing.time}
+                      maxLength={60}
+                      aria-label={`Time for ${item.activity}`}
+                      onChange={(event) =>
+                        setEditing((current) =>
+                          current ? { ...current, time: event.target.value } : current,
+                        )
+                      }
+                    />
+                    <Input
+                      className="min-h-11 min-w-0 flex-1"
+                      value={editing.activity}
+                      maxLength={240}
+                      aria-label="Timeline activity"
+                      onChange={(event) =>
+                        setEditing((current) =>
+                          current ? { ...current, activity: event.target.value } : current,
+                        )
+                      }
+                      onKeyDown={(event) => event.key === "Enter" && saveEdit()}
+                    />
+                    <Button
+                      type="button"
+                      variant="festive"
+                      size="sm"
+                      className="min-h-11"
+                      onClick={saveEdit}
+                      disabled={!editing.time.trim() || !editing.activity.trim()}
+                    >
+                      <Check aria-hidden /> Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11"
+                      onClick={() => setEditing(null)}
+                    >
+                      <X aria-hidden /> Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-display text-lg font-semibold text-primary">
+                      {item.time}
+                    </div>
+                    <div className="min-w-0 flex-1 text-sm text-secondary">{item.activity}</div>
+                  </>
+                )}
+                {editing?.id !== item.id && (
+                  <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditing({ id: item.id, time: item.time, activity: item.activity })
+                      }
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary sm:min-h-8 sm:min-w-8"
+                      aria-label={`Edit ${item.activity}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(item.id, -1)}
+                      disabled={idx === 0}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
+                      aria-label="Move up"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(item.id, 1)}
+                      disabled={idx === party.timeline.length - 1}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
+                      aria-label="Move down"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(item.id)}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive sm:min-h-8 sm:min-w-8"
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </li>
           ))}
