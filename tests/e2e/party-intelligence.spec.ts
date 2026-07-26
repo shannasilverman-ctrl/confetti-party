@@ -203,6 +203,23 @@ test.describe("customer-backwards party intelligence", () => {
       planningDetails.getByText("Comfort/access: A chair away from the speaker would help."),
     ).toBeVisible();
 
+    const messageHelper = page.getByTestId("host-message-helper");
+    await expect(
+      messageHelper.getByText("The right follow-up, already thought through"),
+    ).toBeVisible();
+    await expect(messageHelper.getByRole("button", { name: "Confirm food needs" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(messageHelper.getByText("Sam Rivera")).toBeVisible();
+    const guestMessage = messageHelper.getByLabel("Editable guest message");
+    await expect(guestMessage).not.toHaveValue(/Peanuts/);
+    await expect(guestMessage).not.toHaveValue(/A chair away from the speaker would help/);
+    await messageHelper.getByRole("button", { name: "Clarify arrival times" }).click();
+    await expect(messageHelper.getByText(/Send this one-to-one/)).toBeVisible();
+    await guestMessage.fill("Hi! What time do you think you will arrive?");
+    await expect(guestMessage).toHaveValue("Hi! What time do you think you will arrive?");
+
     await page.getByRole("button", { name: "Overview", exact: true }).click();
     const guestPlan = page.getByTestId("guest-plan-impact-card");
     await expect(guestPlan.getByText("Guest answers, turned into a plan")).toBeVisible();

@@ -271,6 +271,30 @@ This is the consumer version of a connected event operations record: one change
 propagates to the places it actually matters, within explicit safety and ownership
 boundaries.
 
+### From guest data to the right follow-up
+
+Traditional invitation tools let hosts choose a template and filter recipients by
+RSVP status. Confetti can remove more mental load because it already knows the
+planning consequence behind the follow-up.
+
+The host message helper therefore:
+
+- recommends the highest-value available intent: unanswered RSVP, food
+  confirmation, uncertain arrival, claimed contribution, or final details;
+- shows the exact suggested audience and the reason before revealing the draft;
+- creates deterministic, editable copy from known party facts instead of
+  inventing details;
+- omits unresolved date, time, and location facts and names them before sending;
+- never copies allergen tags, dietary tags, or private access-note wording into a
+  group-ready message;
+- marks food and arrival follow-ups as one-to-one conversations;
+- includes a real guest link only when the party has one; and
+- copies only—the product never claims a message was sent, delivered, or read.
+
+This is deliberately provider-neutral until Confetti has real contact consent,
+deliverability, opt-out, message-history, and support infrastructure. It solves
+the reasoning and drafting job now without introducing fake communications.
+
 ## Current-state audit
 
 Already valuable:
@@ -305,7 +329,8 @@ Material gaps:
   changes safely resize untouched generated shopping quantities, while other
   impacts become deduplicated, editable tasks or timeline work; other
   occasion-specific questions are still incomplete;
-- cohost permissions and targeted communications are incomplete;
+- cohost permissions and actual message delivery remain incomplete; targeted
+  host follow-ups now have intent-aware audiences and privacy-safe editable copy;
 - recommendations do not yet show confidence or verified-vs-estimated status;
 - retrospectives do not yet improve future playbooks.
 
@@ -333,6 +358,8 @@ Material gaps:
 - [Listo per-guest quantity and task workflow](https://listorun.com/)
 - [Havenue connected catering and dietary workflow](https://havenue.co/)
 - [PlanIt party planning workflow](https://apps.apple.com/gb/app/planit-party-planner/id6654909940)
+- [Paperless Post status- and tag-filtered follow-ups](https://paperlesspost.zendesk.com/hc/en-us/articles/4408189210779-Send-an-RSVP-reminder-or-follow-up-message-to-guests-or-recipients)
+- [Evite group and individual guest messages](https://support.evite.com/products/invitations/manage-and-edit-guest-list/send-a-message-to-guests)
 - [Punchbowl potluck workflow](https://www.punchbowl.com/potluck)
 - [Evite signup sheets](https://www.evite.com/pages/signup-sheets/potluck/)
 - [HealthyChildren: playful birthday party guidance](https://www.healthychildren.org/English/family-life/power-of-play/Pages/playful-birthday-party-ideas-and-tips-for-young-children.aspx)
