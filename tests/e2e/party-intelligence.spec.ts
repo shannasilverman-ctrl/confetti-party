@@ -202,6 +202,21 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(
       planningDetails.getByText("Comfort/access: A chair away from the speaker would help."),
     ).toBeVisible();
+
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    const guestPlan = page.getByTestId("guest-plan-impact-card");
+    await expect(guestPlan.getByText("Guest answers, turned into a plan")).toBeVisible();
+    await expect(guestPlan.getByText("Rule-based, not guessed")).toBeVisible();
+    await expect(
+      guestPlan.getByText("Plan quantities for 1 current yes/maybe reply"),
+    ).toBeVisible();
+    await expect(guestPlan.getByText("1 allergen signal to plan around")).toBeVisible();
+    await expect(guestPlan.getByText("1 dietary need in the current replies")).toBeVisible();
+    await expect(guestPlan.getByText("1 private comfort/access note to review")).toBeVisible();
+    await expect(guestPlan.getByText("1 guest expects to arrive later")).toBeVisible();
+
+    await guestPlan.getByRole("button", { name: "Use current replies" }).click();
+    await expect(page.getByText("Enough for 0 children and 1 adult")).toBeVisible();
   });
 
   test("Shabbat smart start builds the table, timing, quantities, and guest questions together", async ({

@@ -12,8 +12,10 @@ import {
   shoppingProjectedRemaining,
   totalSpent,
   useParties,
+  newId,
   planningDetailForTask,
   planningDetailIsOpen,
+  resolvePlanningDetails,
   type PlanningDetail,
   type Task,
 } from "@/lib/party-context";
@@ -31,10 +33,16 @@ import {
 import {
   partyPlaybook,
   preschoolPartyPaths,
+  reconcilePartyPlaybook,
   type PartyPlanningProfile,
   type PartyPlaybook,
 } from "@/lib/party-intelligence";
 import { partyQuantityPlan, type PartyQuantityPlan } from "@/lib/party-quantities";
+import {
+  guestPlanSnapshot,
+  type GuestPlanImpact,
+  type GuestPlanSnapshot,
+} from "@/lib/guest-plan-impact";
 import {
   AlertTriangle,
   ArrowRight,
@@ -109,6 +117,7 @@ export function OverviewTab({
     occasion: party.occasion,
     holidayPackId: party.holidayPackId,
   });
+  const guestPlan = guestPlanSnapshot(party);
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -136,6 +145,9 @@ export function OverviewTab({
           profile={party.planningProfile}
           onNavigate={onNavigate}
         />
+      )}
+      {guestPlan && (
+        <GuestPlanImpactCard partyId={party.id} snapshot={guestPlan} onNavigate={onNavigate} />
       )}
       {quantities && <PartyQuantityCard partyId={party.id} plan={quantities} />}
 
@@ -439,6 +451,142 @@ export function OverviewTab({
   );
 }
 
+function GuestPlanImpactCard({
+  partyId,
+  snapshot,
+  onNavigate,
+}: {
+  partyId: string;
+  snapshot: GuestPlanSnapshot;
+  onNavigate: (tab: NavTab) => void;
+}) {
+  const { updateParty } = useParties();
+
+  const applyCurrentReplies = () => {
+    const suggestion = snapshot.countSuggestion;
+    if (!suggestion) {
+      onNavigate("guests");
+      return;
+    }
+    updateParty(partyId, (party) => {
+      const profile = {
+        version: 1 as const,
+        ...party.planningProfile,
+        expectedAdults: suggestion.adults,
+        expectedKids: suggestion.kids,
+      };
+      const reconciled = reconcilePartyPlaybook(party, profile, newId);
+      return resolvePlanningDetails(
+        {
+          ...reconciled,
+          guestEstimate: suggestion.total,
+        },
+        ["guests"],
+      );
+    });
+    toast.success(
+      `Quantities now use ${suggestion.total} current yes/maybe ${suggestion.total === 1 ? "reply" : "replies"}.`,
+    );
+    celebrate("micro");
+  };
+
+  const actOnImpact = (impact: GuestPlanImpact) => {
+    if (impact.id === "headcount" && snapshot.countSuggestion) {
+      applyCurrentReplies();
+      return;
+    }
+    onNavigate(impact.action);
+  };
+
+  return (
+    <section
+      aria-labelledby="guest-plan-impact-title"
+      data-testid="guest-plan-impact-card"
+      className="overflow-hidden rounded-3xl border border-primary/20 bg-card shadow-card"
+    >
+      <div className="bg-[linear-gradient(135deg,hsl(var(--primary)/0.1),hsl(var(--accent)/0.08))] p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary"
+            aria-hidden
+          >
+            <Users className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Live from your guest list
+            </div>
+            <h3
+              id="guest-plan-impact-title"
+              className="mt-1 font-display text-xl font-semibold text-secondary"
+            >
+              Guest answers, turned into a plan
+            </h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Confetti translates replies into the food, timing, comfort, and responsibility checks
+              they affect—so you do not have to reread every answer and remember the consequence.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-xl">
+          <MiniStat label="Confirmed" value={String(snapshot.confirmed.total)} />
+          <MiniStat label="Maybe" value={String(snapshot.maybe.total)} />
+          <MiniStat label="Waiting" value={String(snapshot.pending.total)} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-background/80 px-2.5 py-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden />
+            Rule-based, not guessed
+          </span>
+          <span className="rounded-full border border-primary/15 bg-background/80 px-2.5 py-1">
+            Nothing changes without you
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+        {snapshot.impacts.map((impact) => (
+          <article
+            key={impact.id}
+            data-testid={`guest-plan-impact-${impact.id}`}
+            className={`flex flex-col rounded-2xl border p-4 ${
+              impact.priority === "action"
+                ? "border-primary/20 bg-primary/[0.035]"
+                : "border-border bg-background/60"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              {impact.priority === "action" ? (
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+              ) : (
+                <ShieldCheck
+                  className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+              )}
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold leading-5 text-secondary">{impact.title}</h4>
+                <p className="mt-1 text-xs leading-5 text-secondary">{impact.summary}</p>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">{impact.reason}</p>
+              </div>
+            </div>
+            <Button
+              variant={impact.priority === "action" ? "outline" : "ghost"}
+              size="sm"
+              className="mt-3 min-h-11 self-start"
+              onClick={() => actOnImpact(impact)}
+            >
+              {impact.actionLabel} <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuantityPlan }) {
   return (
     <section
@@ -462,7 +610,8 @@ function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuan
               id="party-quantity-title"
               className="mt-0.5 font-display text-xl font-semibold text-secondary"
             >
-              Enough for {plan.children} children and {plan.adults} adults
+              Enough for {plan.children} {plan.children === 1 ? "child" : "children"} and{" "}
+              {plan.adults} {plan.adults === 1 ? "adult" : "adults"}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               A useful starting point—with every assumption visible.

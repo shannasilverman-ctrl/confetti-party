@@ -224,6 +224,31 @@ Every recommendation belongs to one of four evidence levels:
 The interface should expose this distinction in plain language when the
 recommendation affects money, safety, availability, or guest communication.
 
+## RSVP answers must change the plan
+
+Current invitation products are good at collecting and displaying answers:
+Partiful offers host-only questionnaires and exports, Zola groups households and
+tracks meal choices, Evite can total poll selections, and Paperless Post supports
+status-based follow-up. The remaining consumer burden is interpretation: the host
+still has to translate each reply into quantities, food, timing, seating,
+accessibility, supervision, and pickup work.
+
+Confetti's adaptation rules:
+
+- confirmed plus maybe replies form the current planning floor;
+- if that floor exceeds the working child/adult estimate, Confetti offers an
+  explicit quantity update;
+- Confetti never lowers quantities while invited guests can still reply;
+- once every guest has replied, the host can explicitly align quantities to the
+  current yes/maybe mix;
+- dietary and allergen tags are summarized but never medically interpreted;
+- comfort/access notes stay in the private host guest list and generate a review
+  action, not an automated diagnosis;
+- late-arrival answers create a timeline check;
+- child-party replies without guest adults staying create a supervision/pickup
+  check without assuming the host has no helpers; and
+- no RSVP answer silently rewrites the host's plan.
+
 ## Current-state audit
 
 Already valuable:
@@ -253,9 +278,10 @@ Material gaps:
 - tasks have coordination owners, rationale, and linked actions, but not yet
   dependencies, notifications, or collaborator permissions;
 - birthday RSVP defaults now adapt to preschool, school-age, and adult
-  planning context, and optional host-only arrival/access answers feed the
-  guest list; other occasion-specific questions and downstream automation
-  are still incomplete;
+  planning context; optional host-only answers now feed an explainable impact
+  layer for headcount, food, access, arrival, and supervision, with an explicit
+  action to align quantities; other occasion-specific questions and deeper
+  shopping/timeline automation are still incomplete;
 - cohost permissions and targeted communications are incomplete;
 - recommendations do not yet show confidence or verified-vs-estimated status;
 - retrospectives do not yet improve future playbooks.
@@ -276,6 +302,11 @@ Material gaps:
 ## Research sources
 
 - [Partiful product features](https://partiful.com/)
+- [Partiful guest questionnaires](https://help.partiful.com/hc/en-us/articles/24495264104219-Collecting-guest-info-dietary-restrictions-names-of-1s-etc)
+- [Zola guest RSVP experience](https://www.zola.com/faq/115002259432-how-can-my-guests-rsvp-online-what-does-that-experience-look-like-to-them-)
+- [Evite poll and meal selections](https://support.evite.com/products/invitations/create-and-edit/poll-feature)
+- [Paperless Post RSVP tracking](https://paperlesspost.zendesk.com/hc/en-us/articles/207620646-Tracking-Responses-Where-are-my-RSVPs)
+- [Planning Pod guest and seating workflow](https://planningpod.com/event-floor-plan-software)
 - [Punchbowl potluck workflow](https://www.punchbowl.com/potluck)
 - [Evite signup sheets](https://www.evite.com/pages/signup-sheets/potluck/)
 - [HealthyChildren: playful birthday party guidance](https://www.healthychildren.org/English/family-life/power-of-play/Pages/playful-birthday-party-ideas-and-tips-for-young-children.aspx)
