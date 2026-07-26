@@ -231,6 +231,7 @@ Already valuable:
 - fast optional-field party creation;
 - transparent, overridable home-versus-venue recommendations for the preschool
   birthday golden path;
+- life-stage-aware preschool, school-age, and adult birthday playbooks;
 - Talk draft with assumptions and blocking unknowns;
 - RSVP and guest counts;
 - bring board;
@@ -245,8 +246,8 @@ Already valuable:
 Material gaps:
 
 - generic occasion defaults do not yet cover enough subtypes or life stages;
-- direct creation did not persist the few facts that should drive later
-  recommendations;
+- the few durable facts captured in direct creation are not yet used by every
+  occasion and workflow;
 - local search is query generation, not a ranked/verified marketplace;
 - quantities are not consistently tied to adult/kid counts and serving format;
 - tasks have coordination owners, rationale, and linked actions, but not yet
@@ -275,6 +276,7 @@ Material gaps:
 - [Punchbowl potluck workflow](https://www.punchbowl.com/potluck)
 - [Evite signup sheets](https://www.evite.com/pages/signup-sheets/potluck/)
 - [HealthyChildren: playful birthday party guidance](https://www.healthychildren.org/English/family-life/power-of-play/Pages/playful-birthday-party-ideas-and-tips-for-young-children.aspx)
+- [USDA FSIS: keeping buffet food safe](https://ask.fsis.usda.gov/article/How-do-I-keep-foods-safe-at-a-buffet)
 - [CDC: milestones and activities by four years](https://www.cdc.gov/act-early/milestones/4-years.html)
 - [CPSC: balloon suffocation hazard](https://www.cpsc.gov/safety-education/safety-guides/toys/balloons-can-be-suffocation-danger-kids)
 - [FoodSafety.gov: people at risk of food poisoning](https://www.foodsafety.gov/people-at-risk)
