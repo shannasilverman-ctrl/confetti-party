@@ -68,6 +68,7 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
+import { generatedTaskMetadata } from "@/lib/task-guidance";
 
 export type TabKey =
   | "overview"
@@ -413,7 +414,16 @@ function ChecklistTab({
     if (!newTitle.trim()) return;
     updateParty(partyId, (p) => ({
       ...p,
-      tasks: [...p.tasks, { id: newId(), title: newTitle.trim(), bucket: newBucket, done: false }],
+      tasks: [
+        ...p.tasks,
+        {
+          id: newId(),
+          title: newTitle.trim(),
+          bucket: newBucket,
+          done: false,
+          ...generatedTaskMetadata(newTitle.trim()),
+        },
+      ],
     }));
     setNewTitle("");
   };
@@ -433,7 +443,7 @@ function ChecklistTab({
             onKeyDown={(e) => e.key === "Enter" && addTask()}
           />
           <Select value={newBucket} onValueChange={(v) => setNewBucket(v as Bucket)}>
-            <SelectTrigger className="sm:w-48">
+            <SelectTrigger className="sm:w-48" aria-label="Task timing">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -474,6 +484,7 @@ function ChecklistTab({
                   onResolvePlanning={(detail) =>
                     onNavigate(detail === "theme" ? "theme" : "overview")
                   }
+                  onOpenAction={(action) => onNavigate(action)}
                 />
               ))}
             </ul>

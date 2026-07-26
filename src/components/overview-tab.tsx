@@ -6,6 +6,7 @@ import { InviteDialog } from "@/components/invite-dialog";
 import { EditDetailsDialog } from "@/components/edit-details-dialog";
 import {
   BUCKETS,
+  TASK_ACTION_LABELS,
   daysUntil,
   guestCounts,
   shoppingProjectedRemaining,
@@ -16,6 +17,7 @@ import {
   type PlanningDetail,
   type Task,
 } from "@/lib/party-context";
+import { TaskDetailsDialog } from "@/components/task-details-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -205,12 +207,28 @@ export function OverviewTab({
                         className="h-5 w-5"
                         aria-label={`Complete: ${task.title}`}
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm text-secondary">
-                        {task.title}
-                      </span>
-                      <span className="hidden text-[11px] text-muted-foreground sm:inline">
-                        {task.bucket}
-                      </span>
+                      <div className="min-w-0 flex-1 py-1">
+                        <div className="text-sm font-medium text-secondary">{task.title}</div>
+                        {task.reason && (
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {task.reason}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <TaskDetailsDialog partyId={partyId} task={task} />
+                          {task.action && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-11"
+                              onClick={() => onNavigate(task.action!)}
+                            >
+                              {TASK_ACTION_LABELS[task.action]} <ArrowRight />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </>
                   )}
                 </li>

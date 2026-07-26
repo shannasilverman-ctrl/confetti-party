@@ -38,6 +38,7 @@ describe("party intelligence", () => {
     expect(playbook?.rsvpQuestions).toContain("Are siblings joining?");
     expect(playbook?.guardrails.some((item) => item.source === "CPSC")).toBe(true);
     expect(playbook?.tasks.some((task) => task.title.includes("door-watching"))).toBe(true);
+    expect(playbook?.tasks.every((task) => task.reason && task.action)).toBe(true);
   });
 
   it("uses relative timeline labels when the start time is not known", () => {
@@ -131,9 +132,37 @@ describe("party intelligence", () => {
       profile: { version: 1, honoreeAge: 4 },
     });
     const result = materializePlaybook(playbook, () => `smart-${++id}`);
-    expect(result.tasks[0]).toMatchObject({ id: "smart-1", done: false });
+    expect(result.tasks[0]).toMatchObject({
+      id: "smart-1",
+      done: false,
+      guidanceSource: "curated",
+    });
     expect(result.timeline[0]?.id).toMatch(/^smart-/);
     expect(playbook?.tasks[0]).not.toHaveProperty("id");
+  });
+
+  it("keeps a host assignment when the smart playbook is refreshed", () => {
+    const party = makeParty(
+      {
+        name: "Eliana turns four",
+        occasion: "birthday",
+        date: "2026-09-12",
+        guestEstimate: 10,
+        budget: 500,
+        theme: "Bright bounce",
+        planningProfile: { version: 1, honoreeAge: 4 },
+      },
+      "party-owner",
+    );
+    const target = party.tasks.find((task) => task.source === "confetti-playbook")!;
+    target.owner = "Jordan";
+
+    const reconciled = reconcilePartyPlaybook(
+      party,
+      { version: 1, honoreeAge: 4, expectedKids: 6 },
+      () => "new-id",
+    );
+    expect(reconciled.tasks.find((task) => task.id === target.id)?.owner).toBe("Jordan");
   });
 
   it("persists the planning profile and builds the smart workflow at party creation", () => {

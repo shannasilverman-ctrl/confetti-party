@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { BrandLockup } from "@/components/brand";
 import { celebrate } from "@/components/confetti-burst";
+import { TaskDetailsDialog } from "@/components/task-details-dialog";
 
 export const Route = createFileRoute("/party/$id_/day-of")({
   component: DayOfPage,
@@ -164,17 +165,27 @@ function DayOfPage() {
               </li>
             ) : (
               nextThree.map((t) => (
-                <li key={t.id}>
+                <li
+                  key={t.id}
+                  className="flex items-start gap-2 rounded-xl border border-border p-2"
+                >
                   <button
                     onClick={(e) => toggleTask(t.id, e)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-border px-3 py-3 text-left transition hover:bg-muted/40"
+                    className="flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-muted/40"
+                    aria-label={`Complete: ${t.title}`}
                   >
-                    <Circle className="h-5 w-5 text-muted-foreground" />
-                    <div className="flex-1">
+                    <Circle className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
                       <div className="font-medium text-foreground">{t.title}</div>
                       <div className="text-xs text-muted-foreground">{t.bucket}</div>
+                      {t.reason && (
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                          {t.reason}
+                        </p>
+                      )}
                     </div>
                   </button>
+                  <TaskDetailsDialog partyId={party.id} task={t} />
                 </li>
               ))
             )}
