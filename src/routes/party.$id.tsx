@@ -66,6 +66,7 @@ import { OverviewTab } from "@/components/overview-tab";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
+import { HostMessageHelper } from "@/components/host-message-helper";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
@@ -571,6 +572,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
         </span>
       </div>
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} partyId={partyId} />
+      <HostMessageHelper partyId={partyId} />
 
       {/* Add */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
