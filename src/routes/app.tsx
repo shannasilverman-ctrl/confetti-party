@@ -14,11 +14,12 @@ import {
   planningDetailIsOpen,
   PLANNING_TASK_TITLES,
 } from "@/lib/party-context";
-import { themeById, themesForOccasion, type Theme } from "@/lib/themes";
+import { themesForOccasion, type Theme } from "@/lib/themes";
 import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
 import { LegalFooter } from "@/components/legal-footer";
 
 import { partiesSummary } from "@/lib/parties-summary";
+import { partyHeroImage } from "@/lib/party-visual";
 
 import { BrandLockup } from "@/components/brand";
 import { DeletePartyButton } from "@/components/delete-party-button";
@@ -53,6 +54,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
+import {
+  partyPlaybook,
+  type HostEffort,
+  type PartyFormat,
+  type PartyPlanningProfile,
+} from "@/lib/party-intelligence";
 
 type AppSearch = { new?: boolean };
 
@@ -76,6 +83,7 @@ function Dashboard() {
   const navigate = Route.useNavigate();
   const [wizardOpen, setWizardOpen] = useState(!!search.new);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const planningReady = status === "ready";
 
   useEffect(() => {
     if (search.new) {
@@ -92,15 +100,18 @@ function Dashboard() {
           .filter((party) => !planningDetailIsOpen(party, "date") && daysUntil(party.date) >= 0)
           .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0]
       : undefined;
-  const featuredPartyImage =
-    featuredParty?.heroImageUrl ??
-    (featuredParty?.themeId ? themeById(featuredParty.themeId)?.heroImage : undefined);
+  const featuredPartyImage = featuredParty ? partyHeroImage(featuredParty) : undefined;
   const otherParties = featuredParty
     ? parties.filter((party) => party.id !== featuredParty.id)
     : parties;
 
   return (
-    <div className="min-h-screen bg-brand-wash">
+    <div
+      className="min-h-screen bg-brand-wash"
+      data-testid="party-dashboard"
+      data-hydrated={planningReady ? "true" : "false"}
+      aria-busy={!planningReady}
+    >
       <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 rounded-[1.35rem] border border-white/80 bg-white/90 px-3 py-2.5 shadow-elevated backdrop-blur-xl sm:rounded-full sm:px-5">
           <BrandLockup />
@@ -116,6 +127,7 @@ function Dashboard() {
               variant="festive"
               size="sm"
               onClick={() => setWizardOpen(true)}
+              disabled={!planningReady}
               data-testid="new-party-trigger"
               aria-label="New Party"
             >
@@ -189,7 +201,11 @@ function Dashboard() {
                     : partiesSummary(parties).copy}
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Button variant="festive" onClick={() => setWizardOpen(true)}>
+              <Button
+                variant="festive"
+                onClick={() => setWizardOpen(true)}
+                disabled={!planningReady}
+              >
                 <Plus className="h-4 w-4" /> Start a party
               </Button>
               <Button asChild variant="ghost" className="text-secondary">
@@ -210,6 +226,7 @@ function Dashboard() {
                 <img
                   src={featuredPartyImage}
                   alt=""
+                  data-party-banner={featuredParty.id}
                   className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
                 />
               ) : (
@@ -310,7 +327,12 @@ function Dashboard() {
               One idea is enough. Confetti will build the starting plan and keep track of anything
               you want to decide later.
             </p>
-            <Button className="mt-6" variant="festive" onClick={() => setWizardOpen(true)}>
+            <Button
+              className="mt-6"
+              variant="festive"
+              onClick={() => setWizardOpen(true)}
+              disabled={!planningReady}
+            >
               <Plus /> Start a party
             </Button>
           </div>
@@ -350,7 +372,7 @@ function Dashboard() {
                 const hasGuestList = g.total > 0;
                 const spent = totalSpent(p);
                 const prog = progressPct(p);
-                const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
+                const cardImage = partyHeroImage(p);
                 const isFeatureCard = !featuredParty && index === 0;
                 return (
                   <article
@@ -365,23 +387,18 @@ function Dashboard() {
                     <div
                       className={`relative overflow-hidden p-5 ${
                         isFeatureCard ? "h-56 sm:h-72 lg:h-full lg:min-h-[27rem]" : "h-36"
-                      } ${cardImage ? "bg-secondary" : "bg-festive"}`}
+                      } bg-secondary`}
                     >
-                      {cardImage && (
-                        <img
-                          src={cardImage}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                        />
-                      )}
+                      <img
+                        src={cardImage}
+                        alt=""
+                        data-party-banner={p.id}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
                       <div
-                        className={`absolute inset-0 ${
-                          cardImage
-                            ? "bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
-                            : "bg-confetti opacity-40 mix-blend-overlay"
-                        }`}
+                        className="absolute inset-0 bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
                         aria-hidden
                       />
                       <Badge variant="onFestive" className="relative">
@@ -492,6 +509,7 @@ function Dashboard() {
 
               <button
                 onClick={() => setWizardOpen(true)}
+                disabled={!planningReady}
                 className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-2 border-dashed border-secondary/20 bg-white/35 p-6 text-muted-foreground backdrop-blur-sm transition hover:-translate-y-1 hover:border-secondary/45 hover:bg-white/80 hover:text-secondary hover:shadow-card"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -542,6 +560,11 @@ function NewPartyWizard({
   const [budget, setBudget] = useState("");
   const [theme, setTheme] = useState<Theme | null>(null);
   const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
+  const [honoreeAge, setHonoreeAge] = useState("");
+  const [expectedKids, setExpectedKids] = useState("");
+  const [expectedAdults, setExpectedAdults] = useState("");
+  const [effort, setEffort] = useState<HostEffort>("balanced");
+  const [partyFormat, setPartyFormat] = useState<PartyFormat>("help-me-choose");
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
 
@@ -557,11 +580,29 @@ function NewPartyWizard({
     setBudget("");
     setTheme(null);
     setHolidayStarter(null);
+    setHonoreeAge("");
+    setExpectedKids("");
+    setExpectedAdults("");
+    setEffort("balanced");
+    setPartyFormat("help-me-choose");
   }
 
   function finish() {
     const chosenOccasion = occasion ?? "other";
     const chosenTheme = theme ?? themesForOccasion(chosenOccasion)[0] ?? null;
+    const planningProfile: PartyPlanningProfile | undefined =
+      chosenOccasion === "birthday"
+        ? {
+            version: 1,
+            ...(Number(honoreeAge) > 0 ? { honoreeAge: Number(honoreeAge) } : {}),
+            ...(Number(expectedKids) > 0 ? { expectedKids: Number(expectedKids) } : {}),
+            ...(Number(expectedAdults) > 0 ? { expectedAdults: Number(expectedAdults) } : {}),
+            effort,
+            format: partyFormat,
+          }
+        : undefined;
+    const audienceEstimate = (Number(expectedKids) || 0) + (Number(expectedAdults) || 0);
+    const resolvedGuestEstimate = Number(guestEstimate) || audienceEstimate;
     const planningTasks: Task[] = [
       ...(!date
         ? [
@@ -573,7 +614,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!guestEstimate
+      ...(!resolvedGuestEstimate
         ? [
             {
               id: newId(),
@@ -624,12 +665,13 @@ function NewPartyWizard({
       date: date || nextWeekdayDateOnly(6, 28),
       startTime: startTime.trim() || undefined,
       location: location.trim() || undefined,
-      guestEstimate: Number(guestEstimate) || 0,
+      guestEstimate: resolvedGuestEstimate,
       budget: Number(budget) || 0,
       theme: chosenTheme?.name ?? "Make it yours",
       themeId: chosenTheme?.id,
       extraTasks: [...planningTasks, ...themeTasks],
       holidayPackId: chosenOccasion === "holiday" && holidayStarter ? holidayStarter : undefined,
+      planningProfile,
     });
     setCreatedId(id);
     setStep("done");
@@ -652,6 +694,13 @@ function NewPartyWizard({
     setOccasion(o);
     setTheme(null);
     if (o !== "holiday") setHolidayStarter(null);
+    if (o !== "birthday") {
+      setHonoreeAge("");
+      setExpectedKids("");
+      setExpectedAdults("");
+      setEffort("balanced");
+      setPartyFormat("help-me-choose");
+    }
   }
 
   function pickStarter(id: HolidayStarterId) {
@@ -774,6 +823,21 @@ function NewPartyWizard({
                   })}
                 </div>
               </fieldset>
+            )}
+            {occasion === "birthday" && (
+              <BirthdaySmartStart
+                age={honoreeAge}
+                onAgeChange={setHonoreeAge}
+                expectedKids={expectedKids}
+                onExpectedKidsChange={setExpectedKids}
+                expectedAdults={expectedAdults}
+                onExpectedAdultsChange={setExpectedAdults}
+                effort={effort}
+                onEffortChange={setEffort}
+                format={partyFormat}
+                onFormatChange={setPartyFormat}
+                startTime={startTime}
+              />
             )}
             <details className="group rounded-2xl border border-border bg-muted/20">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-secondary">
@@ -945,6 +1009,193 @@ function NewPartyWizard({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function BirthdaySmartStart({
+  age,
+  onAgeChange,
+  expectedKids,
+  onExpectedKidsChange,
+  expectedAdults,
+  onExpectedAdultsChange,
+  effort,
+  onEffortChange,
+  format,
+  onFormatChange,
+  startTime,
+}: {
+  age: string;
+  onAgeChange: (value: string) => void;
+  expectedKids: string;
+  onExpectedKidsChange: (value: string) => void;
+  expectedAdults: string;
+  onExpectedAdultsChange: (value: string) => void;
+  effort: HostEffort;
+  onEffortChange: (value: HostEffort) => void;
+  format: PartyFormat;
+  onFormatChange: (value: PartyFormat) => void;
+  startTime: string;
+}) {
+  const parsedAge = Number(age);
+  const playbook = partyPlaybook({
+    occasion: "birthday",
+    profile: {
+      version: 1,
+      ...(parsedAge > 0 ? { honoreeAge: parsedAge } : {}),
+      effort,
+      format,
+    },
+    startTime,
+  });
+
+  return (
+    <section
+      aria-labelledby="birthday-smart-start-title"
+      className="rounded-3xl border border-primary/20 bg-primary/[0.055] p-4 sm:p-5"
+      data-testid="birthday-smart-start"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-xl"
+          aria-hidden
+        >
+          🎈
+        </span>
+        <div>
+          <h3
+            id="birthday-smart-start-title"
+            className="font-display text-lg font-semibold text-secondary"
+          >
+            Help Confetti understand this birthday
+          </h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            These few details change the timing, activities, guest questions, safety checks, and
+            local ideas we recommend.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <Label htmlFor="honoree-age">Age they&apos;re turning</Label>
+            <Input
+              id="honoree-age"
+              type="number"
+              min={1}
+              max={120}
+              inputMode="numeric"
+              value={age}
+              onChange={(event) => onAgeChange(event.target.value)}
+              placeholder="4"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="expected-kids">Children</Label>
+            <Input
+              id="expected-kids"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedKids}
+              onChange={(event) => onExpectedKidsChange(event.target.value)}
+              placeholder={
+                playbook?.recommendedKidCount ? String(playbook.recommendedKidCount) : "?"
+              }
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="expected-adults">Adults staying</Label>
+            <Input
+              id="expected-adults"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedAdults}
+              onChange={(event) => onExpectedAdultsChange(event.target.value)}
+              placeholder="Not sure"
+              className="mt-1"
+            />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">Where should it happen?</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              ["help-me-choose", "Help me choose"],
+              ["home", "At home"],
+              ["venue", "At a venue"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onFormatChange(value as PartyFormat)}
+                aria-pressed={format === value}
+                className={`min-h-11 rounded-full border px-4 py-2 text-sm ${
+                  format === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">How much should you carry?</legend>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {[
+              ["easy", "Make it easy"],
+              ["balanced", "Balanced"],
+              ["all-out", "Go all out"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onEffortChange(value as HostEffort)}
+                aria-pressed={effort === value}
+                className={`min-h-11 rounded-2xl border px-2 py-2 text-xs sm:text-sm ${
+                  effort === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {playbook && (
+          <div className="rounded-2xl border border-primary/20 bg-background p-3.5">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Confetti gets it
+            </div>
+            <div className="mt-1 font-display text-lg font-semibold text-secondary">
+              {playbook.title}
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{playbook.promise}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-secondary">
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                About {playbook.recommendedDurationMinutes} minutes
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.tasks.length} age-aware safeguards
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.rsvpQuestions.length} parent-ready RSVP questions
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

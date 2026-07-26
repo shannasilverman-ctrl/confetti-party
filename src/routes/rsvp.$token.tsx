@@ -24,9 +24,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
-import { getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
+import { attendanceCopy, getRsvpLoaderData, type PartyView } from "@/lib/rsvp.functions";
 import { refetchRsvpParty } from "@/lib/rsvp-refetch";
 import { daysUntilLocal, formatDateOnly } from "@/lib/date-only";
+import { occasionHeroImage } from "@/lib/party-visual";
 import { PublicBringBoard } from "@/components/public-bring-board";
 import { PhotoDropCard } from "@/components/photo-drop-card";
 import { PersonalizedPhotoBooth } from "@/components/personalized-photo-booth";
@@ -66,12 +67,16 @@ function formatDateLong(date: string) {
   });
 }
 
-function absoluteHeroImage(themeId: string | null | undefined, origin: string): string | null {
+function absoluteHeroImage(
+  themeId: string | null | undefined,
+  occasion: string | null | undefined,
+  origin: string,
+): string | null {
   const theme = themeById(themeId ?? undefined);
-  if (!theme?.heroImage) return null;
-  if (/^https?:\/\//i.test(theme.heroImage)) return theme.heroImage;
+  const heroImage = theme?.heroImage ?? occasionHeroImage(occasion);
+  if (/^https?:\/\//i.test(heroImage)) return heroImage;
   if (!origin) return null;
-  return `${origin}${theme.heroImage.startsWith("/") ? "" : "/"}${theme.heroImage}`;
+  return `${origin}${heroImage.startsWith("/") ? "" : "/"}${heroImage}`;
 }
 
 export const Route = createFileRoute("/rsvp/$token")({
@@ -93,7 +98,7 @@ export const Route = createFileRoute("/rsvp/$token")({
     const description = party.location
       ? `${dateStr} at ${party.location} — tap to RSVP.`
       : `${dateStr} — tap to RSVP.`;
-    const ogImage = absoluteHeroImage(party.theme_id, origin);
+    const ogImage = absoluteHeroImage(party.theme_id, party.occasion, origin);
     const meta: Array<Record<string, string>> = [
       { title },
       { name: "description", content: description },
@@ -277,6 +282,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const theme = themeById(party.theme_id ?? undefined);
+  const heroImage = theme?.heroImage ?? occasionHeroImage(party.occasion);
   const days = daysUntilLocal(party.date);
 
   // Form state — preserved across submit failures and change-response cycles.
@@ -300,17 +306,14 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
 
   const heroStyle = useMemo<React.CSSProperties>(
     () =>
-      theme
-        ? {
-            backgroundImage: `linear-gradient(to bottom, hsl(${theme.palette[0]} / 0.4), hsl(${theme.palette[1]} / 0.55)), url(${theme.heroImage})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }
-        : {
-            backgroundImage:
-              "var(--gradient-festive, linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent))))",
-          },
-    [theme],
+      ({
+        backgroundImage: theme
+          ? `linear-gradient(to bottom, hsl(${theme.palette[0]} / 0.4), hsl(${theme.palette[1]} / 0.55)), url(${heroImage})`
+          : `linear-gradient(to bottom, hsl(270 49% 18% / 0.68), hsl(330 58% 42% / 0.42)), url(${heroImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }) satisfies React.CSSProperties,
+    [heroImage, theme],
   );
 
   // Sequence guard: only the newest refresh may write into `party`. A slow
@@ -359,6 +362,8 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   }, [refresh]);
 
   const totalAttendees = adults + kids;
+  const preschoolBirthday = party.rsvp_context?.kind === "preschool-birthday";
+  const attendance = attendanceCopy(party.rsvp_context);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -589,35 +594,52 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
             </fieldset>
 
             {rsvp === "yes" && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="adults">Adults</Label>
-                  <Input
-                    id="adults"
-                    type="number"
-                    min={0}
-                    max={20}
-                    value={adults}
-                    onChange={(e) =>
-                      setAdults(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
-                    }
-                    className="min-h-11"
-                  />
+              <div
+                className={`rounded-2xl ${preschoolBirthday ? "border border-primary/15 bg-primary/[0.04] p-4" : ""}`}
+              >
+                {preschoolBirthday && (
+                  <div className="mb-3">
+                    <div className="text-sm font-semibold text-secondary">
+                      Help the host plan the right setup
+                    </div>
+                    <p className="mt-0.5 text-[11px] leading-5 text-muted-foreground">
+                      {attendance.intro}
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="adults">{attendance.adultLabel}</Label>
+                    <Input
+                      id="adults"
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={adults}
+                      onChange={(e) =>
+                        setAdults(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
+                      }
+                      className="min-h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="kids">{attendance.kidLabel}</Label>
+                    <Input
+                      id="kids"
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={kids}
+                      onChange={(e) =>
+                        setKids(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
+                      }
+                      className="min-h-11"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="kids">Kids</Label>
-                  <Input
-                    id="kids"
-                    type="number"
-                    min={0}
-                    max={20}
-                    value={kids}
-                    onChange={(e) =>
-                      setKids(Math.max(0, Math.min(20, Number(e.target.value) || 0)))
-                    }
-                    className="min-h-11"
-                  />
-                </div>
+                {attendance.kidHint && (
+                  <p className="mt-2 text-[11px] text-muted-foreground">{attendance.kidHint}</p>
+                )}
               </div>
             )}
 

@@ -81,6 +81,7 @@ export type Database = {
           location: string | null
           name: string
           occasion: string
+          planning_profile: Json
           photo_drop: Json | null
           pinned_inspiration: Json
           retrospective: Json | null
@@ -113,6 +114,7 @@ export type Database = {
           location?: string | null
           name: string
           occasion: string
+          planning_profile?: Json
           photo_drop?: Json | null
           pinned_inspiration?: Json
           retrospective?: Json | null
@@ -145,6 +147,7 @@ export type Database = {
           location?: string | null
           name?: string
           occasion?: string
+          planning_profile?: Json
           photo_drop?: Json | null
           pinned_inspiration?: Json
           retrospective?: Json | null

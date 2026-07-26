@@ -215,6 +215,52 @@ test("/app shows completed demo guest lists truthfully", async ({ page }) => {
   await expect(gameDayParty.getByText("5", { exact: true })).toBeVisible();
 });
 
+test("every demo gathering renders a complete, loaded banner", async ({ page }) => {
+  const partyIds = ["maya-8th", "ava-liam-wedding", "grad-bbq", "world-cup-final-watch"] as const;
+
+  await page.goto("/app", { waitUntil: "networkidle" });
+  for (const partyId of partyIds) {
+    const banner = page.locator(`[data-party-banner="${partyId}"]`);
+    await expect(banner).toHaveCount(1);
+    await expect(banner).toBeVisible();
+    await expect
+      .poll(() =>
+        banner.evaluate((image: HTMLImageElement) => ({
+          complete: image.complete,
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+        })),
+      )
+      .toMatchObject({ complete: true });
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(
+      400,
+    );
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalHeight)).toBeGreaterThan(
+      200,
+    );
+  }
+
+  for (const partyId of partyIds) {
+    await page.goto(`/party/${partyId}`, { waitUntil: "networkidle" });
+    const banner = page.locator(`[data-party-banner="${partyId}"]`);
+    await expect(banner).toBeVisible();
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(
+      400,
+    );
+
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    const hitTarget = await heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + Math.min(rect.width / 2, 24);
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return hit === element || element.contains(hit);
+    });
+    expect(hitTarget, `${partyId} banner must not cover its heading`).toBe(true);
+  }
+});
+
 test("/app tells demo hosts where their parties are actually saved", async ({ page }) => {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
@@ -315,11 +361,15 @@ test("sample invite exposes the same practical guest details and calendar action
   page,
 }) => {
   await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("sample-rsvp-form")).toHaveAttribute("data-hydrated", "true");
   await expect(page.getByRole("textbox", { name: "Group name (optional)" })).toBeVisible();
-  const foodDetails = page.getByText("Dietary needs or allergies?", { exact: true });
-  await expect(foodDetails).toBeVisible();
+  const foodDetails = page.locator("details").filter({
+    hasText: "Dietary needs or allergies?",
+  });
+  const foodSummary = foodDetails.locator("summary");
+  await expect(foodSummary).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeHidden();
-  await foodDetails.click();
+  await foodSummary.click();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other allergens" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Google Calendar/i })).toBeVisible();

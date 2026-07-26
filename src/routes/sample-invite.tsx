@@ -261,6 +261,8 @@ function SampleInvitePage() {
       <main
         className="relative z-10 mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6"
         data-testid="sample-invite-content"
+        data-hydrated={hydrated ? "true" : "false"}
+        aria-busy={!hydrated}
       >
         {loadNotice && (
           <div
@@ -292,7 +294,7 @@ function SampleInvitePage() {
           {done ? (
             <SuccessCard entry={state.rsvp!} counts={counts} onChange={onChangeResponse} />
           ) : (
-            <RsvpForm counts={counts} onSubmit={onSubmit} />
+            <RsvpForm counts={counts} onSubmit={onSubmit} hydrated={hydrated} />
           )}
 
           <SampleBringBoard
@@ -348,9 +350,11 @@ function SampleBanner({ onReset }: { onReset: () => void }) {
 function RsvpForm({
   counts,
   onSubmit,
+  hydrated,
 }: {
   counts: { yes: number; maybe: number };
   onSubmit: (entry: NonNullable<SampleState["rsvp"]>) => void;
+  hydrated: boolean;
 }) {
   const [name, setName] = useState("");
   const [household, setHousehold] = useState("");
@@ -403,6 +407,9 @@ function RsvpForm({
       onSubmit={handleSubmit}
       className="space-y-5 rounded-3xl border border-border bg-card p-6 shadow-card"
       data-testid="sample-rsvp-form"
+      data-hydrated={hydrated ? "true" : "false"}
+      aria-busy={!hydrated}
+      inert={!hydrated}
     >
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Users className="h-4 w-4" />

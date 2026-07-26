@@ -27,6 +27,11 @@ import {
   type HolidayStarterId,
 } from "./holiday-packs";
 import { daysUntilLocal } from "./date-only";
+import {
+  materializePlaybook,
+  partyPlaybook,
+  type PartyPlanningProfile,
+} from "./party-intelligence";
 
 export type OccasionType =
   | "birthday"
@@ -44,7 +49,14 @@ export type Bucket = "6+ weeks out" | "3-5 weeks" | "1-2 weeks" | "Party week" |
 
 export const BUCKETS: Bucket[] = ["6+ weeks out", "3-5 weeks", "1-2 weeks", "Party week", "Day of"];
 
-export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
+export type Task = {
+  id: string;
+  title: string;
+  bucket: Bucket;
+  done: boolean;
+  source?: "confetti-playbook";
+  playbookId?: string;
+};
 export type Guest = {
   id: string;
   name: string;
@@ -91,7 +103,13 @@ export type BudgetCategory = {
   planned: number;
   expenses: Expense[];
 };
-export type TimelineItem = { id: string; time: string; activity: string };
+export type TimelineItem = {
+  id: string;
+  time: string;
+  activity: string;
+  source?: "confetti-playbook";
+  playbookId?: string;
+};
 
 export type Party = {
   id: string;
@@ -116,6 +134,7 @@ export type Party = {
   bringBoard?: BringItem[];
   hostUpdates?: HostUpdate[];
   holidayPackId?: string;
+  planningProfile?: PartyPlanningProfile;
   photoDrop?: PhotoDropInfo | null;
   checkins?: Record<string, string>; // guestId -> ISO timestamp
   retrospective?: PartyRetrospective | null;
@@ -924,6 +943,7 @@ type Ctx = {
     themeId?: string;
     extraTasks?: Task[];
     holidayPackId?: HolidayStarterId;
+    planningProfile?: PartyPlanningProfile;
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
@@ -980,6 +1000,7 @@ export function makeParty(
     themeId?: string;
     extraTasks?: Task[];
     holidayPackId?: HolidayStarterId;
+    planningProfile?: PartyPlanningProfile;
   },
   id: string,
 ): Party {
@@ -989,6 +1010,14 @@ export function makeParty(
   const pack = starterPack(starterId);
   const packTaskEntries = pack ? packTasks(pack, () => newId()) : [];
   const packBring = pack ? packBringBoard(pack, () => newId()) : [];
+  const smart = materializePlaybook(
+    partyPlaybook({
+      occasion: input.occasion,
+      profile: input.planningProfile,
+      startTime: input.startTime,
+    }),
+    () => newId(),
+  );
   return {
     id,
     name: input.name,
@@ -1001,15 +1030,21 @@ export function makeParty(
     theme: input.theme,
     themeId: input.themeId,
     holidayPackId: pack?.id,
+    planningProfile: input.planningProfile,
     tasks: [
       ...packTaskEntries,
       ...generateTasks(input.occasion, input.date),
+      ...smart.tasks,
       ...(input.extraTasks ?? []),
     ],
     guests: [],
     budgetCategories: defaultCategoriesFor(input.occasion),
     timeline:
-      input.occasion === "game-day" && input.startTime ? seedGameDayTimeline(input.startTime) : [],
+      smart.timeline.length > 0
+        ? smart.timeline
+        : input.occasion === "game-day" && input.startTime
+          ? seedGameDayTimeline(input.startTime)
+          : [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
     pinnedInspiration: [],
     bringBoard: packBring,

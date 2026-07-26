@@ -23,6 +23,7 @@ import type {
   PartyRetrospective,
 } from "./party-context";
 import type { ShoppingItem } from "./shopping";
+import type { PartyPlanningProfile } from "./party-intelligence";
 
 // ----- Row shape used by the Supabase adapter -----
 
@@ -49,6 +50,7 @@ export type PartyRow = {
   bring_board: unknown;
   host_updates: unknown;
   holiday_pack_id: string | null;
+  planning_profile: unknown;
   photo_drop: unknown;
   checkins: unknown;
   retrospective: unknown;
@@ -79,6 +81,7 @@ export const HOST_COLUMNS = [
   "bring_board",
   "host_updates",
   "holiday_pack_id",
+  "planning_profile",
   "photo_drop",
   "checkins",
   "retrospective",
@@ -119,6 +122,7 @@ export function partyToColumns(p: Party, userId: string): PartyRow {
     bring_board: p.bringBoard ?? [],
     host_updates: p.hostUpdates ?? [],
     holiday_pack_id: p.holidayPackId ?? null,
+    planning_profile: p.planningProfile ?? {},
     photo_drop: p.photoDrop ?? null,
     checkins: p.checkins ?? {},
     retrospective: p.retrospective ?? null,
@@ -149,6 +153,7 @@ export function rowToParty(r: PartyRow): Party {
     bringBoard: (r.bring_board as BringItem[]) ?? [],
     hostUpdates: (r.host_updates as HostUpdate[]) ?? [],
     holidayPackId: r.holiday_pack_id ?? undefined,
+    planningProfile: (r.planning_profile as PartyPlanningProfile | null) ?? undefined,
     photoDrop: (r.photo_drop as Party["photoDrop"]) ?? null,
     checkins: (r.checkins as Record<string, string>) ?? {},
     retrospective: (r.retrospective as PartyRetrospective | null) ?? null,

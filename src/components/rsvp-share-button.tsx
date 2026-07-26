@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Link } from "@tanstack/react-router";
 import { useParties, daysUntil, planningDetailIsOpen, type Party } from "@/lib/party-context";
-import { themeById } from "@/lib/themes";
 import { formatDateOnly } from "@/lib/date-only";
+import { partyHeroImage } from "@/lib/party-visual";
 
 export function RsvpShareButton({
   partyId,
@@ -113,7 +113,7 @@ function DemoRsvpDialog({
   onOpenChange: (v: boolean) => void;
   party: Party;
 }) {
-  const theme = themeById(party.themeId);
+  const heroImage = partyHeroImage(party);
   const days = daysUntil(party.date);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,9 +127,7 @@ function DemoRsvpDialog({
         </DialogHeader>
 
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-          {theme?.heroImage && (
-            <img src={theme.heroImage} alt="" className="h-32 w-full object-cover" aria-hidden />
-          )}
+          <img src={heroImage} alt="" className="h-32 w-full object-cover" aria-hidden />
           <div className="p-4">
             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
               You're invited

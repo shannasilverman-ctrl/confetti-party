@@ -18,6 +18,7 @@ import {
   type RSVP,
 } from "@/lib/party-context";
 import { BrandLockup } from "@/components/brand";
+import { partyHeroImage } from "@/lib/party-visual";
 import { DeletePartyButton } from "@/components/delete-party-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +68,6 @@ import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
-import { themeById } from "@/lib/themes";
 
 export type TabKey =
   | "overview"
@@ -125,8 +125,7 @@ function PartyWorkspace() {
   const g = guestCounts(party);
   const spent = totalSpent(party);
   const prog = progressPct(party);
-  const eventVisual =
-    party.heroImageUrl ?? (party.themeId ? themeById(party.themeId)?.heroImage : undefined);
+  const eventVisual = partyHeroImage(party);
 
   const cartCount = party.shoppingItems.filter(
     (i) => i.status === "needed" || i.status === "in-cart",
@@ -181,24 +180,12 @@ function PartyWorkspace() {
           </div>
 
           <div className="relative mt-4 min-h-[23rem] overflow-hidden rounded-[2rem] bg-festive text-primary-foreground shadow-brand sm:min-h-[28rem] sm:rounded-[2.5rem]">
-            {eventVisual ? (
-              <img
-                src={eventVisual}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <>
-                <div
-                  className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/16 blur-3xl"
-                  aria-hidden
-                />
-                <div
-                  className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-accent/20 blur-3xl"
-                  aria-hidden
-                />
-              </>
-            )}
+            <img
+              src={eventVisual}
+              alt=""
+              data-party-banner={party.id}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
             <div
               className="absolute inset-0 bg-gradient-to-t from-[hsl(270_49%_14%/0.96)] via-[hsl(270_49%_18%/0.38)] to-[hsl(270_49%_14%/0.08)]"
               aria-hidden

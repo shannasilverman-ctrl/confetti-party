@@ -38,4 +38,47 @@ describe("local planning recommendations", () => {
     });
     expect(venue?.reason).toContain("35 guests");
   });
+
+  it("ranks a preschool venue path using the facts that actually change the decision", () => {
+    const suggestions = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 11,
+      budget: 650,
+      location: "Winter Garden, FL",
+      planningProfile: {
+        version: 1,
+        honoreeAge: 4,
+        expectedKids: 5,
+        expectedAdults: 6,
+        effort: "easy",
+        format: "venue",
+      },
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.id)).toEqual([
+      "birthday-preschool-venue",
+      "birthday-preschool-food",
+      "birthday-preschool-home",
+    ]);
+    expect(suggestions[0]?.reason).toContain("90-minute flow");
+    expect(suggestions[0]?.reason).toContain("5 children and 6 adults");
+    expect(decodeURIComponent(suggestions[0]?.searchUrl ?? "")).toContain(
+      "preschool 4 year old birthday party indoor play gym venue near Winter Garden, FL",
+    );
+  });
+
+  it("puts the at-home path first when the host chose home", () => {
+    const [first] = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 8,
+      budget: 300,
+      planningProfile: {
+        version: 1,
+        honoreeAge: 5,
+        effort: "balanced",
+        format: "home",
+      },
+    });
+    expect(first?.id).toBe("birthday-preschool-home");
+  });
 });

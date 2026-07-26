@@ -21,6 +21,35 @@ export type PublicPhotoDrop = {
 
 export type HostUpdateView = { id: string; text: string; at: string };
 
+export type PublicRsvpContext = {
+  kind: "preschool-birthday";
+  adultLabel: string;
+  kidLabel: string;
+  kidHint: string;
+} | null;
+
+export function attendanceCopy(context?: PublicRsvpContext): {
+  adultLabel: string;
+  kidLabel: string;
+  kidHint: string | null;
+  intro: string | null;
+} {
+  if (context?.kind === "preschool-birthday") {
+    return {
+      adultLabel: context.adultLabel,
+      kidLabel: context.kidLabel,
+      kidHint: context.kidHint,
+      intro: "Count the people actually attending so food, seating, and supervision match.",
+    };
+  }
+  return {
+    adultLabel: "Adults",
+    kidLabel: "Kids",
+    kidHint: null,
+    intro: null,
+  };
+}
+
 export type PartyView = {
   name: string;
   date: string;
@@ -34,6 +63,7 @@ export type PartyView = {
   host_updates: HostUpdateView[];
   bring_board: PublicBringItem[];
   photo_drop: PublicPhotoDrop;
+  rsvp_context?: PublicRsvpContext;
   yes_count: number;
   maybe_count: number;
   total_count: number;

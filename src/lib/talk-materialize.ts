@@ -26,6 +26,11 @@ import {
 import type { Bucket, OccasionType } from "./party-context";
 import { generateShoppingItems, type ShoppingItem } from "./shopping";
 import { isoDateInDaysLocal } from "./date-only";
+import {
+  materializePlaybook,
+  partyPlaybook,
+  type PartyPlanningProfile,
+} from "./party-intelligence";
 
 // Minimal, deterministic baseline tasks per occasion. Kept in this file (not
 // imported from party-context) so the materializer stays server-safe.
@@ -60,6 +65,7 @@ export type DraftPatch = {
     occasion?: string;
     holidayPackId?: string;
     tone?: string;
+    honoreeAge?: number;
   };
   when?: {
     date?: string;
@@ -69,9 +75,10 @@ export type DraftPatch = {
   };
   where?: {
     display?: string;
+    venueKind?: "home" | "backyard" | "park" | "venue" | "virtual" | "unknown";
     contingency?: { needed: boolean; kind?: string; plan?: string };
   };
-  people?: { expectedCount?: number; households?: number; kids?: number };
+  people?: { expectedCount?: number; households?: number; kids?: number; adults?: number };
   effort?: { level?: "low" | "medium" | "high"; hostReadyTarget?: string };
   budget?: { total?: number; stance?: "strict" | "flexible" | "no-limit" };
   food?: { approach?: string; peakMoment?: string };
@@ -213,6 +220,7 @@ export type MaterializedParty = {
   theme: string;
   themeId: string | null;
   holidayPackId: PackId | null;
+  planningProfile: PartyPlanningProfile | null;
   hostNote: string | null;
   tasks: Array<{ id: string; title: string; bucket: Bucket; done: false }>;
   bringBoard: Array<{
@@ -318,6 +326,49 @@ export function materializeDraft(
   const guestEstimate = hasGuestCount ? clampInt(merged.people?.expectedCount, 0, 500, 0) : 0;
   const hasBudget = typeof merged.budget?.total === "number";
   const budget = hasBudget ? clampInt(merged.budget?.total, 0, 100_000, 0) : 0;
+  const kids =
+    typeof merged.people?.kids === "number" ? clampInt(merged.people.kids, 0, 500, 0) : undefined;
+  const adults =
+    typeof merged.people?.adults === "number"
+      ? clampInt(merged.people.adults, 0, 500, 0)
+      : hasGuestCount && kids != null
+        ? Math.max(0, guestEstimate - kids)
+        : undefined;
+  const honoreeAge =
+    typeof merged.identity?.honoreeAge === "number"
+      ? clampInt(merged.identity.honoreeAge, 1, 120, 1)
+      : undefined;
+  const format =
+    merged.where?.venueKind === "home" || merged.where?.venueKind === "backyard"
+      ? ("home" as const)
+      : merged.where?.venueKind === "venue"
+        ? ("venue" as const)
+        : ("help-me-choose" as const);
+  const effort =
+    merged.effort?.level === "low"
+      ? ("easy" as const)
+      : merged.effort?.level === "high"
+        ? ("all-out" as const)
+        : ("balanced" as const);
+  const planningProfile: PartyPlanningProfile | null =
+    occasion === "birthday"
+      ? {
+          version: 1,
+          ...(honoreeAge != null ? { honoreeAge } : {}),
+          ...(kids != null ? { expectedKids: kids } : {}),
+          ...(adults != null ? { expectedAdults: adults } : {}),
+          effort,
+          format,
+        }
+      : null;
+  const smart = materializePlaybook(
+    partyPlaybook({
+      occasion,
+      profile: planningProfile ?? undefined,
+      startTime: startTime ?? undefined,
+    }),
+    mkId,
+  );
 
   // ---- Tasks: occasion baseline + pack seeds + captured-field derived +
   //      open-question converts. Deduped case-insensitively by title.
@@ -449,6 +500,7 @@ export function materializeDraft(
   const tasks = dedupeTasks([
     ...packTaskEntries.map((t) => ({ ...t, done: false as const })),
     ...occasionTasks,
+    ...smart.tasks,
     ...derived,
   ]);
 
@@ -472,7 +524,7 @@ export function materializeDraft(
 
   // ---- Timeline: anchors + activities. Anchors carry a time; activities become
   //      untimed rows so the host slots them in.
-  const timeline: Array<{ id: string; time: string; activity: string }> = [];
+  const timeline: Array<{ id: string; time: string; activity: string }> = [...smart.timeline];
   for (const a of merged.when?.anchors ?? []) {
     if (!a.label) continue;
     timeline.push({ id: mkId(), time: a.at || "", activity: a.label });
@@ -565,6 +617,7 @@ export function materializeDraft(
       theme,
       themeId: null,
       holidayPackId: pack?.id ?? null,
+      planningProfile,
       hostNote,
       tasks,
       bringBoard,

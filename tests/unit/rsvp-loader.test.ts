@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveRsvpLoaderData } from "@/lib/rsvp.functions";
+import { attendanceCopy, resolveRsvpLoaderData } from "@/lib/rsvp.functions";
 
 const cfg = { origin: "https://x", supabaseUrl: "https://u", supabaseKey: "sb_publishable_x" };
 const T = "00000000-0000-0000-0000-000000000001";
@@ -68,5 +68,32 @@ describe("resolveRsvpLoaderData", () => {
     });
     expect(r.status).toBe("ok");
     expect(r.party).toMatchObject(payload);
+  });
+});
+
+describe("adaptive RSVP attendance copy", () => {
+  it("explains adults staying and siblings for a preschool birthday", () => {
+    expect(
+      attendanceCopy({
+        kind: "preschool-birthday",
+        adultLabel: "Adults staying",
+        kidLabel: "Children coming",
+        kidHint: "Include invited children and any siblings joining.",
+      }),
+    ).toEqual({
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      kidHint: "Include invited children and any siblings joining.",
+      intro: "Count the people actually attending so food, seating, and supervision match.",
+    });
+  });
+
+  it("keeps the generic form concise for other events", () => {
+    expect(attendanceCopy()).toEqual({
+      adultLabel: "Adults",
+      kidLabel: "Kids",
+      kidHint: null,
+      intro: null,
+    });
   });
 });

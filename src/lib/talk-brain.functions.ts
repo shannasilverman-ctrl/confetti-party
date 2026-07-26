@@ -71,10 +71,10 @@ type TurnResult = {
 const SCHEMA_HINT = `{
   "reply": "<= 3 short sentences, warm, ask ONE question at a time",
   "draftPatch": {
-    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string },
+    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string, "honoreeAge"?: number },
     "when": { "date"?: "YYYY-MM-DD", "startTime"?: "7:00 PM", "dateCertainty"?: "fixed"|"window"|"tbd", "anchors"?: [{ "label": string, "at": "7:30 PM", "kind"?: "kickoff"|"toast"|"meal"|"activity" }] },
-    "where": { "display"?: string, "contingency"?: { "needed": true, "kind"?: "weather"|"backup-venue", "plan"?: string } },
-    "people": { "expectedCount"?: number, "households"?: number, "kids"?: number },
+    "where": { "display"?: string, "venueKind"?: "home"|"backyard"|"park"|"venue"|"virtual"|"unknown", "contingency"?: { "needed": true, "kind"?: "weather"|"backup-venue", "plan"?: string } },
+    "people": { "expectedCount"?: number, "households"?: number, "kids"?: number, "adults"?: number },
     "effort": { "level"?: "low"|"medium"|"high", "hostReadyTarget"?: "one hour before" },
     "budget": { "total"?: number, "stance"?: "strict"|"flexible"|"no-limit" },
     "food": { "approach"?: "cook"|"catering"|"grocery-prepared"|"potluck"|"mix"|"snacks-only", "peakMoment"?: string },
@@ -126,6 +126,24 @@ function extractCount(text: string): number | undefined {
   return undefined;
 }
 
+function extractAudience(text: string): { kids?: number; adults?: number } {
+  const kids = text.match(/\b(\d{1,3})\s*(?:kids?|children|children guests?)\b/i);
+  const adults = text.match(/\b(\d{1,3})\s*(?:adults?|parents?|grown[ -]?ups?)\b/i);
+  return {
+    ...(kids ? { kids: parseInt(kids[1], 10) } : {}),
+    ...(adults ? { adults: parseInt(adults[1], 10) } : {}),
+  };
+}
+
+function extractBirthdayAge(text: string): number | undefined {
+  const match =
+    text.match(/\bturn(?:s|ing)?\s+(\d{1,3})\b/i) ??
+    text.match(/\b(\d{1,3})(?:st|nd|rd|th)?\s+birthday\b/i) ??
+    text.match(/\b(\d{1,3})[ -]?year[ -]?old\b/i);
+  const age = match ? parseInt(match[1], 10) : NaN;
+  return Number.isFinite(age) && age >= 1 && age <= 120 ? age : undefined;
+}
+
 function extractBudget(text: string): number | undefined {
   const m = text.match(/\$\s?(\d{2,5})/);
   if (m) return parseInt(m[1], 10);
@@ -147,20 +165,47 @@ function demoBrain(messages: TurnMessages): TurnResult {
 
   const date = extractDate(allUser);
   if (date) patch.when = { ...(patch.when ?? {}), date, dateCertainty: "fixed" };
+  const audience = extractAudience(allUser);
   const count = extractCount(allUser);
-  if (count) patch.people = { expectedCount: count };
+  const audienceTotal =
+    audience.kids != null || audience.adults != null
+      ? (audience.kids ?? 0) + (audience.adults ?? 0)
+      : undefined;
+  if (count || audienceTotal != null) {
+    patch.people = {
+      expectedCount: audienceTotal ?? count,
+      ...audience,
+    };
+  }
   const budget = extractBudget(allUser);
   if (budget) patch.budget = { total: budget, stance: "flexible" };
 
   if (pack) {
     patch.identity = { workingTitle: pack.label, occasion: "holiday", holidayPackId: pack.id };
   } else if (/birthday/i.test(allUser)) {
-    patch.identity = { workingTitle: "Birthday", occasion: "birthday" };
+    patch.identity = {
+      workingTitle: "Birthday",
+      occasion: "birthday",
+      ...(extractBirthdayAge(allUser) ? { honoreeAge: extractBirthdayAge(allUser) } : {}),
+    };
   } else if (/bbq|cookout|grill/i.test(allUser)) {
     patch.identity = { workingTitle: "Backyard BBQ", occasion: "cookout" };
   } else if (/watch|game day|super bowl|world cup/i.test(allUser)) {
     patch.identity = { workingTitle: "Watch Party", occasion: "game-day" };
     patch.vibe = { broadcast: { source: "tv", needsSoundCheck: true } };
+  }
+
+  if (/\b(?:at home|our house|my house)\b/i.test(allUser)) {
+    patch.where = { ...(patch.where ?? {}), venueKind: "home" };
+  } else if (/\bbackyard\b/i.test(allUser)) {
+    patch.where = { ...(patch.where ?? {}), venueKind: "backyard" };
+  } else if (/\b(?:at a venue|party venue|play gym|trampoline park)\b/i.test(allUser)) {
+    patch.where = { ...(patch.where ?? {}), venueKind: "venue" };
+  }
+  if (/\b(?:make it easy|easy|low effort|no cleanup)\b/i.test(allUser)) {
+    patch.effort = { ...(patch.effort ?? {}), level: "low" };
+  } else if (/\b(?:go all out|all out|big production)\b/i.test(allUser)) {
+    patch.effort = { ...(patch.effort ?? {}), level: "high" };
   }
 
   if (/potluck|everyone brings|bring a dish/i.test(allUser)) {

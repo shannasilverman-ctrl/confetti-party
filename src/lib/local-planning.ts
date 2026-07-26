@@ -1,4 +1,5 @@
 import type { OccasionType } from "./party-context";
+import type { PartyPlanningProfile } from "./party-intelligence";
 
 export type LocalPlanningKind = "venue" | "food" | "experience" | "at-home";
 
@@ -17,6 +18,7 @@ export type LocalPlanningInput = {
   guestEstimate: number;
   budget: number;
   location?: string;
+  planningProfile?: PartyPlanningProfile;
 };
 
 const GENERIC_LOCATIONS = [
@@ -253,7 +255,17 @@ const OCCASION_SUGGESTIONS: Record<OccasionType, SuggestionSeed[]> = {
 };
 
 export function localPlanningSuggestions(input: LocalPlanningInput): LocalPlanningSuggestion[] {
-  return OCCASION_SUGGESTIONS[input.occasion].map(({ query, ...suggestion }) => ({
+  const preschoolBirthday =
+    input.occasion === "birthday" &&
+    input.planningProfile?.honoreeAge != null &&
+    input.planningProfile.honoreeAge >= 4 &&
+    input.planningProfile.honoreeAge <= 5;
+
+  const seeds: SuggestionSeed[] = preschoolBirthday
+    ? preschoolBirthdaySuggestions(input)
+    : OCCASION_SUGGESTIONS[input.occasion];
+
+  return seeds.map(({ query, ...suggestion }) => ({
     ...suggestion,
     searchUrl: query ? mapsSearchUrl(query, input.location) : undefined,
     reason:
@@ -261,4 +273,45 @@ export function localPlanningSuggestions(input: LocalPlanningInput): LocalPlanni
         ? `${suggestion.reason} Your current estimate is ${input.guestEstimate} guests.`
         : suggestion.reason,
   }));
+}
+
+function preschoolBirthdaySuggestions(input: LocalPlanningInput): SuggestionSeed[] {
+  const profile = input.planningProfile!;
+  const age = profile.honoreeAge!;
+  const kids = profile.expectedKids;
+  const adults = profile.expectedAdults;
+  const audience =
+    kids || adults
+      ? `The current plan is ${kids ?? "?"} children and ${adults ?? "?"} adults.`
+      : "Confirm children and adults separately before comparing packages.";
+  const venue: SuggestionSeed = {
+    id: "birthday-preschool-venue",
+    kind: "venue",
+    title: "Active venue with the cleanup included",
+    reason: `For a ${age}-year-old, prioritize contained active play, clear supervision, bathrooms, and a package that fits a 90-minute flow. ${audience}`,
+    query: `preschool ${age} year old birthday party indoor play gym venue`,
+    searchLabel: "Compare nearby venues",
+  };
+  const home: SuggestionSeed = {
+    id: "birthday-preschool-home",
+    kind: "at-home",
+    title: "Simple at-home play party",
+    reason:
+      "Use one easy arrival activity, one main activity, food, cake, and free play. Confetti will keep the shopping and transitions intentionally short.",
+    action: "theme",
+  };
+  const food: SuggestionSeed = {
+    id: "birthday-preschool-food",
+    kind: "food",
+    title: "Pizza, fruit, water, and one great cake",
+    reason:
+      "Compare a simple child-and-adult food path before adding themed extras. Confirm allergies and ingredient details first.",
+    query: "kids birthday pizza catering fruit tray allergy aware birthday cake",
+    searchLabel: "Compare food nearby",
+  };
+
+  if (profile.format === "home") return [home, food, venue];
+  if (profile.format === "venue" || profile.effort === "easy") return [venue, food, home];
+  if (input.budget > 0 && input.budget < 350) return [home, food, venue];
+  return [venue, home, food];
 }

@@ -26,6 +26,8 @@ import {
   locationIsSpecific,
   type LocalPlanningKind,
 } from "@/lib/local-planning";
+import { partyPlaybook, type PartyPlaybook } from "@/lib/party-intelligence";
+import { partyQuantityPlan, type PartyQuantityPlan } from "@/lib/party-quantities";
 import {
   AlertTriangle,
   ArrowRight,
@@ -45,6 +47,9 @@ import {
   House,
   MapPinned,
   UtensilsCrossed,
+  ShieldCheck,
+  WandSparkles,
+  Calculator,
 } from "lucide-react";
 
 type NavTab =
@@ -87,6 +92,12 @@ export function OverviewTab({
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
   const partyWeek = !dateTbd && days <= 7 && days >= 0;
   const localSuggestions = localPlanningSuggestions(party);
+  const playbook = partyPlaybook({
+    occasion: party.occasion,
+    profile: party.planningProfile,
+    startTime: party.startTime,
+  });
+  const quantities = partyQuantityPlan(party.planningProfile);
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -106,6 +117,9 @@ export function OverviewTab({
         onOpenInvite={() => setInviteOpen(true)}
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
+
+      {playbook && <PartyIntelligenceCard playbook={playbook} onNavigate={onNavigate} />}
+      {quantities && <PartyQuantityCard partyId={party.id} plan={quantities} />}
 
       {/* Next-best actions: unresolved inputs become actions, never checkboxes. */}
       <section
@@ -388,6 +402,150 @@ export function OverviewTab({
         </section>
       )}
     </div>
+  );
+}
+
+function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuantityPlan }) {
+  return (
+    <section
+      aria-labelledby="party-quantity-title"
+      data-testid="party-quantity-card"
+      className="rounded-3xl border border-border bg-card p-5 shadow-card sm:p-6"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <Calculator className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Working estimate
+            </div>
+            <h3
+              id="party-quantity-title"
+              className="mt-0.5 font-display text-xl font-semibold text-secondary"
+            >
+              Enough for {plan.children} children and {plan.adults} adults
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              A useful starting point—with every assumption visible.
+            </p>
+          </div>
+        </div>
+        <EditDetailsDialog partyId={partyId} triggerLabel="Adjust counts" />
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {plan.estimates.map((item) => (
+          <div key={item.id} className="rounded-2xl border border-border bg-background/70 p-3">
+            <div className="font-display text-2xl font-semibold text-secondary">
+              {item.recommendation}
+            </div>
+            <div className="mt-0.5 text-xs font-medium text-secondary">{item.label}</div>
+            <div className="mt-1 text-[10px] leading-4 text-muted-foreground">
+              {item.assumption}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[10px] leading-4 text-muted-foreground">{plan.note}</p>
+    </section>
+  );
+}
+
+function PartyIntelligenceCard({
+  playbook,
+  onNavigate,
+}: {
+  playbook: PartyPlaybook;
+  onNavigate: (tab: NavTab) => void;
+}) {
+  return (
+    <section
+      aria-labelledby="party-intelligence-title"
+      data-testid="party-intelligence-card"
+      className="overflow-hidden rounded-3xl border border-primary/20 bg-card shadow-card"
+    >
+      <div className="bg-primary/[0.065] p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary"
+            aria-hidden
+          >
+            <WandSparkles className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Confetti understands this party
+            </div>
+            <h3
+              id="party-intelligence-title"
+              className="mt-1 font-display text-xl font-semibold text-secondary"
+            >
+              {playbook.title}
+            </h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {playbook.promise}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-secondary">
+          {playbook.recommendedDurationMinutes && (
+            <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
+              {playbook.recommendedDurationMinutes}-minute flow
+            </span>
+          )}
+          <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
+            {playbook.rsvpQuestions.length} useful RSVP questions
+          </span>
+          <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
+            {playbook.guardrails.length} age-aware guardrails
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-px bg-border md:grid-cols-[1.15fr_0.85fr]">
+        <div className="bg-card p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-secondary">
+            <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
+            Already handled in your plan
+          </div>
+          <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            {playbook.guardrails.slice(0, 4).map((item) => (
+              <li key={item.id} className="rounded-xl bg-muted/55 px-3 py-2.5">
+                <span className="font-medium text-secondary">{item.title}</span>
+                <span className="mt-0.5 block text-xs leading-5">{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex flex-col justify-between bg-card p-5">
+          <div>
+            <div className="text-sm font-semibold text-secondary">The next no-brainer</div>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Review the party flow first. Then your checklist, food, and guest communication can
+              follow the same plan.
+            </p>
+          </div>
+          <Button
+            variant="festive"
+            size="sm"
+            className="mt-4 min-h-11 w-full"
+            onClick={() => onNavigate("timeline")}
+          >
+            Review
+            {playbook.recommendedDurationMinutes
+              ? ` the ${playbook.recommendedDurationMinutes}-minute flow`
+              : " the party flow"}{" "}
+            <ArrowRight />
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
