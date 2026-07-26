@@ -194,7 +194,7 @@ test("a seeded party offers truthful local paths without fake marketplace data",
   const local = page.getByRole("region", { name: "Make it local" });
   await expect(local).toBeVisible();
   await expect(
-    local.getByText(/Maps gives you current businesses, ratings, and hours/i),
+    local.getByText(/bring the finalists back here.*keep the choice, price, and follow-through/i),
   ).toBeVisible();
   await expect(local.getByRole("link", { name: /Search venues/i })).toHaveAttribute(
     "href",

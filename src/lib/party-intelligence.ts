@@ -5,6 +5,21 @@ export type PartyFormat = "home" | "venue" | "help-me-choose";
 export type FoodRole = "light-bites" | "full-meal" | "grazing";
 export type FoodServiceStyle = "self-serve" | "family-style" | "served";
 
+export type LocalSourcingStatus = "considering" | "contacted" | "quoted" | "booked";
+
+export type LocalSourcingOption = {
+  id: string;
+  suggestionId: string;
+  kind: "venue" | "food" | "experience";
+  providerName: string;
+  url?: string;
+  cost?: number;
+  costBasis?: "host-estimate" | "vendor-quote";
+  status: LocalSourcingStatus;
+  notes?: string;
+  selected?: boolean;
+};
+
 /**
  * Durable facts that change Confetti's recommendations.
  *
@@ -26,6 +41,11 @@ export type PartyPlanningProfile = {
   foodRole?: FoodRole;
   foodServiceStyle?: FoodServiceStyle;
   durationMinutes?: number;
+  /**
+   * A host-entered local shortlist. Confetti never treats these records as
+   * verified inventory; status, quote basis, and selection stay explicit.
+   */
+  localSourcingOptions?: LocalSourcingOption[];
 };
 
 export type PreschoolPartyPath = {

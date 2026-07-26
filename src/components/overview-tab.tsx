@@ -5,6 +5,7 @@ import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { EditDetailsDialog } from "@/components/edit-details-dialog";
 import { QuantityTunerDialog } from "@/components/quantity-tuner-dialog";
+import { LocalSourcingPlanner } from "@/components/local-sourcing-planner";
 import {
   BUCKETS,
   TASK_ACTION_LABELS,
@@ -27,11 +28,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
-import {
-  localPlanningSuggestions,
-  locationIsSpecific,
-  type LocalPlanningKind,
-} from "@/lib/local-planning";
 import {
   partyPlaybook,
   preschoolPartyPaths,
@@ -61,10 +57,6 @@ import {
   Users,
   Wallet,
   ShoppingCart,
-  ExternalLink,
-  House,
-  MapPinned,
-  UtensilsCrossed,
   ShieldCheck,
   WandSparkles,
   Calculator,
@@ -109,7 +101,6 @@ export function OverviewTab({
 
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
   const partyWeek = !dateTbd && days <= 7 && days >= 0;
-  const localSuggestions = localPlanningSuggestions(party);
   const playbook = partyPlaybook({
     occasion: party.occasion,
     profile: party.planningProfile,
@@ -267,75 +258,7 @@ export function OverviewTab({
         )}
       </section>
 
-      <section
-        aria-labelledby="local-planning-title"
-        data-testid="local-planning"
-        className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
-      >
-        <div className="border-b border-border bg-primary/5 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <MapPinned className="h-4 w-4 text-primary" aria-hidden />
-                <h3
-                  id="local-planning-title"
-                  className="font-display text-lg font-semibold text-secondary"
-                >
-                  Make it local
-                </h3>
-              </div>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Confetti gives you the paths. Maps gives you current businesses, ratings, and
-                hours—so we never pretend inventory is live when it isn't.
-              </p>
-            </div>
-            {!locationIsSpecific(party.location) && (
-              <EditDetailsDialog partyId={party.id} triggerLabel="Add city or ZIP" />
-            )}
-          </div>
-        </div>
-        <div className="grid gap-px bg-border sm:grid-cols-3">
-          {localSuggestions.map((suggestion) => (
-            <article key={suggestion.id} className="flex flex-col bg-card p-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <LocalPlanningIcon kind={suggestion.kind} />
-              </div>
-              <h4 className="mt-3 font-display text-base font-semibold text-secondary">
-                {suggestion.title}
-              </h4>
-              <p className="mt-1 flex-1 text-sm leading-6 text-muted-foreground">
-                {suggestion.reason}
-              </p>
-              {suggestion.searchUrl && suggestion.searchLabel ? (
-                <Button asChild variant="outline" size="sm" className="mt-4 min-h-11">
-                  <a
-                    href={suggestion.searchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    referrerPolicy="no-referrer"
-                  >
-                    {suggestion.searchLabel} <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 min-h-11"
-                  onClick={() => onNavigate(suggestion.action ?? "theme")}
-                >
-                  {suggestion.action === "shopping" ? "Open the list" : "Build this version"}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </article>
-          ))}
-        </div>
-        <p className="px-5 py-3 text-[11px] leading-5 text-muted-foreground">
-          Search links are starting points, not endorsements. Confirm pricing, fit, accessibility,
-          reviews, and availability with each provider.
-        </p>
-      </section>
+      <LocalSourcingPlanner partyId={party.id} onNavigate={onNavigate} />
 
       {/* RSVP snapshot */}
       <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
@@ -850,12 +773,6 @@ function PartyIntelligenceCard({
       </div>
     </section>
   );
-}
-
-function LocalPlanningIcon({ kind }: { kind: LocalPlanningKind }) {
-  if (kind === "food") return <UtensilsCrossed className="h-4 w-4" aria-hidden />;
-  if (kind === "at-home") return <House className="h-4 w-4" aria-hidden />;
-  return <MapPinned className="h-4 w-4" aria-hidden />;
 }
 
 function planningMoveCopy(detail: PlanningDetail): { action: string; hint: string } {

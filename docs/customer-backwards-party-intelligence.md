@@ -317,6 +317,31 @@ package label, or caterer's stated servings remains the final conversion before
 buying. Explicit food decisions captured in Talk carry into the same planning
 profile rather than being asked twice.
 
+### From “near me” to a decision that stays in the plan
+
+Local discovery is not useful if the host still has to reconstruct the decision
+from browser tabs, screenshots, email, and memory. Confetti therefore treats
+Maps as a current discovery source—not as inventory Confetti can verify—and
+provides the continuity layer around it:
+
+- occasion, age, headcount, effort, format, budget, and locality shape the
+  starting searches;
+- the host brings only plausible finalists back into a small party shortlist;
+- every candidate records whether its cost is the host's estimate or a
+  host-recorded vendor quote;
+- status distinguishes considering, contacted, quoted, and booked-by-the-host;
+- the interface shows the cost against the current party budget without
+  recording an estimate as money spent;
+- one working choice per need can be selected without claiming a booking;
+- selecting it creates one idempotent confirmation task covering availability,
+  inclusions, fees, cancellation terms, access needs, and payment; and
+- externally supplied URLs are HTTPS-validated before they become links.
+
+This is the provider-neutral bridge before a real marketplace. Verified ratings,
+availability, packages, contracts, payment, support, and booking status require
+provider integrations and marketplace operations; UI copy must not imply those
+capabilities early.
+
 ## Current-state audit
 
 Already valuable:
@@ -341,7 +366,9 @@ Material gaps:
 - generic occasion defaults do not yet cover enough subtypes or life stages;
 - the few durable facts captured in direct creation are not yet used by every
   occasion and workflow;
-- local search is query generation, not a ranked/verified marketplace;
+- local search now carries host-entered finalists, quote provenance, status,
+  budget context, a working choice, and confirmation work back into the party;
+  it is still not ranked or verified marketplace inventory;
 - birthday, holiday, game-day, and cookout quantities now use known child/adult
   counts, expose assumptions and confidence, and can be tuned by food role,
   duration, and service style; broader menu-, recipe-, package-, and
@@ -398,3 +425,8 @@ Material gaps:
 - [University of Minnesota Extension: planning food quantities for an occasion](https://extension.umn.edu/cooking-safely-crowd/planning-quantity-food-occasion)
 - [Washington State University Catering: hors d'oeuvres serving guidance](https://catering.wsu.edu/menus/hors-doeuvres/)
 - [University of Michigan Taubman College: catering and service-format guidance](https://intranet.tcaup.umich.edu/knowledge-base/catering/)
+- [GoodEvent: one brief and side-by-side supplier quote workflow](https://www.goodevent.com/products/planner/how-it-works)
+- [Festa: tailored vendor checklist and quote comparison](https://festapr.com/)
+- [Planza: local vendor quotes and side-by-side comparison](https://www.planzaevents.com/)
+- [PartyPlanning discussion: spreadsheets, chats, and forgotten ice](https://www.reddit.com/r/apps/comments/1sqjrra/me_and_my_friend_got_tired_of_party_planning/)
+- [PartyPlanning discussion: milestone-party vendor coordination load](https://www.reddit.com/r/partyplanning/comments/1sqkrrg/overwhelmed_planning_my_daughters_sweet_16_too/)
