@@ -23,7 +23,7 @@ import {
 } from "./holiday-packs";
 // Types are erased at build; importing them from party-context does NOT drag
 // the React/Supabase client module into the server-fn bundle.
-import type { Bucket, OccasionType } from "./party-context";
+import type { Bucket, OccasionType, TaskAction } from "./party-context";
 import { generateShoppingItems, type ShoppingItem } from "./shopping";
 import { isoDateInDaysLocal } from "./date-only";
 import {
@@ -31,6 +31,7 @@ import {
   partyPlaybook,
   type PartyPlanningProfile,
 } from "./party-intelligence";
+import { generatedTaskMetadata } from "./task-guidance";
 
 // Minimal, deterministic baseline tasks per occasion. Kept in this file (not
 // imported from party-context) so the materializer stays server-safe.
@@ -222,7 +223,15 @@ export type MaterializedParty = {
   holidayPackId: PackId | null;
   planningProfile: PartyPlanningProfile | null;
   hostNote: string | null;
-  tasks: Array<{ id: string; title: string; bucket: Bucket; done: false }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    bucket: Bucket;
+    done: false;
+    reason?: string;
+    action?: TaskAction;
+    guidanceSource?: "curated" | "inferred";
+  }>;
   bringBoard: Array<{
     id: string;
     category: string;
@@ -488,12 +497,14 @@ export function materializeDraft(
     title: t.title,
     bucket: t.bucket,
     done: false as const,
+    ...generatedTaskMetadata(t.title),
   }));
   const derived = derivedTasks.map((t) => ({
     id: mkId(),
     title: t.title,
     bucket: t.bucket,
     done: false as const,
+    ...generatedTaskMetadata(t.title),
   }));
   const tasks = dedupeTasks([
     ...packTaskEntries.map((t) => ({ ...t, done: false as const })),

@@ -32,6 +32,7 @@ import {
   partyPlaybook,
   type PartyPlanningProfile,
 } from "./party-intelligence";
+import { generatedTaskMetadata, withTaskGuidance } from "./task-guidance";
 
 export type OccasionType =
   | "birthday"
@@ -49,13 +50,40 @@ export type Bucket = "6+ weeks out" | "3-5 weeks" | "1-2 weeks" | "Party week" |
 
 export const BUCKETS: Bucket[] = ["6+ weeks out", "3-5 weeks", "1-2 weeks", "Party week", "Day of"];
 
+export type TaskAction =
+  | "overview"
+  | "theme"
+  | "shopping"
+  | "guests"
+  | "bring"
+  | "budget"
+  | "timeline";
+
 export type Task = {
   id: string;
   title: string;
   bucket: Bucket;
   done: boolean;
+  /** The person or role the host has asked to own this task. Coordination only; it sends nothing. */
+  owner?: string;
+  /** A short, customer-facing explanation of the planning consequence this task prevents. */
+  reason?: string;
+  /** The existing workspace destination where the host can make progress on this task. */
+  action?: TaskAction;
+  /** Whether task guidance is hand-authored for a playbook or inferred from a generic title. */
+  guidanceSource?: "curated" | "inferred";
   source?: "confetti-playbook";
   playbookId?: string;
+};
+
+export const TASK_ACTION_LABELS: Record<TaskAction, string> = {
+  overview: "Open overview",
+  theme: "Explore looks",
+  shopping: "Open shopping",
+  guests: "Open guest list",
+  bring: "Open Bring Board",
+  budget: "Open budget",
+  timeline: "Open timeline",
 };
 export type Guest = {
   id: string;
@@ -354,7 +382,13 @@ export function generateTasks(occasion: OccasionType, dateISO: string): Task[] {
   };
   return template
     .filter((t) => allowedFrom(t.bucket))
-    .map((t) => ({ id: uid(), title: t.title, bucket: t.bucket, done: false }));
+    .map((t) => ({
+      id: uid(),
+      title: t.title,
+      bucket: t.bucket,
+      done: false,
+      ...generatedTaskMetadata(t.title),
+    }));
 }
 
 // ---- Seed demo parties ----
@@ -1172,8 +1206,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (!user) {
       const seeds = baseSeeds();
       const { parties: hydrated, warning } = _loadDemoState(seeds);
-      partiesRef.current = hydrated;
-      setParties(hydrated);
+      const guided = hydrated.map((party) => ({
+        ...party,
+        tasks: party.tasks.map(withTaskGuidance),
+      }));
+      partiesRef.current = guided;
+      setParties(guided);
       if (warning && !warnedRef.current.has(warning)) {
         warnedRef.current.add(warning);
         setDemoWarning(warning);

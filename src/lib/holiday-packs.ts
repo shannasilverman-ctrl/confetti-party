@@ -2,6 +2,7 @@
 // Every ritual and menu item is optional. Hosts choose what to keep.
 
 import type { OccasionType, Bucket, Task } from "./party-context";
+import { generatedTaskMetadata } from "./task-guidance";
 
 export type PackId =
   | "generic"
@@ -551,7 +552,13 @@ export function detectPack(text: string): HolidayPack | undefined {
 
 /** Materialize pack task seeds into Party.tasks entries. Caller assigns ids/done state. */
 export function packTasks(pack: HolidayPack, mkId: () => string): Task[] {
-  return pack.taskSeeds.map((s) => ({ id: mkId(), title: s.title, bucket: s.bucket, done: false }));
+  return pack.taskSeeds.map((seed) => ({
+    id: mkId(),
+    title: seed.title,
+    bucket: seed.bucket,
+    done: false,
+    ...generatedTaskMetadata(seed.title),
+  }));
 }
 
 /** Materialize the bring board seeds into party.bring_board jsonb rows. */

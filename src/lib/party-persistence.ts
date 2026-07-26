@@ -24,6 +24,7 @@ import type {
 } from "./party-context";
 import type { ShoppingItem } from "./shopping";
 import type { PartyPlanningProfile } from "./party-intelligence";
+import { withTaskGuidance } from "./task-guidance";
 
 // ----- Row shape used by the Supabase adapter -----
 
@@ -142,7 +143,7 @@ export function rowToParty(r: PartyRow): Party {
     theme: r.theme,
     themeId: r.theme_id ?? undefined,
     rsvpToken: r.rsvp_token ?? undefined,
-    tasks: (r.tasks as Task[]) ?? [],
+    tasks: ((r.tasks as Task[]) ?? []).map(withTaskGuidance),
     guests: (r.guests as Guest[]) ?? [],
     budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
     shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],

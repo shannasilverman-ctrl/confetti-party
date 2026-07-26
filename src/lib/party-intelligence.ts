@@ -82,181 +82,267 @@ function timedTimeline(
   }));
 }
 
-const PRESCHOOL_TASKS: Array<{ title: string; bucket: Bucket }> = [
-  {
-    title: "Ask about allergies, sibling attendance, and whether an adult is staying",
-    bucket: "3-5 weeks",
-  },
-  {
-    title: "Choose one main activity plus a flexible arrival activity",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Confirm bathrooms, handwashing, parking, and the weather backup",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Check every favor and activity for small-part or balloon hazards",
-    bucket: "Party week",
-  },
-  {
-    title: "Label allergy-aware food and keep ingredient details available",
-    bucket: "Party week",
-  },
-  {
-    title: "Assign arrival, food, photos, and door-watching to specific adults",
-    bucket: "Party week",
-  },
-  {
-    title: "Pack the host kit: candles, lighter, cake knife, wipes, trash bags, and tape",
-    bucket: "Day of",
-  },
-  {
-    title: "Collect broken balloons immediately and keep uninflated balloons out of reach",
-    bucket: "Day of",
-  },
+type PlaybookTask = Omit<Task, "id" | "done" | "source" | "playbookId">;
+
+function playbookTask(
+  title: string,
+  bucket: Bucket,
+  reason: string,
+  action: PlaybookTask["action"],
+): PlaybookTask {
+  return { title, bucket, reason, action };
+}
+
+const PRESCHOOL_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask about allergies, sibling attendance, and whether an adult is staying",
+    "3-5 weeks",
+    "Those answers change the food, supervision, space, and real headcount before money is spent.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose one main activity plus a flexible arrival activity",
+    "1-2 weeks",
+    "Young children arrive at different speeds; an easy landing activity prevents the first fifteen minutes from becoming chaos.",
+    "timeline",
+  ),
+  playbookTask(
+    "Confirm bathrooms, handwashing, parking, and the weather backup",
+    "1-2 weeks",
+    "Parents need practical arrival details, and the host needs a fallback before the forecast becomes urgent.",
+    "guests",
+  ),
+  playbookTask(
+    "Check every favor and activity for small-part or balloon hazards",
+    "Party week",
+    "Preschool guests explore with their hands and mouths, so age-fit materials matter more than a cute setup.",
+    "shopping",
+  ),
+  playbookTask(
+    "Label allergy-aware food and keep ingredient details available",
+    "Party week",
+    "Clear labels let families make safe choices without repeatedly finding the host.",
+    "shopping",
+  ),
+  playbookTask(
+    "Assign arrival, food, photos, and door-watching to specific adults",
+    "Party week",
+    "Named owners keep the host from becoming the only person noticing every need at once.",
+    "timeline",
+  ),
+  playbookTask(
+    "Pack the host kit: candles, lighter, cake knife, wipes, trash bags, and tape",
+    "Day of",
+    "A small rescue kit prevents the most common celebration moments from stopping for a missing basic.",
+    "shopping",
+  ),
+  playbookTask(
+    "Collect broken balloons immediately and keep uninflated balloons out of reach",
+    "Day of",
+    "Broken and uninflated balloons are a choking risk for young children.",
+    "timeline",
+  ),
 ];
 
-const SHABBAT_TASKS: Array<{ title: string; bucket: Bucket }> = [
-  {
-    title: "Ask the host which Shabbat practices, timing, and level of observance fit this table",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Confirm dietary needs and whether the kitchen or menu needs kosher accommodations",
-    bucket: "1-2 weeks",
-  },
-  {
-    title:
-      "Tell guests the arrival window and whether it is important to arrive before candle lighting",
-    bucket: "Party week",
-  },
-  {
-    title: "Choose what is homemade, ordered, and assigned on the Bring Board",
-    bucket: "Party week",
-  },
-  {
-    title: "Set out candles, matches, wine or grape juice, challah, cover, and salt if using them",
-    bucket: "Day of",
-  },
-  {
-    title: "Finish the cooking and warming plan before the host's chosen Shabbat start",
-    bucket: "Day of",
-  },
-  {
-    title: "Put water, a non-alcoholic option, and dietary labels where guests can find them",
-    bucket: "Day of",
-  },
+const SHABBAT_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask the host which Shabbat practices, timing, and level of observance fit this table",
+    "1-2 weeks",
+    "Household practices vary; asking protects the host's tradition instead of making assumptions.",
+    "guests",
+  ),
+  playbookTask(
+    "Confirm dietary needs and whether the kitchen or menu needs kosher accommodations",
+    "1-2 weeks",
+    "These answers affect ingredients, preparation, serving pieces, and which contributions are appropriate.",
+    "guests",
+  ),
+  playbookTask(
+    "Tell guests the arrival window and whether it is important to arrive before candle lighting",
+    "Party week",
+    "Clear timing lets guests respect the gathering without needing insider knowledge.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose what is homemade, ordered, and assigned on the Bring Board",
+    "Party week",
+    "One ownership plan prevents duplicate dishes and leaves the host with a realistic cooking load.",
+    "bring",
+  ),
+  playbookTask(
+    "Set out candles, matches, wine or grape juice, challah, cover, and salt if using them",
+    "Day of",
+    "Staging optional ritual items early protects the pause once everyone gathers.",
+    "shopping",
+  ),
+  playbookTask(
+    "Finish the cooking and warming plan before the host's chosen Shabbat start",
+    "Day of",
+    "A backwards kitchen plan avoids last-minute conflicts and can support the household's observance.",
+    "timeline",
+  ),
+  playbookTask(
+    "Put water, a non-alcoholic option, and dietary labels where guests can find them",
+    "Day of",
+    "Guests can care for themselves without interrupting the host or guessing what is safe.",
+    "shopping",
+  ),
 ];
 
-const DINNER_TASKS: Array<{ title: string; bucket: Bucket }> = [
-  {
-    title: "Ask about allergies, dietary needs, and foods guests strongly avoid",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Choose one menu path: cook, prepared food, potluck, or a deliberate mix",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Write a backwards prep plan for every dish, including oven and burner conflicts",
-    bucket: "Party week",
-  },
-  {
-    title: "Decide seating, serving style, and where coats, bags, and drinks land",
-    bucket: "Party week",
-  },
-  {
-    title: "Set out an arrival drink and one no-cook bite before guests arrive",
-    bucket: "Day of",
-  },
-  {
-    title: "Clear the sink, empty the dishwasher, and stage leftover containers",
-    bucket: "Day of",
-  },
+const DINNER_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask about allergies, dietary needs, and foods guests strongly avoid",
+    "1-2 weeks",
+    "The menu should fit the people at the table before recipes or orders are locked.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose one menu path: cook, prepared food, potluck, or a deliberate mix",
+    "1-2 weeks",
+    "A single approach keeps ambition, budget, shopping, and available prep time aligned.",
+    "shopping",
+  ),
+  playbookTask(
+    "Write a backwards prep plan for every dish, including oven and burner conflicts",
+    "Party week",
+    "The meal succeeds when every dish has a finish time and shared appliances are not double-booked.",
+    "timeline",
+  ),
+  playbookTask(
+    "Decide seating, serving style, and where coats, bags, and drinks land",
+    "Party week",
+    "A few clear zones remove bottlenecks and help guests settle without asking where everything goes.",
+    "timeline",
+  ),
+  playbookTask(
+    "Set out an arrival drink and one no-cook bite before guests arrive",
+    "Day of",
+    "An immediate welcome buys the kitchen time and makes early arrivals feel intentional.",
+    "shopping",
+  ),
+  playbookTask(
+    "Clear the sink, empty the dishwasher, and stage leftover containers",
+    "Day of",
+    "Making cleanup space before dinner prevents the end of the night from becoming a second event.",
+    "timeline",
+  ),
 ];
 
-const HOLIDAY_TASKS: Array<{ title: string; bucket: Bucket }> = [
-  {
-    title: "Confirm the real headcount by household, including children and accessibility needs",
-    bucket: "3-5 weeks",
-  },
-  {
-    title: "Ask which traditions matter to this group and mark every ritual as optional",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Assign exact dishes and quantities on the Bring Board so nothing doubles up",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Map oven, stovetop, refrigerator, serving, and reheat space before finalizing the menu",
-    bucket: "Party week",
-  },
-  {
-    title: "Plan a kid landing zone and one low-effort activity if children are coming",
-    bucket: "Party week",
-  },
-  {
-    title: "Stage labels, serving utensils, leftover containers, and a cleanup owner",
-    bucket: "Day of",
-  },
+const HOLIDAY_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Confirm the real headcount by household, including children and accessibility needs",
+    "3-5 weeks",
+    "Household-level answers produce a usable seating, quantity, and comfort plan—not just an invite count.",
+    "guests",
+  ),
+  playbookTask(
+    "Ask which traditions matter to this group and mark every ritual as optional",
+    "1-2 weeks",
+    "The gathering should reflect this family rather than treating one version of a holiday as universal.",
+    "guests",
+  ),
+  playbookTask(
+    "Assign exact dishes and quantities on the Bring Board so nothing doubles up",
+    "1-2 weeks",
+    "Specific contributions spread the work while keeping the meal complete and balanced.",
+    "bring",
+  ),
+  playbookTask(
+    "Map oven, stovetop, refrigerator, serving, and reheat space before finalizing the menu",
+    "Party week",
+    "Kitchen capacity—not recipe count—is usually the hidden limit of a holiday meal.",
+    "timeline",
+  ),
+  playbookTask(
+    "Plan a kid landing zone and one low-effort activity if children are coming",
+    "Party week",
+    "A defined place to land helps children settle and lets adults reconnect without constant redirection.",
+    "shopping",
+  ),
+  playbookTask(
+    "Stage labels, serving utensils, leftover containers, and a cleanup owner",
+    "Day of",
+    "The meal can flow and close without every small decision returning to the host.",
+    "shopping",
+  ),
 ];
 
-const GAME_DAY_TASKS: Array<{ title: string; bucket: Bucket }> = [
-  {
-    title: "Confirm kickoff, stream, subscription, blackout rules, and a backup way to watch",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Check every main seat for a clear view and understandable sound",
-    bucket: "Party week",
-  },
-  {
-    title:
-      "Split food into pregame, during-play, and halftime waves instead of serving everything at once",
-    bucket: "Party week",
-  },
-  {
-    title: "Create separate drink, trash, and refill stations away from the screen",
-    bucket: "Day of",
-  },
-  {
-    title:
-      "Put out a quieter side activity for children and guests who are not watching every play",
-    bucket: "Day of",
-  },
-  {
-    title: "Test the stream, sound, remotes, charging, and Wi-Fi before doors open",
-    bucket: "Day of",
-  },
+const GAME_DAY_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Confirm kickoff, stream, subscription, blackout rules, and a backup way to watch",
+    "1-2 weeks",
+    "The broadcast is the event; confirming the whole viewing path prevents a roomful of guests waiting on a login.",
+    "timeline",
+  ),
+  playbookTask(
+    "Check every main seat for a clear view and understandable sound",
+    "Party week",
+    "A large screen does not help if the actual seating creates blocked views or muddy audio.",
+    "theme",
+  ),
+  playbookTask(
+    "Split food into pregame, during-play, and halftime waves instead of serving everything at once",
+    "Party week",
+    "Serving in waves keeps hot food hot, reduces waste, and avoids pulling everyone away from the game.",
+    "timeline",
+  ),
+  playbookTask(
+    "Create separate drink, trash, and refill stations away from the screen",
+    "Day of",
+    "Self-serve zones reduce traffic in front of the screen and keep the host out of constant refill duty.",
+    "shopping",
+  ),
+  playbookTask(
+    "Put out a quieter side activity for children and guests who are not watching every play",
+    "Day of",
+    "A second way to belong makes the party work for the whole guest list, not only the biggest fans.",
+    "shopping",
+  ),
+  playbookTask(
+    "Test the stream, sound, remotes, charging, and Wi-Fi before doors open",
+    "Day of",
+    "A ten-minute rehearsal catches the failures that are hardest to solve with guests in the room.",
+    "timeline",
+  ),
 ];
 
-const COOKOUT_TASKS: Array<{ title: string; bucket: Bucket }> = [
-  {
-    title: "Choose the weather decision time and reserve a rain, heat, or smoke backup",
-    bucket: "1-2 weeks",
-  },
-  {
-    title: "Assign grill, cold food, drinks, greeting, and kid-watching to named adults",
-    bucket: "Party week",
-  },
-  {
-    title: "Separate raw-food tools and trays from ready-to-eat food and serving tools",
-    bucket: "Party week",
-  },
-  {
-    title: "Plan shade, water, seating, handwashing, bug control, and bathroom access",
-    bucket: "Party week",
-  },
-  {
-    title: "Stage a food thermometer, clean platters, cooler ice, and a discard-time marker",
-    bucket: "Day of",
-  },
-  {
-    title: "Place the grill outdoors, away from structures and the main guest path",
-    bucket: "Day of",
-  },
+const COOKOUT_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Choose the weather decision time and reserve a rain, heat, or smoke backup",
+    "1-2 weeks",
+    "A pre-agreed decision point replaces stressful day-of debating with a usable fallback.",
+    "timeline",
+  ),
+  playbookTask(
+    "Assign grill, cold food, drinks, greeting, and kid-watching to named adults",
+    "Party week",
+    "The grill already needs full attention; named owners stop safety and hosting jobs from competing.",
+    "timeline",
+  ),
+  playbookTask(
+    "Separate raw-food tools and trays from ready-to-eat food and serving tools",
+    "Party week",
+    "Visible separation reduces cross-contamination when several people are cooking and serving.",
+    "shopping",
+  ),
+  playbookTask(
+    "Plan shade, water, seating, handwashing, bug control, and bathroom access",
+    "Party week",
+    "Outdoor comfort basics determine how long guests can safely and happily stay.",
+    "shopping",
+  ),
+  playbookTask(
+    "Stage a food thermometer, clean platters, cooler ice, and a discard-time marker",
+    "Day of",
+    "The right tools make safe temperatures and buffet timing easy to follow while hosting.",
+    "shopping",
+  ),
+  playbookTask(
+    "Place the grill outdoors, away from structures and the main guest path",
+    "Day of",
+    "A deliberate grill zone protects people, structures, and the cook's working space.",
+    "timeline",
+  ),
 ];
 
 function standardGuardrails(): PartyGuardrail[] {
@@ -611,6 +697,7 @@ export function materializePlaybook(
       done: false as const,
       source: "confetti-playbook" as const,
       playbookId: playbook.id,
+      guidanceSource: "curated" as const,
     })),
     timeline: playbook.timeline.map((item) => ({
       ...item,
@@ -651,7 +738,9 @@ export function reconcilePartyPlaybook(
 
   const tasks = next.tasks.map((task) => {
     const previous = oldTasks.get(task.title.toLowerCase());
-    return previous ? { ...task, id: previous.id, done: previous.done } : task;
+    return previous
+      ? { ...task, id: previous.id, done: previous.done, owner: previous.owner }
+      : task;
   });
   const timeline = next.timeline.map((item) => {
     const previous = oldTimeline.get(item.activity.toLowerCase());

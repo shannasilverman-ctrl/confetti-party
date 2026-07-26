@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import { amazonSearchUrl, targetSearchUrl, walmartSearchUrl } from "@/lib/affiliates";
 import { ProductTiles } from "@/components/product-tiles";
+import { generatedTaskMetadata } from "@/lib/task-guidance";
 
 type TileKey = "table" | "decor" | "dessert" | "entry" | "activity" | "photoSpot";
 
@@ -119,7 +120,16 @@ export function ThemeTab({ partyId }: { partyId: string }) {
     const title = `DIY: ${idea.title}`;
     updateParty(partyId, (p) => ({
       ...p,
-      tasks: [...p.tasks, { id: newId(), title, bucket: idea.bucket, done: false }],
+      tasks: [
+        ...p.tasks,
+        {
+          id: newId(),
+          title,
+          bucket: idea.bucket,
+          done: false,
+          ...generatedTaskMetadata(title),
+        },
+      ],
     }));
     toast.success("Added to checklist", { description: idea.title });
   }
@@ -210,6 +220,7 @@ export function ThemeTab({ partyId }: { partyId: string }) {
           title: `DIY: ${idea.title}`,
           bucket: idea.bucket,
           done: false,
+          ...generatedTaskMetadata(`DIY: ${idea.title}`),
         })),
       ],
     }));
