@@ -7,6 +7,14 @@ test.describe("accountable, actionable party work", () => {
       if (sessionStorage.getItem("task-ownership-test-ready")) return;
       localStorage.clear();
       sessionStorage.setItem("task-ownership-test-ready", "true");
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            sessionStorage.setItem("task-handoff-copy", value);
+          },
+        },
+      });
     });
   });
 
@@ -68,13 +76,19 @@ test.describe("accountable, actionable party work", () => {
       .click();
 
     const editor = page.getByRole("dialog");
-    await expect(
-      editor.getByText("This organizes your plan—it does not message them or give them access.", {
-        exact: false,
-      }),
-    ).toBeVisible();
+    await expect(editor.getByText(/never messages someone or gives them access/i)).toBeVisible();
     await editor.getByLabel("Who owns this? (optional)").fill("Jordan");
-    await editor.getByRole("button", { name: "Save task" }).click();
+    await editor
+      .getByLabel("What does done look like? (optional)")
+      .fill("Get every household's answer by Tuesday; flag food or access follow-ups.");
+    await editor.getByRole("button", { name: "Save & hand off" }).click();
+    await expect(page.getByText("Handoff copied—not sent")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => sessionStorage.getItem("task-handoff-copy")))
+      .toContain("Jordan — can you own this for Eliana turns four?");
+    await expect
+      .poll(() => page.evaluate(() => sessionStorage.getItem("task-handoff-copy")))
+      .toContain("Done means: Get every household's answer by Tuesday");
     await expect(task.getByRole("button", { name: "Task owner: Jordan" })).toBeVisible();
 
     const dayOfTask = page.locator("li").filter({ hasText: "Confirm RSVPs" }).first();
@@ -102,6 +116,19 @@ test.describe("accountable, actionable party work", () => {
         .first()
         .getByRole("button", { name: "Task owner: Jordan" }),
     ).toBeVisible();
+    await page
+      .locator("li")
+      .filter({
+        hasText: "Ask about allergies, sibling attendance, and whether an adult is staying",
+      })
+      .first()
+      .getByRole("button", { name: "Task owner: Jordan" })
+      .click();
+    await expect(
+      page.getByRole("dialog").getByLabel("What does done look like? (optional)"),
+    ).toHaveValue("Get every household's answer by Tuesday; flag food or access follow-ups.");
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await expect(page.locator('[role="dialog"][data-state="closed"]')).toHaveCount(0);
 
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))

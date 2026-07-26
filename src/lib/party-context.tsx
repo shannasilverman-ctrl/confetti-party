@@ -67,6 +67,8 @@ export type Task = {
   done: boolean;
   /** The person or role the host has asked to own this task. Coordination only; it sends nothing. */
   owner?: string;
+  /** The outcome/context an owner needs to finish the task without returning the planning load. */
+  handoffNotes?: string;
   /** A short, customer-facing explanation of the planning consequence this task prevents. */
   reason?: string;
   /** The existing workspace destination where the host can make progress on this task. */

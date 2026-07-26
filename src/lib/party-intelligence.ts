@@ -1064,7 +1064,13 @@ export function reconcilePartyPlaybook(
   const tasks = next.tasks.map((task) => {
     const previous = oldTasks.get(task.title.toLowerCase());
     return previous
-      ? { ...task, id: previous.id, done: previous.done, owner: previous.owner }
+      ? {
+          ...task,
+          id: previous.id,
+          done: previous.done,
+          owner: previous.owner,
+          handoffNotes: previous.handoffNotes,
+        }
       : task;
   });
   const timeline = next.timeline.map((item) => {

@@ -374,7 +374,9 @@ Material gaps:
   duration, and service style; broader menu-, recipe-, package-, and
   vendor-specific conversion remains incomplete;
 - tasks have coordination owners, rationale, and linked actions, but not yet
-  dependencies, notifications, or collaborator permissions;
+  dependencies, notifications, or collaborator permissions; task owners can
+  now receive a host-controlled brief with timing, rationale, and a clear
+  finish line through the host's existing share flow;
 - birthday RSVP defaults now adapt to preschool, school-age, and adult
   planning context; optional host-only answers now feed an explainable impact
   layer for headcount, food, access, arrival, and supervision; accepted count
@@ -430,3 +432,6 @@ Material gaps:
 - [Planza: local vendor quotes and side-by-side comparison](https://www.planzaevents.com/)
 - [PartyPlanning discussion: spreadsheets, chats, and forgotten ice](https://www.reddit.com/r/apps/comments/1sqjrra/me_and_my_friend_got_tired_of_party_planning/)
 - [PartyPlanning discussion: milestone-party vendor coordination load](https://www.reddit.com/r/partyplanning/comments/1sqkrrg/overwhelmed_planning_my_daughters_sweet_16_too/)
+- [Planning Pod: assignments, due dates, and reminders](https://planningpod.com/checklists-and-task-management)
+- [AskWomenOver30 discussion: why party help is hard to delegate](https://www.reddit.com/r/AskWomenOver30/comments/13tikp6/what_do_you_do_if_you_are_hosting_a_party_and_are/)
+- [WeddingPlanning discussion: unclear delegation and missed follow-through](https://www.reddit.com/r/weddingplanning/comments/111qn39/anyone_else_feel_like_if_you_delegate_tasks_they/)
