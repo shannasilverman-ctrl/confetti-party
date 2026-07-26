@@ -28,7 +28,12 @@ import {
   locationIsSpecific,
   type LocalPlanningKind,
 } from "@/lib/local-planning";
-import { partyPlaybook, type PartyPlaybook } from "@/lib/party-intelligence";
+import {
+  partyPlaybook,
+  preschoolPartyPaths,
+  type PartyPlanningProfile,
+  type PartyPlaybook,
+} from "@/lib/party-intelligence";
 import { partyQuantityPlan, type PartyQuantityPlan } from "@/lib/party-quantities";
 import {
   AlertTriangle,
@@ -124,7 +129,14 @@ export function OverviewTab({
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
 
-      {playbook && <PartyIntelligenceCard playbook={playbook} onNavigate={onNavigate} />}
+      {playbook && (
+        <PartyIntelligenceCard
+          partyId={party.id}
+          playbook={playbook}
+          profile={party.planningProfile}
+          onNavigate={onNavigate}
+        />
+      )}
       {quantities && <PartyQuantityCard partyId={party.id} plan={quantities} />}
 
       {/* Next-best actions: unresolved inputs become actions, never checkboxes. */}
@@ -479,12 +491,20 @@ function PartyQuantityCard({ partyId, plan }: { partyId: string; plan: PartyQuan
 }
 
 function PartyIntelligenceCard({
+  partyId,
   playbook,
+  profile,
   onNavigate,
 }: {
+  partyId: string;
   playbook: PartyPlaybook;
+  profile?: PartyPlanningProfile;
   onNavigate: (tab: NavTab) => void;
 }) {
+  const startingPath = preschoolPartyPaths(profile)[0];
+  const pathIsRecommendation =
+    startingPath != null && (!profile?.format || profile.format === "help-me-choose");
+
   return (
     <section
       aria-labelledby="party-intelligence-title"
@@ -529,6 +549,49 @@ function PartyIntelligenceCard({
             {playbook.ageBand ? "age-aware guardrails" : "planning guardrails"}
           </span>
         </div>
+
+        {startingPath && (
+          <div
+            data-testid="preschool-starting-path"
+            className="mt-4 rounded-2xl border border-primary/15 bg-background p-4"
+          >
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+              Starting path · {pathIsRecommendation ? "Confetti recommendation" : "Your choice"}
+            </div>
+            <div className="mt-1 font-display text-base font-semibold text-secondary">
+              {startingPath.title}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {startingPath.recommendationReason}
+            </p>
+            <p className="mt-2 text-xs font-medium leading-5 text-secondary">
+              Next: {startingPath.nextStep}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11"
+                onClick={() => {
+                  if (startingPath.format === "home") {
+                    onNavigate("theme");
+                    return;
+                  }
+                  document
+                    .getElementById("local-planning-title")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                {startingPath.format === "home"
+                  ? "Build the at-home version"
+                  : "Compare local options"}
+                <ArrowRight />
+              </Button>
+              <EditDetailsDialog partyId={partyId} triggerLabel="Change path" />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-px bg-border md:grid-cols-[1.15fr_0.85fr]">

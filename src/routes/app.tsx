@@ -56,6 +56,7 @@ import { toast } from "sonner";
 import { formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
 import {
   partyPlaybook,
+  preschoolPartyPaths,
   type HostEffort,
   type PartyFormat,
   type PartyPlanningProfile,
@@ -743,7 +744,10 @@ function NewPartyWizard({
         </DialogHeader>
 
         {step === "idea" && (
-          <div className="grid gap-5 py-4" data-testid="wizard-step-1">
+          <div
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 py-4"
+            data-testid="wizard-step-1"
+          >
             <div>
               <Label htmlFor="name">Start with the idea</Label>
               <Input
@@ -1060,6 +1064,14 @@ function BirthdaySmartStart({
     },
     startTime,
   });
+  const pathOptions = preschoolPartyPaths({
+    version: 1,
+    ...(parsedAge > 0 ? { honoreeAge: parsedAge } : {}),
+    ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
+    ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
+    effort,
+    format,
+  });
 
   return (
     <section
@@ -1088,7 +1100,7 @@ function BirthdaySmartStart({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4">
+      <div className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <Label htmlFor="honoree-age">Age they&apos;re turning</Label>
@@ -1135,31 +1147,6 @@ function BirthdaySmartStart({
         </div>
 
         <fieldset>
-          <legend className="text-sm font-medium text-secondary">Where should it happen?</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {[
-              ["help-me-choose", "Help me choose"],
-              ["home", "At home"],
-              ["venue", "At a venue"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onFormatChange(value as PartyFormat)}
-                aria-pressed={format === value}
-                className={`min-h-11 rounded-full border px-4 py-2 text-sm ${
-                  format === value
-                    ? "border-primary bg-primary/10 font-medium text-secondary"
-                    : "border-border bg-background text-secondary"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset>
           <legend className="text-sm font-medium text-secondary">How much should you carry?</legend>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {[
@@ -1183,6 +1170,115 @@ function BirthdaySmartStart({
             ))}
           </div>
         </fieldset>
+
+        {pathOptions.length > 0 ? (
+          <fieldset
+            data-testid="preschool-party-paths"
+            className="rounded-2xl border border-primary/20 bg-background p-3.5"
+          >
+            <legend className="px-1 text-sm font-semibold text-secondary">
+              {format === "help-me-choose"
+                ? "Confetti’s starting recommendation"
+                : "Your party path"}
+            </legend>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {pathOptions[0].recommendationReason} You can change this anytime.
+            </p>
+            <div
+              className="mt-3 grid gap-2 sm:grid-cols-2"
+              role="radiogroup"
+              aria-label="Party path"
+            >
+              {pathOptions.map((path) => {
+                const active = path.recommended;
+                const choiceLabel =
+                  format === "help-me-choose"
+                    ? active
+                      ? "Confetti pick"
+                      : "Another good path"
+                    : format === path.format
+                      ? "Your choice"
+                      : "Alternative";
+                return (
+                  <button
+                    key={path.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onFormatChange(path.format)}
+                    className={`min-h-11 rounded-2xl border p-3 text-left transition ${
+                      active
+                        ? "border-primary bg-primary/[0.065] shadow-sm"
+                        : "border-border bg-background hover:border-primary/40"
+                    }`}
+                  >
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                        active ? "text-primary" : "text-muted-foreground"
+                      }`}
+                    >
+                      {choiceLabel}
+                    </span>
+                    <span className="mt-1 block font-display text-base font-semibold text-secondary">
+                      {path.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {path.bestFor}
+                    </span>
+                    {active ? (
+                      <>
+                        <span className="mt-2 block text-xs font-medium leading-5 text-secondary">
+                          {path.flow}
+                        </span>
+                        <span className="mt-2 block text-[11px] leading-4 text-muted-foreground">
+                          Tradeoff: {path.tradeoff}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="mt-2 block text-[11px] font-medium text-primary">
+                        Select to see the plan and tradeoff
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {format !== "help-me-choose" && (
+              <button
+                type="button"
+                className="mt-2 min-h-11 px-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                onClick={() => onFormatChange("help-me-choose")}
+              >
+                Let Confetti choose from my answers
+              </button>
+            )}
+          </fieldset>
+        ) : (
+          <fieldset>
+            <legend className="text-sm font-medium text-secondary">Where should it happen?</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[
+                ["help-me-choose", "Help me choose"],
+                ["home", "At home"],
+                ["venue", "At a venue"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onFormatChange(value as PartyFormat)}
+                  aria-pressed={format === value}
+                  className={`min-h-11 rounded-full border px-4 py-2 text-sm ${
+                    format === value
+                      ? "border-primary bg-primary/10 font-medium text-secondary"
+                      : "border-border bg-background text-secondary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
 
         {playbook && (
           <div className="rounded-2xl border border-primary/20 bg-background p-3.5">

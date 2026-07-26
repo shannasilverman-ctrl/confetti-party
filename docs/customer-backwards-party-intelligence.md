@@ -229,6 +229,8 @@ recommendation affects money, safety, availability, or guest communication.
 Already valuable:
 
 - fast optional-field party creation;
+- transparent, overridable home-versus-venue recommendations for the preschool
+  birthday golden path;
 - Talk draft with assumptions and blocking unknowns;
 - RSVP and guest counts;
 - bring board;
@@ -247,7 +249,8 @@ Material gaps:
   recommendations;
 - local search is query generation, not a ranked/verified marketplace;
 - quantities are not consistently tied to adult/kid counts and serving format;
-- tasks do not yet have owners, dependencies, rationale, or linked actions;
+- tasks have coordination owners, rationale, and linked actions, but not yet
+  dependencies, notifications, or collaborator permissions;
 - RSVP questions are not yet fully generated from the playbook;
 - cohost permissions and targeted communications are incomplete;
 - recommendations do not yet show confidence or verified-vs-estimated status;

@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 test.describe("customer-backwards party intelligence", () => {
@@ -25,8 +26,40 @@ test.describe("customer-backwards party intelligence", () => {
     await dialog.getByLabel("Age they're turning").fill("4");
     await dialog.getByLabel("Children").fill("5");
     await dialog.getByLabel("Adults staying").fill("6");
-    await dialog.getByRole("button", { name: "At a venue" }).click();
+
+    const partyPaths = dialog.getByTestId("preschool-party-paths");
+    await expect(partyPaths.getByText("Confetti’s starting recommendation")).toBeVisible();
+    await expect(partyPaths.getByText("Simple at-home play party")).toBeVisible();
+    await expect(partyPaths.getByText(/5-child starting list/)).toBeVisible();
+    const layout = await dialog.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      return {
+        width: styles.width,
+        gridTemplateColumns: styles.gridTemplateColumns,
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      };
+    });
+    expect(
+      layout.scrollWidth <= layout.clientWidth + 1,
+      `birthday dialog should not create page-level horizontal overflow: ${JSON.stringify(layout)}`,
+    ).toBe(true);
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-testid="preschool-party-paths"]')
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(
+      accessibility.violations.filter((violation) =>
+        ["serious", "critical"].includes(violation.impact ?? ""),
+      ),
+    ).toEqual([]);
+
     await dialog.getByRole("button", { name: "Make it easy" }).click();
+    await expect(partyPaths.getByText("Contained play venue")).toBeVisible();
+    await expect(partyPaths.getByText(/carry more of the load/)).toBeVisible();
+    await partyPaths.getByRole("radio", { name: /Contained play venue/ }).click();
+    await expect(partyPaths.getByText("Your party path")).toBeVisible();
+    await expect(partyPaths.getByText("Your choice")).toBeVisible();
 
     await expect(dialog.getByText("A low-stress turning 4 birthday")).toBeVisible();
     await expect(dialog.getByText("About 90 minutes")).toBeVisible();
@@ -41,6 +74,10 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(intelligence).toBeVisible();
     await expect(intelligence.getByText("Confetti understands this party")).toBeVisible();
     await expect(intelligence.getByText("4 age-aware guardrails")).toBeVisible();
+    const startingPath = intelligence.getByTestId("preschool-starting-path");
+    await expect(startingPath.getByText("Starting path · Your choice")).toBeVisible();
+    await expect(startingPath.getByText("Contained play venue")).toBeVisible();
+    await expect(startingPath.getByRole("button", { name: /Compare local options/ })).toBeVisible();
 
     const quantities = page.getByTestId("party-quantity-card");
     await expect(quantities.getByText("Enough for 5 children and 6 adults")).toBeVisible();
@@ -55,6 +92,34 @@ test.describe("customer-backwards party intelligence", () => {
     await intelligence.getByRole("button", { name: "Review the 90-minute flow" }).click();
     await expect(page.getByText("Easy arrival play while families settle in")).toBeVisible();
     await expect(page.getByText("Party ends before the room runs out of steam")).toBeVisible();
+  });
+
+  test("help me choose stays transparent and drives the same downstream plan", async ({ page }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("wizard-occasion-birthday").click();
+    await dialog.getByLabel("Start with the idea").fill("Nico turns four");
+    await dialog.getByLabel("Age they're turning").fill("4");
+    await dialog.getByLabel("Children", { exact: true }).fill("5");
+    await dialog.getByLabel("Adults staying").fill("6");
+
+    const paths = dialog.getByTestId("preschool-party-paths");
+    await expect(paths.getByText("Confetti’s starting recommendation")).toBeVisible();
+    await expect(paths.getByRole("radio", { name: /Simple at-home play party/ })).toBeChecked();
+
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    const startingPath = page.getByTestId("preschool-starting-path");
+    await expect(startingPath.getByText("Starting path · Confetti recommendation")).toBeVisible();
+    await expect(startingPath.getByText("Simple at-home play party")).toBeVisible();
+
+    const local = page.getByRole("region", { name: "Make it local" });
+    const firstLocalPath = local.locator("article").first();
+    await expect(firstLocalPath.getByText("Simple at-home play party")).toBeVisible();
+    await expect(firstLocalPath.getByRole("button", { name: /Build this version/ })).toBeVisible();
   });
 
   test("Shabbat smart start builds the table, timing, quantities, and guest questions together", async ({

@@ -19,6 +19,83 @@ export type PartyPlanningProfile = {
   format?: PartyFormat;
 };
 
+export type PreschoolPartyPath = {
+  id: "home-play" | "hosted-venue";
+  format: Exclude<PartyFormat, "help-me-choose">;
+  title: string;
+  bestFor: string;
+  flow: string;
+  tradeoff: string;
+  nextStep: string;
+  recommended: boolean;
+  recommendationReason: string;
+};
+
+/**
+ * Turns "help me choose" into an opinionated, editable starting path.
+ *
+ * The choice is deliberately based only on durable facts we actually know.
+ * It never claims local price, package, capacity, or availability.
+ */
+export function preschoolPartyPaths(
+  profile: PartyPlanningProfile | undefined,
+): PreschoolPartyPath[] {
+  const age = profile?.honoreeAge;
+  if (age == null || age < 4 || age > 5) return [];
+
+  const children = profile?.expectedKids;
+  const format = profile?.format ?? "help-me-choose";
+  const effort = profile?.effort ?? "balanced";
+  const recommendedFormat: PreschoolPartyPath["format"] =
+    format === "home" || format === "venue"
+      ? format
+      : effort === "easy" || (children != null && children >= 7)
+        ? "venue"
+        : "home";
+
+  const recommendationReason =
+    format === "home"
+      ? "You chose home, so Confetti is keeping the plan compact and setup-aware."
+      : format === "venue"
+        ? "You chose a venue, so Confetti is prioritizing containment, package fit, and a clean handoff."
+        : recommendedFormat === "venue" && effort === "easy"
+          ? "You asked Confetti to carry more of the load, so a contained venue package is the calmer starting point."
+          : recommendedFormat === "venue"
+            ? `${children} children is a bigger preschool group, so contained active play and included cleanup are the calmer starting point.`
+            : `A short at-home play party keeps the default ${
+                children != null && children > 0 ? children : age + 1
+              }-child starting list flexible without over-programming it.`;
+
+  const paths: PreschoolPartyPath[] = [
+    {
+      id: "home-play",
+      format: "home",
+      title: "Simple at-home play party",
+      bestFor: "A small child guest list, flexible timing, and control over the spend.",
+      flow: "Easy arrival play → one main activity → food + cake → free play and pickup.",
+      tradeoff: "You own setup, supervision zones, a weather backup, and cleanup.",
+      nextStep: "Choose one theme direction; Confetti turns it into one activity and a short list.",
+      recommended: recommendedFormat === "home",
+      recommendationReason,
+    },
+    {
+      id: "hosted-venue",
+      format: "venue",
+      title: "Contained play venue",
+      bestFor: "Active play with less setup and cleanup landing on the host.",
+      flow: "Arrival and check-in → included play → food + cake → a clear pickup.",
+      tradeoff:
+        "Usually less flexible. Confirm package time, capacity, adult rules, food, waivers, bathrooms, and cleanup.",
+      nextStep:
+        "Add a city or ZIP; Confetti gives you the right venue search and comparison checklist.",
+      recommended: recommendedFormat === "venue",
+      recommendationReason,
+    },
+  ];
+
+  return paths.sort((a, b) => Number(b.recommended) - Number(a.recommended));
+}
+
 export type PartyGuardrail = {
   id: string;
   title: string;

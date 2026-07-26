@@ -1,5 +1,5 @@
 import type { OccasionType } from "./party-context";
-import type { PartyPlanningProfile } from "./party-intelligence";
+import { preschoolPartyPaths, type PartyPlanningProfile } from "./party-intelligence";
 
 export type LocalPlanningKind = "venue" | "food" | "experience" | "at-home";
 
@@ -344,8 +344,10 @@ function preschoolBirthdaySuggestions(input: LocalPlanningInput): SuggestionSeed
     searchLabel: "Compare food nearby",
   };
 
-  if (profile.format === "home") return [home, food, venue];
-  if (profile.format === "venue" || profile.effort === "easy") return [venue, food, home];
+  const resolvedFormat =
+    profile.format === "help-me-choose" ? preschoolPartyPaths(profile)[0]?.format : profile.format;
+  if (resolvedFormat === "home") return [home, food, venue];
+  if (resolvedFormat === "venue" || profile.effort === "easy") return [venue, food, home];
   if (input.budget > 0 && input.budget < 350) return [home, food, venue];
   return [venue, home, food];
 }
