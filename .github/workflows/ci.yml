@@ -74,6 +74,9 @@ jobs:
       - name: E2E tests — desktop dialog contract
         run: bunx playwright test tests/e2e/dialog-contract.spec.ts --project=desktop
 
+      - name: E2E tests — desktop Bring Board coordination
+        run: bunx playwright test tests/e2e/bring-board-coordination.spec.ts --project=desktop
+
       - name: E2E tests — desktop party intelligence
         run: bunx playwright test tests/e2e/party-intelligence.spec.ts --project=desktop
 
