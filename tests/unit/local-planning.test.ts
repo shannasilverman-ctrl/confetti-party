@@ -81,4 +81,39 @@ describe("local planning recommendations", () => {
     });
     expect(first?.id).toBe("birthday-preschool-home");
   });
+
+  it("ranks low-effort dinner shortcuts first and carries the real audience split", () => {
+    const suggestions = localPlanningSuggestions({
+      occasion: "dinner-party",
+      guestEstimate: 12,
+      budget: 450,
+      planningProfile: {
+        version: 1,
+        expectedKids: 2,
+        expectedAdults: 10,
+        effort: "easy",
+        format: "help-me-choose",
+      },
+    });
+
+    expect(suggestions[0]?.id).toBe("dinner-food");
+    expect(suggestions[0]?.reason).toContain("2 children and 10 adults");
+  });
+
+  it("puts a venue-first watch-party path first when the host chose a venue", () => {
+    const suggestions = localPlanningSuggestions({
+      occasion: "game-day",
+      guestEstimate: 24,
+      budget: 600,
+      planningProfile: {
+        version: 1,
+        expectedKids: 4,
+        expectedAdults: 20,
+        effort: "balanced",
+        format: "venue",
+      },
+    });
+
+    expect(suggestions[0]?.id).toBe("game-day-watch");
+  });
 });

@@ -263,16 +263,50 @@ export function localPlanningSuggestions(input: LocalPlanningInput): LocalPlanni
 
   const seeds: SuggestionSeed[] = preschoolBirthday
     ? preschoolBirthdaySuggestions(input)
-    : OCCASION_SUGGESTIONS[input.occasion];
+    : rankForHost(OCCASION_SUGGESTIONS[input.occasion], input.planningProfile);
+
+  const kids = input.planningProfile?.expectedKids;
+  const adults = input.planningProfile?.expectedAdults;
+  const audienceContext =
+    !preschoolBirthday && (kids != null || adults != null)
+      ? ` The working audience is ${kids ?? 0} children and ${adults ?? 0} adults.`
+      : "";
 
   return seeds.map(({ query, ...suggestion }) => ({
     ...suggestion,
     searchUrl: query ? mapsSearchUrl(query, input.location) : undefined,
-    reason:
+    reason: `${
       suggestion.kind === "venue" && input.guestEstimate >= 30
         ? `${suggestion.reason} Your current estimate is ${input.guestEstimate} guests.`
-        : suggestion.reason,
+        : suggestion.reason
+    }${audienceContext}`,
   }));
+}
+
+function rankForHost(
+  seeds: SuggestionSeed[],
+  profile: PartyPlanningProfile | undefined,
+): SuggestionSeed[] {
+  if (!profile) return seeds;
+  const score = (seed: SuggestionSeed): number => {
+    if (profile.format === "home") {
+      if (seed.kind === "at-home") return 0;
+      if (seed.kind === "food") return 1;
+      return 2;
+    }
+    if (profile.format === "venue") {
+      if (seed.kind === "venue") return 0;
+      if (seed.kind === "food") return 1;
+      return 2;
+    }
+    if (profile.effort === "easy") {
+      if (seed.kind === "food") return 0;
+      if (seed.kind === "venue") return 1;
+      return 2;
+    }
+    return seeds.indexOf(seed);
+  };
+  return [...seeds].sort((a, b) => score(a) - score(b));
 }
 
 function preschoolBirthdaySuggestions(input: LocalPlanningInput): SuggestionSeed[] {
