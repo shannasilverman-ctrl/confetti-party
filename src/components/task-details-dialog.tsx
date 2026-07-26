@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TaskReminderMenu } from "@/components/task-reminder-menu";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import {
   BUCKETS,
+  planningDetailIsOpen,
   useParties,
   type Bucket,
   type Task,
@@ -43,6 +45,7 @@ const HANDOFF_NOTES_MAX = 300;
 
 export function TaskDetailsDialog({ partyId, task }: { partyId: string; task: Task }) {
   const { getParty, updateParty } = useParties();
+  const party = getParty(partyId);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [bucket, setBucket] = useState<Bucket>(task.bucket);
@@ -260,6 +263,14 @@ export function TaskDetailsDialog({ partyId, task }: { partyId: string; task: Ta
                 </SelectContent>
               </Select>
             </div>
+            {party && !planningDetailIsOpen(party, "date") && (
+              <TaskReminderMenu
+                partyName={party.name}
+                partyDate={party.date}
+                taskTitle={title}
+                bucket={bucket}
+              />
+            )}
           </div>
           <DialogFooter className="shrink-0 gap-2 border-t border-border bg-background px-6 py-4 sm:space-x-0">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
