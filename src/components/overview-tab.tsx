@@ -7,7 +7,6 @@ import { EditDetailsDialog } from "@/components/edit-details-dialog";
 import { QuantityTunerDialog } from "@/components/quantity-tuner-dialog";
 import { LocalSourcingPlanner } from "@/components/local-sourcing-planner";
 import {
-  BUCKETS,
   TASK_ACTION_LABELS,
   daysUntil,
   guestCounts,
@@ -15,13 +14,16 @@ import {
   totalSpent,
   useParties,
   newId,
-  planningDetailForTask,
   planningDetailIsOpen,
   resizePartySizedShopping,
   resolvePlanningDetails,
   type PlanningDetail,
-  type Task,
 } from "@/lib/party-context";
+import {
+  rankNextPartyTasks,
+  type NextActionPhase,
+  type RankedPartyTask,
+} from "@/lib/next-party-actions";
 import { TaskDetailsDialog } from "@/components/task-details-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -91,13 +93,11 @@ export function OverviewTab({
   const remainingEst = shoppingProjectedRemaining(party);
   const projected = spent + remainingEst;
   const overBudget = !budgetTbd && projected > party.budget;
-  const bucketIdx = (b: Task["bucket"]) => BUCKETS.indexOf(b);
-  const sortedIncomplete = [...party.tasks]
-    .filter((t) => !t.done)
-    .sort((a, b) => bucketIdx(a.bucket) - bucketIdx(b.bucket));
-  const planningMoves = sortedIncomplete.filter((task) => planningDetailForTask(task));
-  const hasPlanningMoves = planningMoves.length > 0;
-  const upNext = hasPlanningMoves ? planningMoves : sortedIncomplete.slice(0, 3);
+  const rankedActions = rankNextPartyTasks(party);
+  const upNext = rankedActions.slice(0, 3);
+  const leadPhase = upNext[0]?.phase;
+  const hasPlanningMoves = leadPhase === "decision";
+  const nextActionCopy = nextActionPresentation(leadPhase);
 
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
   const partyWeek = !dateTbd && days <= 7 && days >= 0;
@@ -132,58 +132,59 @@ export function OverviewTab({
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
 
-      {playbook && (
-        <PartyIntelligenceCard
-          partyId={party.id}
-          playbook={playbook}
-          profile={party.planningProfile}
-          onNavigate={onNavigate}
-        />
-      )}
-      {guestPlan && (
-        <GuestPlanImpactCard partyId={party.id} snapshot={guestPlan} onNavigate={onNavigate} />
-      )}
-      {quantities && (
-        <PartyQuantityCard partyId={party.id} plan={quantities} onNavigate={onNavigate} />
-      )}
-
       {/* Next-best actions: unresolved inputs become actions, never checkboxes. */}
       <section
         aria-label={hasPlanningMoves ? "Your next moves" : "Up next tasks"}
-        className="rounded-2xl border border-border bg-card p-5 shadow-card"
+        data-testid="next-action-card"
+        className="overflow-hidden rounded-3xl border border-primary/20 bg-card shadow-card"
       >
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-lg font-semibold text-secondary">
-            {hasPlanningMoves ? "Your next moves" : "Up next"}
-          </h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={() => onNavigate("checklist")}
-          >
-            All tasks <ArrowRight />
-          </Button>
+        <div className="bg-[linear-gradient(135deg,hsl(var(--primary)/0.1),hsl(var(--accent)/0.06))] p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary"
+              aria-hidden
+            >
+              <ListChecks className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                Confetti’s pick
+              </div>
+              <h3 className="mt-1 font-display text-xl font-semibold text-secondary">
+                {nextActionCopy.title}
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                {nextActionCopy.body}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden shrink-0 sm:inline-flex"
+              onClick={() => onNavigate("checklist")}
+            >
+              All tasks <ArrowRight />
+            </Button>
+          </div>
         </div>
-        {hasPlanningMoves && (
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Pick whichever feels easiest. One answer is enough—the rest can wait.
-          </p>
-        )}
         {upNext.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="p-5 text-sm text-muted-foreground">
             You're caught up. Nothing left on the checklist.
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {upNext.map((task) => {
-              const planningDetail = planningDetailForTask(task);
+          <ul className="space-y-2 p-4 sm:p-5">
+            {upNext.map((action, index) => {
+              const { task, planningDetail } = action;
               return (
                 <li
                   key={task.id}
                   data-testid={planningDetail ? `next-move-${planningDetail}` : undefined}
-                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2"
+                  data-next-action-phase={action.phase}
+                  className={`flex min-h-14 items-center gap-3 rounded-2xl border px-3 py-3 ${
+                    index === 0
+                      ? "border-primary/25 bg-primary/[0.045]"
+                      : "border-border bg-background/60"
+                  }`}
                 >
                   {planningDetail ? (
                     <>
@@ -194,6 +195,11 @@ export function OverviewTab({
                         <PlanningMoveIcon detail={planningDetail} />
                       </div>
                       <div className="min-w-0 flex-1">
+                        {index === 0 && (
+                          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                            Start here
+                          </div>
+                        )}
                         <div className="text-sm font-medium text-secondary">{task.title}</div>
                         <div className="text-xs text-muted-foreground">
                           {planningMoveCopy(planningDetail).hint}
@@ -228,7 +234,15 @@ export function OverviewTab({
                         aria-label={`Complete: ${task.title}`}
                       />
                       <div className="min-w-0 flex-1 py-1">
+                        {index === 0 && (
+                          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                            Start here
+                          </div>
+                        )}
                         <div className="text-sm font-medium text-secondary">{task.title}</div>
+                        <div className="mt-0.5 text-xs font-medium text-primary">
+                          {nextActionTimingLabel(action)}
+                        </div>
                         {task.reason && (
                           <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
                             {task.reason}
@@ -256,7 +270,32 @@ export function OverviewTab({
             })}
           </ul>
         )}
+        <div className="border-t border-border px-4 py-3 sm:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-11 w-full"
+            onClick={() => onNavigate("checklist")}
+          >
+            See the full checklist <ArrowRight />
+          </Button>
+        </div>
       </section>
+
+      {playbook && (
+        <PartyIntelligenceCard
+          partyId={party.id}
+          playbook={playbook}
+          profile={party.planningProfile}
+          onNavigate={onNavigate}
+        />
+      )}
+      {guestPlan && (
+        <GuestPlanImpactCard partyId={party.id} snapshot={guestPlan} onNavigate={onNavigate} />
+      )}
+      {quantities && (
+        <PartyQuantityCard partyId={party.id} plan={quantities} onNavigate={onNavigate} />
+      )}
 
       <LocalSourcingPlanner partyId={party.id} onNavigate={onNavigate} />
 
@@ -785,6 +824,63 @@ function planningMoveCopy(detail: PlanningDetail): { action: string; hint: strin
       return { action: "Set budget", hint: "Choose a comfortable ceiling—or decide later." };
     case "theme":
       return { action: "Explore looks", hint: "Find a direction without locking it in." };
+  }
+}
+
+function nextActionPresentation(phase?: NextActionPhase): { title: string; body: string } {
+  switch (phase) {
+    case "decision":
+      return {
+        title: "One decision unlocks the rest",
+        body: "Start with the highest-leverage answer. A rough choice is enough, and everything else can wait.",
+      };
+    case "overdue":
+      return {
+        title: "Start here—this needs attention",
+        body: "This work is past its suggested planning window. Confetti put the most foundational step first.",
+      };
+    case "active":
+      return {
+        title: "This is the right moment",
+        body: "These are the useful things to handle in the current planning window—one is enough for now.",
+      };
+    case "upcoming":
+      return {
+        title: "Here’s what comes next",
+        body: "Nothing is on fire. Confetti sorted the next useful moves around your party date.",
+      };
+    case "past":
+      return {
+        title: "Close the loop",
+        body: "The party has passed. Finish only what still matters, then capture what will make next time easier.",
+      };
+    case "unscheduled":
+      return {
+        title: "Keep the plan moving",
+        body: "The date can stay flexible. Pick one useful action now and Confetti will time the rest once it is set.",
+      };
+    default:
+      return {
+        title: "You’re beautifully caught up",
+        body: "There is nothing waiting on the checklist. Enjoy the breathing room.",
+      };
+  }
+}
+
+function nextActionTimingLabel(action: RankedPartyTask): string {
+  switch (action.phase) {
+    case "overdue":
+      return "Needs attention now";
+    case "active":
+      return action.timing ? `Good time to do this · ${action.timing.windowLabel}` : "Good time";
+    case "upcoming":
+      return action.timing ? `Coming up · ${action.timing.windowLabel}` : action.task.bucket;
+    case "past":
+      return "Party has passed";
+    case "unscheduled":
+      return action.task.bucket;
+    case "decision":
+      return "Unlocks the plan";
   }
 }
 

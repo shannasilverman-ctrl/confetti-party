@@ -12,7 +12,7 @@ test.describe("Party route identity", () => {
   test("workspace renders Overview identity, not Reveal/Day-of", async ({ page }) => {
     await page.goto(AVA, { waitUntil: "domcontentloaded" });
     // Workspace-only markers
-    await expect(page.getByRole("heading", { name: /Up next/i })).toBeVisible();
+    await expect(page.getByTestId("next-action-card")).toBeVisible();
     await expect(page.getByRole("heading", { name: /RSVP snapshot/i })).toBeVisible();
     // Must NOT leak reveal/day-of chrome
     const body = (await page.textContent("body")) ?? "";
