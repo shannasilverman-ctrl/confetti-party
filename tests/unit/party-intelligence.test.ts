@@ -287,6 +287,7 @@ describe("party intelligence", () => {
     const target = party.tasks.find((task) => task.source === "confetti-playbook")!;
     target.owner = "Jordan";
     target.handoffNotes = "Confirm every household and flag private follow-ups.";
+    target.ownerStatus = "waiting";
 
     const reconciled = reconcilePartyPlaybook(
       party,
@@ -297,6 +298,7 @@ describe("party intelligence", () => {
     expect(reconciled.tasks.find((task) => task.id === target.id)?.handoffNotes).toBe(
       "Confirm every household and flag private follow-ups.",
     );
+    expect(reconciled.tasks.find((task) => task.id === target.id)?.ownerStatus).toBe("waiting");
   });
 
   it("persists the planning profile and builds the smart workflow at party creation", () => {

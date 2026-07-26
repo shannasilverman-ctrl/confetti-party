@@ -64,7 +64,7 @@ test.describe("accountable, actionable party work", () => {
 
     await page.getByRole("button", { name: "Checklist", exact: true }).click();
     const task = page
-      .locator("li")
+      .locator('[data-testid^="checklist-task-"]')
       .filter({
         hasText: "Ask about allergies, sibling attendance, and whether an adult is staying",
       })
@@ -89,9 +89,34 @@ test.describe("accountable, actionable party work", () => {
     await expect
       .poll(() => page.evaluate(() => sessionStorage.getItem("task-handoff-copy")))
       .toContain("Done means: Get every household's answer by Tuesday");
-    await expect(task.getByRole("button", { name: "Task owner: Jordan" })).toBeVisible();
+    await expect(
+      task.getByRole("button", {
+        name: "Task owner: Jordan, status: Copied — still needs sending",
+      }),
+    ).toBeVisible();
 
-    const dayOfTask = page.locator("li").filter({ hasText: "Confirm RSVPs" }).first();
+    const followThrough = page.getByTestId("task-owner-follow-through");
+    await expect(followThrough).toContainText("Ownership follow-through");
+    await expect(followThrough).toContainText("Copied — still needs sending");
+    await task
+      .getByRole("button", {
+        name: "Task owner: Jordan, status: Copied — still needs sending",
+      })
+      .click();
+    await page.getByRole("dialog").getByLabel("Where does the handoff stand?").click();
+    await page.getByRole("option", { name: "Waiting for owner confirmation" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Save task" }).click();
+    await expect(
+      task.getByRole("button", {
+        name: "Task owner: Jordan, status: Waiting for owner confirmation",
+      }),
+    ).toBeVisible();
+    await expect(followThrough).toContainText("Waiting for owner confirmation");
+
+    const dayOfTask = page
+      .locator('[data-testid^="checklist-task-"]')
+      .filter({ hasText: "Confirm RSVPs" })
+      .first();
     await dayOfTask.getByRole("button", { name: "Assign: Confirm RSVPs" }).click();
     await page.getByRole("dialog").getByLabel("Who owns this? (optional)").fill("Casey");
     await page.getByRole("dialog").getByRole("button", { name: "Save task" }).click();
@@ -101,7 +126,9 @@ test.describe("accountable, actionable party work", () => {
       "Ask about allergies, sibling attendance, and whether an adult is staying",
     );
     await expect(
-      page.getByLabel("Up next tasks").getByRole("button", { name: "Task owner: Jordan" }),
+      page.getByLabel("Up next tasks").getByRole("button", {
+        name: "Task owner: Jordan, status: Waiting for owner confirmation",
+      }),
     ).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -109,26 +136,48 @@ test.describe("accountable, actionable party work", () => {
     await page.getByRole("button", { name: "Checklist", exact: true }).click();
     await expect(
       page
-        .locator("li")
+        .locator('[data-testid^="checklist-task-"]')
         .filter({
           hasText: "Ask about allergies, sibling attendance, and whether an adult is staying",
         })
         .first()
-        .getByRole("button", { name: "Task owner: Jordan" }),
+        .getByRole("button", {
+          name: "Task owner: Jordan, status: Waiting for owner confirmation",
+        }),
     ).toBeVisible();
     await page
-      .locator("li")
+      .locator('[data-testid^="checklist-task-"]')
       .filter({
         hasText: "Ask about allergies, sibling attendance, and whether an adult is staying",
       })
       .first()
-      .getByRole("button", { name: "Task owner: Jordan" })
+      .getByRole("button", {
+        name: "Task owner: Jordan, status: Waiting for owner confirmation",
+      })
       .click();
     await expect(
       page.getByRole("dialog").getByLabel("What does done look like? (optional)"),
     ).toHaveValue("Get every household's answer by Tuesday; flag food or access follow-ups.");
-    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("dialog").getByLabel("Where does the handoff stand?").click();
+    await page.getByRole("option", { name: "Owner confirmed" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Save task" }).click();
     await expect(page.locator('[role="dialog"][data-state="closed"]')).toHaveCount(0);
+    await expect(
+      page
+        .locator('[data-testid^="checklist-task-"]')
+        .filter({
+          hasText: "Ask about allergies, sibling attendance, and whether an adult is staying",
+        })
+        .first()
+        .getByRole("button", {
+          name: "Task owner: Jordan, status: Owner confirmed",
+        }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("task-owner-follow-through").locator("li").filter({
+        hasText: "Ask about allergies, sibling attendance, and whether an adult is staying",
+      }),
+    ).toHaveCount(0);
 
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
@@ -143,6 +192,10 @@ test.describe("accountable, actionable party work", () => {
     await page.goto(`${page.url()}/day-of`, { waitUntil: "domcontentloaded" });
     const dayOfModeTask = page.locator("li").filter({ hasText: "Confirm RSVPs" }).first();
     await expect(dayOfModeTask).toBeVisible();
-    await expect(dayOfModeTask.getByRole("button", { name: "Task owner: Casey" })).toBeVisible();
+    await expect(
+      dayOfModeTask.getByRole("button", {
+        name: "Task owner: Casey, status: Ready to hand off",
+      }),
+    ).toBeVisible();
   });
 });

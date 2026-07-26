@@ -60,6 +60,8 @@ export type TaskAction =
   | "budget"
   | "timeline";
 
+export type TaskOwnerStatus = "ready" | "copied" | "waiting" | "confirmed" | "blocked";
+
 export type Task = {
   id: string;
   title: string;
@@ -69,6 +71,8 @@ export type Task = {
   owner?: string;
   /** The outcome/context an owner needs to finish the task without returning the planning load. */
   handoffNotes?: string;
+  /** Host-recorded handoff state. Confetti never infers acceptance from an external message. */
+  ownerStatus?: TaskOwnerStatus;
   /** A short, customer-facing explanation of the planning consequence this task prevents. */
   reason?: string;
   /** The existing workspace destination where the host can make progress on this task. */

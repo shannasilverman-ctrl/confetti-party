@@ -70,6 +70,7 @@ import { HostMessageHelper } from "@/components/host-message-helper";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
+import { TaskOwnershipFollowThrough } from "@/components/task-ownership-follow-through";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
 import { generatedTaskMetadata } from "@/lib/task-guidance";
@@ -437,6 +438,8 @@ function ChecklistTab({
 
   return (
     <div className="space-y-8">
+      <TaskOwnershipFollowThrough partyId={partyId} tasks={party.tasks} />
+
       {/* Add task */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
         <div className="flex flex-col gap-2 sm:flex-row">
