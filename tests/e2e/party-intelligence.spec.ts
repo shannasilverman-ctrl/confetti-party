@@ -145,6 +145,92 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(firstLocalPath.getByRole("button", { name: /Build this version/ })).toBeVisible();
   });
 
+  test("a nearby search becomes a truthful shortlist, working choice, and follow-through task", async ({
+    page,
+  }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("wizard-occasion-birthday").click();
+    await dialog.getByLabel("Start with the idea").fill("Eliana turns four");
+    await dialog.getByLabel("Age they're turning").fill("4");
+    await dialog.getByLabel("Children", { exact: true }).fill("5");
+    await dialog.getByLabel("Adults staying").fill("6");
+    await dialog.getByText("Add anything you already know").click();
+    await dialog.getByLabel("Budget (optional)").fill("600");
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    const local = page.getByTestId("local-planning");
+    const venuePath = local.locator("article").filter({ hasText: "Active venue" }).first();
+    await venuePath.getByRole("button", { name: "Save an option to compare" }).click();
+
+    const optionDialog = page.getByRole("dialog");
+    await expect(optionDialog.getByText("Everything here comes from you")).toBeVisible();
+    await optionDialog.getByLabel("Business or provider").fill("Flying Squirrel");
+    await optionDialog
+      .getByLabel("Website or listing (optional)")
+      .fill("https://example.com/party-package");
+    await optionDialog.getByLabel("Cost (optional)").fill("325");
+    await optionDialog.getByLabel("What is that number?").click();
+    await page.getByRole("option", { name: "Vendor quote" }).click();
+    await optionDialog.getByLabel("Where it stands").click();
+    await page.getByRole("option", { name: "Quote received" }).click();
+    await optionDialog
+      .getByLabel("What matters in the decision? (optional)")
+      .fill("Cleanup included. Confirm sibling fee and outside cake policy.");
+    await optionDialog.getByRole("button", { name: "Add to shortlist" }).click();
+
+    const shortlist = local.getByTestId("local-sourcing-shortlist");
+    await expect(shortlist.getByRole("heading", { name: "Flying Squirrel" })).toBeVisible();
+    await expect(shortlist.getByText("$325 · 54% of the current budget")).toBeVisible();
+    await expect(shortlist.getByText("host-recorded quote")).toBeVisible();
+    await expect(shortlist.getByText("Quote received")).toBeVisible();
+    await expect(shortlist.getByText("Host-entered · verify directly")).toBeVisible();
+
+    await shortlist.getByRole("button", { name: "Make working choice" }).click();
+    await expect(shortlist.getByText("Working choice")).toBeVisible();
+    await expect(shortlist.getByText("This does not contact or book the provider.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Checklist", exact: true }).click();
+    const task = page
+      .getByRole("listitem")
+      .filter({ hasText: "Confirm Flying Squirrel: availability, inclusions, and final price" });
+    await expect(task).toBeVisible();
+    await expect(task.getByText("A favorite is not a booking.")).toBeVisible();
+
+    await page.reload();
+    await page.getByRole("button", { name: "Overview", exact: true }).click();
+    await expect(
+      page
+        .getByTestId("local-sourcing-shortlist")
+        .getByRole("heading", { name: "Flying Squirrel" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Remove Flying Squirrel" }).click();
+    const removeDialog = page.getByRole("alertdialog");
+    await expect(
+      removeDialog.getByText("Remove Flying Squirrel from the shortlist?"),
+    ).toBeVisible();
+    await expect(removeDialog.getByText("It does not contact the provider.")).toBeVisible();
+    await removeDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(
+      page
+        .getByTestId("local-sourcing-shortlist")
+        .getByRole("heading", { name: "Flying Squirrel" }),
+    ).toBeVisible();
+
+    const accessibility = await new AxeBuilder({ page })
+      .include('[data-testid="local-planning"]')
+      .withTags(["wcag2a", "wcag2aa"])
+      .analyze();
+    expect(
+      accessibility.violations.filter((violation) =>
+        ["serious", "critical"].includes(violation.impact ?? ""),
+      ),
+    ).toEqual([]);
+  });
+
   test("school-age and adult birthdays change the workflow instead of reusing preschool copy", async ({
     page,
   }) => {

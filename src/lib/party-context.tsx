@@ -73,9 +73,10 @@ export type Task = {
   action?: TaskAction;
   /** Whether task guidance is hand-authored for a playbook or inferred from a generic title. */
   guidanceSource?: "curated" | "inferred";
-  source?: "confetti-playbook" | "guest-impact";
+  source?: "confetti-playbook" | "guest-impact" | "local-sourcing";
   playbookId?: string;
   guestImpactId?: "allergens" | "dietary" | "access" | "supervision";
+  sourcingOptionId?: string;
 };
 
 export const TASK_ACTION_LABELS: Record<TaskAction, string> = {
