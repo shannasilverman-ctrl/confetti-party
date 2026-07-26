@@ -1070,6 +1070,7 @@ export function reconcilePartyPlaybook(
           done: previous.done,
           owner: previous.owner,
           handoffNotes: previous.handoffNotes,
+          ownerStatus: previous.ownerStatus,
         }
       : task;
   });
