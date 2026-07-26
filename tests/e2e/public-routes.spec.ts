@@ -280,11 +280,11 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
 
   const nextMoves = page.getByRole("region", { name: "Your next moves" });
   await expect(nextMoves).toBeVisible();
-  await expect(nextMoves.getByText(/One answer is enough/i)).toBeVisible();
+  await expect(nextMoves.getByText(/One decision unlocks the rest/i)).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Choose date" })).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Estimate guests" })).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Set budget" })).toBeVisible();
-  await expect(nextMoves.getByRole("button", { name: "Explore looks" })).toBeVisible();
+  await expect(nextMoves.getByText("Start here", { exact: true })).toBeVisible();
   await expect(nextMoves.getByText("Send invites", { exact: true })).toHaveCount(0);
 
   await nextMoves.getByRole("button", { name: "Choose date" }).click();

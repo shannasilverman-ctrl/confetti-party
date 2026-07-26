@@ -129,11 +129,28 @@ test.describe("accountable, actionable party work", () => {
     await page.getByRole("dialog").getByRole("button", { name: "Save task" }).click();
 
     await page.getByRole("button", { name: "Overview", exact: true }).click();
-    await expect(page.getByLabel("Up next tasks")).toContainText(
+    const nextActions = page.getByLabel("Up next tasks");
+    await expect(nextActions).toContainText(
       "Ask about allergies, sibling attendance, and whether an adult is staying",
     );
+    await expect(nextActions.locator("[data-next-action-phase]").first()).toHaveAttribute(
+      "data-next-action-phase",
+      "overdue",
+    );
+    await expect(nextActions.getByText("Start here", { exact: true })).toBeVisible();
+    const intelligence = page.getByTestId("party-intelligence-card");
+    await expect(intelligence).toBeVisible();
+    expect(
+      await nextActions.evaluate((element, intelligenceSelector) => {
+        const intelligenceCard = document.querySelector(intelligenceSelector);
+        return Boolean(
+          intelligenceCard &&
+          element.compareDocumentPosition(intelligenceCard) & Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      }, '[data-testid="party-intelligence-card"]'),
+    ).toBe(true);
     await expect(
-      page.getByLabel("Up next tasks").getByRole("button", {
+      nextActions.getByRole("button", {
         name: "Task owner: Jordan, status: Waiting for owner confirmation",
       }),
     ).toBeVisible();
@@ -196,7 +213,11 @@ test.describe("accountable, actionable party work", () => {
       ),
     ).toEqual([]);
 
-    await page.goto(`${page.url()}/day-of`, { waitUntil: "domcontentloaded" });
+    const dayOfUrl = new URL(page.url());
+    dayOfUrl.pathname = `${dayOfUrl.pathname.replace(/\/$/, "")}/day-of`;
+    dayOfUrl.search = "";
+    dayOfUrl.hash = "";
+    await page.goto(dayOfUrl.toString(), { waitUntil: "domcontentloaded" });
     const dayOfModeTask = page.locator("li").filter({ hasText: "Confirm RSVPs" }).first();
     await expect(dayOfModeTask).toBeVisible();
     await expect(
