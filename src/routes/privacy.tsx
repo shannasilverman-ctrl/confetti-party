@@ -108,8 +108,10 @@ function PrivacyPage() {
           <h2 className="mt-8 font-display text-xl font-semibold">Guest data</h2>
           <p className="mt-3 text-sm">
             When a guest submits an RSVP through your invitation link, their name and any
-            dietary/allergen tags they enter are stored on your party. Public views of the guest
-            page strip attendee identities from the bring board and only show aggregate counts.
+            dietary/allergen tags, arrival preference, or optional comfort/access note they enter
+            are stored on your party. Confetti asks guests not to include medical records or
+            emergency contact details. Public views of the guest page strip attendee identities from
+            the bring board and only show aggregate counts.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Questions</h2>

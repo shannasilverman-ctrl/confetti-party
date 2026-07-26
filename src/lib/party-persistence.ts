@@ -197,7 +197,13 @@ export function diffColumns(
 
 /** Guest-domain fields that indicate a real guest write on an item. */
 function guestDomainDiffersGuest(a: Guest, b: Guest): boolean {
-  return a.rsvp !== b.rsvp;
+  return (
+    a.rsvp !== b.rsvp ||
+    a.household !== b.household ||
+    JSON.stringify(a.dietary ?? []) !== JSON.stringify(b.dietary ?? []) ||
+    JSON.stringify(a.allergens ?? []) !== JSON.stringify(b.allergens ?? []) ||
+    JSON.stringify(a.responseDetails ?? {}) !== JSON.stringify(b.responseDetails ?? {})
+  );
 }
 function guestDomainDiffersBring(a: BringItem, b: BringItem): boolean {
   return (
@@ -240,8 +246,20 @@ export function mergeGuests(
     }
     if (b && !s) continue;
     if (l && s) {
-      const rsvp = b && s.rsvp !== b.rsvp ? s.rsvp : l.rsvp;
-      items.push({ ...l, rsvp });
+      const serverGuestWrite = Boolean(b && guestDomainDiffersGuest(s, b));
+      items.push(
+        serverGuestWrite
+          ? {
+              ...l,
+              rsvp: s.rsvp,
+              household: s.household,
+              dietary: s.dietary,
+              allergens: s.allergens,
+              responseDetails: s.responseDetails,
+              source: s.source ?? l.source,
+            }
+          : l,
+      );
       continue;
     }
     items.push((l ?? s) as Guest);

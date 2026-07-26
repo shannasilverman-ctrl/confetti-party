@@ -318,6 +318,7 @@ export type Database = {
       }
       delete_own_account: { Args: never; Returns: Json }
       get_rsvp_party: { Args: { token: string }; Returns: Json }
+      get_rsvp_party_v2: { Args: { token: string }; Returns: Json }
       list_bring_board: { Args: { token: string }; Returns: Json }
       release_bring_item: {
         Args: {
@@ -340,6 +341,20 @@ export type Database = {
           guest_name: string
           household_label?: string
           kids: number
+          rsvp: string
+          token: string
+        }
+        Returns: Json
+      }
+      submit_rsvp_v2: {
+        Args: {
+          adults: number
+          allergens?: Json
+          dietary?: Json
+          guest_name: string
+          household_label?: string
+          kids: number
+          response_details?: Json
           rsvp: string
           token: string
         }
