@@ -470,3 +470,32 @@ for (const path of AXE_ROUTES) {
     expect(blocking, detail).toEqual([]);
   });
 }
+
+test("the brand lockup renders the confetti-piece mark, not a letterform", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  const lockup = page.getByRole("link", { name: /confetti/i }).first();
+  await expect(lockup).toBeVisible();
+
+  const mark = await lockup.locator("svg").first().evaluate((svg) => ({
+    // The mark is polygons now; the retired one was a stroked <path> arc plus a
+    // four-point star. A path reappearing here means the old mark came back.
+    polygons: svg.querySelectorAll("polygon").length,
+    paths: svg.querySelectorAll("path").length,
+    fill: getComputedStyle(svg.querySelector("polygon")!).fill,
+  }));
+  expect(mark.polygons).toBeGreaterThan(0);
+  expect(mark.paths).toBe(0);
+  // coral hsl(347 56% 58%)
+  expect(mark.fill).toBe("rgb(208, 88, 114)");
+
+  // Wordmark is set lowercase, and the accessible name still reads "Confetti".
+  const rendered = await lockup.evaluate((el) => {
+    const span = el.querySelector("span.lowercase");
+    return {
+      transform: span ? getComputedStyle(span).textTransform : null,
+      accessibleName: el.getAttribute("aria-label"),
+    };
+  });
+  expect(rendered.transform).toBe("lowercase");
+  expect(rendered.accessibleName).toMatch(/confetti/i);
+});

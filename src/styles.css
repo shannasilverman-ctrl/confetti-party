@@ -96,6 +96,10 @@
   /* Brand accents (used by Logo and gradients) */
   --brand-plum: hsl(270 49% 35%);
   --brand-coral: hsl(347 56% 58%);
+  /* The mark's turning-away face. Measured 6.61:1 on white and 2.54:1 on
+     ink — fine on the light surfaces this app uses, but it must not be
+     placed on a dark field without swapping to amber. */
+  --brand-coral-deep: hsl(10 78% 38%);
   --brand-gold: hsl(39 55% 50%);
   --brand-mint: hsl(161 46% 45%);
 

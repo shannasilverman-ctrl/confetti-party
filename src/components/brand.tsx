@@ -49,8 +49,19 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
       aria-label="Confetti — home"
     >
       <BrandMark className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
-      <span className="shrink-0 whitespace-nowrap font-display text-2xl font-semibold tracking-[-0.045em] text-foreground">
-        <Wordmark text="Confetti" animated={animated} />
+      <span className="relative shrink-0 whitespace-nowrap font-sans text-2xl font-semibold lowercase tracking-[-0.03em] text-foreground">
+        <Wordmark text="confett" animated={animated} />
+        <span className="relative inline-block" aria-hidden="true">
+          {"\u0131"}
+          {/* The tittle IS the mark — solid master, since at this size the fold
+              cannot render. Never ships as live text: U+0131 would reach a
+              screen reader as a dotless i. */}
+          <LogoMark
+            solid
+            decorative
+            className="absolute left-1/2 top-[-0.54em] h-[0.4em] w-[0.4em] -translate-x-1/2"
+          />
+        </span>
       </span>
     </Link>
   );
