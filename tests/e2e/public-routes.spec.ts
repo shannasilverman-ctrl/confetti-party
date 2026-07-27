@@ -476,13 +476,16 @@ test("the brand lockup renders the confetti-piece mark, not a letterform", async
   const lockup = page.getByRole("link", { name: /confetti/i }).first();
   await expect(lockup).toBeVisible();
 
-  const mark = await lockup.locator("svg").first().evaluate((svg) => ({
-    // The mark is polygons now; the retired one was a stroked <path> arc plus a
-    // four-point star. A path reappearing here means the old mark came back.
-    polygons: svg.querySelectorAll("polygon").length,
-    paths: svg.querySelectorAll("path").length,
-    fill: getComputedStyle(svg.querySelector("polygon")!).fill,
-  }));
+  const mark = await lockup
+    .locator("svg")
+    .first()
+    .evaluate((svg) => ({
+      // The mark is polygons now; the retired one was a stroked <path> arc plus a
+      // four-point star. A path reappearing here means the old mark came back.
+      polygons: svg.querySelectorAll("polygon").length,
+      paths: svg.querySelectorAll("path").length,
+      fill: getComputedStyle(svg.querySelector("polygon")!).fill,
+    }));
   expect(mark.polygons).toBeGreaterThan(0);
   expect(mark.paths).toBe(0);
   // coral hsl(347 56% 58%)
