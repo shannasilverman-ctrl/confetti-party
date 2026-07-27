@@ -2,7 +2,10 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 const ROUTES = [
-  "/",
+  // "/" is deliberately absent: it is now a redirect shell, not a rendered
+  // page, so it has no heading or main landmark to assert. Its contract is
+  // covered by "the app root points signed-out visitors at the marketing site".
+  "/tour",
   "/talk",
   "/sample-invite",
   "/app",
@@ -42,14 +45,14 @@ for (const path of ROUTES) {
 }
 
 test("home exposes the primary CTA", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tour");
   // Landing CTAs link to /talk (Talk it out) — assert at least one exists.
   const cta = page.locator('a[href="/talk"], a[href^="/talk?"]').first();
   await expect(cta).toBeVisible();
 });
 
 test("home opens with a controllable multi-event party scene", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/tour", { waitUntil: "domcontentloaded" });
   const hero = page.getByRole("region", { name: "Gatherings planned with Confetti" });
   await expect(hero).toBeVisible();
   await expect(hero.getByRole("heading", { name: /Bring the idea/i })).toBeVisible();
@@ -62,7 +65,7 @@ test("home opens with a controllable multi-event party scene", async ({ page }) 
 });
 
 test("the original Confetti typography remains a product-wide contract", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/tour", { waitUntil: "networkidle" });
   const landingType = await page.evaluate(() => ({
     body: getComputedStyle(document.body).fontFamily,
     headline: getComputedStyle(document.querySelector("h1")!).fontFamily,
@@ -488,7 +491,8 @@ test("mobile guest and timeline controls fit and remain touch-visible", async ({
 // Axe scans across the stable public + demo workspace surface. Fails on any
 // serious/critical violation including color-contrast — no rule exemptions.
 const AXE_ROUTES = [
-  "/",
+  // "/" redirects rather than rendering; the surface it used to serve is "/tour".
+  "/tour",
   "/talk",
   "/sample-invite",
   "/app",
@@ -520,3 +524,14 @@ for (const path of AXE_ROUTES) {
     expect(blocking, detail).toEqual([]);
   });
 }
+
+test("the app root points signed-out visitors at the marketing site", async ({ page }) => {
+  // Asserted on the server response rather than in the page: the redirect is a
+  // client effect, so a rendered assertion races it — and following it would
+  // take CI to the live marketing site.
+  const res = await page.request.get("/");
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toContain("https://confettiplans.com");
+  expect(html).not.toContain("<h1");
+});
