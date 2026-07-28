@@ -96,16 +96,18 @@
   /* Brand accents (used by Logo and gradients) */
   --brand-plum: hsl(270 49% 35%);
   --brand-coral: hsl(347 56% 58%);
+  /* The mark's turning-away face. Measured 6.61:1 on white and 2.54:1 on
+     ink — fine on the light surfaces this app uses, but it must not be
+     placed on a dark field without swapping to amber. */
+  --brand-coral-deep: hsl(10 78% 38%);
   --brand-gold: hsl(39 55% 50%);
   --brand-mint: hsl(161 46% 45%);
 
-  /* Festive gradient */
-  --gradient-festive: linear-gradient(
-    135deg,
-    hsl(10 82% 62%) 0%,
-    hsl(340 75% 58%) 45%,
-    hsl(268 55% 42%) 100%
-  );
+  /* Festive fill. This was a coral-to-purple gradient — the loudest leftover
+     of the template era. The landing page's standard is a flat brand pill, so
+     the token keeps its gradient TYPE (consumers use background-image) but
+     resolves to a single confident grape. One token, every button follows. */
+  --gradient-festive: linear-gradient(hsl(268 49% 35%), hsl(268 49% 35%));
   --gradient-sunrise: linear-gradient(135deg, hsl(38 92% 62%) 0%, hsl(10 82% 62%) 100%);
   --gradient-plum-veil: linear-gradient(
     180deg,

@@ -1,19 +1,41 @@
 import type { SVGProps } from "react";
 
 /**
- * Confetti's open-C spark.
+ * Confetti's mark: one piece of confetti, bent, caught mid-air.
  *
- * The opening is intentional: a party plan does not need to be complete before
- * someone can begin. The small four-point spark sits at the moment an idea
- * becomes a gathering. Keeping the mark single-color makes it legible as a
- * favicon, on photography, and inside product controls.
+ * A scatter is a picture of confetti and reads as clipart; a single tumbling
+ * piece is an object. Paper folds as it turns, so the mark is two faces — one
+ * to the light, one turning away — sharing a hairline fold and rotated off the
+ * vertical so it reads as falling rather than standing.
+ *
+ * Two masters, one rule. Above 32px the fold is drawn; below it the silhouette
+ * (the exact convex hull of both faces) carries the mark alone, because a
+ * diagonal 1px gap only aliases into grey mush. `solid` forces the small
+ * master for favicons, tittles and any control-sized use.
+ *
+ * Interim artwork: it still owes a designer's optical pass and trademark
+ * clearance. See ~/test/confetti-logo-brief.md.
  */
+
+const TRANSFORM = "translate(.27 -.09) rotate(32 32 32)";
+const FACE_LIT = "16,19.5 33,17 31,47 14,49.5";
+const FACE_TURNED = "40.49,17.5 49.64,14.94 47.64,44.94 38.49,47.5";
+const SILHOUETTE = "16,19.5 49.64,14.94 47.64,44.94 14,49.5";
+
+/** Fill + same-colour stroke with round joins softens the corners. */
+function face(points: string, fill: string) {
+  return (
+    <polygon points={points} fill={fill} stroke={fill} strokeWidth="2.4" strokeLinejoin="round" />
+  );
+}
+
 export function LogoMark({
   className,
   title = "Confetti",
   decorative = false,
+  solid = false,
   ...props
-}: SVGProps<SVGSVGElement> & { title?: string; decorative?: boolean }) {
+}: SVGProps<SVGSVGElement> & { title?: string; decorative?: boolean; solid?: boolean }) {
   const a11y = decorative
     ? { "aria-hidden": true as const, focusable: false as const }
     : { role: "img" as const, "aria-label": title };
@@ -26,24 +48,26 @@ export function LogoMark({
       {...props}
     >
       {!decorative && <title>{title}</title>}
-      <path
-        d="M47.5 17.2C43 12.7 37.8 10.5 31.5 10.5C19.4 10.5 10.2 19.6 10.2 31.9C10.2 44.2 19.4 53.4 31.5 53.4C38.4 53.4 44.2 50.8 48.6 45.8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="9.5"
-        strokeLinecap="round"
-      />
-      <path
-        d="M48 4.5L50.9 13L59.5 16L50.9 18.9L48 27.5L45.1 18.9L36.5 16L45.1 13L48 4.5Z"
-        fill="var(--brand-coral)"
-      />
+      <g transform={TRANSFORM}>
+        {solid ? (
+          face(SILHOUETTE, "var(--brand-coral)")
+        ) : (
+          <>
+            {face(FACE_LIT, "var(--brand-coral)")}
+            {face(FACE_TURNED, "var(--brand-coral-deep, hsl(10 78% 38%))")}
+          </>
+        )}
+      </g>
     </svg>
   );
 }
 
 /**
- * Wordmark + mark. Fraunces gives the lockup the same warm editorial voice as
- * the product's most memorable moments; Outfit remains the practical UI face.
+ * Wordmark + mark. Set lowercase in Outfit SemiBold: a low-contrast geometric
+ * sans keeps a clean straight stem on the i, which the mark then replaces as
+ * its tittle — one object doing both jobs. Fraunces is deliberately not used
+ * here; its thins collapse at small sizes and its serifs collide with a
+ * replaced tittle.
  */
 export function LogoLockup({
   size = "nav",
@@ -60,7 +84,7 @@ export function LogoLockup({
     <span className={`inline-flex items-center gap-2 ${className}`}>
       <LogoMark className={markSize} decorative />
       <span
-        className={`font-display font-semibold tracking-[-0.045em] text-foreground ${type} ${wordmarkClassName}`}
+        className={`font-sans font-semibold lowercase tracking-[-0.03em] text-foreground ${type} ${wordmarkClassName}`}
       >
         Confetti
       </span>

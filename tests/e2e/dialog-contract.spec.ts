@@ -230,3 +230,62 @@ test.describe("Frictionless starting plan", () => {
     await expect(page.locator("main")).toContainText("Set a comfortable budget");
   });
 });
+
+// A centred dialog taller than a phone used to lose content off BOTH ends with
+// no way to reach it — the close button included, leaving save as the only exit.
+for (const width of [320, 390, 430]) {
+  test(`dialogs stay on-screen and every control is reachable @ ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== "mobile", "phone geometry contract");
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/party/ava-liam-wedding", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("edit-details-trigger").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    const result = await page.evaluate(async () => {
+      const d = document.querySelector('[role="dialog"]') as HTMLElement;
+      const scroller =
+        ([...d.querySelectorAll("*")] as HTMLElement[]).find(
+          (el) => el.scrollHeight > el.clientHeight + 4,
+        ) ?? d;
+      const closeReachable = () => {
+        const x = [...d.querySelectorAll("button")].find((el) =>
+          /close/i.test(el.textContent || ""),
+        );
+        if (!x) return false;
+        const r = x.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= window.innerHeight + 1 && r.width > 0;
+      };
+      const closeAtTop = closeReachable();
+      scroller.scrollTop = scroller.scrollHeight;
+      await new Promise((r) => setTimeout(r, 250));
+      const actions = [...d.querySelectorAll("button")]
+        .filter((el) => /save|cancel/i.test(el.textContent || ""))
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          return r.top >= 0 && r.bottom <= window.innerHeight + 1;
+        });
+      const dr = d.getBoundingClientRect();
+      return {
+        fits: dr.top >= 0 && dr.bottom <= window.innerHeight,
+        hOverflow: Math.max(0, scroller.scrollWidth - scroller.clientWidth),
+        docOverflow: Math.max(
+          0,
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        ),
+        closeAtTop,
+        closeAtBottom: closeReachable(),
+        actionsReachable: actions.length > 0 && actions.every(Boolean),
+      };
+    });
+
+    expect(result.fits, "dialog must fit the viewport").toBe(true);
+    expect(result.hOverflow, "dialog must never scroll horizontally").toBe(0);
+    expect(result.docOverflow, "page must never scroll horizontally").toBe(0);
+    expect(result.closeAtTop, "close reachable at scroll top").toBe(true);
+    expect(result.closeAtBottom, "close stays pinned when scrolled").toBe(true);
+    expect(result.actionsReachable, "save/cancel reachable by scrolling").toBe(true);
+  });
+}
