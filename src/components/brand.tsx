@@ -26,7 +26,7 @@ export function BrandMark({ className = "h-8 w-8" }: { className?: string }) {
  */
 function Wordmark({ text, animated = false }: { text: string; animated?: boolean }) {
   return (
-    <span aria-hidden="true">
+    <span aria-hidden="true" className="whitespace-nowrap">
       {text.split("").map((ch, i) => (
         <span
           key={i}
@@ -44,12 +44,12 @@ export function BrandLockup({ animated = false }: { animated?: boolean }) {
   return (
     <Link
       to="/"
-      className="flex min-h-11 items-center gap-2"
+      className="flex min-h-11 min-w-0 flex-nowrap items-center gap-2"
       onClick={(e) => celebrateAtEvent("micro", e)}
       aria-label="Confetti — home"
     >
-      <BrandMark className="h-9 w-9" />
-      <span className="font-display text-2xl font-semibold tracking-[-0.045em] text-foreground">
+      <BrandMark className="h-8 w-8 shrink-0 sm:h-9 sm:w-9" />
+      <span className="shrink-0 whitespace-nowrap font-display text-2xl font-semibold tracking-[-0.045em] text-foreground">
         <Wordmark text="Confetti" animated={animated} />
       </span>
     </Link>
