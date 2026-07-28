@@ -952,6 +952,13 @@ function TimelineTab({ partyId }: { partyId: string }) {
     time: string;
     activity: string;
   } | null>(null);
+  const editingRowRef = useRef<HTMLLIElement | null>(null);
+  const editingId = editing?.id;
+
+  useEffect(() => {
+    if (!editingId) return;
+    editingRowRef.current?.scrollIntoView({ block: "center" });
+  }, [editingId]);
 
   const add = () => {
     if (!time.trim() || !activity.trim()) return;
@@ -1024,7 +1031,11 @@ function TimelineTab({ partyId }: { partyId: string }) {
       ) : (
         <ol className="relative space-y-3 border-l-2 border-primary/25 pl-6">
           {party.timeline.map((item, idx) => (
-            <li key={item.id} className="group relative">
+            <li
+              key={item.id}
+              ref={editingId === item.id ? editingRowRef : null}
+              className="group relative"
+            >
               <span className="absolute -left-[31px] top-2 h-4 w-4 rounded-full border-2 border-primary bg-background" />
               <div
                 data-testid={`timeline-item-${item.id}`}
@@ -1087,11 +1098,9 @@ function TimelineTab({ partyId }: { partyId: string }) {
                   <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
-                      onClick={(event) => {
-                        const row = event.currentTarget.closest("li");
-                        setEditing({ id: item.id, time: item.time, activity: item.activity });
-                        requestAnimationFrame(() => row?.scrollIntoView({ block: "center" }));
-                      }}
+                      onClick={() =>
+                        setEditing({ id: item.id, time: item.time, activity: item.activity })
+                      }
                       className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary sm:min-h-8 sm:min-w-8"
                       aria-label={`Edit ${item.activity}`}
                     >
