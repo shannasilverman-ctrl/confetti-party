@@ -144,13 +144,15 @@ export function createMintRealtimeSessionHandler(
     }
 
     // ---- 4. Atomic distributed reservation -------------------------------
-    const { data: reservationRaw, error: reservationError } = await supabase.rpc(
-      "reserve_talk_session",
-      {
-        _draft_id: bodyIn.draftId ?? undefined,
-        _model: REALTIME_MODEL,
-      },
-    );
+    const { data: reservationRaw, error: reservationError } = await (
+      supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { code?: string | null } | null }>
+    )("reserve_talk_session", {
+      _draft_id: bodyIn.draftId ?? undefined,
+      _model: REALTIME_MODEL,
+    });
     if (reservationError) {
       console.error("[realtime] session_reserve_failed", {
         cid,
