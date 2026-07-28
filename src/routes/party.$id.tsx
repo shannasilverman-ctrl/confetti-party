@@ -1087,9 +1087,11 @@ function TimelineTab({ partyId }: { partyId: string }) {
                   <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                     <button
                       type="button"
-                      onClick={() =>
-                        setEditing({ id: item.id, time: item.time, activity: item.activity })
-                      }
+                      onClick={(event) => {
+                        const row = event.currentTarget.closest("li");
+                        setEditing({ id: item.id, time: item.time, activity: item.activity });
+                        requestAnimationFrame(() => row?.scrollIntoView({ block: "center" }));
+                      }}
                       className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary sm:min-h-8 sm:min-w-8"
                       aria-label={`Edit ${item.activity}`}
                     >
