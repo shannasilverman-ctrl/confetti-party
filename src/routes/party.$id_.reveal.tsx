@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { RetrospectiveDialog } from "@/components/retrospective-dialog";
 import { formatDateOnly, nextAnnualDateOnly } from "@/lib/date-only";
+import type { PartyTabKey } from "@/lib/party-tabs";
 
 export const Route = createFileRoute("/party/$id_/reveal")({
   component: RevealPage,
@@ -105,17 +106,27 @@ function RevealPage() {
   const canPlanNext = !dateTbd && (days! < 0 || !!party.retrospective);
   const isSeededSample = isDemo && isSeededDemoPartyId(party.id);
 
-  const risks: string[] = [];
+  const risks: { message: string; tab: PartyTabKey; action: string }[] = [];
   if (days != null && days >= 0 && days <= 7 && openBring > 0) {
-    risks.push(
-      `${openBring} bring-board item${openBring === 1 ? "" : "s"} still unclaimed with under a week to go.`,
-    );
+    risks.push({
+      message: `${openBring} bring-board item${openBring === 1 ? "" : "s"} still unclaimed with under a week to go.`,
+      tab: "bring",
+      action: "Coordinate",
+    });
   }
   if (!budgetTbd && spent > party.budget) {
-    risks.push(`Projected spend is over budget by $${Math.round(spent - party.budget)}.`);
+    risks.push({
+      message: `Projected spend is over budget by $${Math.round(spent - party.budget)}.`,
+      tab: "budget",
+      action: "Review budget",
+    });
   }
   if (gc.yes === 0 && days != null && days > 0) {
-    risks.push("No yes RSVPs yet — consider a reminder nudge.");
+    risks.push({
+      message: "No yes RSVPs yet — consider a reminder nudge.",
+      tab: "guests",
+      action: "Check guests",
+    });
   }
 
   const sourceParty = party;
@@ -231,7 +242,7 @@ function RevealPage() {
                 <ListChecks className="h-4 w-4 text-primary" /> Your next three actions
               </div>
               <Button asChild variant="link" size="sm">
-                <Link to="/party/$id" params={{ id }}>
+                <Link to="/party/$id" params={{ id }} search={{ tab: "checklist" }}>
                   Open checklist
                 </Link>
               </Button>
@@ -245,7 +256,14 @@ function RevealPage() {
                 nextThree.map((t) => (
                   <li key={t.id} className="rounded-xl border border-border px-3 py-2 text-sm">
                     <div className="font-medium text-foreground">{t.title}</div>
-                    <div className="text-xs text-muted-foreground">{t.bucket}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">
+                      {t.bucket} · {t.owner ? `Owned by ${t.owner}` : "Needs an owner"}
+                    </div>
+                    {t.reason && (
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                        {t.reason}
+                      </p>
+                    )}
                   </li>
                 ))
               )}
@@ -253,12 +271,19 @@ function RevealPage() {
           </Card>
 
           <Card className="p-5">
-            <div className="flex items-center justify-between text-sm font-semibold text-foreground">
+            <div className="flex items-center justify-between gap-2 text-sm font-semibold text-foreground">
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-primary" /> Budget
               </div>
-              <div className="tabular-nums">
-                {budgetTbd ? "To decide" : `$${Math.round(spent)} / $${party.budget}`}
+              <div className="flex items-center gap-2">
+                <div className="tabular-nums">
+                  {budgetTbd ? "To decide" : `$${Math.round(spent)} / $${party.budget}`}
+                </div>
+                <Button asChild variant="link" size="sm">
+                  <Link to="/party/$id" params={{ id }} search={{ tab: "budget" }}>
+                    Open
+                  </Link>
+                </Button>
               </div>
             </div>
             {budgetTbd ? (
@@ -276,8 +301,15 @@ function RevealPage() {
           </Card>
 
           <Card className="p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Package className="h-4 w-4 text-primary" /> Bring board
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <Package className="h-4 w-4 text-primary" /> Bring board
+              </div>
+              <Button asChild variant="link" size="sm">
+                <Link to="/party/$id" params={{ id }} search={{ tab: "bring" }}>
+                  {openBring > 0 ? "Coordinate" : "Set up"}
+                </Link>
+              </Button>
             </div>
             <div className="mt-2 text-sm text-muted-foreground">
               {(party.bringBoard ?? []).length === 0 ? (
@@ -299,9 +331,22 @@ function RevealPage() {
               <div className="mt-2 text-sm text-muted-foreground">Nothing flagged. Keep going.</div>
             ) : (
               <ul className="mt-2 space-y-1.5 text-sm text-foreground">
-                {risks.map((r, i) => (
-                  <li key={i} className="rounded-lg bg-muted/40 px-3 py-2">
-                    {r}
+                {risks.map((risk) => (
+                  <li
+                    key={`${risk.tab}-${risk.message}`}
+                    className="flex items-start justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2"
+                  >
+                    <span>{risk.message}</span>
+                    <Button
+                      asChild
+                      variant="link"
+                      size="sm"
+                      className="h-auto min-h-8 shrink-0 p-0"
+                    >
+                      <Link to="/party/$id" params={{ id }} search={{ tab: risk.tab }}>
+                        {risk.action}
+                      </Link>
+                    </Button>
                   </li>
                 ))}
               </ul>

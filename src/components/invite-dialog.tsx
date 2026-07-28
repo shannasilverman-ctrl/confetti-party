@@ -33,6 +33,7 @@ import { themeById } from "@/lib/themes";
 import { formatDateOnly } from "@/lib/date-only";
 import { buildPartyBoothUrl } from "@/lib/photo-booth";
 import { openPrintableSign } from "@/lib/printable-sign";
+import { partyHeroImage } from "@/lib/party-visual";
 
 function formatDate(dateISO: string) {
   return formatDateOnly(dateISO, {
@@ -78,6 +79,7 @@ export function InviteDialog({
   if (!party) return null;
 
   const theme = themeById(party.themeId);
+  const heroImage = partyHeroImage(party);
   const isReal = !isDemo && !!party.rsvpToken;
   const dateTbd = planningDetailIsOpen(party, "date");
   const url = isReal ? `${clientOrigin}/rsvp/${party.rsvpToken}` : "Your private RSVP link";
@@ -210,15 +212,13 @@ export function InviteDialog({
     }
   };
 
-  const heroStyle: React.CSSProperties = theme
-    ? {
-        backgroundImage: `linear-gradient(135deg, hsl(${theme.palette[0]} / 0.55), hsl(${theme.palette[1]} / 0.65)), url(${theme.heroImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : {
-        backgroundImage: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
-      };
+  const heroStyle: React.CSSProperties = {
+    backgroundImage: theme
+      ? `linear-gradient(135deg, hsl(${theme.palette[0]} / 0.55), hsl(${theme.palette[1]} / 0.65)), url(${heroImage})`
+      : `linear-gradient(135deg, hsl(270 49% 18% / 0.76), hsl(330 58% 42% / 0.45)), url(${heroImage})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

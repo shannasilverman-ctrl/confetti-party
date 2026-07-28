@@ -2,7 +2,10 @@ import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 const ROUTES = [
-  "/",
+  // "/" is deliberately absent: it is now a redirect shell, not a rendered
+  // page, so it has no heading or main landmark to assert. Its contract is
+  // covered by "the app root points signed-out visitors at the marketing site".
+  "/tour",
   "/talk",
   "/sample-invite",
   "/app",
@@ -42,14 +45,14 @@ for (const path of ROUTES) {
 }
 
 test("home exposes the primary CTA", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tour");
   // Landing CTAs link to /talk (Talk it out) — assert at least one exists.
   const cta = page.locator('a[href="/talk"], a[href^="/talk?"]').first();
   await expect(cta).toBeVisible();
 });
 
 test("home opens with a controllable multi-event party scene", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/tour", { waitUntil: "domcontentloaded" });
   const hero = page.getByRole("region", { name: "Gatherings planned with Confetti" });
   await expect(hero).toBeVisible();
   await expect(hero.getByRole("heading", { name: /Bring the idea/i })).toBeVisible();
@@ -62,7 +65,7 @@ test("home opens with a controllable multi-event party scene", async ({ page }) 
 });
 
 test("the original Confetti typography remains a product-wide contract", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/tour", { waitUntil: "networkidle" });
   const landingType = await page.evaluate(() => ({
     body: getComputedStyle(document.body).fontFamily,
     headline: getComputedStyle(document.querySelector("h1")!).fontFamily,
@@ -194,7 +197,7 @@ test("a seeded party offers truthful local paths without fake marketplace data",
   const local = page.getByRole("region", { name: "Make it local" });
   await expect(local).toBeVisible();
   await expect(
-    local.getByText(/Maps gives you current businesses, ratings, and hours/i),
+    local.getByText(/bring the finalists back here.*keep the choice, price, and follow-through/i),
   ).toBeVisible();
   await expect(local.getByRole("link", { name: /Search venues/i })).toHaveAttribute(
     "href",
@@ -213,6 +216,52 @@ test("/app shows completed demo guest lists truthfully", async ({ page }) => {
   const gameDayParty = page.getByRole("article", { name: "World Cup Final Watch Party" });
   await expect(gameDayParty.getByText("Guest list")).toBeVisible();
   await expect(gameDayParty.getByText("5", { exact: true })).toBeVisible();
+});
+
+test("every demo gathering renders a complete, loaded banner", async ({ page }) => {
+  const partyIds = ["maya-8th", "ava-liam-wedding", "grad-bbq", "world-cup-final-watch"] as const;
+
+  await page.goto("/app", { waitUntil: "networkidle" });
+  for (const partyId of partyIds) {
+    const banner = page.locator(`[data-party-banner="${partyId}"]`);
+    await expect(banner).toHaveCount(1);
+    await expect(banner).toBeVisible();
+    await expect
+      .poll(() =>
+        banner.evaluate((image: HTMLImageElement) => ({
+          complete: image.complete,
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+        })),
+      )
+      .toMatchObject({ complete: true });
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(
+      400,
+    );
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalHeight)).toBeGreaterThan(
+      200,
+    );
+  }
+
+  for (const partyId of partyIds) {
+    await page.goto(`/party/${partyId}`, { waitUntil: "networkidle" });
+    const banner = page.locator(`[data-party-banner="${partyId}"]`);
+    await expect(banner).toBeVisible();
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(
+      400,
+    );
+
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    const hitTarget = await heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + Math.min(rect.width / 2, 24);
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return hit === element || element.contains(hit);
+    });
+    expect(hitTarget, `${partyId} banner must not cover its heading`).toBe(true);
+  }
 });
 
 test("/app tells demo hosts where their parties are actually saved", async ({ page }) => {
@@ -234,11 +283,11 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
 
   const nextMoves = page.getByRole("region", { name: "Your next moves" });
   await expect(nextMoves).toBeVisible();
-  await expect(nextMoves.getByText(/One answer is enough/i)).toBeVisible();
+  await expect(nextMoves.getByText(/One decision unlocks the rest/i)).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Choose date" })).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Estimate guests" })).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Set budget" })).toBeVisible();
-  await expect(nextMoves.getByRole("button", { name: "Explore looks" })).toBeVisible();
+  await expect(nextMoves.getByText("Start here", { exact: true })).toBeVisible();
   await expect(nextMoves.getByText("Send invites", { exact: true })).toHaveCount(0);
 
   await nextMoves.getByRole("button", { name: "Choose date" }).click();
@@ -315,11 +364,15 @@ test("sample invite exposes the same practical guest details and calendar action
   page,
 }) => {
   await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("sample-rsvp-form")).toHaveAttribute("data-hydrated", "true");
   await expect(page.getByRole("textbox", { name: "Group name (optional)" })).toBeVisible();
-  const foodDetails = page.getByText("Dietary needs or allergies?", { exact: true });
-  await expect(foodDetails).toBeVisible();
+  const foodDetails = page.locator("details").filter({
+    hasText: "Dietary needs or allergies?",
+  });
+  const foodSummary = foodDetails.locator("summary");
+  await expect(foodSummary).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeHidden();
-  await foodDetails.click();
+  await foodSummary.click();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other allergens" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Google Calendar/i })).toBeVisible();
@@ -438,7 +491,8 @@ test("mobile guest and timeline controls fit and remain touch-visible", async ({
 // Axe scans across the stable public + demo workspace surface. Fails on any
 // serious/critical violation including color-contrast — no rule exemptions.
 const AXE_ROUTES = [
-  "/",
+  // "/" redirects rather than rendering; the surface it used to serve is "/tour".
+  "/tour",
   "/talk",
   "/sample-invite",
   "/app",
@@ -470,3 +524,14 @@ for (const path of AXE_ROUTES) {
     expect(blocking, detail).toEqual([]);
   });
 }
+
+test("the app root points signed-out visitors at the marketing site", async ({ page }) => {
+  // Asserted on the server response rather than in the page: the redirect is a
+  // client effect, so a rendered assertion races it — and following it would
+  // take CI to the live marketing site.
+  const res = await page.request.get("/");
+  expect(res.status()).toBe(200);
+  const html = await res.text();
+  expect(html).toContain("https://confettiplans.com");
+  expect(html).not.toContain("<h1");
+});

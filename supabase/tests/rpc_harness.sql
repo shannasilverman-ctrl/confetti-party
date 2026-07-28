@@ -44,7 +44,8 @@ BEGIN
     SELECT p.proname, p.proacl::text
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
-      AND p.proname IN ('submit_rsvp','get_rsvp_party','list_bring_board',
+      AND p.proname IN ('submit_rsvp','submit_rsvp_v2','get_rsvp_party',
+                        'get_rsvp_party_v2','list_bring_board',
                         'claim_bring_item','release_bring_item')
   LOOP
     -- '=X/<owner>' with nothing before the '=' means PUBLIC.
@@ -79,7 +80,25 @@ BEGIN
   IF def !~ 'SECURITY DEFINER' THEN RAISE EXCEPTION 'FAIL: get_rsvp_party not SECURITY DEFINER'; END IF;
   IF def !~* 'search_path' THEN RAISE EXCEPTION 'FAIL: get_rsvp_party missing search_path'; END IF;
 
-  RAISE NOTICE 'PASS phaseA: grants, absence of 5-arg overload, search_path, ESCAPE, FOR UPDATE';
+  def := pg_get_functiondef('public.get_rsvp_party_v2(uuid)'::regprocedure);
+  IF def !~ 'SECURITY DEFINER' THEN RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 not SECURITY DEFINER'; END IF;
+  IF def !~* 'search_path' THEN RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 missing search_path'; END IF;
+  IF def ~* 'expectedAdults|expectedKids|effort' THEN
+    RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 exposes private planning-profile fields';
+  END IF;
+
+  def := pg_get_functiondef(
+    'public.submit_rsvp_v2(uuid,text,text,integer,integer,text,jsonb,jsonb,jsonb)'::regprocedure
+  );
+  IF def !~ 'SECURITY DEFINER' THEN RAISE EXCEPTION 'FAIL: submit_rsvp_v2 not SECURITY DEFINER'; END IF;
+  IF def !~* 'search_path' THEN RAISE EXCEPTION 'FAIL: submit_rsvp_v2 missing search_path'; END IF;
+  IF def !~ 'pg_column_size'
+     OR def !~ 'arrivalPlan'
+     OR def !~ 'accessNotes' THEN
+    RAISE EXCEPTION 'FAIL: submit_rsvp_v2 missing contextual-answer bounds';
+  END IF;
+
+  RAISE NOTICE 'PASS phaseA: grants, versioned RSVP contracts, search_path, ESCAPE, FOR UPDATE';
 END;
 $phaseA$;
 
@@ -137,7 +156,7 @@ BEGIN
     user_id, name, occasion, date, guest_estimate, budget, theme, tasks,
     guests, budget_categories, shopping_items, timeline, rsvp_token,
     pinned_inspiration, households, bring_board, host_updates, checkins,
-    photo_drop
+    photo_drop, planning_profile
   ) VALUES (
     synthetic_user_id, marker, 'birthday', current_date + 14, 10, 100, 'default',
 
@@ -160,7 +179,8 @@ BEGIN
       'provider','icloud','label','Album','url','https://example.com/drop',
       'notes','shared album',
       'ownerEmail','host@example.invalid'
-    )
+    ),
+    jsonb_build_object('version',1,'honoreeAge',40,'expectedAdults',12,'effort','balanced')
   ) RETURNING id INTO party_id;
 
   -- ---------------------------------------------------------------
@@ -207,6 +227,16 @@ BEGIN
     RAISE EXCEPTION 'FAIL: get_rsvp_party leaked forbidden field: %', proj::text;
   END IF;
 
+  -- Versioned projection adds only the coarse planning context needed to ask
+  -- useful guest questions. Raw age, counts, and effort stay private.
+  proj := public.get_rsvp_party_v2(party_token);
+  IF proj->'rsvp_context' <> '{"kind":"adult-birthday"}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 context wrong: %', (proj->'rsvp_context')::text;
+  END IF;
+  IF proj::text ~* '(honoreeAge|expectedAdults|expectedKids|effort|planningProfile)' THEN
+    RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 leaked planning profile: %', proj::text;
+  END IF;
+
   -- list_bring_board: same allowlist as bring_board items.
   proj := public.list_bring_board(party_token);
   IF jsonb_typeof(proj) <> 'array' OR jsonb_array_length(proj) <> 1 THEN
@@ -230,6 +260,26 @@ BEGIN
   proj := public.get_rsvp_party(party_token);
   IF (proj->>'yes_count')::int < 3 THEN
     RAISE EXCEPTION 'FAIL: yes_count did not increase (%)', proj->>'yes_count';
+  END IF;
+
+  -- Contextual answers update the matched primary guest and never add contact
+  -- details or a medical-record-shaped field.
+  res := public.submit_rsvp_v2(
+    party_token, 'Alex Doe', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb,
+    '{"arrivalPlan":"arriving-later","accessNotes":"A chair away from the speaker helps."}'::jsonb
+  );
+  IF NOT (res->>'ok')::boolean OR NOT (res->>'contextSaved')::boolean THEN
+    RAISE EXCEPTION 'FAIL: submit_rsvp_v2 happy path: %', res::text;
+  END IF;
+  IF (
+    SELECT value->'responseDetails'
+      FROM public.parties,
+           jsonb_array_elements(guests) AS entry(value)
+     WHERE id = party_id AND value->>'name' = 'Alex Doe'
+     ORDER BY (value->>'source' = 'link') DESC
+     LIMIT 1
+  ) <> '{"arrivalPlan":"arriving-later","accessNotes":"A chair away from the speaker helps."}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: submit_rsvp_v2 did not persist allowlisted details';
   END IF;
 
   -- ---------------------------------------------------------------
@@ -317,7 +367,19 @@ BEGIN
   END;
   IF NOT raised THEN RAISE EXCEPTION 'FAIL: invalid rsvp value accepted'; END IF;
 
-  -- (h) claim_bring_item: invalid item_id (bad characters)
+  -- (h) contextual answers reject unknown keys without changing guests
+  BEGIN
+    raised := true;
+    PERFORM public.submit_rsvp_v2(
+      party_token, 'Alex Doe', 'yes', 1, 0, NULL, '[]'::jsonb, '[]'::jsonb,
+      '{"phone":"do-not-store"}'::jsonb
+    );
+    raised := false;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF NOT raised THEN RAISE EXCEPTION 'FAIL: unknown contextual answer accepted'; END IF;
+
+  -- (i) claim_bring_item: invalid item_id (bad characters)
   BEGIN
     raised := true;
     PERFORM public.claim_bring_item(party_token, 'bad id!', 'Alex', NULL, 1);
@@ -326,7 +388,7 @@ BEGIN
   END;
   IF NOT raised THEN RAISE EXCEPTION 'FAIL: invalid item_id accepted'; END IF;
 
-  -- (i) claim_bring_item: oversized item_id (>64 chars)
+  -- (j) claim_bring_item: oversized item_id (>64 chars)
   BEGIN
     raised := true;
     PERFORM public.claim_bring_item(party_token, repeat('a', 80), 'Alex', NULL, 1);
@@ -335,7 +397,7 @@ BEGIN
   END;
   IF NOT raised THEN RAISE EXCEPTION 'FAIL: oversized item_id accepted'; END IF;
 
-  -- (j) claim_bring_item: invalid qty (zero)
+  -- (k) claim_bring_item: invalid qty (zero)
   BEGIN
     raised := true;
     PERFORM public.claim_bring_item(party_token, 'item_1', 'Alex', NULL, 0);
@@ -344,7 +406,7 @@ BEGIN
   END;
   IF NOT raised THEN RAISE EXCEPTION 'FAIL: qty=0 accepted'; END IF;
 
-  -- (k) claim_bring_item: qty over cap
+  -- (l) claim_bring_item: qty over cap
   BEGIN
     raised := true;
     PERFORM public.claim_bring_item(party_token, 'item_1', 'Alex', NULL, 1000);

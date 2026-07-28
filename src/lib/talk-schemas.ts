@@ -40,6 +40,7 @@ const IdentityZ = z
       .optional(),
     holidayPackId: SHORT.optional(),
     tone: SHORT.optional(),
+    honoreeAge: z.number().int().min(1).max(120).optional(),
   })
   .strict();
 
@@ -69,6 +70,7 @@ const WhenZ = z
 const WhereZ = z
   .object({
     display: SHORT.optional(),
+    venueKind: z.enum(["home", "backyard", "park", "venue", "virtual", "unknown"]).optional(),
     contingency: z
       .object({
         needed: z.boolean(),
@@ -85,6 +87,7 @@ const PeopleZ = z
     expectedCount: z.number().int().min(0).max(2000).optional(),
     households: z.number().int().min(0).max(500).optional(),
     kids: z.number().int().min(0).max(500).optional(),
+    adults: z.number().int().min(0).max(500).optional(),
   })
   .strict();
 
@@ -108,6 +111,7 @@ const FoodZ = z
       .enum(["cook", "catering", "grocery-prepared", "potluck", "mix", "snacks-only"])
       .optional(),
     peakMoment: SHORT.optional(),
+    portionModel: z.enum(["per-guest", "per-adult+kid", "family-style", "unknown"]).optional(),
   })
   .strict();
 

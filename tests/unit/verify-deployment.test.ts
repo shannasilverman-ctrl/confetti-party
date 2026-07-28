@@ -77,12 +77,26 @@ describe("deployment verification", () => {
           },
         );
       }
-      if (["/", "/app", "/talk"].includes(url.pathname)) {
+      if (
+        [
+          "/",
+          "/app",
+          "/talk",
+          "/sample-invite",
+          "/party/maya-8th",
+          "/party/ava-liam-wedding",
+          "/party/ava-liam-wedding/reveal",
+          "/party/ava-liam-wedding/day-of",
+          "/party/grad-bbq",
+          "/party/world-cup-final-watch",
+        ].includes(url.pathname)
+      ) {
         return new Response(
           [
             '<meta name="theme-color" content="#3B1E5E">',
             '<link rel="manifest" href="/manifest.webmanifest">',
             '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+            '<link rel="canonical" href="https://www.confettiapp.ai/">',
           ].join(""),
           { headers: secureHeaders({ "content-type": "text/html; charset=utf-8" }) },
         );
@@ -102,7 +116,12 @@ describe("deployment verification", () => {
           { headers: { "content-type": "application/manifest+json" } },
         );
       }
-      return new Response("png", { headers: { "content-type": "image/png" } });
+      const contentType = url.pathname.endsWith(".jpg")
+        ? "image/jpeg"
+        : url.pathname.endsWith(".webm")
+          ? "video/webm"
+          : "image/png";
+      return new Response("asset", { headers: { "content-type": contentType } });
     };
 
     await expect(
@@ -113,8 +132,8 @@ describe("deployment verification", () => {
     ).resolves.toEqual({
       baseUrl: "https://preview.example.com",
       releaseSha: RELEASE_SHA,
-      htmlRoutes: 3,
-      assets: 4,
+      htmlRoutes: 10,
+      assets: 11,
     });
   });
 
@@ -147,12 +166,26 @@ describe("deployment verification", () => {
           { headers: secureHeaders({ "content-type": "application/json" }) },
         );
       }
-      if (["/", "/app", "/talk"].includes(url.pathname)) {
+      if (
+        [
+          "/",
+          "/app",
+          "/talk",
+          "/sample-invite",
+          "/party/maya-8th",
+          "/party/ava-liam-wedding",
+          "/party/ava-liam-wedding/reveal",
+          "/party/ava-liam-wedding/day-of",
+          "/party/grad-bbq",
+          "/party/world-cup-final-watch",
+        ].includes(url.pathname)
+      ) {
         return new Response(
           [
             '<meta name="theme-color" content="#3B1E5E">',
             '<link rel="manifest" href="/manifest.webmanifest">',
             '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+            '<link rel="canonical" href="https://www.confettiapp.ai/">',
           ].join(""),
           { headers: secureHeaders({ "content-type": "text/html; charset=utf-8" }) },
         );
@@ -172,7 +205,12 @@ describe("deployment verification", () => {
           { headers: { "content-type": "application/manifest+json" } },
         );
       }
-      return new Response("png", { headers: { "content-type": "image/png" } });
+      const contentType = url.pathname.endsWith(".jpg")
+        ? "image/jpeg"
+        : url.pathname.endsWith(".webm")
+          ? "video/webm"
+          : "image/png";
+      return new Response("asset", { headers: { "content-type": contentType } });
     };
 
     await expect(

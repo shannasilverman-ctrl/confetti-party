@@ -9,6 +9,7 @@ export function routeProviderNeeds(pathname: string): RouteProviderNeeds {
   const party = pathname === "/app" || pathname.startsWith("/party/");
   const auth =
     pathname === "/" ||
+    pathname === "/tour" ||
     pathname === "/talk" ||
     pathname === "/auth" ||
     pathname === "/reset-password" ||
