@@ -122,7 +122,10 @@ test.describe("first-party image asset contract", () => {
   test("document advertises the manifest and mobile app identity", async ({ page }) => {
     test.skip(test.info().project.name !== "desktop", "head contract runs once");
 
-    await page.goto("/");
+    // "/" now redirects signed-out visitors to the marketing site, so the head
+    // contract is asserted on a route that stays put. The meta comes from the
+    // root document either way.
+    await page.goto("/tour");
 
     await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
       "href",
@@ -193,7 +196,7 @@ test.describe("first-party image asset contract", () => {
       if (req.resourceType() === "image") seen.add(req.url());
     });
 
-    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/tour", { waitUntil: "networkidle" });
     await page.goto("/party/ava-liam-wedding", { waitUntil: "networkidle" }).catch(() => undefined);
 
     const firstParty = [...seen].filter((u) => u.startsWith("http://127.0.0.1"));
