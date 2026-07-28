@@ -120,6 +120,21 @@ const SCENARIOS: Scenario[] = [
     },
   },
   {
+    slug: "workspace-guest-follow-up",
+    route: "/party/maya-8th",
+    containers: ["main", '[data-testid="host-message-helper"]'],
+    requiredSticky: ['[data-testid="party-mobile-nav"]'],
+    setup: async (page) => {
+      const tab = page.getByTestId("party-tab-mobile-guests");
+      await expect(tab).toBeVisible({ timeout: 15_000 });
+      await tab.scrollIntoViewIfNeeded();
+      await tab.click();
+      const helper = page.getByTestId("host-message-helper");
+      await expect(helper).toBeVisible();
+      await expect(helper.getByLabel("Editable guest message")).toBeVisible();
+    },
+  },
+  {
     slug: "workspace-reveal",
     route: "/party/ava-liam-wedding/reveal",
     containers: ["main"],

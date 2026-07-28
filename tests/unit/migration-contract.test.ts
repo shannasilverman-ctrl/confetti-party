@@ -139,4 +139,57 @@ describe("migration contract: DB hardening batch", () => {
       /REVOKE ALL ON FUNCTION public\.get_rsvp_party\(uuid\) FROM PUBLIC/,
     );
   });
+
+  test("party intelligence profile is validated, persisted, and narrowly projected", () => {
+    const confirm = latestFunctionBody("confirm_gathering_draft");
+    expect(allSql).toMatch(
+      /ADD COLUMN IF NOT EXISTS planning_profile jsonb NOT NULL DEFAULT '\{\}'::jsonb/,
+    );
+    expect(confirm).toMatch(/jsonb_typeof\(clean_profile\) <> 'object'/);
+    expect(confirm).toMatch(
+      /'version','honoreeAge','expectedKids','expectedAdults','effort','format'/,
+    );
+    expect(confirm).toMatch(/clean_profile->>'format' NOT IN \('home','venue','help-me-choose'\)/);
+    expect(confirm).toMatch(/planning_profile, host_note/);
+
+    const profileMigration = readFileSync(
+      join(MIG_DIR, "20260726121000_party_planning_profile_contract.sql"),
+      "utf8",
+    );
+    expect(profileMigration).toMatch(/'kind', 'preschool-birthday'/);
+    expect(profileMigration).toMatch(/'adultLabel', 'Adults staying'/);
+    expect(profileMigration).toMatch(
+      /'kidHint', 'Include invited children and any siblings joining\.'/,
+    );
+    // Public projection intentionally exposes a behavior hint, not the
+    // honoree age or the full private profile.
+    const returnProjection = profileMigration.slice(
+      profileMigration.lastIndexOf("RETURN jsonb_build_object"),
+    );
+    expect(returnProjection).toMatch(/'rsvp_context', public_rsvp_context/);
+    expect(returnProjection).not.toMatch(/'planning_profile', p\.planning_profile/);
+    expect(returnProjection).not.toMatch(/'honoreeAge'/);
+  });
+
+  test("contextual RSVP v2 exposes only a coarse workflow and validates minimal answers", () => {
+    const projection = latestFunctionBody("get_rsvp_party_v2");
+    expect(projection).toMatch(/base := public\.get_rsvp_party\(token\)/);
+    expect(projection).toMatch(/'kind', 'preschool-birthday'/);
+    expect(projection).toMatch(/'kind', 'school-age-birthday'/);
+    expect(projection).toMatch(/'kind', 'adult-birthday'/);
+    expect(projection).not.toMatch(/jsonb_build_object\('honoreeAge'/);
+    expect(projection).not.toMatch(/'effort'/);
+
+    const submission = latestFunctionBody("submit_rsvp_v2");
+    expect(submission).toMatch(/pg_column_size\(response_details\) > 1024/);
+    expect(submission).toMatch(/key NOT IN \('arrivalPlan', 'accessNotes'\)/);
+    expect(submission).toMatch(/char_length\(clean_access\) > 200/);
+    expect(submission).toMatch(/result := public\.submit_rsvp\(/);
+    expect(submission).toMatch(/'responseDetails', clean_details/);
+    expect(submission).toMatch(/'contextSaved'/);
+    expect(submission).not.toMatch(/phone|email|emergencyContact/i);
+    expect(allSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.submit_rsvp_v2\([\s\S]*?\) TO anon, authenticated/,
+    );
+  });
 });

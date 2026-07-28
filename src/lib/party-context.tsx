@@ -27,6 +27,13 @@ import {
   type HolidayStarterId,
 } from "./holiday-packs";
 import { daysUntilLocal } from "./date-only";
+import {
+  materializePlaybook,
+  partyPlaybook,
+  type PartyPlanningProfile,
+} from "./party-intelligence";
+import { generatedTaskMetadata, withTaskGuidance } from "./task-guidance";
+import type { RsvpResponseDetails } from "./rsvp.functions";
 
 export type OccasionType =
   | "birthday"
@@ -44,7 +51,49 @@ export type Bucket = "6+ weeks out" | "3-5 weeks" | "1-2 weeks" | "Party week" |
 
 export const BUCKETS: Bucket[] = ["6+ weeks out", "3-5 weeks", "1-2 weeks", "Party week", "Day of"];
 
-export type Task = { id: string; title: string; bucket: Bucket; done: boolean };
+export type TaskAction =
+  | "overview"
+  | "theme"
+  | "shopping"
+  | "guests"
+  | "bring"
+  | "budget"
+  | "timeline";
+
+export type TaskOwnerStatus = "ready" | "copied" | "waiting" | "confirmed" | "blocked";
+
+export type Task = {
+  id: string;
+  title: string;
+  bucket: Bucket;
+  done: boolean;
+  /** The person or role the host has asked to own this task. Coordination only; it sends nothing. */
+  owner?: string;
+  /** The outcome/context an owner needs to finish the task without returning the planning load. */
+  handoffNotes?: string;
+  /** Host-recorded handoff state. Confetti never infers acceptance from an external message. */
+  ownerStatus?: TaskOwnerStatus;
+  /** A short, customer-facing explanation of the planning consequence this task prevents. */
+  reason?: string;
+  /** The existing workspace destination where the host can make progress on this task. */
+  action?: TaskAction;
+  /** Whether task guidance is hand-authored for a playbook or inferred from a generic title. */
+  guidanceSource?: "curated" | "inferred";
+  source?: "confetti-playbook" | "guest-impact" | "local-sourcing";
+  playbookId?: string;
+  guestImpactId?: "allergens" | "dietary" | "access" | "supervision";
+  sourcingOptionId?: string;
+};
+
+export const TASK_ACTION_LABELS: Record<TaskAction, string> = {
+  overview: "Open overview",
+  theme: "Explore looks",
+  shopping: "Open shopping",
+  guests: "Open guest list",
+  bring: "Open Bring Board",
+  budget: "Open budget",
+  timeline: "Open timeline",
+};
 export type Guest = {
   id: string;
   name: string;
@@ -54,6 +103,7 @@ export type Guest = {
   household?: string;
   dietary?: string[];
   allergens?: string[];
+  responseDetails?: RsvpResponseDetails;
 };
 
 export type Household = { id: string; label: string; memberGuestIds: string[] };
@@ -91,7 +141,14 @@ export type BudgetCategory = {
   planned: number;
   expenses: Expense[];
 };
-export type TimelineItem = { id: string; time: string; activity: string };
+export type TimelineItem = {
+  id: string;
+  time: string;
+  activity: string;
+  source?: "confetti-playbook" | "guest-impact";
+  playbookId?: string;
+  guestImpactId?: "arrival";
+};
 
 export type Party = {
   id: string;
@@ -116,6 +173,7 @@ export type Party = {
   bringBoard?: BringItem[];
   hostUpdates?: HostUpdate[];
   holidayPackId?: string;
+  planningProfile?: PartyPlanningProfile;
   photoDrop?: PhotoDropInfo | null;
   checkins?: Record<string, string>; // guestId -> ISO timestamp
   retrospective?: PartyRetrospective | null;
@@ -335,7 +393,13 @@ export function generateTasks(occasion: OccasionType, dateISO: string): Task[] {
   };
   return template
     .filter((t) => allowedFrom(t.bucket))
-    .map((t) => ({ id: uid(), title: t.title, bucket: t.bucket, done: false }));
+    .map((t) => ({
+      id: uid(),
+      title: t.title,
+      bucket: t.bucket,
+      done: false,
+      ...generatedTaskMetadata(t.title),
+    }));
 }
 
 // ---- Seed demo parties ----
@@ -924,6 +988,7 @@ type Ctx = {
     themeId?: string;
     extraTasks?: Task[];
     holidayPackId?: HolidayStarterId;
+    planningProfile?: PartyPlanningProfile;
   }) => string;
   updateParty: (id: string, updater: (p: Party) => Party) => void;
   cloneParty: (id: string, overrides?: { name?: string; date?: string }) => string | null;
@@ -980,6 +1045,7 @@ export function makeParty(
     themeId?: string;
     extraTasks?: Task[];
     holidayPackId?: HolidayStarterId;
+    planningProfile?: PartyPlanningProfile;
   },
   id: string,
 ): Party {
@@ -989,6 +1055,15 @@ export function makeParty(
   const pack = starterPack(starterId);
   const packTaskEntries = pack ? packTasks(pack, () => newId()) : [];
   const packBring = pack ? packBringBoard(pack, () => newId()) : [];
+  const smart = materializePlaybook(
+    partyPlaybook({
+      occasion: input.occasion,
+      profile: input.planningProfile,
+      startTime: input.startTime,
+      holidayPackId: pack?.id,
+    }),
+    () => newId(),
+  );
   return {
     id,
     name: input.name,
@@ -1001,15 +1076,21 @@ export function makeParty(
     theme: input.theme,
     themeId: input.themeId,
     holidayPackId: pack?.id,
+    planningProfile: input.planningProfile,
     tasks: [
       ...packTaskEntries,
       ...generateTasks(input.occasion, input.date),
+      ...smart.tasks,
       ...(input.extraTasks ?? []),
     ],
     guests: [],
     budgetCategories: defaultCategoriesFor(input.occasion),
     timeline:
-      input.occasion === "game-day" && input.startTime ? seedGameDayTimeline(input.startTime) : [],
+      smart.timeline.length > 0
+        ? smart.timeline
+        : input.occasion === "game-day" && input.startTime
+          ? seedGameDayTimeline(input.startTime)
+          : [],
     shoppingItems: generateShoppingItems(input.occasion, input.themeId, input.guestEstimate),
     pinnedInspiration: [],
     bringBoard: packBring,
@@ -1136,8 +1217,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     if (!user) {
       const seeds = baseSeeds();
       const { parties: hydrated, warning } = _loadDemoState(seeds);
-      partiesRef.current = hydrated;
-      setParties(hydrated);
+      const guided = hydrated.map((party) => ({
+        ...party,
+        tasks: party.tasks.map(withTaskGuidance),
+      }));
+      partiesRef.current = guided;
+      setParties(guided);
       if (warning && !warnedRef.current.has(warning)) {
         warnedRef.current.add(warning);
         setDemoWarning(warning);
@@ -1379,7 +1464,7 @@ export const OCCASION_LABELS: Record<OccasionType, string> = {
 // ---- Shopping helpers ----
 
 export type { ShoppingItem, ShoppingCategoryName, Retailer } from "./shopping";
-export { STATUS_LABEL } from "./shopping";
+export { resizePartySizedShopping, STATUS_LABEL } from "./shopping";
 
 export function shoppingProjectedRemaining(p: Party): number {
   return p.shoppingItems
@@ -1445,6 +1530,26 @@ export function addShoppingItem(
   return {
     ...p,
     shoppingItems: [...p.shoppingItems, { id: uid(), status: "needed", ...item }],
+  };
+}
+
+export function setShoppingQuantity(p: Party, itemId: string, quantity: number): Party {
+  const safeQuantity = Number.isFinite(quantity)
+    ? Math.max(1, Math.min(999, Math.floor(quantity)))
+    : 1;
+  return {
+    ...p,
+    shoppingItems: p.shoppingItems.map((item) =>
+      item.id === itemId
+        ? {
+            ...item,
+            qty: safeQuantity,
+            // A host edit becomes authoritative. Future RSVP changes must not
+            // silently replace it.
+            sizing: undefined,
+          }
+        : item,
+    ),
   };
 }
 

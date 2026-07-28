@@ -137,6 +137,34 @@ describe("mergeGuests", () => {
     expect(merged.find((g) => g.id === "g1")?.rsvp).toBe("yes");
     expect(merged.find((g) => g.id === "g2")?.name).toBe("Robert");
   });
+
+  it("preserves a concurrent guest's planning answers while keeping the host's name edit", () => {
+    const baseline = [{ id: "g1", name: "Sam", kind: "adult" as const, rsvp: "invited" as const }];
+    const local = [{ ...baseline[0], name: "Sam Rivera" }];
+    const server = [
+      {
+        ...baseline[0],
+        rsvp: "yes" as const,
+        dietary: ["Vegetarian"],
+        responseDetails: {
+          arrivalPlan: "arriving-later" as const,
+          accessNotes: "A chair away from the speaker would help.",
+        },
+        source: "link" as const,
+      },
+    ];
+
+    expect(mergeGuests(baseline, local, server).items[0]).toMatchObject({
+      name: "Sam Rivera",
+      rsvp: "yes",
+      dietary: ["Vegetarian"],
+      responseDetails: {
+        arrivalPlan: "arriving-later",
+        accessNotes: "A chair away from the speaker would help.",
+      },
+      source: "link",
+    });
+  });
 });
 
 describe("mergeBringBoard", () => {

@@ -13,7 +13,10 @@ export type CalendarParty = {
   date: string;
   start_time?: string | null;
   location?: string | null;
+  details?: string | null;
 };
+
+const DEFAULT_DETAILS = "See you there — sent via Confetti.";
 
 function buildCalendarPayload(party: CalendarParty) {
   // Until the host's time zone is captured, event times remain floating wall
@@ -49,7 +52,7 @@ export function googleCalUrl(party: CalendarParty): string {
     action: "TEMPLATE",
     text: party.name,
     dates: payload.googleDates,
-    details: "See you there — sent via Confetti.",
+    details: party.details ?? DEFAULT_DETAILS,
   });
   if (party.location) params.set("location", party.location);
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
@@ -111,7 +114,7 @@ export function buildIcs(party: CalendarParty, generatedAt: Date = new Date()): 
     payload.icsAllDay ? `DTEND;VALUE=DATE:${payload.icsEnd}` : `DTEND:${payload.icsEnd}`,
     `SUMMARY:${escapeIcsText(party.name)}`,
     party.location ? `LOCATION:${escapeIcsText(party.location)}` : null,
-    "DESCRIPTION:See you there — sent via Confetti.",
+    `DESCRIPTION:${escapeIcsText(party.details ?? DEFAULT_DETAILS)}`,
     "STATUS:CONFIRMED",
     "END:VEVENT",
     "END:VCALENDAR",

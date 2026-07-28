@@ -18,8 +18,9 @@ serve that exact source.
 2. Confirm
    `https://confetti-independent-preview.shannasilverman-apps.workers.dev/release.json`
    reports the same full SHA.
-3. Run `npm run verify:deployment` and smoke-test `/`, `/app`, `/talk`,
-   `/sample-invite`, a seeded party, Reveal, Day-of, and the install assets.
+3. Run `npm run verify:deployment`. The verifier checks `/`, `/app`, `/talk`,
+   `/sample-invite`, every seeded party, Reveal, Day-of, install assets, and
+   every first-party event banner against the exact release SHA.
 4. Keep the prior Cloudflare version ID as the rollback target.
 
 ## `confettiapp.ai` promotion gate
@@ -30,9 +31,10 @@ serve that exact source.
 2. Confirm both apex and `www` behavior, redirects, TLS, and which hostname is
    canonical.
 3. Attach or route the domain only to the already verified Worker version.
-4. Re-run the deployment verifier against `https://confettiapp.ai`, then run
-   mobile/desktop live acceptance and check that `/release.json` still matches
-   the merge SHA.
+4. From a clean, synchronized `main`, run `npm run verify:production`. It
+   refuses a dirty/non-main/unsynchronized worktree, verifies the exact SHA on
+   canonical `www`, and either fully verifies the apex or validates its
+   redirect to `www`. Then run mobile/desktop live acceptance.
 5. If any production check fails, restore the recorded prior Worker/domain
    target and verify the rollback.
 

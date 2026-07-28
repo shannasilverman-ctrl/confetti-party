@@ -6,12 +6,30 @@ export const DEFAULT_DEPLOYMENT_URL =
 export const DEFAULT_VERIFY_ATTEMPTS = 15;
 export const DEFAULT_VERIFY_DELAY_MS = 3_000;
 
-const HTML_ROUTES = ["/", "/app", "/talk"];
+const HTML_ROUTES = [
+  "/",
+  "/app",
+  "/talk",
+  "/sample-invite",
+  "/party/maya-8th",
+  "/party/ava-liam-wedding",
+  "/party/ava-liam-wedding/reveal",
+  "/party/ava-liam-wedding/day-of",
+  "/party/grad-bbq",
+  "/party/world-cup-final-watch",
+];
 const ASSETS = [
   ["/manifest.webmanifest", "application/manifest+json"],
   ["/apple-touch-icon.png", "image/png"],
   ["/app-icon-192.png", "image/png"],
   ["/app-icon-512.png", "image/png"],
+  ["/brand/ava-liam.jpg", "image/jpeg"],
+  ["/brand/birthday-hero-v1.jpg", "image/jpeg"],
+  ["/brand/kids-party-v1.jpg", "image/jpeg"],
+  ["/brand/hosting-dinner-v1.jpg", "image/jpeg"],
+  ["/brand/world-cup-watch-v1.jpg", "image/jpeg"],
+  ["/brand/confetti-hero-poster.jpg", "image/jpeg"],
+  ["/brand/confetti-hero-loop-v1.webm", "video/webm"],
 ];
 
 function invariant(condition, message) {
@@ -121,6 +139,12 @@ export async function verifyDeployment(
         "/: missing Apple touch icon link",
       );
       invariant(/<meta[^>]+name=["']theme-color["']/i.test(html), "/: missing theme-color meta");
+      invariant(
+        /<link[^>]+rel=["']canonical["'][^>]+href=["']https:\/\/www\.confettiapp\.ai\/["']/i.test(
+          html,
+        ),
+        "/: missing canonical confettiapp.ai URL",
+      );
     }
   }
 

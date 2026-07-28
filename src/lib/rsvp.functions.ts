@@ -21,6 +21,96 @@ export type PublicPhotoDrop = {
 
 export type HostUpdateView = { id: string; text: string; at: string };
 
+export type PublicRsvpContext = {
+  kind: "preschool-birthday" | "school-age-birthday" | "adult-birthday";
+  /** Backward-compatible fields returned by the first contextual RSVP contract. */
+  adultLabel?: string;
+  kidLabel?: string;
+  kidHint?: string;
+} | null;
+
+export type ArrivalPlan = "from-start" | "arriving-later" | "not-sure";
+
+export type RsvpResponseDetails = {
+  arrivalPlan?: ArrivalPlan;
+  accessNotes?: string;
+};
+
+export type ContextualRsvpCopy = {
+  adultLabel: string;
+  kidLabel: string;
+  kidHint: string | null;
+  intro: string | null;
+  defaultAdults: number;
+  defaultKids: number;
+  arrivalQuestion: string | null;
+  accessPrompt: string | null;
+};
+
+export function contextualRsvpCopy(context?: PublicRsvpContext): ContextualRsvpCopy {
+  if (context?.kind === "preschool-birthday") {
+    return {
+      adultLabel: context.adultLabel ?? "Adults staying",
+      kidLabel: context.kidLabel ?? "Children coming",
+      kidHint: context.kidHint ?? "Include the invited child and any siblings joining.",
+      intro: "Count the people actually attending so food, seating, and supervision match.",
+      defaultAdults: 0,
+      defaultKids: 1,
+      arrivalQuestion: null,
+      accessPrompt: "Anything that would help your child feel comfortable or included?",
+    };
+  }
+  if (context?.kind === "school-age-birthday") {
+    return {
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      kidHint: "Include the invited child and any siblings joining.",
+      intro: "Count who is staying so the host can plan food, supervision, and pickup.",
+      defaultAdults: 0,
+      defaultKids: 1,
+      arrivalQuestion: null,
+      accessPrompt: "Anything that would help your child participate comfortably?",
+    };
+  }
+  if (context?.kind === "adult-birthday") {
+    return {
+      adultLabel: "Adults coming",
+      kidLabel: "Children coming",
+      kidHint: null,
+      intro: "Include everyone in your group so the host can plan the real headcount.",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "When do you expect to join?",
+      accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
+    };
+  }
+  return {
+    adultLabel: "Adults",
+    kidLabel: "Kids",
+    kidHint: null,
+    intro: null,
+    defaultAdults: 1,
+    defaultKids: 0,
+    arrivalQuestion: null,
+    accessPrompt: null,
+  };
+}
+
+export function attendanceCopy(context?: PublicRsvpContext): {
+  adultLabel: string;
+  kidLabel: string;
+  kidHint: string | null;
+  intro: string | null;
+} {
+  const copy = contextualRsvpCopy(context);
+  return {
+    adultLabel: copy.adultLabel,
+    kidLabel: copy.kidLabel,
+    kidHint: copy.kidHint,
+    intro: copy.intro,
+  };
+}
+
 export type PartyView = {
   name: string;
   date: string;
@@ -34,6 +124,7 @@ export type PartyView = {
   host_updates: HostUpdateView[];
   bring_board: PublicBringItem[];
   photo_drop: PublicPhotoDrop;
+  rsvp_context?: PublicRsvpContext;
   yes_count: number;
   maybe_count: number;
   total_count: number;
@@ -145,7 +236,7 @@ export async function resolveRsvpLoaderData(
           },
         },
       });
-      return await supabase.rpc("get_rsvp_party", { token: t });
+      return await supabase.rpc("get_rsvp_party_v2", { token: t });
     });
 
   try {
