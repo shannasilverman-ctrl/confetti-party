@@ -59,6 +59,45 @@ const SCENARIOS: Scenario[] = [
     },
   },
   {
+    // Popups were only covered for the new-party wizard. These three were
+    // never opened by any test, so nothing stopped them overflowing on a phone.
+    slug: "edit-details-dialog",
+    route: "/party/ava-liam-wedding",
+    containers: ['[role="dialog"]'],
+    setup: async (page) => {
+      const trigger = page.getByTestId("edit-details-trigger");
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    },
+  },
+  {
+    slug: "invite-dialog",
+    route: "/party/ava-liam-wedding",
+    containers: ['[role="dialog"]'],
+    setup: async (page) => {
+      const trigger = page.getByRole("button", { name: /create invite|invite/i }).first();
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    },
+  },
+  {
+    slug: "retrospective-dialog",
+    route: "/party/ava-liam-wedding/reveal",
+    containers: ['[role="dialog"]'],
+    setup: async (page) => {
+      const trigger = page.getByRole("button", { name: /retrospective/i }).first();
+      if ((await trigger.count()) === 0) {
+        test.skip(true, "retrospective trigger is gated by canPlanNext on this fixture");
+      }
+      await trigger.scrollIntoViewIfNeeded();
+      await expect(trigger).toBeVisible();
+      await trigger.click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+    },
+  },
+  {
     slug: "workspace-overview",
     route: "/party/ava-liam-wedding",
     containers: ["main", "header"],
