@@ -103,6 +103,7 @@ function PartyWorkspace() {
   const { getParty, status } = useParties();
   const party = getParty(id);
   const shouldScrollToContent = useRef(false);
+  const [timelineEditing, setTimelineEditing] = useState(false);
 
   useEffect(() => {
     if (!shouldScrollToContent.current) return;
@@ -341,13 +342,15 @@ function PartyWorkspace() {
           </div>
         )}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
-        {tab === "timeline" && <TimelineTab partyId={party.id} />}
+        {tab === "timeline" && (
+          <TimelineTab partyId={party.id} onEditingChange={setTimelineEditing} />
+        )}
       </main>
 
       {/* Mobile bottom tab nav - horizontally scrollable, respects safe area */}
       <nav
         data-testid="party-mobile-nav"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden"
+        className={`${timelineEditing ? "hidden" : "fixed"} inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden`}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Party sections"
       >
@@ -942,7 +945,13 @@ function CategoryCard({
 
 /* ---------------- Timeline ---------------- */
 
-function TimelineTab({ partyId }: { partyId: string }) {
+function TimelineTab({
+  partyId,
+  onEditingChange,
+}: {
+  partyId: string;
+  onEditingChange: (editing: boolean) => void;
+}) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
   const [time, setTime] = useState("");
@@ -956,9 +965,10 @@ function TimelineTab({ partyId }: { partyId: string }) {
   const editingId = editing?.id;
 
   useEffect(() => {
-    if (!editingId) return;
-    editingRowRef.current?.scrollIntoView({ block: "center" });
-  }, [editingId]);
+    onEditingChange(Boolean(editingId));
+    if (editingId) editingRowRef.current?.scrollIntoView({ block: "center" });
+    return () => onEditingChange(false);
+  }, [editingId, onEditingChange]);
 
   const add = () => {
     if (!time.trim() || !activity.trim()) return;

@@ -367,20 +367,26 @@ test.describe("customer-backwards party intelligence", () => {
     const arrival = page.getByText("Flexible welcome and first-plate plan for 1 later guest");
     await expect(arrival).toBeVisible();
     await page.getByRole("button", { name: "Edit Flexible welcome" }).click();
+    if ((page.viewportSize()?.width ?? 1024) < 768) {
+      await expect(page.getByTestId("party-mobile-nav")).toBeHidden();
+    }
     const activity = page.getByLabel("Timeline activity");
     await activity.fill("Save a welcome plate for Sam");
     const saveTimelineEdit = page.getByRole("button", { name: "Save" });
     if ((page.viewportSize()?.width ?? 1024) < 768) {
-      const [saveBox, navBox] = await Promise.all([
-        saveTimelineEdit.boundingBox(),
-        page.getByTestId("party-mobile-nav").boundingBox(),
-      ]);
+      const saveBox = await saveTimelineEdit.boundingBox();
       expect(saveBox).not.toBeNull();
-      expect(navBox).not.toBeNull();
-      expect(saveBox!.y + saveBox!.height).toBeLessThanOrEqual(navBox!.y);
+      expect(saveBox!.y + saveBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    }
+    const visibleToast = page.locator("[data-sonner-toast]:visible").last();
+    if (await visibleToast.count()) {
+      await expect(visibleToast).toHaveCSS("pointer-events", "none");
     }
     await saveTimelineEdit.click();
     await expect(page.getByText("Save a welcome plate for Sam")).toBeVisible();
+    if ((page.viewportSize()?.width ?? 1024) < 768) {
+      await expect(page.getByTestId("party-mobile-nav")).toBeVisible();
+    }
   });
 
   test("Shabbat smart start builds the table, timing, quantities, and guest questions together", async ({
