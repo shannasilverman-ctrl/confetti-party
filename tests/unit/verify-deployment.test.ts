@@ -64,7 +64,7 @@ describe("deployment verification", () => {
   });
 
   it("verifies the complete route, asset, metadata, and manifest contract", async () => {
-    const fetchImpl = async (input: string | URL | Request) => {
+    const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
       if (url.pathname === "/release.json") {
         return Response.json(
@@ -76,6 +76,18 @@ describe("deployment verification", () => {
             }),
           },
         );
+      }
+      if (url.pathname === "/api/telemetry") {
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          event: "plan_created",
+          surface: "quick_start",
+          partyId: "deployment-probe-must-not-pass",
+        });
+        return new Response(null, {
+          status: 400,
+          headers: secureHeaders({ "cache-control": "no-store" }),
+        });
       }
       if (
         [
@@ -154,6 +166,29 @@ describe("deployment verification", () => {
     ).rejects.toThrow(`/release.json: expected ${RELEASE_SHA}`);
   });
 
+  it("rejects a deployment without the telemetry privacy boundary", async () => {
+    const fetchImpl = async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === "/release.json") {
+        return Response.json(
+          { release: RELEASE_SHA },
+          { headers: secureHeaders({ "content-type": "application/json" }) },
+        );
+      }
+      return new Response("not found", {
+        status: 404,
+        headers: secureHeaders({ "content-type": "text/html" }),
+      });
+    };
+
+    await expect(
+      verifyDeployment("https://preview.example.com", {
+        fetchImpl,
+        expectedReleaseSha: RELEASE_SHA,
+      }),
+    ).rejects.toThrow("/api/telemetry: expected privacy rejection 400, received 404");
+  });
+
   it("retries a partial edge response and then verifies the deployment", async () => {
     let calls = 0;
     const retryAttempts: number[] = [];
@@ -167,6 +202,12 @@ describe("deployment verification", () => {
           { release: RELEASE_SHA },
           { headers: secureHeaders({ "content-type": "application/json" }) },
         );
+      }
+      if (url.pathname === "/api/telemetry") {
+        return new Response(null, {
+          status: 400,
+          headers: secureHeaders({ "cache-control": "no-store" }),
+        });
       }
       if (
         [

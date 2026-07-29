@@ -104,6 +104,35 @@ async function fetchChecked(fetchImpl, url, expectedType) {
   return response;
 }
 
+async function verifyTelemetryPrivacyContract(fetchImpl, normalizedBase, cacheBust) {
+  const url = new URL("/api/telemetry", `${normalizedBase}/`);
+  url.searchParams.set("verify", cacheBust);
+  const response = await fetchImpl(url, {
+    method: "POST",
+    redirect: "error",
+    headers: {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+    },
+    // This deliberately invalid payload proves the deployed route rejects
+    // arbitrary private fields without adding a synthetic product event.
+    body: JSON.stringify({
+      event: "plan_created",
+      surface: "quick_start",
+      partyId: "deployment-probe-must-not-pass",
+    }),
+  });
+  invariant(
+    response.status === 400,
+    `/api/telemetry: expected privacy rejection 400, received ${response.status}`,
+  );
+  invariant(
+    response.headers.get("cache-control")?.toLowerCase() === "no-store",
+    "/api/telemetry: privacy rejection must be no-store",
+  );
+  assertHtmlSecurityHeaders(response.headers, "/api/telemetry");
+}
+
 export async function verifyDeployment(
   baseUrl,
   { fetchImpl = fetch, expectedReleaseSha = resolveExpectedReleaseSha() } = {},
@@ -120,6 +149,7 @@ export async function verifyDeployment(
     releasePayload?.release === expectedReleaseSha,
     `/release.json: expected ${expectedReleaseSha}, received ${releasePayload?.release ?? "no release"}`,
   );
+  await verifyTelemetryPrivacyContract(fetchImpl, normalizedBase, cacheBust);
 
   for (const route of HTML_ROUTES) {
     const url = new URL(route, `${normalizedBase}/`);
