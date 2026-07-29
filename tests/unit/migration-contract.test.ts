@@ -211,12 +211,17 @@ describe("migration contract: DB hardening batch", () => {
     expect(projection).toMatch(/'kind', 'preschool-birthday'/);
     expect(projection).toMatch(/'kind', 'school-age-birthday'/);
     expect(projection).toMatch(/'kind', 'adult-birthday'/);
+    expect(projection).toMatch(
+      /WHEN 'baby-shower' THEN jsonb_build_object\('kind', 'baby-shower'\)/,
+    );
+    expect(projection).toMatch(/WHEN 'graduation' THEN jsonb_build_object\('kind', 'graduation'\)/);
     expect(projection).toMatch(/pg_timezone_names/);
     expect(projection).toMatch(/'\{event_time_zone\}'/);
     expect(projection).toMatch(/to_jsonb\(public_time_zone\)/);
     expect(projection).not.toMatch(/jsonb_build_object\('honoreeAge'/);
     expect(projection).not.toMatch(/'effort'/);
     expect(projection).not.toMatch(/'planning_profile'/);
+    expect(projection).not.toMatch(/expectedAdults|expectedKids|parent|graduate/i);
 
     const submission = latestFunctionBody("submit_rsvp_v2");
     expect(submission).toMatch(/pg_column_size\(response_details\) > 1024/);

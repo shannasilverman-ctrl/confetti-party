@@ -22,7 +22,12 @@ export type PublicPhotoDrop = {
 export type HostUpdateView = { id: string; text: string; at: string };
 
 export type PublicRsvpContext = {
-  kind: "preschool-birthday" | "school-age-birthday" | "adult-birthday";
+  kind:
+    | "preschool-birthday"
+    | "school-age-birthday"
+    | "adult-birthday"
+    | "baby-shower"
+    | "graduation";
   /** Backward-compatible fields returned by the first contextual RSVP contract. */
   adultLabel?: string;
   kidLabel?: string;
@@ -96,6 +101,30 @@ export function contextualRsvpCopy(context?: PublicRsvpContext): ContextualRsvpC
       defaultKids: 0,
       arrivalQuestion: "When do you expect to join?",
       accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
+    };
+  }
+  if (context?.kind === "baby-shower") {
+    return {
+      adultLabel: "Adults coming",
+      kidLabel: "Children coming",
+      kidHint: "Include everyone in your group so seating, food, and space match.",
+      intro: "Count everyone joining so the host can plan a comfortable gathering.",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "Will you join from the start or arrive later?",
+      accessPrompt: "Anything that would make seating, sound, access, or participation easier?",
+    };
+  }
+  if (context?.kind === "graduation") {
+    return {
+      adultLabel: "Adults coming",
+      kidLabel: "Children coming",
+      kidHint: "Include everyone in your group so food waves and seating match.",
+      intro: "Count everyone joining so the host can plan the celebration around the real group.",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "When do you expect to join the celebration?",
+      accessPrompt: "Anything that would make parking, seating, sound, or access easier?",
     };
   }
   return {

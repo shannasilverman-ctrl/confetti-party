@@ -385,10 +385,12 @@ Material gaps:
   confirmed, and blocked states are host-recorded and unresolved handoffs stay
   visible without claiming Confetti can read external conversations;
 - birthday RSVP defaults now adapt to preschool, school-age, and adult
-  planning context; optional host-only answers now feed an explainable impact
-  layer for headcount, food, access, arrival, and supervision; accepted count
-  changes safely resize untouched generated shopping quantities, while other
-  impacts become deduplicated, editable tasks or timeline work; other
+  planning context; baby-shower and graduation invitations also ask for the
+  group size, arrival, and access details that affect seating and food waves;
+  optional host-only answers feed an explainable impact layer for headcount,
+  food, access, arrival, and supervision; accepted count changes safely resize
+  untouched generated shopping quantities, while other impacts become
+  deduplicated, editable tasks or timeline work; contribution and other
   occasion-specific questions are still incomplete;
 - cohost permissions and actual message delivery remain incomplete; targeted
   host follow-ups now have intent-aware audiences and privacy-safe editable copy;
