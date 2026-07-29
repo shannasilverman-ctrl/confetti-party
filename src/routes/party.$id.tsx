@@ -78,6 +78,7 @@ import { partyTabFromSearch, type PartyTabKey } from "@/lib/party-tabs";
 import { taskTimingWindow } from "@/lib/task-timing";
 import { generatedTaskMetadata } from "@/lib/task-guidance";
 import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
+import { plannedBudgetTotal, rebaseBudgetCategories } from "@/lib/budget";
 
 export type TabKey = PartyTabKey;
 
@@ -805,6 +806,8 @@ function BudgetTab({ partyId }: { partyId: string }) {
   const party = getParty(partyId)!;
   const spent = totalSpent(party);
   const remaining = party.budget - spent;
+  const planned = plannedBudgetTotal(party.budgetCategories);
+  const needsRebalance = planned !== party.budget;
 
   const addExpense = (catId: string, label: string, amount: number) =>
     updateParty(partyId, (p) => ({
@@ -821,6 +824,16 @@ function BudgetTab({ partyId }: { partyId: string }) {
         c.id === catId ? { ...c, expenses: c.expenses.filter((e) => e.id !== expId) } : c,
       ),
     }));
+
+  const rebalance = () => {
+    updateParty(partyId, (p) => ({
+      ...p,
+      budgetCategories: rebaseBudgetCategories(p.budgetCategories, p.budget, p.occasion),
+    }));
+    toast.success(`Category plan rebalanced to $${party.budget}.`, {
+      description: "Existing expenses were left unchanged.",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -857,6 +870,26 @@ function BudgetTab({ partyId }: { partyId: string }) {
           </div>
         </div>
       </div>
+
+      {needsRebalance && (
+        <div
+          className="flex flex-col gap-4 rounded-2xl border border-warning bg-warning/10 p-5 sm:flex-row sm:items-center sm:justify-between"
+          data-testid="budget-rebalance-notice"
+        >
+          <div>
+            <h3 className="font-display text-lg font-semibold text-secondary">
+              Category plan does not match your total
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Categories currently add up to ${planned}. Rebalance their targets to your $
+              {party.budget} budget without changing any expenses.
+            </p>
+          </div>
+          <Button className="shrink-0" onClick={rebalance}>
+            Rebalance to ${party.budget}
+          </Button>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="space-y-4">
@@ -901,6 +934,8 @@ function CategoryCard({
       className={`rounded-2xl border bg-card p-5 shadow-card ${
         over ? "border-warning" : "border-border"
       }`}
+      data-testid="budget-category"
+      data-planned={category.planned}
     >
       <div className="flex items-center justify-between gap-3">
         <div>

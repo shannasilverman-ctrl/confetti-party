@@ -24,6 +24,7 @@ import {
   type PartyFormat,
 } from "@/lib/party-intelligence";
 import { resizePartySizedShopping } from "@/lib/shopping";
+import { rebaseBudgetCategories } from "@/lib/budget";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 
@@ -91,6 +92,9 @@ export function EditDetailsDialog({
         : guestEstimate
           ? Number(guestEstimate)
           : party.guestEstimate;
+    const requestedBudget =
+      budget !== "" ? Math.max(0, Math.round(Number(budget) || 0)) : party.budget;
+    const budgetChanged = requestedBudget !== party.budget;
     const shoppingPreview =
       requestedGuestEstimate > 0 && requestedGuestEstimate !== party.guestEstimate
         ? resizePartySizedShopping(party.shoppingItems, requestedGuestEstimate)
@@ -110,7 +114,7 @@ export function EditDetailsDialog({
           startTime: startTime.trim() || undefined,
           location: location.trim() || undefined,
           guestEstimate: guestEstimate ? Number(guestEstimate) : p.guestEstimate,
-          budget: budget ? Number(budget) : p.budget,
+          budget: requestedBudget,
           hostNote: hostNote.trim() ? hostNote.trim().slice(0, HOST_NOTE_MAX) : undefined,
         },
         details,
@@ -133,6 +137,16 @@ export function EditDetailsDialog({
         const resizedShopping = resizePartySizedShopping(next.shoppingItems, next.guestEstimate);
         next = { ...next, shoppingItems: resizedShopping.items };
       }
+      if (budgetChanged) {
+        next = {
+          ...next,
+          budgetCategories: rebaseBudgetCategories(
+            next.budgetCategories,
+            requestedBudget,
+            next.occasion,
+          ),
+        };
+      }
       return next;
     });
     if (shoppingPreview?.resized) {
@@ -148,6 +162,11 @@ export function EditDetailsDialog({
       toast.info(
         `${shoppingPreview.protected} in-cart or purchased ${shoppingPreview.protected === 1 ? "quantity was" : "quantities were"} left unchanged.`,
       );
+    }
+    if (budgetChanged) {
+      toast.success(`Category plan rebalanced to $${requestedBudget}.`, {
+        description: "Existing expenses were left unchanged.",
+      });
     }
     setOpen(false);
   };

@@ -35,6 +35,7 @@ import {
 import { generatedTaskMetadata, withTaskGuidance } from "./task-guidance";
 import type { RsvpResponseDetails } from "./rsvp.functions";
 import { retrospectiveCarryForwardTasks } from "./retrospective-reuse";
+import { createBudgetCategories } from "./budget";
 
 export type OccasionType =
   | "birthday"
@@ -236,15 +237,6 @@ export type PartyRetrospective = {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const DEFAULT_CATEGORIES = (): BudgetCategory[] => [
-  { id: uid(), name: "Venue", planned: 100, expenses: [] },
-  { id: uid(), name: "Food & Drink", planned: 200, expenses: [] },
-  { id: uid(), name: "Cake & Desserts", planned: 80, expenses: [] },
-  { id: uid(), name: "Decorations", planned: 100, expenses: [] },
-  { id: uid(), name: "Entertainment", planned: 80, expenses: [] },
-  { id: uid(), name: "Favors", planned: 40, expenses: [] },
-];
-
 const TASK_TEMPLATES: Record<OccasionType, Array<{ title: string; bucket: Bucket }>> = {
   birthday: [
     { title: "Pick a theme and color palette", bucket: "6+ weeks out" },
@@ -324,28 +316,6 @@ const TASK_TEMPLATES: Record<OccasionType, Array<{ title: string; bucket: Bucket
     { title: "Set up", bucket: "Day of" },
   ],
 };
-
-// Occasion-aware default budget categories.
-function defaultCategoriesFor(occasion: OccasionType): BudgetCategory[] {
-  if (occasion === "game-day") {
-    return [
-      { id: uid(), name: "Food & Snacks", planned: 120, expenses: [] },
-      { id: uid(), name: "Drinks & Bar", planned: 100, expenses: [] },
-      { id: uid(), name: "Paper Goods & Setup", planned: 40, expenses: [] },
-      { id: uid(), name: "Décor", planned: 40, expenses: [] },
-    ];
-  }
-  if (occasion === "cookout") {
-    return [
-      { id: uid(), name: "Grill & Food", planned: 200, expenses: [] },
-      { id: uid(), name: "Drinks & Bar", planned: 100, expenses: [] },
-      { id: uid(), name: "Sides & Dessert", planned: 80, expenses: [] },
-      { id: uid(), name: "Paper Goods & Setup", planned: 50, expenses: [] },
-      { id: uid(), name: "Décor", planned: 40, expenses: [] },
-    ];
-  }
-  return DEFAULT_CATEGORIES();
-}
 
 // Seed-only helper: builds a timeline around a game-day kickoff time
 // (e.g. "4:00 PM"). No persisted anchor — later edits are manual.
@@ -633,7 +603,7 @@ function seedGrad(): Party {
     { id: uid(), name: "Priya Shah", kind: "adult", rsvp: "maybe" },
     { id: uid(), name: "Andre Williams", kind: "adult", rsvp: "invited" },
   ];
-  const budgetCategories = defaultCategoriesFor("cookout").map((category, index) =>
+  const budgetCategories = createBudgetCategories("cookout", 900, uid).map((category, index) =>
     index === 0
       ? {
           ...category,
@@ -720,7 +690,7 @@ function seedWorldCup(): Party {
     { id: uid(), name: "Leila Haddad", kind: "adult", rsvp: "maybe" },
     { id: uid(), name: "Theo Martin", kind: "kid", rsvp: "invited" },
   ];
-  const budgetCategories = defaultCategoriesFor("game-day").map((category, index) =>
+  const budgetCategories = createBudgetCategories("game-day", 250, uid).map((category, index) =>
     index === 0
       ? {
           ...category,
@@ -1112,7 +1082,7 @@ export function makeParty(
       ...(input.extraTasks ?? []),
     ],
     guests: [],
-    budgetCategories: defaultCategoriesFor(input.occasion),
+    budgetCategories: createBudgetCategories(input.occasion, input.budget, uid),
     timeline:
       smart.timeline.length > 0
         ? smart.timeline

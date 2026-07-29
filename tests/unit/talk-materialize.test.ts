@@ -268,7 +268,7 @@ describe("summarize", () => {
     expect(s.essentials.name).toBe("Test");
     expect(s.essentials.occasion).toBe("cookout");
     expect(s.counts.tasks).toBeGreaterThan(0);
-    expect(s.counts.budgetCategories).toBe(4);
+    expect(s.counts.budgetCategories).toBe(5);
     expect(s.counts.shoppingItems).toBeGreaterThan(0);
   });
 });

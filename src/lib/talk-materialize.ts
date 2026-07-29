@@ -23,7 +23,7 @@ import {
 } from "./holiday-packs";
 // Types are erased at build; importing them from party-context does NOT drag
 // the React/Supabase client module into the server-fn bundle.
-import type { Bucket, OccasionType, TaskAction } from "./party-context";
+import type { BudgetCategory, Bucket, OccasionType, TaskAction } from "./party-context";
 import { generateShoppingItems, type ShoppingItem } from "./shopping";
 import { isoDateInDaysLocal } from "./date-only";
 import {
@@ -32,6 +32,7 @@ import {
   type PartyPlanningProfile,
 } from "./party-intelligence";
 import { generatedTaskMetadata } from "./task-guidance";
+import { createBudgetCategories } from "./budget";
 
 // Minimal, deterministic baseline tasks per occasion. Kept in this file (not
 // imported from party-context) so the materializer stays server-safe.
@@ -250,7 +251,7 @@ export type MaterializedParty = {
   }>;
   shoppingItems: ShoppingItem[];
   timeline: Array<{ id: string; time: string; activity: string }>;
-  budgetCategories: Array<{ id: string; name: string; planned: number; expenses: [] }>;
+  budgetCategories: BudgetCategory[];
 };
 
 export type MaterializeOptions = {
@@ -560,14 +561,9 @@ export function materializeDraft(
     return true;
   });
 
-  // ---- Budget categories: occasion-tuned splits stay untouched by materialize;
-  //      we produce a simple food-heavy split for holidays here for determinism.
-  const budgetCategories = [
-    { id: mkId(), name: "Food & Drink", planned: Math.round(budget * 0.55), expenses: [] as [] },
-    { id: mkId(), name: "Decorations", planned: Math.round(budget * 0.15), expenses: [] as [] },
-    { id: mkId(), name: "Supplies", planned: Math.round(budget * 0.15), expenses: [] as [] },
-    { id: mkId(), name: "Extras", planned: Math.round(budget * 0.15), expenses: [] as [] },
-  ];
+  // ---- Budget categories: deterministic occasion-aware targets always add
+  //      up to the host's stated total, including small and zero budgets.
+  const budgetCategories = createBudgetCategories(occasion, budget, mkId);
 
   // ---- Theme: light-touch from creativeDirection.vibe. No inference of themeId.
   const theme = (merged.vibe?.creativeDirection?.vibe ?? "").trim();

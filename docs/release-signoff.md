@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 74 files, 533 tests passed                                              |
+| Vitest                | 75 files, 545 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 197 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 201 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 197 applicable cases (84 intentional
+The complete Playwright matrix contains 201 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -142,6 +142,11 @@ green.
   only untouched, still-needed party-sized shopping quantities and projected
   spend. Host-edited, in-cart, and purchased quantities remain authoritative,
   and the save confirmation says what was resized or protected.
+- New party budgets use deterministic occasion-aware category targets whose
+  whole-dollar amounts add up to the host's total exactly. Changing a budget
+  rebalances only category targets and preserves every recorded expense.
+  Previously saved mismatches remain visible until the host chooses the
+  explained rebalance action; Confetti never silently rewrites their history.
 - Repeat planning keeps the original gathering's retrospective with the
   original record. Notes about what ran short and what should change become
   explicit, private tasks in the cloned plan, while the new gathering starts
