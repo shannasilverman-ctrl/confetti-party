@@ -115,6 +115,14 @@ export function EditDetailsDialog({
             event_time_zone: canonicalTimeZone,
           })
         : null;
+    if (calendarIssue === "missing-time-zone") {
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      return;
+    }
+    if (calendarIssue === "invalid-date") {
+      toast.error("Use a real event date before saving this timed party.");
+      return;
+    }
     if (calendarIssue === "ambiguous-wall-time") {
       toast.error(
         "That start time happens twice when the clocks change. Choose a time outside that clock-change hour.",

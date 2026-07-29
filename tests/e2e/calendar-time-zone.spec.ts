@@ -30,7 +30,18 @@ test("a timed party requires and preserves the host-confirmed event zone", async
   await wizard.getByTestId("wizard-open-plan").click();
 
   await page.getByTestId("edit-details-trigger").click();
-  const details = page.getByRole("dialog");
+  let details = page.getByRole("dialog");
+  await expect(details.getByLabel("Event time zone")).toHaveValue("America/New_York");
+
+  await details.getByLabel("Event time zone").fill("");
+  await details.getByRole("button", { name: "Save changes" }).click();
+  await expect(
+    page.getByText("Confirm the event time zone so guest calendar links stay accurate."),
+  ).toBeVisible();
+  await expect(details).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("edit-details-trigger").click();
+  details = page.getByRole("dialog");
   await expect(details.getByLabel("Event time zone")).toHaveValue("America/New_York");
 
   await details.getByLabel("Date").fill("2027-11-07");
