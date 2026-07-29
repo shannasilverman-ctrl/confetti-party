@@ -46,6 +46,8 @@ test("home exposes the primary CTA", async ({ page }) => {
   // Landing CTAs link to /talk (Talk it out) — assert at least one exists.
   const cta = page.locator('a[href="/talk"], a[href^="/talk?"]').first();
   await expect(cta).toBeVisible();
+  await expect(page.getByText(/turns the improvements into real checklist tasks/i)).toBeVisible();
+  await expect(page.getByText(/notes stay attached for reference/i)).toHaveCount(0);
 });
 
 test("home opens with a controllable multi-event party scene", async ({ page }) => {

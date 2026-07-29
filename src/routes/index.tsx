@@ -289,7 +289,7 @@ function Landing() {
                 <StoryRow
                   chapter="06 · Make the next one easier"
                   title="Memories, so next time is easier."
-                  body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Duplicate the plan later and those notes stay attached for reference."
+                  body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Plan the next one and Confetti turns the improvements into real checklist tasks."
                   cta={{
                     label: "Read Ava & Liam's retro",
                     to: "/party/$id/reveal",
