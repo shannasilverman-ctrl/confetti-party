@@ -41,6 +41,15 @@ for (const path of ROUTES) {
   });
 }
 
+test("private RSVP responses never enter browser or intermediary caches", async ({ request }) => {
+  for (const path of ["/rsvp/not-a-uuid", "/rsvp/00000000-0000-0000-0000-000000000000"]) {
+    const response = await request.get(path);
+    expect(response.ok(), `HTTP status for ${path}`).toBeTruthy();
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    expect(response.headers()["pragma"]).toBe("no-cache");
+  }
+});
+
 test("home exposes the primary CTA", async ({ page }) => {
   await page.goto("/");
   // Landing CTAs link to /talk (Talk it out) — assert at least one exists.

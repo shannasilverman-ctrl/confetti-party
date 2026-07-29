@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 77 files, 562 tests passed                                              |
+| Vitest                | 79 files, 577 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 205 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 207 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 205 applicable cases (84 intentional
+The complete Playwright matrix contains 207 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -107,6 +107,16 @@ green.
   first-party static assets. It excludes API, RSVP, collaboration, auth,
   account, and release-provenance routes; private party data never enters the
   service-worker cache.
+- Real invitation links, messages, images, native shares, email drafts, QR
+  codes, and Party Booth signs stay locked while the relevant party is saving,
+  device-only, failed, conflicted, rejected, or known only from an unverified
+  cache. A full server load or that party's own acknowledged server row unlocks
+  sharing from the canonical details without requiring a page reload; one
+  party's acknowledgement does not certify the rest of a cached account.
+- Every token-bearing `/rsvp/` response, including malformed and unknown
+  tokens, overrides upstream caching with `Cache-Control: no-store` and legacy
+  `Pragma: no-cache`. Public pages and static assets keep their existing cache
+  policy.
 - Public RSVP mutation RPCs have a private per-party database abuse budget.
 - Realtime voice reservations use a transaction-scoped Postgres advisory
   lock, enforcing the five-per-hour and two-concurrent limits across Worker

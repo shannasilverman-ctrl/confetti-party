@@ -959,6 +959,8 @@ type Ctx = {
   status: "loading" | "ready" | "error";
   /** Whether the current view is live, demo data, or a validated offline copy. */
   readState: PartyReadState;
+  /** Whether this party has an authoritative server row in the current session. */
+  isPartyCloudVerified: (id: string) => boolean;
   isDemo: boolean;
   refetch: () => void;
   getParty: (id: string) => Party | undefined;
@@ -1115,6 +1117,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   });
   const [reloadKey, setReloadKey] = useState(0);
   const [saveStates, setSaveStates] = useState<Record<string, SaveStateSnapshot>>({});
+  const [cloudVerifiedParties, setCloudVerifiedParties] = useState<Record<string, boolean>>({});
   const [conflicts, setConflicts] = useState<
     Record<string, import("./party-persistence").PendingConflict>
   >({});
@@ -1167,6 +1170,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           });
         } else if (ev.type === "server-row") {
           applyPartiesUpdate((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
+          setCloudVerifiedParties((current) => ({ ...current, [ev.id]: true }));
           // One acknowledged write is not proof that an account-wide cached
           // snapshot is current. Keep the offline notice until the full
           // authoritative query succeeds.
@@ -1240,6 +1244,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       setParties([]);
       setPartyRoles({});
       setSaveStates({});
+      setCloudVerifiedParties({});
       setConflicts({});
       setInsertRejected({});
       tombstonesRef.current = new Set();
@@ -1305,6 +1310,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             .map((party) => [party.id, "owner" as const]),
         ),
       });
+      setCloudVerifiedParties(
+        nextReadState.source === "server"
+          ? Object.fromEntries(rows.map((row) => [row.id, true]))
+          : {},
+      );
       for (const party of restored) store.retry(party.id);
       setDemoClaimCandidates(_loadDemoCustomParties().parties);
       setReadState(nextReadState);
@@ -1398,6 +1408,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       partyRoles,
       status,
       readState,
+      isPartyCloudVerified: (id) => !!cloudVerifiedParties[id],
       isDemo,
       saveStates,
       getPendingHostUpdates: (id) => store.getPendingHostUpdates(id),
@@ -1414,6 +1425,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           return rest;
         });
         setSaveStates((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
+        setCloudVerifiedParties((prev) => {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
@@ -1469,6 +1484,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
             ...Object.fromEntries(claimedIds.map((id) => [id, "owner" as const])),
           }));
           for (const party of canonical) store.seedBaseline(party, identity);
+          setCloudVerifiedParties((current) => ({
+            ...current,
+            ...Object.fromEntries(claimedIds.map((id) => [id, true])),
+          }));
         }
 
         const cleanup = _removeDemoCustomParties(claimedIds);
@@ -1556,6 +1575,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
+        setCloudVerifiedParties((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
         setInsertRejected((prev) => {
           const { [id]: _drop, ...rest } = prev;
           return rest;
@@ -1586,6 +1609,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       partyRoles,
       status,
       readState,
+      cloudVerifiedParties,
       isDemo,
       user,
       store,

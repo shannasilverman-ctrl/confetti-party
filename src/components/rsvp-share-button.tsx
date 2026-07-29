@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Link2, Copy, Sparkles, CalendarClock } from "lucide-react";
+import { Link2, Copy, Sparkles, CalendarClock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,8 @@ import { useParties, daysUntil, planningDetailIsOpen, type Party } from "@/lib/p
 import { formatDateOnly } from "@/lib/date-only";
 import { partyHeroImage } from "@/lib/party-visual";
 import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
+import { guestShareReadiness } from "@/lib/guest-share-readiness";
+import { SaveStatus } from "@/components/save-status";
 
 export function RsvpShareButton({
   partyId,
@@ -29,19 +31,35 @@ export function RsvpShareButton({
   className?: string;
   label?: string;
 }) {
-  const { getParty, isDemo } = useParties();
+  const { getParty, isDemo, isPartyCloudVerified, saveStates, conflicts, insertRejected } =
+    useParties();
   const party = getParty(partyId);
   const [demoOpen, setDemoOpen] = useState(false);
   const [dateNeededOpen, setDateNeededOpen] = useState(false);
+  const [shareBlockedOpen, setShareBlockedOpen] = useState(false);
   if (!party) return null;
 
+  const readiness = guestShareReadiness({
+    isDemo,
+    hasRsvpToken: !!party.rsvpToken,
+    dateIsOpen: planningDetailIsOpen(party, "date"),
+    cloudVerified: isPartyCloudVerified(partyId),
+    saveState: saveStates[partyId] ?? "idle",
+    hasConflict: !!conflicts[partyId],
+    insertRejected: !!insertRejected[partyId],
+  });
+
   const onClick = async () => {
-    if (planningDetailIsOpen(party, "date")) {
+    if (readiness.kind === "needs-date") {
       setDateNeededOpen(true);
       return;
     }
-    if (isDemo || !party.rsvpToken) {
+    if (readiness.kind === "preview") {
       setDemoOpen(true);
+      return;
+    }
+    if (!readiness.canShare) {
+      setShareBlockedOpen(true);
       return;
     }
     const url = `${window.location.origin}/rsvp/${party.rsvpToken}`;
@@ -66,7 +84,63 @@ export function RsvpShareButton({
         onOpenChange={setDateNeededOpen}
         partyName={party.name}
       />
+      <ShareBlockedDialog
+        open={shareBlockedOpen}
+        onOpenChange={setShareBlockedOpen}
+        partyId={partyId}
+        title={readiness.title}
+        message={readiness.message}
+        canShare={readiness.canShare}
+        onShare={async () => {
+          await onClick();
+          setShareBlockedOpen(false);
+        }}
+      />
     </>
+  );
+}
+
+function ShareBlockedDialog({
+  open,
+  onOpenChange,
+  partyId,
+  title,
+  message,
+  canShare,
+  onShare,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  partyId: string;
+  title: string;
+  message: string;
+  canShare: boolean;
+  onShare: () => Promise<void>;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md" data-testid="guest-share-blocked-dialog">
+        <DialogHeader>
+          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-warning/20 text-warning-foreground">
+            <AlertTriangle className="h-5 w-5" aria-hidden />
+          </div>
+          <DialogTitle className="font-display text-2xl">{title}</DialogTitle>
+          <DialogDescription>{message}</DialogDescription>
+        </DialogHeader>
+        {!canShare && <SaveStatus partyId={partyId} />}
+        <DialogFooter>
+          {canShare ? (
+            <Button variant="festive" onClick={onShare}>
+              <Link2 /> Copy RSVP link
+            </Button>
+          ) : (
+            <Button variant="festive" onClick={() => onOpenChange(false)}>
+              Keep planning
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -63,6 +63,7 @@ import {
   WandSparkles,
   Calculator,
 } from "lucide-react";
+import { guestShareReadiness } from "@/lib/guest-share-readiness";
 
 type NavTab =
   | "overview"
@@ -81,7 +82,15 @@ export function OverviewTab({
   partyId: string;
   onNavigate: (tab: NavTab) => void;
 }) {
-  const { getParty, updateParty } = useParties();
+  const {
+    getParty,
+    updateParty,
+    isDemo,
+    isPartyCloudVerified,
+    saveStates,
+    conflicts,
+    insertRejected,
+  } = useParties();
   const party = getParty(partyId)!;
   const [inviteOpen, setInviteOpen] = useState(false);
 
@@ -112,6 +121,15 @@ export function OverviewTab({
     holidayPackId: party.holidayPackId,
   });
   const guestPlan = guestPlanSnapshot(party);
+  const shareReadiness = guestShareReadiness({
+    isDemo,
+    hasRsvpToken: !!party.rsvpToken,
+    dateIsOpen: dateTbd,
+    cloudVerified: isPartyCloudVerified(partyId),
+    saveState: saveStates[partyId] ?? "idle",
+    hasConflict: !!conflicts[partyId],
+    insertRejected: !!insertRejected[partyId],
+  });
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -128,6 +146,7 @@ export function OverviewTab({
         hasPhotoDrop={!!party.photoDrop}
         rsvpToken={party.rsvpToken}
         dateTbd={dateTbd}
+        guestShareReady={shareReadiness.canShare}
         onOpenInvite={() => setInviteOpen(true)}
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
@@ -932,6 +951,7 @@ function PartyJourneyActions({
   hasPhotoDrop,
   rsvpToken,
   dateTbd,
+  guestShareReady,
   onOpenInvite,
   onOpenBring,
 }: {
@@ -940,11 +960,12 @@ function PartyJourneyActions({
   hasPhotoDrop: boolean;
   rsvpToken?: string;
   dateTbd: boolean;
+  guestShareReady: boolean;
   onOpenInvite: () => void;
   onOpenBring: () => void;
 }) {
   const copyGuestLink = async () => {
-    if (!rsvpToken || dateTbd) {
+    if (!rsvpToken || dateTbd || !guestShareReady) {
       onOpenInvite();
       return;
     }
