@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 79 files, 582 tests passed                                              |
+| Vitest                | 80 files, 588 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 211 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 213 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 211 applicable cases (84 intentional
+The complete Playwright matrix contains 213 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -197,7 +197,11 @@ green.
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an
   account. Unknown inputs remain explicit planning tasks instead of silently
-  becoming guest-visible facts.
+  becoming guest-visible facts. A timed plan requires the host to explicitly
+  confirm an IANA time zone; Confetti does not infer one from the device or
+  location. The browser and authenticated server reject invalid zones, DST
+  gaps, and repeated wall times, while the atomic database function requires
+  and persists the confirmed zone with the party.
 - Account export strips bring-item claim secrets. Account and party deletion
   have explicit confirmation and failure recovery.
 - Party membership is limited to owner and cohost roles. Owner transfer is

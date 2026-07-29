@@ -147,7 +147,7 @@ describe("migration contract: DB hardening batch", () => {
     );
     expect(confirm).toMatch(/jsonb_typeof\(clean_profile\) <> 'object'/);
     expect(confirm).toMatch(
-      /'version','honoreeAge','expectedKids','expectedAdults','effort','format'/,
+      /'version','honoreeAge','expectedKids','expectedAdults','effort','format',\s+'foodRole','foodServiceStyle','eventTimeZone'/,
     );
     expect(confirm).toMatch(/clean_profile->>'format' NOT IN \('home','venue','help-me-choose'\)/);
     expect(confirm).toMatch(/planning_profile, host_note/);
@@ -169,6 +169,40 @@ describe("migration contract: DB hardening batch", () => {
     expect(returnProjection).toMatch(/'rsvp_context', public_rsvp_context/);
     expect(returnProjection).not.toMatch(/'planning_profile', p\.planning_profile/);
     expect(returnProjection).not.toMatch(/'honoreeAge'/);
+  });
+
+  test("Talk confirmation requires and atomically persists a validated timed-party zone", () => {
+    const confirm = latestFunctionBody("confirm_gathering_draft");
+
+    expect(confirm).toMatch(/SECURITY DEFINER/);
+    expect(confirm).toMatch(/SET search_path = public/);
+    expect(confirm).toMatch(/WHERE id = _draft_id AND user_id = auth\.uid\(\)\s+FOR UPDATE/);
+    expect(confirm).toMatch(
+      /d\.status = 'confirmed' AND d\.confirmed_party_id IS NOT NULL[\s\S]+?'already_confirmed', true/,
+    );
+    expect(confirm).toMatch(
+      /FROM pg_catalog\.pg_timezone_names\s+WHERE name = clean_event_time_zone/,
+    );
+    expect(confirm).toMatch(
+      /clean_profile->>'foodRole' NOT IN \('light-bites','full-meal','grazing'\)/,
+    );
+    expect(confirm).toMatch(
+      /clean_profile->>'foodServiceStyle' NOT IN \('self-serve','family-style','served'\)/,
+    );
+    expect(confirm).toMatch(/clean_start_time IS NOT NULL AND clean_event_time_zone IS NULL/);
+    expect(confirm).toMatch(/\(\[1-9\]\|1\[0-2\]\):\[0-5\]\[0-9\] \(AM\|PM\)/);
+    expect(confirm).toMatch(
+      /jsonb_set\(\s*clean_profile,\s*'\{eventTimeZone\}',\s*to_jsonb\(clean_event_time_zone\)/,
+    );
+    expect(confirm).toMatch(/PERFORM public\._validate_confirm_collection\(_party->'tasks'/);
+    expect(confirm).toMatch(/planning_profile, host_note/);
+    expect(confirm).toMatch(/clean_pack_id, clean_profile, clean_host_note/);
+    expect(allSql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.confirm_gathering_draft\(uuid, jsonb\) FROM PUBLIC/,
+    );
+    expect(allSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.confirm_gathering_draft\(uuid, jsonb\) TO authenticated/,
+    );
   });
 
   test("contextual RSVP v2 exposes only a coarse workflow and validates minimal answers", () => {

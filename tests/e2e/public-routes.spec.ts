@@ -210,6 +210,33 @@ test("/talk turns the host's words into a real browser-saved plan", async ({ pag
   await expect(page.getByText("Sunday, August 15, 2027", { exact: true })).toBeVisible();
 });
 
+test("/talk requires an explicit time zone before building a timed browser plan", async ({
+  page,
+}) => {
+  await page.goto("/talk", { waitUntil: "domcontentloaded" });
+  await page
+    .getByLabel("Message Confetti")
+    .fill("A relaxed dinner for 8 friends on August 15, 2027 at 7:00 PM");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  const confirmation = page.getByTestId("talk-demo-time-zone-confirmation");
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(/won.t guess/i);
+  const build = page.getByTestId("talk-build-browser-plan");
+  await expect(build).toBeDisabled();
+
+  await confirmation.getByLabel("Party time zone").fill("America/New_York");
+  await expect(confirmation).toContainText("Confirmed as America/New_York.");
+  await expect(build).toBeEnabled();
+  await build.click();
+
+  await expect(page).toHaveURL(/\/party\/[0-9a-f-]+$/i);
+  await page.getByTestId("edit-details-trigger").click();
+  await expect(page.getByRole("dialog").getByLabel("Event time zone")).toHaveValue(
+    "America/New_York",
+  );
+});
+
 test("/app party cards use accessible non-nested interactive controls", async ({ page }) => {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   const nested = await page.evaluate(() => {

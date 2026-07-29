@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { materializeDraft, type ReviewSummary } from "@/lib/talk-materialize";
+import { deviceEventTimeZone } from "@/lib/calendar-export";
+import {
+  resolveTalkEventTimeZone,
+  talkTimeZoneIssueMessage,
+  type TalkTimeZoneIssue,
+} from "@/lib/talk-time-zone";
 import {
   newId,
   PLANNING_TASK_TITLES,
@@ -229,6 +237,7 @@ function TalkRoute() {
   const authReady = !loading;
   const isDemo = authReady && !user;
   const [demoTurn, setDemoTurn] = useState(0);
+  const [demoEventTimeZone, setDemoEventTimeZone] = useState("");
   const demoLimitReached = isDemo && demoTurn >= DEMO_MAX_TURNS;
   // Announcement region for screen readers: thinking, send/connect errors,
   // demo-limit reached, connection lifecycle.
@@ -301,10 +310,39 @@ function TalkRoute() {
     }
   }, [typed, thinking, draftId, messages, isDemo, demoLimitReached]);
 
+  const demoPlanPreview = useMemo(() => {
+    if (!isDemo || demoTurn === 0) return null;
+    return materializeDraft(demoReply(messages).draftPatch).party;
+  }, [demoTurn, isDemo, messages]);
+  const demoTimeZoneResolution = useMemo(
+    () =>
+      resolveTalkEventTimeZone({
+        date: demoPlanPreview?.date ?? "",
+        startTime: demoPlanPreview?.startTime,
+        eventTimeZone: demoEventTimeZone,
+      }),
+    [demoEventTimeZone, demoPlanPreview],
+  );
+
   const createDemoPlan = useCallback(() => {
     if (!isDemo || demoTurn === 0 || partyStatus !== "ready") return;
     const result = demoReply(messages);
     const { party, blockingUnknowns, optionalUnknowns } = materializeDraft(result.draftPatch);
+    const timeZone = resolveTalkEventTimeZone({
+      date: party.date,
+      startTime: party.startTime,
+      eventTimeZone: demoEventTimeZone,
+    });
+    if (timeZone.issue) {
+      const message = talkTimeZoneIssueMessage(timeZone.issue) ?? "Confirm the party's time zone.";
+      toast.error(message);
+      setStatusAnnouncement(message);
+      return;
+    }
+    const planningProfile: NonNullable<Party["planningProfile"]> = {
+      ...(party.planningProfile ?? { version: 1 }),
+      ...(timeZone.eventTimeZone ? { eventTimeZone: timeZone.eventTimeZone } : {}),
+    };
     const missing = new Set([
       ...blockingUnknowns.map((unknown) => unknown.field),
       ...optionalUnknowns.map((unknown) => unknown.field),
@@ -383,7 +421,7 @@ function TalkRoute() {
       guestEstimate: party.guestEstimate,
       budget: party.budget,
       theme: party.theme || "Make it yours",
-      planningProfile: party.planningProfile ?? undefined,
+      planningProfile,
     });
     updateParty(id, (current) => ({
       ...current,
@@ -396,7 +434,7 @@ function TalkRoute() {
       budget: party.budget,
       theme: party.theme || "Make it yours",
       holidayPackId: party.holidayPackId ?? undefined,
-      planningProfile: party.planningProfile ?? undefined,
+      planningProfile,
       hostNote: party.hostNote ?? undefined,
       tasks,
       bringBoard,
@@ -406,7 +444,16 @@ function TalkRoute() {
     }));
     celebrate("cannon");
     void navigate({ to: "/party/$id", params: { id } });
-  }, [createParty, demoTurn, isDemo, messages, navigate, partyStatus, updateParty]);
+  }, [
+    createParty,
+    demoEventTimeZone,
+    demoTurn,
+    isDemo,
+    messages,
+    navigate,
+    partyStatus,
+    updateParty,
+  ]);
 
   const openReview = useCallback(async () => {
     if (!draftId || isDemo) return;
@@ -438,7 +485,7 @@ function TalkRoute() {
   }, [draftId, isDemo, navigate]);
 
   const confirmAndCreate = useCallback(
-    async (opts: { acknowledgePlaceholderDate?: boolean } = {}) => {
+    async (opts: { acknowledgePlaceholderDate?: boolean; eventTimeZone?: string } = {}) => {
       if (!draftId || isDemo || confirming) return;
       setConfirming(true);
       try {
@@ -446,6 +493,7 @@ function TalkRoute() {
           data: {
             draftId,
             acknowledgePlaceholderDate: !!opts.acknowledgePlaceholderDate,
+            eventTimeZone: opts.eventTimeZone,
           },
         });
         celebrate("big");
@@ -902,12 +950,22 @@ function TalkRoute() {
                 </Card>
                 {isDemo ? (
                   <>
+                    {demoPlanPreview?.startTime && (
+                      <TimeZoneConfirmation
+                        value={demoEventTimeZone}
+                        onChange={setDemoEventTimeZone}
+                        issue={demoTimeZoneResolution.issue}
+                        testIdPrefix="talk-demo"
+                      />
+                    )}
                     <Button
                       variant="festive"
                       size="lg"
                       className="w-full"
                       onClick={createDemoPlan}
-                      disabled={demoTurn === 0 || partyStatus !== "ready"}
+                      disabled={
+                        demoTurn === 0 || partyStatus !== "ready" || !!demoTimeZoneResolution.issue
+                      }
                       data-testid="talk-build-browser-plan"
                     >
                       <CheckCircle2 className="mr-2 h-4 w-4" />{" "}
@@ -1070,18 +1128,33 @@ function ReviewDialog({
   loading: boolean;
   review: ReviewSummary | null;
   confirming: boolean;
-  onConfirm: (opts: { acknowledgePlaceholderDate?: boolean }) => void;
+  onConfirm: (opts: { acknowledgePlaceholderDate?: boolean; eventTimeZone?: string }) => void;
 }) {
   const [ackDate, setAckDate] = useState(false);
+  const [eventTimeZone, setEventTimeZone] = useState("");
   // Reset acknowledgement whenever the dialog reopens with a new review.
   useEffect(() => {
-    if (!open) setAckDate(false);
+    if (!open) {
+      setAckDate(false);
+      setEventTimeZone("");
+    }
   }, [open]);
 
   const dateBlocked = !!review?.blockingUnknowns?.some((b) => b.field === "date");
   const otherBlockers = (review?.blockingUnknowns ?? []).filter((b) => b.field !== "date");
+  const timeZone = resolveTalkEventTimeZone({
+    date: review?.essentials.date ?? "",
+    startTime: review?.essentials.startTime,
+    eventTimeZone,
+    dateIsPlaceholder: dateBlocked,
+  });
   const canCreate =
-    !!review && !loading && !confirming && otherBlockers.length === 0 && (!dateBlocked || ackDate);
+    !!review &&
+    !loading &&
+    !confirming &&
+    otherBlockers.length === 0 &&
+    (!dateBlocked || ackDate) &&
+    !timeZone.issue;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1145,6 +1218,15 @@ function ReviewDialog({
                 )}
               </dl>
             </section>
+
+            {review.essentials.startTime && (
+              <TimeZoneConfirmation
+                value={eventTimeZone}
+                onChange={setEventTimeZone}
+                issue={timeZone.issue}
+                testIdPrefix="talk-review"
+              />
+            )}
 
             {dateBlocked && (
               <section
@@ -1243,7 +1325,12 @@ function ReviewDialog({
           </Button>
           <Button
             variant="festive"
-            onClick={() => onConfirm({ acknowledgePlaceholderDate: ackDate })}
+            onClick={() =>
+              onConfirm({
+                acknowledgePlaceholderDate: ackDate,
+                eventTimeZone: timeZone.eventTimeZone ?? undefined,
+              })
+            }
             disabled={!canCreate}
             data-testid="talk-confirm-create"
             className="min-h-11"
@@ -1261,6 +1348,63 @@ function ReviewDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TimeZoneConfirmation({
+  value,
+  onChange,
+  issue,
+  testIdPrefix,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  issue: TalkTimeZoneIssue | null;
+  testIdPrefix: string;
+}) {
+  const suggestion = deviceEventTimeZone();
+  const message = talkTimeZoneIssueMessage(issue);
+  const inputId = `${testIdPrefix}-time-zone`;
+
+  return (
+    <section
+      className="rounded-xl border border-border bg-muted/25 p-3"
+      data-testid={`${testIdPrefix}-time-zone-confirmation`}
+    >
+      <Label htmlFor={inputId}>Party time zone</Label>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Confirm the place’s time zone. Confetti won’t guess from your device or location.
+      </p>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <Input
+          id={inputId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="America/New_York"
+          autoComplete="off"
+          aria-invalid={!!issue}
+          aria-describedby={`${inputId}-message`}
+          data-testid={`${testIdPrefix}-time-zone-input`}
+        />
+        {suggestion && suggestion !== value && (
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => onChange(suggestion)}
+          >
+            Use {suggestion}
+          </Button>
+        )}
+      </div>
+      <p
+        id={`${inputId}-message`}
+        className={cn("mt-1.5 text-xs", issue ? "text-destructive" : "text-muted-foreground")}
+        aria-live="polite"
+      >
+        {message ?? `Confirmed as ${value}.`}
+      </p>
+    </section>
   );
 }
 

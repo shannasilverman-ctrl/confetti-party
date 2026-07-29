@@ -15,6 +15,7 @@ import {
 } from "./talk-materialize";
 import { safeParseDraftPatch, sanitizeStringList } from "./talk-schemas";
 import { demoReply } from "./talk-demo";
+import { resolveTalkEventTimeZone, talkTimeZoneIssueMessage } from "./talk-time-zone";
 
 const MAX_TURNS_PER_HOUR = 40;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -308,6 +309,8 @@ const ConfirmInput = z.object({
    * silently create a fake-date party.
    */
   acknowledgePlaceholderDate: z.boolean().optional().default(false),
+  /** Explicit host confirmation; the model must never infer this value. */
+  eventTimeZone: z.string().trim().min(3).max(80).optional(),
 });
 
 export const confirmDraft = createServerFn({ method: "POST" })
@@ -337,6 +340,23 @@ export const confirmDraft = createServerFn({ method: "POST" })
       );
     }
 
+    const timeZone = resolveTalkEventTimeZone({
+      date: party.date,
+      startTime: party.startTime,
+      eventTimeZone: data.eventTimeZone,
+      dateIsPlaceholder: dateBlocked,
+    });
+    if (timeZone.issue) {
+      throw new Error(
+        talkTimeZoneIssueMessage(timeZone.issue) ??
+          "Confirm the party's time zone before creating the plan.",
+      );
+    }
+    const planningProfile = {
+      ...(party.planningProfile ?? { version: 1 as const }),
+      ...(timeZone.eventTimeZone ? { eventTimeZone: timeZone.eventTimeZone } : {}),
+    };
+
     // Single transactional RPC: locks the draft row, checks ownership,
     // returns the existing party id if already confirmed, otherwise inserts
     // the party and claims the draft in one shot. Removes the previous
@@ -353,6 +373,7 @@ export const confirmDraft = createServerFn({ method: "POST" })
       themeId: party.themeId,
       holidayPackId: party.holidayPackId,
       hostNote: party.hostNote,
+      planningProfile,
       tasks: party.tasks,
       budgetCategories: party.budgetCategories,
       shoppingItems: party.shoppingItems,
