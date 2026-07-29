@@ -139,7 +139,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         <a
           href="#route-content"
-          className="fixed left-3 top-3 z-[10000] -translate-y-[calc(100%+1rem)] rounded-full bg-secondary px-4 py-2 font-semibold text-secondary-foreground shadow-elevated transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 motion-reduce:transition-none"
+          className="absolute left-3 top-3 z-[10000] -translate-y-[calc(100%+1rem)] rounded-full bg-secondary px-4 py-2 font-semibold text-secondary-foreground shadow-elevated transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 motion-reduce:transition-none"
         >
           Skip to main content
         </a>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import { daysUntilLocal, formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
+import { daysUntilUtc, formatDateOnly, nextWeekdayDateOnlyUtc } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 import { EventHeroCarousel } from "@/components/event-hero-carousel";
 import {
@@ -29,6 +29,23 @@ import {
 
 export const Route = createFileRoute("/")({
   component: Landing,
+  loader: () => {
+    const sampleCardDate = nextWeekdayDateOnlyUtc(6, 21);
+    const sampleDays = daysUntilUtc(sampleCardDate);
+    return {
+      sampleCardDateLabel: formatDateOnly(
+        sampleCardDate,
+        {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        },
+        "en-US",
+      ),
+      sampleCountdown:
+        sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Soon",
+    };
+  },
   head: () => ({
     meta: [
       { title: "Confetti — Plan unforgettable gatherings" },
@@ -51,20 +68,9 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const navigate = useNavigate();
   // A rolling illustrative Saturday keeps the mock date and countdown
-  // truthful instead of quietly going stale after a launch milestone.
-  const sampleCardDate = useMemo(() => nextWeekdayDateOnly(6, 21), []);
-  const sampleDays = useMemo(() => daysUntilLocal(sampleCardDate), [sampleCardDate]);
-  const sampleCountdown =
-    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Soon";
-  const sampleCardDateLabel = useMemo(
-    () =>
-      formatDateOnly(sampleCardDate, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      }),
-    [sampleCardDate],
-  );
+  // truthful instead of quietly going stale after a launch milestone. The
+  // loader snapshots it once so SSR and hydration cannot cross a day boundary.
+  const { sampleCardDateLabel, sampleCountdown } = Route.useLoaderData();
   useEffect(() => {
     // Gentle cannon behind the headline once the wordmark letters have popped in.
     const t = setTimeout(() => {
