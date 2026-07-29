@@ -79,6 +79,10 @@ function Landing() {
 
   const startPlanning = (e: React.MouseEvent) => {
     celebrate("cannon", { x: e.clientX, y: e.clientY });
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      void navigate({ to: "/app", search: { new: true } });
+      return;
+    }
     // Let the burst breathe for a beat before navigating.
     setTimeout(() => navigate({ to: "/app", search: { new: true } }), 220);
   };

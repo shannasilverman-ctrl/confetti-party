@@ -84,7 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
+      },
       { title: "Confetti — Plan unforgettable gatherings" },
       {
         name: "description",
@@ -134,7 +137,15 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <a
+          href="#route-content"
+          className="fixed left-3 top-3 z-[10000] -translate-y-[calc(100%+1rem)] rounded-full bg-secondary px-4 py-2 font-semibold text-secondary-foreground shadow-elevated transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 motion-reduce:transition-none"
+        >
+          Skip to main content
+        </a>
+        <div id="route-content" tabIndex={-1}>
+          {children}
+        </div>
         <Scripts />
       </body>
     </html>

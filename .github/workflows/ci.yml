@@ -55,7 +55,7 @@ jobs:
         run: bun run check:bundle
 
       - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps chromium webkit
 
       - name: Verify webServer contract (spawn declared command, wait for 200)
         # Distinct port from the E2E suite so a SIGKILL-teardown race cannot
@@ -88,6 +88,9 @@ jobs:
 
       - name: E2E tests — mobile
         run: bun run test:e2e:mobile
+
+      - name: E2E tests — Mobile Safari critical journeys
+        run: bun run test:e2e:webkit
 
       - name: Upload Playwright report
         if: always()

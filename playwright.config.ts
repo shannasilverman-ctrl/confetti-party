@@ -35,9 +35,19 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
+      testIgnore: /mobile-safari-critical\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
-    { name: "mobile", use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } } },
+    {
+      name: "mobile",
+      testIgnore: /mobile-safari-critical\.spec\.ts/,
+      use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: "mobile-webkit",
+      testMatch: /mobile-safari-critical\.spec\.ts/,
+      use: { ...devices["iPhone 13"], browserName: "webkit" },
+    },
   ],
   webServer: {
     // Serve the production build via the Cloudflare Worker preview
