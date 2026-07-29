@@ -9,7 +9,7 @@ describe("route provider loading contract", () => {
     },
   );
 
-  it.each(["/", "/talk", "/auth", "/reset-password", "/account"])(
+  it.each(["/", "/talk", "/auth", "/reset-password", "/account", "/collaborate"])(
     "loads auth without party state for %s",
     (path) => {
       expect(routeProviderNeeds(path)).toEqual({ auth: true, party: false });

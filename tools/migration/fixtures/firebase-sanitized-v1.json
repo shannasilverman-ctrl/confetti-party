@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "sanitized": true,
+    "snapshotAt": "2026-07-28T12:00:00.000Z",
+    "sourceTenant": "confetti-d8be9"
+  },
+  "auth": [
+    {
+      "uid": "sanitized-owner-uid",
+      "providers": ["password", "google.com"],
+      "disabled": false
+    }
+  ],
+  "users": {
+    "sanitized-owner-uid": {
+      "eventCode": "ABC123",
+      "name": "Sample Host",
+      "fcmTokens": ["SANITIZED_REAUTHORIZE"]
+    }
+  },
+  "events": {
+    "ABC123": {
+      "code": "ABC123",
+      "ownerUid": "sanitized-owner-uid",
+      "updatedAt": "2026-07-28T11:59:00.000Z",
+      "data": {
+        "setup": true,
+        "kind": "Dinner Party",
+        "emoji": "party",
+        "title": "Sanitized Supper",
+        "location": "Sample Place",
+        "time": "18:00",
+        "date": "2026-08-01",
+        "categories": [
+          { "id": "cat-1", "name": "Food", "budget": 100, "spent": 20, "progress": 25 }
+        ],
+        "vendors": [{ "id": "event-vendor-1", "name": "Sample Vendor" }],
+        "guests": [
+          {
+            "id": "guest-1",
+            "name": "Sample Guest",
+            "email": "guest@example.invalid",
+            "dietary": ["vegetarian"]
+          }
+        ],
+        "pins": [{ "id": "pin-1", "url": "https://example.invalid/inspiration" }],
+        "tasks": [{ "id": "task-1", "title": "Sample task", "done": false }],
+        "members": [
+          {
+            "id": "member-1",
+            "uid": "sanitized-owner-uid",
+            "name": "Sample Host",
+            "email": "host@example.invalid",
+            "role": "owner",
+            "status": "active"
+          }
+        ]
+      }
+    },
+    "invite:guest@example.invalid": {
+      "code": "ABC123",
+      "role": "cohost",
+      "at": "2026-07-20T10:00:00.000Z"
+    }
+  },
+  "vendors": {
+    "sanitized-vendor-uid": {
+      "uid": "sanitized-vendor-uid",
+      "email": "vendor@example.invalid",
+      "businessName": "Sample Vendor"
+    }
+  },
+  "bookings": {
+    "booking-1": {
+      "plannerUid": "sanitized-owner-uid",
+      "vendorUid": "sanitized-vendor-uid",
+      "status": "requested",
+      "createdAt": "2026-07-20T10:00:00.000Z",
+      "updatedAt": "2026-07-21T10:00:00.000Z",
+      "thread": [{ "text": "Sanitized message", "sender": "planner" }],
+      "attachments": [
+        {
+          "name": "sample.pdf",
+          "url": "https://example.invalid/sample.pdf",
+          "size": 123
+        }
+      ]
+    }
+  },
+  "integrations": {
+    "canva": {
+      "accessToken": "SANITIZED_REAUTHORIZE",
+      "refreshToken": "SANITIZED_REAUTHORIZE"
+    }
+  },
+  "storage": {
+    "attachments": [
+      {
+        "path": "attachments/sanitized/sample.pdf",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size": 123,
+        "contentType": "application/pdf"
+      }
+    ]
+  }
+}

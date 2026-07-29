@@ -71,6 +71,7 @@ import { PhotoDropEditor } from "@/components/photo-drop-editor";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
 import { TaskOwnershipFollowThrough } from "@/components/task-ownership-follow-through";
+import { PartyPeopleDialog } from "@/components/party-people-dialog";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
 import { partyTabFromSearch, type PartyTabKey } from "@/lib/party-tabs";
@@ -100,10 +101,12 @@ function PartyWorkspace() {
   const search = Route.useSearch();
   const tab = partyTabFromSearch(search.tab);
   const navigate = Route.useNavigate();
-  const { getParty, status } = useParties();
+  const { getParty, getPartyRole, refetch, status } = useParties();
   const party = getParty(id);
+  const partyRole = getPartyRole(id);
   const shouldScrollToContent = useRef(false);
   const [timelineEditing, setTimelineEditing] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
 
   useEffect(() => {
     if (!shouldScrollToContent.current) return;
@@ -185,6 +188,15 @@ function PartyWorkspace() {
               <BrandLockup />
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPeopleOpen(true)}
+                aria-label="Plan together"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden lg:inline">Plan together</span>
+              </Button>
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link to="/party/$id/reveal" params={{ id: party.id }}>
                   <Sparkle className="h-4 w-4" /> Reveal
@@ -195,13 +207,15 @@ function PartyWorkspace() {
                   <Timer className="h-4 w-4" /> Day-of
                 </Link>
               </Button>
-              <DeletePartyButton
-                partyId={party.id}
-                partyName={party.name}
-                redirectOnDelete
-                variant="ghost"
-                size="sm"
-              />
+              {partyRole === "owner" ? (
+                <DeletePartyButton
+                  partyId={party.id}
+                  partyName={party.name}
+                  redirectOnDelete
+                  variant="ghost"
+                  size="sm"
+                />
+              ) : null}
             </div>
           </div>
 
@@ -378,6 +392,13 @@ function PartyWorkspace() {
           ))}
         </div>
       </nav>
+      <PartyPeopleDialog
+        partyId={party.id}
+        partyName={party.name}
+        open={peopleOpen}
+        onOpenChange={setPeopleOpen}
+        onMembershipChanged={refetch}
+      />
     </div>
   );
 }

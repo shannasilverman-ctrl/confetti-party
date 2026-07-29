@@ -93,11 +93,13 @@ function PrivacyPage() {
               Account page
             </Link>{" "}
             you can also download a JSON export of everything we store for your account, or
-            permanently delete your account. Deleting your account cascades: every party, guest
-            RSVP, bring-board item, host update, draft, and voice-session record tied to your
-            account is removed from the active database. Infrastructure providers may retain
-            encrypted operational backups according to the deployment's configured backup schedule;
-            this beta does not promise a specific backup purge window.
+            permanently delete your account. If a party has a cohost, Confetti first requires you to
+            transfer it or remove the cohost so account deletion cannot silently destroy another
+            planner's work. Account deletion then cascades through your remaining parties, guest
+            RSVPs, bring-board items, host updates, drafts, and voice-session records.
+            Infrastructure providers may retain encrypted operational backups according to the
+            deployment's configured backup schedule; this beta does not promise a specific backup
+            purge window.
           </p>
           <p className="mt-3 text-sm">
             Confetti also stores a small amount of sample/demo state in this browser's local storage

@@ -13,6 +13,7 @@ export function routeProviderNeeds(pathname: string): RouteProviderNeeds {
     pathname === "/auth" ||
     pathname === "/reset-password" ||
     pathname === "/account" ||
+    pathname === "/collaborate" ||
     party;
   return { auth, party };
 }

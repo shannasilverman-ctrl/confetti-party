@@ -972,10 +972,13 @@ type SaveStateSnapshot = import("./party-persistence").SaveState;
 
 type Ctx = {
   parties: Party[];
+  /** Database-enforced access level for each loaded party. */
+  partyRoles: Record<string, import("./collaboration.functions").PartyRole>;
   status: "loading" | "ready" | "error";
   isDemo: boolean;
   refetch: () => void;
   getParty: (id: string) => Party | undefined;
+  getPartyRole: (id: string) => import("./collaboration.functions").PartyRole | undefined;
   createParty: (input: {
     name: string;
     occasion: OccasionType;
@@ -1101,6 +1104,9 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const isDemo = !user;
   const [parties, setParties] = useState<Party[]>([]);
+  const [partyRoles, setPartyRoles] = useState<
+    Record<string, import("./collaboration.functions").PartyRole>
+  >({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [saveStates, setSaveStates] = useState<Record<string, SaveStateSnapshot>>({});
@@ -1205,6 +1211,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       store.reset(nextIdentity);
       partiesRef.current = [];
       setParties([]);
+      setPartyRoles({});
       setSaveStates({});
       setConflicts({});
       setInsertRejected({});
@@ -1223,6 +1230,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       }));
       partiesRef.current = guided;
       setParties(guided);
+      setPartyRoles(Object.fromEntries(guided.map((party) => [party.id, "owner"])));
       if (warning && !warnedRef.current.has(warning)) {
         warnedRef.current.add(warning);
         setDemoWarning(warning);
@@ -1245,12 +1253,20 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           });
           partiesRef.current = [];
           setParties([]);
+          setPartyRoles({});
           setStatus("error");
           return;
         }
         const loaded = (data ?? []).map((r) => rowToParty(r));
+        const loadedRoles = Object.fromEntries(
+          (data ?? []).map((row) => [
+            row.id,
+            row.user_id === user.id ? ("owner" as const) : ("cohost" as const),
+          ]),
+        );
         partiesRef.current = loaded;
         setParties(loaded);
+        setPartyRoles(loadedRoles);
         for (const p of loaded) store.seedBaseline(p, user.id);
         setStatus("ready");
         _clearDemoState();
@@ -1285,6 +1301,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(
     () => ({
       parties,
+      partyRoles,
       status,
       isDemo,
       saveStates,
@@ -1296,6 +1313,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         tombstonesRef.current.add(id);
         store.discardLocalDraft(id);
         applyPartiesUpdate((prev) => prev.filter((p) => p.id !== id));
+        setPartyRoles((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
         setSaveStates((prev) => {
           const { [id]: _drop, ...rest } = prev;
           return rest;
@@ -1307,11 +1328,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       },
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
+      getPartyRole: (id) => partyRoles[id],
       createParty: (input) => {
         const id =
           typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : uid();
         const p = makeParty(input, id);
         applyPartiesUpdate((prev) => [...prev, p]);
+        setPartyRoles((prev) => ({ ...prev, [id]: "owner" }));
         if (user) store.enqueueInsert(p, user.id);
         return id;
       },
@@ -1350,19 +1373,28 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         copy.budgetCategories = copy.budgetCategories.map((c) => ({ ...c, expenses: [] }));
         copy.shoppingItems = copy.shoppingItems.map((s) => ({ ...s, status: "needed" }));
         applyPartiesUpdate((prev) => [...prev, copy]);
+        setPartyRoles((prev) => ({ ...prev, [newId]: "owner" }));
         if (user) store.enqueueInsert(copy, user.id);
         return newId;
       },
       deleteParty: async (id) => {
         const target = partiesRef.current.find((p) => p.id === id);
         if (!target) return { error: null };
+        if (partyRoles[id] !== "owner") {
+          return { error: "Only the party owner can delete this party." };
+        }
         const restoreTarget = () => {
           tombstonesRef.current.delete(id);
           applyPartiesUpdate((list) => (list.some((p) => p.id === id) ? list : [...list, target]));
+          setPartyRoles((prev) => ({ ...prev, [id]: "owner" }));
         };
         tombstonesRef.current.add(id);
         store.drop(id);
         applyPartiesUpdate((list) => list.filter((p) => p.id !== id));
+        setPartyRoles((prev) => {
+          const { [id]: _drop, ...rest } = prev;
+          return rest;
+        });
         setSaveStates((prev) => {
           const { [id]: _drop, ...rest } = prev;
           return rest;
@@ -1393,6 +1425,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }),
     [
       parties,
+      partyRoles,
       status,
       isDemo,
       user,
