@@ -49,7 +49,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 71 files, 524 tests passed                                              |
+| Vitest                | 72 files, 526 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 192 application cases passed; 83 intentional cross-project skips        |
@@ -123,6 +123,10 @@ green.
   interpretation. An unselected catalog theme stays unselected: it contributes
   no themed tasks, supplies, projected spend, workspace badge, or invitation
   claim.
+- Repeat planning keeps the original gathering's retrospective with the
+  original record. Notes about what ran short and what should change become
+  explicit, private tasks in the cloned plan, while the new gathering starts
+  with a clean retrospective instead of appearing post-event.
 - Every generated plan includes an explicit RSVP-confirmation step. Day-of Mode
   keeps unfinished assigned commitments visible before unowned work, then
   prioritizes tasks closest to the gathering so a handoff cannot disappear

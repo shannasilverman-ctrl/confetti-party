@@ -386,6 +386,15 @@ test("retrospective reveal can start the next gathering without setup friction",
   page,
 }) => {
   await page.goto("/party/world-cup-final-watch/reveal", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Add retrospective" }).click();
+  await page
+    .getByRole("textbox", { name: "What ran out or fell short" })
+    .fill("Ice and kid-friendly drinks");
+  await page
+    .getByRole("textbox", { name: "What to change next time" })
+    .fill("Move dessert before the final match");
+  await page.getByRole("button", { name: "Save retrospective" }).click();
+
   const nextButton = page.getByRole("button", { name: "Plan the next one" });
   await expect(nextButton).toBeVisible();
   await nextButton.click();
@@ -395,6 +404,15 @@ test("retrospective reveal can start the next gathering without setup friction",
     page.getByRole("heading", { level: 1, name: "World Cup Final Watch Party — next time" }),
   ).toBeVisible();
   await expect(page.getByText("0 maybe · 0 pending")).toBeVisible();
+  await page.getByRole("button", { name: "Checklist", exact: true }).click();
+  await expect(page.getByText("Plan for what ran short last time", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Apply the change you wanted next time", { exact: true }),
+  ).toBeVisible();
+  const copiedPartyPath = new URL(page.url()).pathname;
+  await page.goto(`${copiedPartyPath}/reveal`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "Plan the next one" })).toHaveCount(0);
+  await expect(page.getByText("Post-event retrospective", { exact: true })).toHaveCount(0);
 });
 
 test("sample invite exposes the same practical guest details and calendar actions", async ({

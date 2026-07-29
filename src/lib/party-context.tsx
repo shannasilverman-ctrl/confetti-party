@@ -34,6 +34,7 @@ import {
 } from "./party-intelligence";
 import { generatedTaskMetadata, withTaskGuidance } from "./task-guidance";
 import type { RsvpResponseDetails } from "./rsvp.functions";
+import { retrospectiveCarryForwardTasks } from "./retrospective-reuse";
 
 export type OccasionType =
   | "birthday"
@@ -1453,6 +1454,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         copy.rsvpToken = undefined;
         copy.updatedAt = undefined;
         copy.tasks = copy.tasks.map((t) => ({ ...t, done: false }));
+        copy.tasks.push(...retrospectiveCarryForwardTasks(src.retrospective, uid));
+        copy.retrospective = null;
         copy.guests = [];
         copy.hostUpdates = [];
         copy.checkins = {};

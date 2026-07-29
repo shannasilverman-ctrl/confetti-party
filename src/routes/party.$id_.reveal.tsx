@@ -393,8 +393,8 @@ function RevealPage() {
               </ul>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                Capture what worked, what ran out, and what to change. It'll show up as suggestions
-                the next time you clone this party.
+                Capture what worked, what ran out, and what to change. Confetti turns improvements
+                into tasks when you plan the next one.
               </p>
             )}
           </Card>
@@ -408,8 +408,9 @@ function RevealPage() {
                   <Copy className="h-4 w-4 text-primary" aria-hidden /> Make next time easier
                 </div>
                 <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                  Keep the useful plan and private retrospective. Confetti resets guests, spending,
-                  check-ins, claims, and completed tasks, then moves the date forward.
+                  Keep the useful plan and carry improvements forward as tasks. Confetti resets
+                  guests, spending, check-ins, claims, completed tasks, and the retrospective, then
+                  moves the date forward.
                 </p>
               </div>
               <Button
