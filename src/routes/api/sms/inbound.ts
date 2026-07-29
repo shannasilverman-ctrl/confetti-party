@@ -6,8 +6,11 @@ import {
   keyedDigestHex,
   normalizeE164,
   parseSmsPlanningState,
+  readBoundedUtf8Body,
+  SMS_WEBHOOK_RETRY_FRAGMENT,
   twimlResponse,
   validateSmsEncryptionKey,
+  validateSmsHmacKey,
   type TwilioFormParams,
 } from "@/lib/sms-transport";
 
@@ -26,8 +29,10 @@ export type SmsInboundConfig = {
   authToken: string;
   messagingServiceSid: string;
   webhookUrl: string;
+  deliveryWebhookUrl: string;
   toNumber: string;
   lookupSecret: string;
+  receiptSecret: string;
   encryptionKey: string;
   encryptionKeyId: string;
 };
@@ -44,6 +49,7 @@ export type SmsCommitInput = {
   nextState: SmsPlanningState;
   replyCiphertext: string | null;
   rateLimitedReplyCiphertext: string;
+  deliveryReceiptToken: string;
   planningKind: "planning" | "help" | "stopped" | "resumed" | "reset" | "ignored";
   expectedVersion: number;
 };
@@ -96,15 +102,19 @@ export function parseSmsInboundConfig(
     authToken: env.TWILIO_AUTH_TOKEN ?? "",
     messagingServiceSid: env.TWILIO_MESSAGING_SERVICE_SID ?? "",
     webhookUrl: env.TWILIO_SMS_WEBHOOK_URL ?? "",
+    deliveryWebhookUrl: env.TWILIO_SMS_STATUS_WEBHOOK_URL ?? "",
     toNumber: env.TWILIO_SMS_TO_NUMBER ?? "",
     lookupSecret: env.SMS_LOOKUP_SECRET ?? "",
+    receiptSecret: env.SMS_RECEIPT_SECRET ?? "",
     encryptionKey: env.SMS_ENCRYPTION_KEY ?? "",
     encryptionKeyId: env.SMS_ENCRYPTION_KEY_ID ?? "current",
   };
 
   let webhook: URL;
+  let deliveryWebhook: URL;
   try {
     webhook = new URL(config.webhookUrl);
+    deliveryWebhook = new URL(config.deliveryWebhookUrl);
   } catch {
     return null;
   }
@@ -118,14 +128,32 @@ export function parseSmsInboundConfig(
     webhook.hash ||
     webhook.search ||
     webhook.pathname !== "/api/sms/inbound" ||
+    deliveryWebhook.protocol !== "https:" ||
+    deliveryWebhook.username ||
+    deliveryWebhook.password ||
+    deliveryWebhook.hash ||
+    deliveryWebhook.search ||
+    deliveryWebhook.pathname !== "/api/sms/status" ||
+    deliveryWebhook.origin !== webhook.origin ||
+    !isTwilioHostname(webhook.hostname) ||
     !US_E164.test(config.toNumber) ||
-    config.lookupSecret.length < 32 ||
+    !validateSmsHmacKey(config.lookupSecret) ||
+    !validateSmsHmacKey(config.receiptSecret) ||
+    config.lookupSecret === config.receiptSecret ||
     !validateSmsEncryptionKey(config.encryptionKey) ||
     !KEY_ID.test(config.encryptionKeyId)
   ) {
     return null;
   }
   return config;
+}
+
+function isTwilioHostname(hostname: string): boolean {
+  return (
+    hostname.length <= 253 &&
+    !hostname.includes("_") &&
+    hostname.split(".").every((label) => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label))
+  );
 }
 
 async function validateTwilioWithSdk(
@@ -171,6 +199,7 @@ const DEFAULT_STORE: SmsStore = {
       _next_state: input.nextState,
       _reply_ciphertext: input.replyCiphertext,
       _rate_limited_reply_ciphertext: input.rateLimitedReplyCiphertext,
+      _delivery_receipt_token: input.deliveryReceiptToken,
       _planning_kind: input.planningKind,
       _expected_version: input.expectedVersion,
     }),
@@ -190,49 +219,13 @@ function noStore(status: number, body: string | null = null, contentType?: strin
   return new Response(body, { status, headers });
 }
 
-function xml(reply: string | null): Response {
-  return noStore(200, twimlResponse(reply), "application/xml; charset=utf-8");
+function xml(reply: string | null, statusCallbackUrl?: string): Response {
+  return noStore(200, twimlResponse(reply, statusCallbackUrl), "application/xml; charset=utf-8");
 }
 
 function correlationId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   return `sms_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
-}
-
-async function readBoundedBody(request: Request): Promise<string | null> {
-  const declared = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_FORM_BYTES) return null;
-  if (!request.body) return "";
-
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_FORM_BYTES) {
-        await reader.cancel();
-        return null;
-      }
-      chunks.push(value);
-    }
-  } catch {
-    return "";
-  }
-
-  const merged = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(merged);
-  } catch {
-    return "";
-  }
 }
 
 function singleton(form: URLSearchParams, key: string): string | null {
@@ -292,11 +285,15 @@ export function createSmsInboundHandler(
       return noStore(503);
     }
 
-    const declared = Number(request.headers.get("content-length"));
-    if (Number.isFinite(declared) && declared > MAX_FORM_BYTES) return noStore(413);
-    const raw = await readBoundedBody(request);
-    if (raw === null) return noStore(413);
-    if (!raw) return noStore(400);
+    const bodyResult = await readBoundedUtf8Body(request, MAX_FORM_BYTES);
+    if (bodyResult.status === "too_large") return noStore(413);
+    if (bodyResult.status === "read_error") {
+      deps.log({ type: "sms_webhook", event: "persistence_error", cid, code: "read" });
+      return noStore(503);
+    }
+    if (bodyResult.status !== "ok") return noStore(400);
+    if (!bodyResult.body) return noStore(400);
+    const raw = bodyResult.body;
 
     const { params, form } = collectTwilioParams(raw);
     const signature = request.headers.get("x-twilio-signature") ?? "";
@@ -309,7 +306,8 @@ export function createSmsInboundHandler(
         params,
       );
     } catch {
-      signatureValid = false;
+      deps.log({ type: "sms_webhook", event: "configuration_error", cid, code: "signature" });
+      return noStore(503);
     }
     if (!signatureValid) {
       deps.log({ type: "sms_webhook", event: "invalid_signature", cid, code: "signature" });
@@ -352,11 +350,17 @@ export function createSmsInboundHandler(
     let bodyDigest: string;
     let phoneCiphertext: string;
     let rateLimitedReplyCiphertext: string;
+    let deliveryReceiptToken: string;
     const rateLimitedReply =
       "Confetti is taking a short pause on this thread. Try again in about an hour. Reply STOP to opt out.";
     try {
       phoneHash = await keyedDigestHex(config.lookupSecret, "phone", from);
       bodyDigest = await keyedDigestHex(config.lookupSecret, "body", `${messageSid}:${body}`);
+      deliveryReceiptToken = await keyedDigestHex(
+        config.receiptSecret,
+        "receipt",
+        `${phoneHash}:${messageSid}`,
+      );
       phoneCiphertext = await encryptSmsValue(
         from,
         config.encryptionKey,
@@ -435,6 +439,7 @@ export function createSmsInboundHandler(
             nextState,
             replyCiphertext,
             rateLimitedReplyCiphertext,
+            deliveryReceiptToken,
             planningKind: planned.kind,
             expectedVersion: context.version,
           }),
@@ -453,10 +458,16 @@ export function createSmsInboundHandler(
         continue;
       }
       if (committed.replyCiphertext === null) return xml(null);
+      const deliveryWebhook = new URL(config.deliveryWebhookUrl);
+      deliveryWebhook.searchParams.set("receipt", deliveryReceiptToken);
+      deliveryWebhook.hash = SMS_WEBHOOK_RETRY_FRAGMENT;
+      const statusCallbackUrl = deliveryWebhook.toString();
       if (committed.replyCiphertext === rateLimitedReplyCiphertext) {
-        return xml(rateLimitedReply);
+        return xml(rateLimitedReply, statusCallbackUrl);
       }
-      if (committed.replyCiphertext === replyCiphertext) return xml(planned.reply);
+      if (committed.replyCiphertext === replyCiphertext) {
+        return xml(planned.reply, statusCallbackUrl);
+      }
 
       deps.log({ type: "sms_webhook", event: "state_error", cid, code: "state" });
       return noStore(503);

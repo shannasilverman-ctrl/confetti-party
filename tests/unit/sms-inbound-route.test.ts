@@ -16,9 +16,16 @@ const MESSAGE_SID = `SM${"c".repeat(32)}`;
 const FROM = "+12125550123";
 const TO = "+16465550123";
 const WEBHOOK = "https://sms-staging.confettiplans.com/api/sms/inbound";
+const STATUS_WEBHOOK = "https://sms-staging.confettiplans.com/api/sms/status";
 const AUTH_TOKEN = "twilio-auth-token-unit-test";
 const ENCRYPTION_KEY = btoa(
   String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 1)),
+);
+const LOOKUP_KEY = btoa(
+  String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 33)),
+);
+const RECEIPT_KEY = btoa(
+  String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 65)),
 );
 
 const CONFIG: SmsInboundConfig = {
@@ -26,8 +33,10 @@ const CONFIG: SmsInboundConfig = {
   authToken: AUTH_TOKEN,
   messagingServiceSid: SERVICE_SID,
   webhookUrl: WEBHOOK,
+  deliveryWebhookUrl: STATUS_WEBHOOK,
   toNumber: TO,
-  lookupSecret: "lookup-secret-with-at-least-thirty-two-characters",
+  lookupSecret: LOOKUP_KEY,
+  receiptSecret: RECEIPT_KEY,
   encryptionKey: ENCRYPTION_KEY,
   encryptionKeyId: "test-key",
 };
@@ -143,8 +152,10 @@ describe("POST /api/sms/inbound", () => {
       TWILIO_AUTH_TOKEN: AUTH_TOKEN,
       TWILIO_MESSAGING_SERVICE_SID: SERVICE_SID,
       TWILIO_SMS_WEBHOOK_URL: WEBHOOK,
+      TWILIO_SMS_STATUS_WEBHOOK_URL: STATUS_WEBHOOK,
       TWILIO_SMS_TO_NUMBER: TO,
       SMS_LOOKUP_SECRET: CONFIG.lookupSecret,
+      SMS_RECEIPT_SECRET: CONFIG.receiptSecret,
       SMS_ENCRYPTION_KEY: ENCRYPTION_KEY,
       SMS_ENCRYPTION_KEY_ID: "test-key",
     };
@@ -158,8 +169,28 @@ describe("POST /api/sms/inbound", () => {
     expect(
       parseSmsInboundConfig({ ...env, TWILIO_SMS_WEBHOOK_URL: `${WEBHOOK}?debug=1` }),
     ).toBeNull();
+    expect(
+      parseSmsInboundConfig({
+        ...env,
+        TWILIO_SMS_STATUS_WEBHOOK_URL: `${STATUS_WEBHOOK}?debug=1`,
+      }),
+    ).toBeNull();
     expect(parseSmsInboundConfig({ ...env, SMS_ENCRYPTION_KEY: btoa("short") })).toBeNull();
-    expect(parseSmsInboundConfig({ ...env, SMS_LOOKUP_SECRET: "too-short" })).toBeNull();
+    expect(parseSmsInboundConfig({ ...env, SMS_LOOKUP_SECRET: "x".repeat(32) })).toBeNull();
+    expect(parseSmsInboundConfig({ ...env, SMS_RECEIPT_SECRET: CONFIG.lookupSecret })).toBeNull();
+    expect(
+      parseSmsInboundConfig({
+        ...env,
+        TWILIO_SMS_STATUS_WEBHOOK_URL: "https://other.example/api/sms/status",
+      }),
+    ).toBeNull();
+    expect(
+      parseSmsInboundConfig({
+        ...env,
+        TWILIO_SMS_WEBHOOK_URL: "https://sms_stage.example/api/sms/inbound",
+        TWILIO_SMS_STATUS_WEBHOOK_URL: "https://sms_stage.example/api/sms/status",
+      }),
+    ).toBeNull();
   });
 
   it("accepts form content type with charset and rejects other media types", async () => {
@@ -197,6 +228,41 @@ describe("POST /api/sms/inbound", () => {
       requestFrom(`Body=${"x".repeat(13_000)}`, { contentLength: undefined }),
     );
     expect(actual.status).toBe(413);
+    expect(validator).not.toHaveBeenCalled();
+    expect(store.reads).toHaveLength(0);
+  });
+
+  it("returns 503 for body-stream failures and 400 for malformed UTF-8", async () => {
+    const validator = vi.fn(async () => true);
+    const store = fakeStore();
+    const { handler, logs } = bind(store, { validateTwilio: validator });
+    const failedStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("socket failed with private details"));
+      },
+    });
+    const failedRequest = new Request("https://internal-worker.example/api/sms/inbound", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": "signed",
+      },
+      body: failedStream,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+    expect((await handler(failedRequest)).status).toBe(503);
+    expect(logs).toEqual([expect.objectContaining({ event: "persistence_error", code: "read" })]);
+    expect(JSON.stringify(logs)).not.toContain("private details");
+
+    const invalidRequest = new Request("https://internal-worker.example/api/sms/inbound", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        "x-twilio-signature": "signed",
+      },
+      body: new Uint8Array([0xff]),
+    });
+    expect((await handler(invalidRequest)).status).toBe(400);
     expect(validator).not.toHaveBeenCalled();
     expect(store.reads).toHaveLength(0);
   });
@@ -255,6 +321,23 @@ describe("POST /api/sms/inbound", () => {
     expect(logs).toEqual([expect.objectContaining({ event: "invalid_signature" })]);
   });
 
+  it("returns 503 when signature validation infrastructure throws", async () => {
+    const store = fakeStore();
+    const { handler, logs } = bind(store, {
+      validateTwilio: async () => {
+        throw new Error("SDK unavailable with private details");
+      },
+    });
+    const response = await handler(requestFrom());
+
+    expect(response.status).toBe(503);
+    expect(store.reads).toHaveLength(0);
+    expect(logs).toEqual([
+      expect.objectContaining({ event: "configuration_error", code: "signature" }),
+    ]);
+    expect(JSON.stringify(logs)).not.toContain("private details");
+  });
+
   it("rejects signed account, service, destination, and parameter-pollution mismatches", async () => {
     for (const form of [
       validForm({ AccountSid: `AC${"d".repeat(32)}` }),
@@ -299,6 +382,9 @@ describe("POST /api/sms/inbound", () => {
     expect(xmlBody).toContain("54th Birthday");
     expect(xmlBody).toContain("What date");
     expect(xmlBody).not.toContain("play venue");
+    expect(xmlBody).toContain(`action="${STATUS_WEBHOOK}?receipt=`);
+    expect(xmlBody).toContain(`statusCallback="${STATUS_WEBHOOK}?receipt=`);
+    expect(xmlBody).toContain("#rc=2&amp;rp=ct,rt,5xx&amp;ct=2000");
     expect(store.commits).toHaveLength(1);
     expect(store.commits[0].nextState).toMatchObject({
       status: "active",
@@ -312,6 +398,8 @@ describe("POST /api/sms/inbound", () => {
     expect(persisted).not.toContain("Bday for a 54 yr old");
     expect(store.commits[0].phoneHash).toMatch(/^[0-9a-f]{64}$/);
     expect(store.commits[0].bodyDigest).toMatch(/^[0-9a-f]{64}$/);
+    expect(store.commits[0].deliveryReceiptToken).toMatch(/^[0-9a-f]{64}$/);
+    expect(store.commits[0].deliveryReceiptToken).not.toBe(store.commits[0].phoneHash);
     expect(store.commits[0].phoneCiphertext).toMatch(/^v1\.test-key\./);
   });
 

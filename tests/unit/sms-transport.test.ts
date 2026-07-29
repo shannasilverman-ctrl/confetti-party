@@ -6,15 +6,17 @@ import {
   keyedDigestHex,
   normalizeE164,
   parseSmsPlanningState,
+  readBoundedUtf8Body,
   twimlResponse,
   validateSmsEncryptionKey,
+  validateSmsHmacKey,
 } from "@/lib/sms-transport";
 
 const KEY = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 1)));
 const OTHER_KEY = btoa(
   String.fromCharCode(...Array.from({ length: 32 }, (_, index) => 255 - index)),
 );
-const SECRET = "lookup-secret-with-at-least-thirty-two-characters";
+const SECRET = btoa(String.fromCharCode(...Array.from({ length: 32 }, (_, index) => index + 33)));
 
 describe("SMS transport primitives", () => {
   it.each([
@@ -43,24 +45,57 @@ describe("SMS transport primitives", () => {
     expect(form.getAll("Tag")).toEqual(["second", "first"]);
   });
 
+  it("distinguishes invalid UTF-8 and stream failures from oversized bodies", async () => {
+    const invalid = new Request("https://example.com", {
+      method: "POST",
+      body: new Uint8Array([0xff]),
+    });
+    await expect(readBoundedUtf8Body(invalid, 16)).resolves.toEqual({ status: "invalid" });
+
+    const failedStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(new Error("socket failed"));
+      },
+    });
+    const failed = new Request("https://example.com", {
+      method: "POST",
+      body: failedStream,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+    await expect(readBoundedUtf8Body(failed, 16)).resolves.toEqual({ status: "read_error" });
+
+    const oversized = new Request("https://example.com", {
+      method: "POST",
+      body: "x".repeat(17),
+    });
+    await expect(readBoundedUtf8Body(oversized, 16)).resolves.toEqual({ status: "too_large" });
+  });
+
   it("uses deterministic, purpose-separated keyed digests", async () => {
     const phoneA = await keyedDigestHex(SECRET, "phone", "+12125550123");
     const phoneB = await keyedDigestHex(SECRET, "phone", "+12125550123");
     const body = await keyedDigestHex(SECRET, "body", "+12125550123");
+    const receipt = await keyedDigestHex(SECRET, "receipt", "+12125550123");
 
     expect(phoneA).toMatch(/^[0-9a-f]{64}$/);
     expect(phoneA).toBe(phoneB);
     expect(phoneA).not.toBe(body);
+    expect(receipt).not.toBe(phoneA);
+    expect(receipt).not.toBe(body);
     expect(phoneA).not.toContain("12125550123");
-    await expect(keyedDigestHex("too-short", "phone", "x")).rejects.toThrow(
-      "invalid lookup secret",
-    );
+    await expect(keyedDigestHex("x".repeat(32), "phone", "x")).rejects.toThrow("invalid HMAC key");
   });
 
   it("validates an exact 256-bit encryption key", () => {
     expect(validateSmsEncryptionKey(KEY)).toBe(true);
     expect(validateSmsEncryptionKey(btoa("short"))).toBe(false);
     expect(validateSmsEncryptionKey("not base64***")).toBe(false);
+  });
+
+  it("requires HMAC keys to be base64-encoded random-byte material", () => {
+    expect(validateSmsHmacKey(SECRET)).toBe(true);
+    expect(validateSmsHmacKey("x".repeat(32))).toBe(false);
+    expect(validateSmsHmacKey(btoa("short"))).toBe(false);
   });
 
   it("round-trips AES-GCM with random IVs and record-bound AAD", async () => {
@@ -103,6 +138,9 @@ describe("SMS transport primitives", () => {
       '<?xml version="1.0" encoding="UTF-8"?><Response><Message><Body>A&amp;B &lt;party&gt; &quot;yes&quot; &apos;ok&apos;</Body></Message></Response>',
     );
     expect(twimlResponse(null)).toBe('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+    expect(twimlResponse("Track me", "https://example.com/api/sms/status?receipt=a&tag=b")).toBe(
+      '<?xml version="1.0" encoding="UTF-8"?><Response><Message action="https://example.com/api/sms/status?receipt=a&amp;tag=b" statusCallback="https://example.com/api/sms/status?receipt=a&amp;tag=b" method="POST"><Body>Track me</Body></Message></Response>',
+    );
   });
 
   it("accepts only a bounded, allowlisted SMS planning state", () => {

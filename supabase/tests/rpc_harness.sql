@@ -731,6 +731,78 @@ $phaseC_behavior$;
 --
 -- Phase D: SMS transport idempotency, consent, and spend boundaries.
 --
+DO $phaseD_sms_privileges$
+DECLARE
+  rpc text;
+  table_name text;
+  function_row record;
+BEGIN
+  FOREACH rpc IN ARRAY ARRAY[
+    'public.get_sms_inbound_context(text,text,text)',
+    'public.commit_sms_inbound(text,text,text,text,jsonb,text,text,text,bigint)',
+    'public.commit_sms_inbound(text,text,text,text,jsonb,text,text,text,text,bigint)',
+    'public.record_sms_delivery_status(text,text,text,text,text)',
+    'public.purge_expired_sms_data(integer)'
+  ]
+  LOOP
+    IF has_function_privilege('anon', rpc, 'EXECUTE')
+       OR has_function_privilege('authenticated', rpc, 'EXECUTE') THEN
+      RAISE EXCEPTION 'FAIL: client role can execute SMS RPC %', rpc;
+    END IF;
+    IF NOT has_function_privilege('service_role', rpc, 'EXECUTE') THEN
+      RAISE EXCEPTION 'FAIL: service role cannot execute SMS RPC %', rpc;
+    END IF;
+    SELECT p.prosecdef, p.proconfig
+      INTO function_row
+      FROM pg_proc AS p
+     WHERE p.oid = to_regprocedure(rpc);
+    IF NOT function_row.prosecdef
+       OR NOT (
+         'search_path=pg_catalog, public'
+         = ANY(COALESCE(function_row.proconfig, ARRAY[]::text[]))
+       ) THEN
+      RAISE EXCEPTION 'FAIL: SMS RPC security boundary wrong for %', rpc;
+    END IF;
+  END LOOP;
+
+  FOREACH table_name IN ARRAY ARRAY[
+    'sms_contacts',
+    'sms_conversations',
+    'sms_messages',
+    'sms_delivery_events',
+    'sms_service_budget',
+    'sms_replay_tombstones',
+    'sms_consent_events'
+  ]
+  LOOP
+    IF NOT (
+      SELECT c.relrowsecurity
+        FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public' AND c.relname = table_name
+    ) THEN
+      RAISE EXCEPTION 'FAIL: RLS disabled for public.%', table_name;
+    END IF;
+    IF has_table_privilege('anon', format('public.%I', table_name), 'SELECT')
+       OR has_table_privilege('authenticated', format('public.%I', table_name), 'SELECT')
+       OR has_table_privilege('service_role', format('public.%I', table_name), 'SELECT')
+       OR has_table_privilege('anon', format('public.%I', table_name), 'INSERT')
+       OR has_table_privilege('authenticated', format('public.%I', table_name), 'INSERT')
+       OR has_table_privilege('service_role', format('public.%I', table_name), 'INSERT')
+       OR has_table_privilege('anon', format('public.%I', table_name), 'UPDATE')
+       OR has_table_privilege('authenticated', format('public.%I', table_name), 'UPDATE')
+       OR has_table_privilege('service_role', format('public.%I', table_name), 'UPDATE')
+       OR has_table_privilege('anon', format('public.%I', table_name), 'DELETE')
+       OR has_table_privilege('authenticated', format('public.%I', table_name), 'DELETE')
+       OR has_table_privilege('service_role', format('public.%I', table_name), 'DELETE') THEN
+      RAISE EXCEPTION 'FAIL: direct SMS table access exists for public.%', table_name;
+    END IF;
+  END LOOP;
+
+  RAISE NOTICE 'PASS phaseD_sms_privileges: RPC-only, RLS, fixed search_path';
+END;
+$phaseD_sms_privileges$;
+
 DO $phaseD_sms$
 DECLARE
   v_phone_hash text := repeat('a', 64);
@@ -743,6 +815,12 @@ DECLARE
   sid3 text := 'SM' || repeat('3', 32);
   sid4 text := 'SM' || repeat('4', 32);
   sid5 text := 'SM' || repeat('5', 32);
+  outbound_sid text := 'SM' || repeat('6', 32);
+  receipt1 text := repeat('1', 64);
+  receipt2 text := repeat('2', 64);
+  receipt3 text := repeat('3', 64);
+  receipt4 text := repeat('4', 64);
+  receipt5 text := repeat('5', 64);
   res jsonb;
   raised boolean;
 BEGIN
@@ -756,7 +834,7 @@ BEGIN
   res := public.commit_sms_inbound(
     v_phone_hash, phone_cipher, sid1, body_digest,
     '{"status":"active","draft":{"identity":{"occasion":"birthday","honoreeAge":54}},"turnCount":1}'::jsonb,
-    reply_cipher, limit_cipher, 'planning', 0
+    reply_cipher, limit_cipher, receipt1, 'planning', 0
   );
   IF res->>'status' <> 'committed' OR (res->>'version')::integer <> 1 THEN
     RAISE EXCEPTION 'FAIL: first SMS commit wrong';
@@ -777,11 +855,73 @@ BEGIN
   END;
   IF NOT raised THEN RAISE EXCEPTION 'FAIL: mutated duplicate SMS accepted'; END IF;
 
+  -- Delivery state is idempotent and monotonic even when callbacks arrive late.
+  res := public.record_sms_delivery_status(
+    receipt1, outbound_sid, 'queued', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'recorded' THEN
+    RAISE EXCEPTION 'FAIL: queued SMS delivery not recorded';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt1, outbound_sid, 'sent', NULL, repeat('0', 64)
+  );
+  IF res->>'status' <> 'conflict' THEN
+    RAISE EXCEPTION 'FAIL: SMS delivery accepted for wrong recipient';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt1, outbound_sid, 'delivered', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'recorded' THEN
+    RAISE EXCEPTION 'FAIL: delivered SMS status not recorded';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt1, outbound_sid, 'delivered', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'duplicate' THEN
+    RAISE EXCEPTION 'FAIL: duplicate SMS delivery not idempotent';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt1, outbound_sid, 'sent', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'out_of_order' THEN
+    RAISE EXCEPTION 'FAIL: regressive SMS delivery status accepted';
+  END IF;
+  IF (
+    SELECT delivery_status
+      FROM public.sms_messages
+     WHERE provider_message_sid = sid1
+  ) <> 'delivered' THEN
+    RAISE EXCEPTION 'FAIL: SMS delivery status regressed';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt1, 'SM' || repeat('7', 32), 'sent', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'conflict' THEN
+    RAISE EXCEPTION 'FAIL: receipt rebound to a different outbound SID';
+  END IF;
+  res := public.record_sms_delivery_status(
+    repeat('9', 64), outbound_sid, 'sent', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'unknown' THEN
+    RAISE EXCEPTION 'FAIL: unknown delivery receipt not contained';
+  END IF;
+  BEGIN
+    raised := true;
+    PERFORM public.record_sms_delivery_status(
+      receipt1, outbound_sid, 'delivered', '30003', v_phone_hash
+    );
+    raised := false;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  IF NOT raised THEN
+    RAISE EXCEPTION 'FAIL: error code accepted for successful delivery';
+  END IF;
+
   -- STOP persists consent and remains the canonical state.
   res := public.commit_sms_inbound(
     v_phone_hash, phone_cipher, sid2, repeat('c', 64),
     '{"status":"stopped","draft":{"identity":{"occasion":"birthday","honoreeAge":54}},"turnCount":1}'::jsonb,
-    reply_cipher, limit_cipher, 'stopped', 1
+    reply_cipher, limit_cipher, receipt2, 'stopped', 1
   );
   IF res->>'status' <> 'committed' OR (res->>'version')::integer <> 2 THEN
     RAISE EXCEPTION 'FAIL: STOP SMS commit wrong';
@@ -791,6 +931,28 @@ BEGIN
       FROM public.sms_consent_events
      WHERE provider_message_sid = sid2 AND event_kind = 'opted_out'
   ) THEN RAISE EXCEPTION 'FAIL: STOP consent event missing'; END IF;
+  res := public.record_sms_delivery_status(
+    receipt2, outbound_sid, 'sent', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'conflict' THEN
+    RAISE EXCEPTION 'FAIL: one outbound SID bound to two receipts';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt2, 'SM' || repeat('8', 32), 'undelivered', NULL, v_phone_hash
+  );
+  IF res->>'status' <> 'recorded' THEN
+    RAISE EXCEPTION 'FAIL: failed SMS delivery state not recorded';
+  END IF;
+  res := public.record_sms_delivery_status(
+    receipt2, 'SM' || repeat('8', 32), 'undelivered', '30003', v_phone_hash
+  );
+  IF res->>'status' <> 'enriched' OR (
+    SELECT delivery_error_code
+      FROM public.sms_messages
+     WHERE provider_message_sid = sid2
+  ) <> '30003' THEN
+    RAISE EXCEPTION 'FAIL: failed SMS delivery code not enriched';
+  END IF;
 
   UPDATE public.sms_conversations
      SET rate_count = 40, rate_window_start = now()
@@ -802,7 +964,7 @@ BEGIN
   res := public.commit_sms_inbound(
     v_phone_hash, phone_cipher, sid3, repeat('d', 64),
     '{"status":"stopped","draft":{"identity":{"occasion":"birthday","honoreeAge":54}},"turnCount":1}'::jsonb,
-    NULL, limit_cipher, 'ignored', 2
+    NULL, limit_cipher, receipt3, 'ignored', 2
   );
   IF res->>'status' <> 'rate_limited'
      OR res->>'replyCiphertext' <> limit_cipher
@@ -813,7 +975,7 @@ BEGIN
   res := public.commit_sms_inbound(
     v_phone_hash, phone_cipher, sid4, repeat('e', 64),
     '{"status":"stopped","draft":{"identity":{"occasion":"birthday","honoreeAge":54}},"turnCount":1}'::jsonb,
-    NULL, limit_cipher, 'ignored', 3
+    NULL, limit_cipher, receipt4, 'ignored', 3
   );
   IF res->>'status' <> 'rate_limited'
      OR res->'replyCiphertext' <> 'null'::jsonb
@@ -825,13 +987,13 @@ BEGIN
   res := public.commit_sms_inbound(
     v_phone_hash, phone_cipher, sid5, repeat('f', 64),
     '{"status":"stopped","draft":{"identity":{"occasion":"birthday","honoreeAge":54}},"turnCount":1}'::jsonb,
-    reply_cipher, limit_cipher, 'stopped', 4
+    reply_cipher, limit_cipher, receipt5, 'stopped', 4
   );
   IF res->>'status' <> 'committed' OR (res->>'version')::integer <> 5 THEN
     RAISE EXCEPTION 'FAIL: STOP was blocked by SMS rate limit';
   END IF;
 
-  RAISE NOTICE 'PASS phaseD_sms: idempotency, consent, rate notices, STOP bypass';
+  RAISE NOTICE 'PASS phaseD_sms: inbound idempotency, delivery ordering, consent, rate notices, STOP bypass';
 END;
 $phaseD_sms$;
 

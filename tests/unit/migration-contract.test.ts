@@ -3,6 +3,7 @@
 // key guarantees so they cannot be quietly regressed by future edits.
 
 import { describe, expect, test } from "vitest";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -237,12 +238,24 @@ describe("migration contract: DB hardening batch", () => {
   });
 
   test("SMS staging storage is content-minimal, RPC-only, deduplicated, and rate bounded", () => {
-    const sms = readFileSync(join(MIG_DIR, "20260729123000_sms_staging_transport.sql"), "utf8");
+    const base = readFileSync(join(MIG_DIR, "20260729123000_sms_staging_transport.sql"), "utf8");
+    const deliveryMigration = readFileSync(
+      join(MIG_DIR, "20260729133000_sms_delivery_status.sql"),
+      "utf8",
+    );
+    const sms = `${base}\n${deliveryMigration}`;
+
+    // This migration has been pushed and must remain immutable. Delivery
+    // changes belong in the forward-only expansion read above.
+    expect(createHash("sha256").update(base).digest("hex")).toBe(
+      "0c9c4d2067d966afc94e09d9f26db38714520db5bcb797777b35a42d830d8c17",
+    );
 
     for (const table of [
       "sms_contacts",
       "sms_conversations",
       "sms_messages",
+      "sms_delivery_events",
       "sms_service_budget",
       "sms_replay_tombstones",
       "sms_consent_events",
@@ -250,17 +263,22 @@ describe("migration contract: DB hardening batch", () => {
       expect(sms).toMatch(new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`));
       expect(sms).toMatch(
         new RegExp(
-          `REVOKE ALL ON TABLE public\\.${table} FROM PUBLIC, anon, authenticated, service_role`,
+          `REVOKE ALL ON TABLE public\\.${table}\\s+FROM PUBLIC, anon, authenticated, service_role`,
         ),
       );
       expect(sms).not.toMatch(new RegExp(`GRANT[^;]+ON TABLE public\\.${table}`));
     }
 
     const messageTable =
-      sms.match(/CREATE TABLE IF NOT EXISTS public\.sms_messages \([\s\S]+?\n\);/)?.[0] ?? "";
+      base.match(/CREATE TABLE IF NOT EXISTS public\.sms_messages \([\s\S]+?\n\);/)?.[0] ?? "";
     expect(messageTable).not.toMatch(/\b(phone|body|reply)\s+text\b/);
     expect(messageTable).toMatch(/body_digest text NOT NULL/);
     expect(messageTable).toMatch(/reply_ciphertext text/);
+    expect(deliveryMigration).toMatch(
+      /ADD COLUMN IF NOT EXISTS delivery_receipt_token text UNIQUE/,
+    );
+    expect(deliveryMigration).toMatch(/ADD COLUMN IF NOT EXISTS outbound_message_sid text UNIQUE/);
+    expect(deliveryMigration).toMatch(/ADD COLUMN IF NOT EXISTS delivery_status text/);
     expect(sms).toMatch(/provider_message_sid text PRIMARY KEY/);
     expect(sms).toMatch(/expires_at timestamptz[^;]+180 days/);
 
@@ -272,22 +290,42 @@ describe("migration contract: DB hardening batch", () => {
     expect(read).toMatch(/jsonb_build_object\('status', 'duplicate'\)/);
     expect(read).not.toMatch(/replyCiphertext/);
 
-    const commit = latestFunctionBody("commit_sms_inbound");
-    expect(commit).toMatch(/pg_advisory_xact_lock\(hashtextextended\(_phone_hash, 0\)\)/);
-    expect(commit).toMatch(/conversation_row\.version <> _expected_version/);
-    expect(commit).toMatch(/rate_count >= 40/);
-    expect(commit).toMatch(/service_rate_count >= 200/);
-    expect(commit).toMatch(/_planning_kind NOT IN \('stopped', 'resumed', 'help'\)/);
-    expect(commit).toMatch(/version = version \+ 1/);
-    expect(commit).toMatch(/sms_consent_events/);
-    expect(commit).toMatch(/sms_replay_tombstones/);
-    expect(commit).toMatch(/WHEN limited\s+THEN NULL/);
+    expect(base).toMatch(/pg_advisory_xact_lock\(hashtextextended\(_phone_hash, 0\)\)/);
+    expect(base).toMatch(/conversation_row\.version <> _expected_version/);
+    expect(base).toMatch(/rate_count >= 40/);
+    expect(base).toMatch(/service_rate_count >= 200/);
+    expect(base).toMatch(/_planning_kind NOT IN \('stopped', 'resumed', 'help'\)/);
+    expect(base).toMatch(/version = version \+ 1/);
+    expect(base).toMatch(/sms_consent_events/);
+    expect(base).toMatch(/sms_replay_tombstones/);
+    expect(base).toMatch(/WHEN limited\s+THEN NULL/);
+
+    const receiptCommit = latestFunctionBody("commit_sms_inbound");
+    expect(receiptCommit).toMatch(/result := public\.commit_sms_inbound\(/);
+    expect(receiptCommit).toMatch(/delivery_receipt_token = COALESCE/);
+
+    const delivery = latestFunctionBody("record_sms_delivery_status");
+    expect(delivery).toMatch(/delivery_receipt_token = _receipt_token/);
+    expect(delivery).toMatch(/hashtextextended\(_provider_message_sid, 1\)/);
+    expect(delivery).toMatch(/expected_phone_hash IS DISTINCT FROM _recipient_phone_hash/);
+    expect(delivery).toMatch(/outbound_message_sid <> _provider_message_sid/);
+    expect(delivery).toMatch(
+      /delivery_status IN \(\s*'delivered', 'undelivered', 'failed', 'invalid'\s*\)/,
+    );
+    expect(delivery).toMatch(/incoming_rank <= current_rank/);
+    expect(delivery).toMatch(/jsonb_build_object\('status', 'conflict'\)/);
+    expect(delivery).toMatch(/jsonb_build_object\('status', 'enriched'\)/);
+    expect(delivery).toMatch(/sms_delivery_events/);
+    expect(delivery).toMatch(/ON CONFLICT \(message_id, message_status\) DO NOTHING/);
 
     expect(sms).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.get_sms_inbound_context\(text, text, text\)\s+TO service_role/,
     );
     expect(sms).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.commit_sms_inbound\([\s\S]+?\) TO service_role/,
+    );
+    expect(sms).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.record_sms_delivery_status\(text, text, text, text, text\)\s+TO service_role/,
     );
     expect(sms).not.toMatch(
       /GRANT EXECUTE ON FUNCTION public\.(?:get_sms_inbound_context|commit_sms_inbound)[\s\S]+?TO (?:anon|authenticated)/,

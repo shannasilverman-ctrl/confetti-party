@@ -8,7 +8,12 @@ const HEX_DIGEST = /^[0-9a-f]{64}$/;
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const KEY_ID = /^[a-z0-9][a-z0-9_-]{0,31}$/;
 
+export const SMS_WEBHOOK_RETRY_FRAGMENT = "rc=2&rp=ct,rt,5xx&ct=2000&rt=5000&tt=15000";
+
 export type TwilioFormParams = Record<string, string | string[]>;
+export type BoundedBodyResult =
+  | { status: "ok"; body: string }
+  | { status: "too_large" | "invalid" | "read_error" };
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -63,6 +68,14 @@ export function validateSmsEncryptionKey(encodedKey: string): boolean {
   }
 }
 
+export function validateSmsHmacKey(encodedKey: string): boolean {
+  try {
+    return base64ToBytes(encodedKey).byteLength === SMS_KEY_BYTES;
+  } catch {
+    return false;
+  }
+}
+
 function utf8(value: string): Uint8Array {
   return new TextEncoder().encode(value);
 }
@@ -82,22 +95,71 @@ export function collectTwilioParams(raw: string): {
 } {
   const form = new URLSearchParams(raw);
   const params: TwilioFormParams = {};
-  for (const key of new Set(form.keys())) {
-    const values = form.getAll(key);
-    params[key] = values.length === 1 ? values[0] : values;
+  for (const [key, value] of form.entries()) {
+    const existing = params[key];
+    if (existing === undefined) {
+      params[key] = value;
+    } else if (Array.isArray(existing)) {
+      existing.push(value);
+    } else {
+      params[key] = [existing, value];
+    }
   }
   return { params, form };
 }
 
+export async function readBoundedUtf8Body(
+  request: Request,
+  maxBytes: number,
+): Promise<BoundedBodyResult> {
+  const declared = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) return { status: "too_large" };
+  if (!request.body) return { status: "ok", body: "" };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel();
+        return { status: "too_large" };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { status: "read_error" };
+  }
+
+  const merged = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return {
+      status: "ok",
+      body: new TextDecoder("utf-8", { fatal: true }).decode(merged),
+    };
+  } catch {
+    return { status: "invalid" };
+  }
+}
+
 export async function keyedDigestHex(
-  secret: string,
-  purpose: "phone" | "body",
+  encodedKey: string,
+  purpose: "phone" | "body" | "receipt",
   value: string,
 ): Promise<string> {
-  if (secret.length < 32) throw new Error("invalid lookup secret");
+  const keyBytes = base64ToBytes(encodedKey);
+  if (keyBytes.byteLength !== SMS_KEY_BYTES) throw new Error("invalid HMAC key");
   const key = await crypto.subtle.importKey(
     "raw",
-    arrayBuffer(utf8(secret)),
+    arrayBuffer(keyBytes),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
@@ -200,10 +262,17 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
-export function twimlResponse(reply: string | null): string {
+export function twimlResponse(reply: string | null, statusCallbackUrl?: string): string {
   const declaration = '<?xml version="1.0" encoding="UTF-8"?>';
   if (!reply) return `${declaration}<Response></Response>`;
-  return `${declaration}<Response><Message><Body>${escapeXml(reply)}</Body></Message></Response>`;
+  const callbackAttributes = statusCallbackUrl
+    ? ` action="${escapeXml(statusCallbackUrl)}" statusCallback="${escapeXml(
+        statusCallbackUrl,
+      )}" method="POST"`
+    : "";
+  return `${declaration}<Response><Message${callbackAttributes}><Body>${escapeXml(
+    reply,
+  )}</Body></Message></Response>`;
 }
 
 const shortText = z.string().trim().min(1).max(200);
