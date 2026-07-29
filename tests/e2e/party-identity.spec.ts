@@ -34,7 +34,10 @@ test.describe("Party route identity", () => {
   test("day-of renders Day-of identity, NOT workspace Overview", async ({ page }) => {
     const resp = await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
     expect(resp?.ok()).toBeTruthy();
-    await expect(page.getByRole("heading", { name: "Next three actions" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "See the day before it gets busy" }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
     await expect(page.getByText("Sample Day-of Mode.")).toBeVisible();
     const body = (await page.textContent("body")) ?? "";
     expect(body).not.toMatch(/RSVP snapshot/i);

@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 70 files, 518 tests passed                                              |
+| Vitest                | 71 files, 524 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
+| Playwright            | 192 application cases passed; 83 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The combined local Playwright process passed all 186 applicable cases in one
+The combined local Playwright process passed all 192 applicable cases in one
 clean run (83 intentional cross-project skips), including all three WebKit
 critical-path cases. CI runs the device projects with fresh Workers and
 remains the exact-SHA release authority.
@@ -126,7 +126,10 @@ green.
 - Every generated plan includes an explicit RSVP-confirmation step. Day-of Mode
   keeps unfinished assigned commitments visible before unowned work, then
   prioritizes tasks closest to the gathering so a handoff cannot disappear
-  merely because older checklist items were created first.
+  merely because older checklist items were created first. Its run sheet parses
+  absolute and start-relative times, shows an honest live now/next countdown
+  only on the gathering date, and labels future and past schedules as preview
+  or record rather than presenting them as live.
 - Signed-out Talk is deterministic and device-local. It extracts only facts
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an

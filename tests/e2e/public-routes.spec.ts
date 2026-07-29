@@ -367,7 +367,9 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
 
   const dayOfUrl = page.url().replace(/\/reveal$/, "/day-of");
   await page.goto(dayOfUrl, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Next three actions" })).toBeVisible();
+  await expect(page.getByTestId("day-of-run-sheet")).toBeVisible();
+  await expect(page.getByText("Live run sheet", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
   await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
   await expect(page.getByText("Sample Day-of Mode.", { exact: false })).toHaveCount(0);
   await expect(page.getByText("Choose the party date", { exact: true })).toHaveCount(0);
