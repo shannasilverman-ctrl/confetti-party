@@ -1,6 +1,6 @@
 # Confetti beta release signoff
 
-Evidence date: 2026-07-25
+Evidence date: 2026-07-28
 
 ## Scope
 
@@ -24,6 +24,9 @@ The release candidate completes these representative journeys:
 - Guest opens a tokenized invite, RSVPs with household/dietary details,
   claims or releases a bring-board item, adds the event to a calendar, and
   opens the host's externally hosted Photo Drop.
+- Owner invites a trusted cohost with a hashed, one-time token; the browser
+  scrubs the token fragment before authentication; the cohost can collaborate
+  or leave without receiving owner-only transfer, removal, or deletion powers.
 - Host sees guest mutations without whole-row overwrites, with optimistic
   concurrency, bounded retry, offline recovery, and explicit conflict
   handling.
@@ -33,24 +36,26 @@ The release candidate completes these representative journeys:
 The exact application candidate passed locally against the production
 Cloudflare Worker build:
 
-| Gate                  | Result                                                                 |
-| --------------------- | ---------------------------------------------------------------------- |
-| Prettier              | All files matched                                                      |
-| ESLint                | Passed                                                                 |
-| TypeScript            | Passed with `tsc --noEmit`                                             |
-| Vitest                | 45 files, 333 tests passed                                             |
-| Production build      | Passed                                                                 |
-| Initial client bundle | ~363 KB raw; ~112 KB gzip; within enforced budget                      |
-| Playwright            | Desktop and mobile projects passed; project-specific skips intentional |
-| GitHub Actions        | Exact merged commit passed the complete CI workflow                    |
-| Live deployment       | Exact commit, routes, PWA assets, metadata, MIME, and headers passed   |
+| Gate                  | Result                                                                  |
+| --------------------- | ----------------------------------------------------------------------- |
+| Prettier              | All files matched                                                       |
+| ESLint                | Passed                                                                  |
+| TypeScript            | Passed with `tsc --noEmit`                                              |
+| Vitest                | 63 files, 467 tests passed                                              |
+| Production build      | Passed                                                                  |
+| Initial client bundle | 366,067 bytes raw; 113,473 bytes gzip; within enforced budget           |
+| Playwright            | 184 passed across desktop, mobile, and WebKit; 83 intentional skips     |
+| GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
+| Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
-The Playwright run covers desktop and Pixel-class mobile layouts, a
+The Playwright run covers desktop, Pixel-class mobile, and iPhone/WebKit layouts, a
 320/375/390/430 px route matrix, keyboard/focus behavior, minimum 44 px
 primary targets, asset availability, semantic route identity, malformed
 invite recovery, sample-vs-real action truthfulness, and serious/critical
-axe checks. Mobile-only matrix cases and desktop-only axe cases are skipped
-in the other Playwright project by design.
+axe checks. It also verifies reduced motion, the iOS 16 px text-input floor,
+fixed navigation and dialog containment, timezone-stable hydration, and that
+collaboration invite secrets never appear in HTTP request URLs. Project-only
+cases are skipped in the other Playwright projects by design.
 
 The host dashboard also preserves the original Confetti visual contract:
 Outfit for product copy, Fraunces for expressive display type, warm editorial
@@ -94,6 +99,14 @@ green.
   whichever answer feels easiest and leave the rest open.
 - Account export strips bring-item claim secrets. Account and party deletion
   have explicit confirmation and failure recovery.
+- Party membership is limited to owner and cohost roles. Owner transfer is
+  explicit, accepted-invitation audit rows survive account deletion, and an
+  owner cannot delete an account while a cohost still depends on an owned
+  party.
+- Firebase-to-Supabase work remains rehearsal-only. The versioned field map
+  and dry-run planner fail closed on unknown paths, emit only counts and
+  deterministic hashes, never email-match identities, and never promote
+  legacy RSVP or collaboration codes into new bearer authority.
 
 ## Explicitly unverified in this signoff
 
@@ -101,6 +114,9 @@ green.
   workspace has no dedicated local/staging `PG*` connection. Static migration
   contracts run in CI; the harness remains a required staging rehearsal
   before a higher-risk database launch.
+- Automated WebKit and keyboard tests passed, but a physical iPhone/Mobile
+  Safari session and a manual assistive-technology pass have not yet been
+  performed.
 - No real OpenAI call was made. Voice route/auth/rate/privacy behavior is
   covered with mocked upstream tests; live voice also requires
   `OPENAI_API_KEY` and `OPENAI_SAFETY_ID_SALT`.
