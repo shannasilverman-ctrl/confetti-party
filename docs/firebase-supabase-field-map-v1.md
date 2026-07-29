@@ -1,11 +1,24 @@
-# Firebase → Supabase field map v1
+# Firebase → Supabase field map v2
 
 Status: rehearsal-only; production migration remains blocked.
 
 The machine-readable contract is
-`tools/migration/firebase-field-map-v1.json`. The dry-run planner rejects every
-leaf path not classified there. It emits counts and hashes only—never source
-keys, names, emails, event codes, tokens, messages, or raw payloads.
+`tools/migration/firebase-field-map-v1.json` (the historical filename is
+retained so existing operator commands fail predictably rather than selecting a
+different file). Its immutable contract version is `firebase-supabase-v2`.
+The dry-run planner rejects every leaf path that is unclassified or matches
+multiple equally specific rules.
+The credential-free shadow rehearsal then validates relationships and types,
+builds logical target rows only in memory, proves identical replay is
+idempotent, and reconciles the expected and observed shadow target sets. Its
+report emits only counts and domain-separated keyed digests—never source keys,
+names, emails, event codes, tokens, messages, URLs, object paths, raw content
+hashes, or transformed rows.
+
+The rehearsal pins the reviewed canonical field-map digest and an explicit
+consumer for every `migrate` decision. Any decision, destination, PII
+classification, or rule change requires a new version and matching transform
+review; a changed map cannot be compared with or applied to the same ledger.
 
 ## Identity boundary
 
@@ -29,7 +42,8 @@ separate people merely because the legacy UI uses two Firebase clients.
 | `events/{code}` owner/member data | migrate                  | Verified identities → owner/cohost memberships                                   |
 | Event plan fields                 | migrate                  | Explicit transforms into `parties`; preserve source timestamp and canonical hash |
 | Pending email invitations         | archive                  | Do not email-match or honor legacy role/client claim logic                       |
-| Guests and dietary/access data    | migrate                  | Sensitive; encrypted transport, least-privilege staging, no logs                 |
+| Guest planning/RSVP fields        | migrate                  | Name, kind, RSVP, dietary/allergen fields; sensitive, least-privilege staging    |
+| Legacy guest/member email fields  | archive                  | Never used to link identities; digest-only archive manifest in rehearsal         |
 | Event vendor selections           | archive                  | Preserve until the new vendor model exists                                       |
 | Vendor profiles                   | archive                  | No production cutover until a reviewed destination exists                        |
 | Bookings, threads, attachments    | archive                  | Preserve timestamps and object hashes; destination not implemented               |
@@ -41,17 +55,26 @@ separate people merely because the legacy UI uses two Firebase clients.
 
 1. Export immutable Auth, Firestore, Storage, rules, indexes, functions, and
    provider configuration. Prove a restore before transforming anything.
-2. Run the dry-run planner on sanitized staging data. Unknown fields fail the
-   run; update and review this versioned map rather than ignoring them.
-3. Import idempotently into isolated staging using service-only ledgers.
-4. Reconcile counts, identities, memberships, source timestamps, canonical
+2. Run the shadow rehearsal on sanitized staging data with an explicit
+   ephemeral HMAC key and non-secret key ID. Unknown/ambiguous fields,
+   unresolved relationships, malformed domain values, duplicate entities,
+   stale timestamps, and reconciliation differences fail the run. Review a
+   new version of this map rather than ignoring them.
+3. Review the redacted report. Success must show a zero-difference
+   reconciliation and an identical second apply with zero creates or updates.
+   This is still only an in-memory rehearsal.
+4. Import idempotently into isolated staging using service-only ledgers.
+5. Reconcile counts, identities, memberships, source timestamps, keyed
    payload hashes, and Storage hashes. Zero unexplained rows is required.
-5. Take a second source snapshot and explain every delta. Firebase remains
+6. Take a second source snapshot and explain every delta. Removed records
+   require an explicit tombstone decision and never cause an automatic delete.
+   Firebase remains
    authoritative; no browser dual-write.
-6. Before any cutover, rehearse write freeze, final delta, service-worker
+7. Before any cutover, rehearse write freeze, final delta, service-worker
    retirement, canary, reverse reconciliation, and rollback.
 
 This field map is deliberately incomplete for a production export until the
 missing deployed Firebase rules, functions, indexes, provider configuration,
-and real schema inventory are recovered. That is a blocker, not a field to
-silently retire.
+and real schema inventory are recovered. The in-memory ledger is not evidence
+for Postgres constraints, RLS, or a production importer. Those are blockers,
+not fields to silently retire.

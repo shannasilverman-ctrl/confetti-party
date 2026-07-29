@@ -40,11 +40,20 @@
             "id": "guest-1",
             "name": "Sample Guest",
             "email": "guest@example.invalid",
+            "kind": "adult",
+            "rsvp": "invited",
             "dietary": ["vegetarian"]
           }
         ],
         "pins": [{ "id": "pin-1", "url": "https://example.invalid/inspiration" }],
-        "tasks": [{ "id": "task-1", "title": "Sample task", "done": false }],
+        "tasks": [
+          {
+            "id": "task-1",
+            "title": "Sample task",
+            "done": false,
+            "bucket": "3-5 weeks"
+          }
+        ],
         "members": [
           {
             "id": "member-1",

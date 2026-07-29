@@ -48,6 +48,12 @@ jobs:
       - name: Unit tests with coverage
         run: bun run test:coverage
 
+      - name: Rehearse sanitized Firebase migration
+        env:
+          CONFETTI_MIGRATION_HMAC_KEY: ci-only-sanitized-rehearsal-key-2026-07
+          CONFETTI_MIGRATION_KEY_ID: ci-sanitized-v2
+        run: bun run rehearse:migration
+
       - name: Build
         run: bun run build
 

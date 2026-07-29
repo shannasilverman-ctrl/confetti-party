@@ -12,6 +12,7 @@ bun run lint          # ESLint + Prettier
 bun run typecheck     # tsgo --noEmit (strict)
 bun run test          # Vitest unit tests (jsdom)
 bun run test:coverage # Vitest with v8 coverage (HTML report under ./coverage)
+bun run rehearse:migration # sanitized Firebase shadow transform/reconciliation
 bun run build         # Vite production build (must precede E2E)
 bun run test:e2e      # Playwright against the production preview server
 ```
@@ -63,6 +64,44 @@ and does not need this override.
   count, and budget, then reloads the workspace on desktop and mobile.
 - **Accessibility** — `@axe-core/playwright` scans `/` and `/talk` and fails
   on any `serious` or `critical` WCAG 2.0 A/AA violation.
+
+## Firebase migration shadow rehearsal (`bun run rehearse:migration`)
+
+This credential-free gate takes the checked-in sanitized Firebase snapshot
+through the versioned field map and a logical, in-memory shadow transform. It
+does not connect to Firebase, Supabase, or any other database and cannot import
+data.
+
+Provide an explicit 32-byte-or-longer rehearsal HMAC key and a non-secret key
+identifier:
+
+```bash
+CONFETTI_MIGRATION_HMAC_KEY='replace-with-an-ephemeral-rehearsal-key' \
+CONFETTI_MIGRATION_KEY_ID='local-sanitized-v2' \
+bun run rehearse:migration
+```
+
+The command fails closed on unclassified or ambiguous fields, malformed root
+containers, unsafe JSON values and keys, invalid or future timestamps,
+duplicate logical entities, dangling owners/members/bookings, unknown roles
+or providers, and target-reference collisions. It builds sensitive logical
+target rows only in process memory, applies them twice to an in-memory ledger,
+and independently reconciles the expected and observed target sets.
+
+Standard output is deterministic and redacted. It contains only
+domain-separated keyed references and revisions, decision/target counts,
+keyed roots, idempotency counts, and stable reconciliation codes. It never
+contains source UIDs, names, emails, event codes, integration credentials,
+messages, object paths, URLs, or raw content hashes. The output always says
+`rehearsalOnly: true`, `databaseWrites: false`, and `productionReady: false`.
+The explicit key is required even when the input claims to be sanitized;
+untrusted input cannot opt itself into a built-in known key.
+
+CI runs this rehearsal with an ephemeral fixture-only key after unit coverage.
+This proves transform determinism, report opacity, logical idempotency, delta
+classification, and reconciliation behavior. It does not prove Postgres
+constraints/RLS, restore integrity, production export completeness, or a real
+Firebase-to-Supabase import.
 
 ## Database integration harness (`bun run test:db`)
 
@@ -176,6 +215,11 @@ local/staging infrastructure.
 - **CI does not run `test:db`.** It needs live database credentials;
   keeping GitHub CI secret-free is deliberate. Run it locally against a
   branch database or during release rehearsal.
+- **The Firebase shadow rehearsal is not an importer.** It intentionally keeps
+  transformed rows in memory and uses sanitized fixture data. A restore drill,
+  representative staging export, service-only idempotent importer, second
+  source snapshot, reconciliation against actual Supabase rows, and
+  freeze/delta/cutover/rollback rehearsal remain required.
 
 ## Adding a regression test
 

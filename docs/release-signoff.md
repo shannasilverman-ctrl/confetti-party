@@ -49,9 +49,9 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 67 files, 497 tests passed                                              |
+| Vitest                | 68 files, 510 tests passed                                              |
 | Production build      | Passed                                                                  |
-| Initial client bundle | 366,169 bytes raw; 113,508 bytes gzip; within enforced budget           |
+| Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
@@ -134,17 +134,24 @@ green.
   authenticated owner, and removes each browser copy only after a server row
   is acknowledged. Partial failures leave every unacknowledged plan available
   for retry; ordinary sign-in never imports browser plans automatically.
-- Firebase-to-Supabase work remains rehearsal-only. The versioned field map
-  and dry-run planner fail closed on unknown paths, emit only counts and
-  deterministic hashes, never email-match identities, and never promote
-  legacy RSVP or collaboration codes into new bearer authority.
+- Firebase-to-Supabase work remains rehearsal-only. The versioned field map,
+  dry-run planner, and credential-free shadow pipeline fail closed on
+  unknown/ambiguous fields, malformed domain values, unresolved
+  relationships, duplicates, stale revisions, and reconciliation
+  differences. The pipeline simulates an idempotent apply entirely in memory
+  and emits only domain-separated keyed references, revisions, roots, and
+  counts. It never email-matches identities, copies integration credentials,
+  promotes legacy RSVP/collaboration codes into new bearer authority, writes a
+  database, or calls itself production-ready.
 
 ## Explicitly unverified in this signoff
 
 - The rollback-only Postgres integration harness was not run because this
   workspace has no dedicated local/staging `PG*` connection. Static migration
-  contracts run in CI; the harness remains a required staging rehearsal
-  before a higher-risk database launch.
+  contracts and the sanitized in-memory shadow migration run in CI; a
+  representative export, restore drill, service-only staging importer, actual
+  target reconciliation, second snapshot/delta, and the Postgres harness
+  remain required before a higher-risk database launch.
 - The credential-free claim suite covers validation, seed exclusion,
   collision denial, account isolation, idempotency, partial failure, selective
   cleanup, route continuity, and confirmation UI. A real signup plus

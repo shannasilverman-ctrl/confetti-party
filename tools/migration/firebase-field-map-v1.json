@@ -1,5 +1,5 @@
 {
-  "version": "firebase-supabase-v1",
+  "version": "firebase-supabase-v2",
   "sourceTenant": "confetti-d8be9",
   "fields": [
     { "path": "meta.sanitized", "action": "retire", "destination": null, "pii": "none" },
@@ -117,10 +117,34 @@
       "pii": "none"
     },
     {
-      "path": "events.*.data.categories[].*",
+      "path": "events.*.data.categories[].id",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].name",
       "action": "migrate",
       "destination": "parties.budget_categories",
       "pii": "personal"
+    },
+    {
+      "path": "events.*.data.categories[].budget",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].spent",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].progress",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
     },
     {
       "path": "events.*.data.vendors[]",
@@ -129,7 +153,13 @@
       "pii": "none"
     },
     {
-      "path": "events.*.data.vendors[].*",
+      "path": "events.*.data.vendors[].id",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.vendors[].name",
       "action": "archive",
       "destination": "migration_archive",
       "pii": "personal"
@@ -141,27 +171,63 @@
       "pii": "none"
     },
     {
-      "path": "events.*.data.guests[].*",
+      "path": "events.*.data.guests[].id",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.guests[].name",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.guests[].email",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.guests[].kind",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.guests[].rsvp",
       "action": "migrate",
       "destination": "parties.guests",
       "pii": "sensitive"
     },
     {
-      "path": "events.*.data.guests[].*[]",
+      "path": "events.*.data.guests[].dietary[]",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.guests[].allergens[]",
       "action": "migrate",
       "destination": "parties.guests",
       "pii": "sensitive"
     },
     {
       "path": "events.*.data.pins[]",
-      "action": "migrate",
-      "destination": "parties.pinned_inspiration",
+      "action": "archive",
+      "destination": "migration_archive",
       "pii": "none"
     },
     {
-      "path": "events.*.data.pins[].*",
-      "action": "migrate",
-      "destination": "parties.pinned_inspiration",
+      "path": "events.*.data.pins[].id",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.pins[].url",
+      "action": "archive",
+      "destination": "migration_archive",
       "pii": "personal"
     },
     {
@@ -171,10 +237,28 @@
       "pii": "none"
     },
     {
-      "path": "events.*.data.tasks[].*",
+      "path": "events.*.data.tasks[].id",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.tasks[].title",
       "action": "migrate",
       "destination": "parties.tasks",
       "pii": "personal"
+    },
+    {
+      "path": "events.*.data.tasks[].done",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.tasks[].bucket",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
     },
     {
       "path": "events.*.data.members[]",
@@ -183,10 +267,40 @@
       "pii": "none"
     },
     {
-      "path": "events.*.data.members[].*",
+      "path": "events.*.data.members[].id",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.members[].uid",
       "action": "migrate",
       "destination": "party_memberships",
+      "pii": "identifier"
+    },
+    {
+      "path": "events.*.data.members[].name",
+      "action": "migrate",
+      "destination": "party_memberships.display_name",
       "pii": "personal"
+    },
+    {
+      "path": "events.*.data.members[].email",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.members[].role",
+      "action": "migrate",
+      "destination": "party_memberships.role",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.members[].status",
+      "action": "migrate",
+      "destination": "party_memberships",
+      "pii": "none"
     },
     {
       "path": "events.invite:*.code",
@@ -284,10 +398,28 @@
       "pii": "none"
     },
     {
-      "path": "storage.attachments[].*",
+      "path": "storage.attachments[].path",
       "action": "migrate",
       "destination": "managed_object_storage",
       "pii": "sensitive"
+    },
+    {
+      "path": "storage.attachments[].sha256",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
+    },
+    {
+      "path": "storage.attachments[].size",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
+    },
+    {
+      "path": "storage.attachments[].contentType",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
     }
   ]
 }
