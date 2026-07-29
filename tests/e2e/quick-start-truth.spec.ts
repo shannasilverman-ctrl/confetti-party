@@ -89,3 +89,28 @@ test("skipping a look never selects or charges for a catalog theme", async ({ pa
   await expect(page.locator("main")).toContainText("Pick a theme");
   await expect(page.locator("main").getByText("Selected", { exact: true })).toHaveCount(0);
 });
+
+test("setting a skipped guest count refreshes untouched auto-sized quantities", async ({
+  page,
+}) => {
+  const dialog = await openWizard(page);
+  await dialog.getByLabel("Start with the idea").fill("Maya's birthday");
+  await dialog.getByTestId("wizard-occasion-birthday").click();
+  await dialog.getByTestId("wizard-create").click();
+  await dialog.getByTestId("wizard-open-plan").click();
+
+  await page.getByTestId("edit-details-guests-trigger").click();
+  const details = page.getByRole("dialog");
+  await details.getByLabel("Guest estimate (optional)").fill("18");
+  await details.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("4 auto-sized quantities updated for 18 guests.")).toBeVisible();
+
+  await openTab(page, "shopping");
+  const plates = page.locator("li").filter({ hasText: "Paper plates and cups" });
+  const drinks = page.locator("li").filter({ hasText: "Assorted drinks" });
+  await expect(plates).toContainText("Qty 3");
+  await expect(drinks).toContainText("Qty 3");
+  await expect(plates.getByText("Auto-sized")).toBeVisible();
+  await expect(drinks.getByText("Auto-sized")).toBeVisible();
+  await expect(page.getByText("Projected total").locator("..")).toContainText("$112");
+});

@@ -23,7 +23,9 @@ import {
   type HostEffort,
   type PartyFormat,
 } from "@/lib/party-intelligence";
+import { resizePartySizedShopping } from "@/lib/shopping";
 import { Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 const HOST_NOTE_MAX = 280;
 
@@ -80,6 +82,20 @@ export function EditDetailsDialog({
 
   const save = () => {
     if (!name.trim()) return;
+    const expectedAudience =
+      (expectedKids !== "" ? Number(expectedKids) || 0 : 0) +
+      (expectedAdults !== "" ? Number(expectedAdults) || 0 : 0);
+    const requestedGuestEstimate =
+      expectedAudience > 0
+        ? expectedAudience
+        : guestEstimate
+          ? Number(guestEstimate)
+          : party.guestEstimate;
+    const shoppingPreview =
+      requestedGuestEstimate > 0 && requestedGuestEstimate !== party.guestEstimate
+        ? resizePartySizedShopping(party.shoppingItems, requestedGuestEstimate)
+        : null;
+
     updateParty(partyId, (p) => {
       const details = [
         ...(date ? (["date"] as const) : []),
@@ -113,8 +129,26 @@ export function EditDetailsDialog({
       next = reconcilePartyPlaybook(next, profile, () => newId());
       const audienceTotal = (profile.expectedKids ?? 0) + (profile.expectedAdults ?? 0);
       if (audienceTotal > 0) next = { ...next, guestEstimate: audienceTotal };
+      if (next.guestEstimate > 0 && next.guestEstimate !== p.guestEstimate) {
+        const resizedShopping = resizePartySizedShopping(next.shoppingItems, next.guestEstimate);
+        next = { ...next, shoppingItems: resizedShopping.items };
+      }
       return next;
     });
+    if (shoppingPreview?.resized) {
+      toast.success(
+        `${shoppingPreview.resized} auto-sized ${shoppingPreview.resized === 1 ? "quantity" : "quantities"} updated for ${requestedGuestEstimate} guests.`,
+        shoppingPreview.protected
+          ? {
+              description: `${shoppingPreview.protected} in-cart or purchased ${shoppingPreview.protected === 1 ? "quantity was" : "quantities were"} left unchanged.`,
+            }
+          : undefined,
+      );
+    } else if (shoppingPreview?.protected) {
+      toast.info(
+        `${shoppingPreview.protected} in-cart or purchased ${shoppingPreview.protected === 1 ? "quantity was" : "quantities were"} left unchanged.`,
+      );
+    }
     setOpen(false);
   };
 

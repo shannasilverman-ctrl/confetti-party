@@ -52,7 +52,7 @@ Cloudflare Worker build:
 | Vitest                | 74 files, 533 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 195 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 197 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,10 +65,10 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The combined local Playwright process passed all 195 applicable cases in one
-clean run (84 intentional cross-project skips), including all three WebKit
-critical-path cases. CI runs the device projects with fresh Workers and
-remains the exact-SHA release authority.
+The complete Playwright matrix contains 197 applicable cases (84 intentional
+cross-project skips), including all three WebKit critical-path cases. CI runs
+the device projects in fresh-Worker slices and remains the exact-SHA release
+authority.
 
 The host dashboard also preserves the original Confetti visual contract:
 Outfit for product copy, Fraunces for expressive display type, warm editorial
@@ -138,6 +138,10 @@ green.
   interpretation. An unselected catalog theme stays unselected: it contributes
   no themed tasks, supplies, projected spend, workspace badge, or invitation
   claim.
+- When a host later resolves or changes the guest count, Confetti refreshes
+  only untouched, still-needed party-sized shopping quantities and projected
+  spend. Host-edited, in-cart, and purchased quantities remain authoritative,
+  and the save confirmation says what was resized or protected.
 - Repeat planning keeps the original gathering's retrospective with the
   original record. Notes about what ran short and what should change become
   explicit, private tasks in the cloned plan, while the new gathering starts
