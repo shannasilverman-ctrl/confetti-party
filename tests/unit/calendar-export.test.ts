@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { PartyView } from "@/lib/rsvp.functions";
-import { buildIcs, foldIcsLine, googleCalUrl } from "@/lib/calendar-export";
+import {
+  buildIcs,
+  calendarExportIssue,
+  foldIcsLine,
+  googleCalUrl,
+  isValidEventTimeZone,
+  zonedWallTimeToUtc,
+} from "@/lib/calendar-export";
 
 const PARTY: PartyView = {
   name: "Ava & Liam's Wedding",
   date: "2027-05-22",
   start_time: "6:30 PM",
+  event_time_zone: "America/New_York",
   location: "Garden Hall, 10 Main St",
   occasion: "wedding",
   theme_id: null,
@@ -29,8 +37,8 @@ describe("calendar export", () => {
     expect(uid).toMatch(/^confetti-[0-9a-f]{8}@confettiapp\.ai\r?$/);
     expect(second).toContain(`UID:${uid?.replace(/\r$/, "")}`);
     expect(first).toContain("DTSTAMP:20270102T030405Z\r\n");
-    expect(first).toContain("DTSTART:20270522T183000\r\n");
-    expect(first).toContain("DTEND:20270522T213000\r\n");
+    expect(first).toContain("DTSTART:20270522T223000Z\r\n");
+    expect(first).toContain("DTEND:20270523T013000Z\r\n");
     expect(first.endsWith("\r\n")).toBe(true);
     expect(first.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/);
   });
@@ -80,5 +88,47 @@ describe("calendar export", () => {
 
     const url = new URL(googleCalUrl({ ...PARTY, start_time: null }));
     expect(url.searchParams.get("dates")).toBe("20270522/20270523");
+    expect(url.searchParams.has("ctz")).toBe(false);
+  });
+
+  it("exports the Tuscany sample as one absolute instant for every guest", () => {
+    const party = {
+      ...PARTY,
+      start_time: "5:30 PM",
+      event_time_zone: "Europe/Rome",
+      location: "Tenuta di Fiore, Tuscany",
+    };
+    const ics = buildIcs(party, new Date("2027-01-02T03:04:05.000Z"));
+    const url = new URL(googleCalUrl(party));
+
+    expect(ics).toContain("DTSTART:20270522T153000Z\r\n");
+    expect(ics).toContain("DTEND:20270522T183000Z\r\n");
+    expect(url.searchParams.get("dates")).toBe("20270522T173000/20270522T203000");
+    expect(url.searchParams.get("ctz")).toBe("Europe/Rome");
+  });
+
+  it("handles seasonal offsets without depending on the process time zone", () => {
+    expect(zonedWallTimeToUtc("2027-01-22", "5:30 PM", "Europe/Rome").toISOString()).toBe(
+      "2027-01-22T16:30:00.000Z",
+    );
+    expect(zonedWallTimeToUtc("2027-07-22", "5:30 PM", "Europe/Rome").toISOString()).toBe(
+      "2027-07-22T15:30:00.000Z",
+    );
+  });
+
+  it("validates IANA zones and fails closed for missing or nonexistent timed exports", () => {
+    expect(isValidEventTimeZone("America/New_York")).toBe(true);
+    expect(isValidEventTimeZone("Europe/Rome")).toBe(true);
+    expect(isValidEventTimeZone("UTC")).toBe(true);
+    expect(isValidEventTimeZone("Tuscany")).toBe(false);
+    expect(isValidEventTimeZone("+02:00")).toBe(false);
+    expect(isValidEventTimeZone("Not/A_Real_Zone")).toBe(false);
+
+    const missing = { ...PARTY, event_time_zone: null };
+    expect(calendarExportIssue(missing)).toBe("missing-time-zone");
+    expect(() => googleCalUrl(missing)).toThrow(/time zone/i);
+    expect(() => zonedWallTimeToUtc("2027-03-14", "2:30 AM", "America/New_York")).toThrow(
+      /does not exist/i,
+    );
   });
 });

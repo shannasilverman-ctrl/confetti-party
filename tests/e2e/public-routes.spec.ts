@@ -432,8 +432,11 @@ test("sample invite exposes the same practical guest details and calendar action
   await foodSummary.click();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other allergens" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Google Calendar/i })).toBeVisible();
+  const googleCalendar = page.getByRole("link", { name: /Google Calendar/i }).first();
+  await expect(googleCalendar).toBeVisible();
+  await expect(googleCalendar).toHaveAttribute("href", /ctz=Europe%2FRome/);
   await expect(page.getByRole("button", { name: /Apple \/ .ics/i })).toBeVisible();
+  await expect(page.getByText("Calendar time zone: Europe/Rome").first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Directions/i })).toBeVisible();
 });
 

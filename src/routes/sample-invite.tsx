@@ -61,6 +61,7 @@ const SAMPLE_CALENDAR_PARTY = {
   name: SAMPLE.name,
   date: SAMPLE.date,
   start_time: SAMPLE.startTime,
+  event_time_zone: "Europe/Rome",
   location: SAMPLE.location,
 } as const;
 

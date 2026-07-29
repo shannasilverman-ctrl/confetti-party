@@ -1,6 +1,11 @@
 import { CalendarPlus, Navigation } from "lucide-react";
 import { toast } from "sonner";
-import { buildIcs, googleCalUrl, type CalendarParty } from "@/lib/calendar-export";
+import {
+  buildIcs,
+  calendarExportIssue,
+  googleCalUrl,
+  type CalendarParty,
+} from "@/lib/calendar-export";
 import { Button } from "@/components/ui/button";
 
 function safeFilename(name: string): string {
@@ -20,27 +25,34 @@ function downloadCalendarFile(party: CalendarParty): void {
 }
 
 export function CalendarActions({ party }: { party: CalendarParty }) {
+  const issue = calendarExportIssue(party);
+  const canExport = issue === null;
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap justify-center gap-2">
-        <Button asChild variant="outline" size="sm">
-          <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
-            <CalendarPlus /> Google Calendar
-          </a>
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            try {
-              downloadCalendarFile(party);
-            } catch {
-              toast.error("Couldn't prepare the calendar file. Try Google Calendar instead.");
-            }
-          }}
-        >
-          <CalendarPlus /> Apple / .ics
-        </Button>
+        {canExport && (
+          <>
+            <Button asChild variant="outline" size="sm">
+              <a href={googleCalUrl(party)} target="_blank" rel="noopener noreferrer">
+                <CalendarPlus /> Google Calendar
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                try {
+                  downloadCalendarFile(party);
+                } catch {
+                  toast.error("Couldn't prepare the calendar file. Try Google Calendar instead.");
+                }
+              }}
+            >
+              <CalendarPlus /> Apple / .ics
+            </Button>
+          </>
+        )}
         {party.location && (
           <Button asChild variant="outline" size="sm">
             <a
@@ -53,9 +65,19 @@ export function CalendarActions({ party }: { party: CalendarParty }) {
           </Button>
         )}
       </div>
-      {party.start_time && (
+      {party.start_time && canExport && (
         <p className="text-center text-[11px] text-muted-foreground">
-          Calendar times use the host-entered local time shown above.
+          Calendar time zone: {party.event_time_zone}
+        </p>
+      )}
+      {party.start_time && !canExport && (
+        <p
+          className="text-center text-xs font-medium text-warning-foreground"
+          data-testid="calendar-time-zone-warning"
+        >
+          {issue === "missing-time-zone"
+            ? "Ask the host to confirm the event time zone before adding this date."
+            : "Ask the host to confirm the event start time before adding this date."}
         </p>
       )}
     </div>

@@ -115,6 +115,7 @@ export type PartyView = {
   name: string;
   date: string;
   start_time: string | null;
+  event_time_zone?: string | null;
   location: string | null;
   occasion: string;
   theme_id: string | null;

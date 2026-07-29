@@ -70,6 +70,7 @@ import { analyzePlanningIdea } from "@/lib/talk-demo";
 import { materializeDraft } from "@/lib/talk-materialize";
 import { resolveQuickStart } from "@/lib/quick-start";
 import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
+import { deviceEventTimeZone, isValidEventTimeZone } from "@/lib/calendar-export";
 
 type AppSearch = { new?: boolean; claimDemo?: boolean };
 
@@ -654,6 +655,8 @@ function NewPartyWizard({
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
+  const [eventTimeZone, setEventTimeZone] = useState("");
+  const [suggestedTimeZone, setSuggestedTimeZone] = useState<string | null>(null);
   const [location, setLocation] = useState("");
   const [guestEstimate, setGuestEstimate] = useState("");
   const [budget, setBudget] = useState("");
@@ -668,6 +671,10 @@ function NewPartyWizard({
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
   const ideaAnalysis = useMemo(() => (name.trim() ? analyzePlanningIdea(name) : null), [name]);
 
+  useEffect(() => {
+    setSuggestedTimeZone(deviceEventTimeZone());
+  }, []);
+
   function reset() {
     setStep("idea");
     setCreatedId(null);
@@ -675,6 +682,7 @@ function NewPartyWizard({
     setName("");
     setDate("");
     setStartTime("");
+    setEventTimeZone("");
     setLocation("");
     setGuestEstimate("");
     setBudget("");
@@ -708,6 +716,15 @@ function NewPartyWizard({
       blockingUnknowns,
       optionalUnknowns,
     } = materializeDraft(resolved.patch);
+    const cleanTimeZone = eventTimeZone.trim();
+    if (generated.startTime && !isValidEventTimeZone(cleanTimeZone)) {
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      return;
+    }
+    const planningProfile: PartyPlanningProfile = {
+      ...(generated.planningProfile ?? { version: 1 as const }),
+      ...(isValidEventTimeZone(cleanTimeZone) ? { eventTimeZone: cleanTimeZone } : {}),
+    };
     const missing = new Set([
       ...blockingUnknowns.map((unknown) => unknown.field),
       ...optionalUnknowns.map((unknown) => unknown.field),
@@ -804,7 +821,7 @@ function NewPartyWizard({
       theme: theme?.name ?? "",
       themeId: theme?.id,
       holidayPackId: resolvedHolidayStarter,
-      planningProfile: generated.planningProfile ?? undefined,
+      planningProfile,
     });
     updateParty(id, (current) => ({
       ...current,
@@ -818,7 +835,7 @@ function NewPartyWizard({
       theme: theme?.name ?? "",
       themeId: theme?.id,
       holidayPackId: resolvedHolidayStarter,
-      planningProfile: generated.planningProfile ?? undefined,
+      planningProfile,
       hostNote: generated.hostNote ?? undefined,
       tasks,
       bringBoard,
@@ -1065,6 +1082,33 @@ function NewPartyWizard({
                     />
                   </div>
                 </div>
+                {startTime.trim() && (
+                  <div className="rounded-xl border border-border bg-muted/30 p-3">
+                    <Label htmlFor="event-time-zone">Event time zone</Label>
+                    <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        id="event-time-zone"
+                        value={eventTimeZone}
+                        onChange={(event) => setEventTimeZone(event.target.value)}
+                        placeholder="e.g. America/New_York"
+                        autoComplete="off"
+                      />
+                      {suggestedTimeZone && eventTimeZone !== suggestedTimeZone && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setEventTimeZone(suggestedTimeZone)}
+                        >
+                          Use {suggestedTimeZone}
+                        </Button>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Confirm the zone where the party happens so every guest gets the right
+                      calendar time.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="guests">Guests (optional)</Label>

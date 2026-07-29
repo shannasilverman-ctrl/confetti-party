@@ -25,6 +25,7 @@ import {
 } from "@/lib/party-intelligence";
 import { resizePartySizedShopping } from "@/lib/shopping";
 import { rebaseBudgetCategories } from "@/lib/budget";
+import { deviceEventTimeZone, isValidEventTimeZone } from "@/lib/calendar-export";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,6 +46,8 @@ export function EditDetailsDialog({
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
+  const [eventTimeZone, setEventTimeZone] = useState("");
+  const [suggestedTimeZone, setSuggestedTimeZone] = useState<string | null>(null);
   const [location, setLocation] = useState("");
   const [guestEstimate, setGuestEstimate] = useState("");
   const [budget, setBudget] = useState("");
@@ -60,6 +63,8 @@ export function EditDetailsDialog({
     setName(party.name);
     setDate(planningDetailIsOpen(party, "date") ? "" : party.date);
     setStartTime(party.startTime ?? "");
+    setEventTimeZone(party.planningProfile?.eventTimeZone ?? "");
+    setSuggestedTimeZone(deviceEventTimeZone());
     setLocation(party.location ?? "");
     setGuestEstimate(planningDetailIsOpen(party, "guests") ? "" : String(party.guestEstimate));
     setBudget(planningDetailIsOpen(party, "budget") ? "" : String(party.budget));
@@ -83,6 +88,16 @@ export function EditDetailsDialog({
 
   const save = () => {
     if (!name.trim()) return;
+    const cleanTimeZone = eventTimeZone.trim();
+    const startTimeChanged = startTime.trim() !== (party.startTime ?? "");
+    if (cleanTimeZone && !isValidEventTimeZone(cleanTimeZone)) {
+      toast.error("Use a valid IANA time zone, such as America/New_York.");
+      return;
+    }
+    if (startTime.trim() && startTimeChanged && !isValidEventTimeZone(cleanTimeZone)) {
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      return;
+    }
     const expectedAudience =
       (expectedKids !== "" ? Number(expectedKids) || 0 : 0) +
       (expectedAdults !== "" ? Number(expectedAdults) || 0 : 0);
@@ -129,6 +144,7 @@ export function EditDetailsDialog({
         ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
         effort,
         format: partyFormat,
+        eventTimeZone: isValidEventTimeZone(cleanTimeZone) ? cleanTimeZone : undefined,
       };
       next = reconcilePartyPlaybook(next, profile, () => newId());
       const audienceTotal = (profile.expectedKids ?? 0) + (profile.expectedAdults ?? 0);
@@ -233,6 +249,33 @@ export function EditDetailsDialog({
                 />
               </div>
             </div>
+            {startTime.trim() && (
+              <div className="space-y-1.5 rounded-xl border border-border bg-muted/30 p-3">
+                <Label htmlFor="ed-time-zone">Event time zone</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="ed-time-zone"
+                    value={eventTimeZone}
+                    onChange={(event) => setEventTimeZone(event.target.value)}
+                    placeholder="e.g. America/New_York"
+                    autoComplete="off"
+                  />
+                  {suggestedTimeZone && eventTimeZone !== suggestedTimeZone && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEventTimeZone(suggestedTimeZone)}
+                    >
+                      Use {suggestedTimeZone}
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Required for accurate guest calendar links. Confirm the zone where the party
+                  happens.
+                </p>
+              </div>
+            )}
             <section
               aria-labelledby="edit-party-intelligence"
               className="rounded-2xl border border-primary/15 bg-primary/[0.045] p-4"

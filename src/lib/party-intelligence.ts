@@ -41,6 +41,8 @@ export type PartyPlanningProfile = {
   foodRole?: FoodRole;
   foodServiceStyle?: FoodServiceStyle;
   durationMinutes?: number;
+  /** Host-confirmed IANA zone used to turn a displayed wall time into a guest-safe instant. */
+  eventTimeZone?: string;
   /**
    * A host-entered local shortlist. Confetti never treats these records as
    * verified inventory; status, quote basis, and selection stay explicit.
