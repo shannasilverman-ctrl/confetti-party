@@ -54,6 +54,7 @@ test.describe("Party route identity", () => {
       .fill("Sample schedule note");
     await page.getByRole("button", { name: "Add sample update" }).click();
     await expect(page.getByText(/No guests were notified/i)).toBeVisible();
+    await expect(page.getByText(/Visible on the guest page/i)).toHaveCount(0);
     await expect(page.getByText("Sample schedule note")).toBeVisible();
   });
 

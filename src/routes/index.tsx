@@ -277,7 +277,7 @@ function Landing() {
                 <StoryRow
                   chapter="05 · Stay present"
                   title="Day-of Mode."
-                  body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
+                  body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a guest-page update for 'pizza's on the way' — designed for one thumb."
                   cta={{
                     label: "Open Day-of Mode",
                     to: "/party/$id/day-of",

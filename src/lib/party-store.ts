@@ -176,6 +176,25 @@ export class PartyStore {
     };
   }
 
+  /** Host-update writes that exist in the latest local party but not in the
+   * last acknowledged server row. Derived from the durable outbox-backed
+   * queue so Day-of delivery truth survives navigation and reload. */
+  getPendingHostUpdates(id: string): Array<{ id: string; baselineUpdatedAt?: string }> {
+    const entry = this.queue.get(id);
+    if (!entry) return [];
+    const acknowledgedIds = new Set(
+      entry.baseline
+        ? (rowToParty(entry.baseline).hostUpdates ?? []).map((update) => update.id)
+        : [],
+    );
+    return (entry.latest.hostUpdates ?? [])
+      .filter((update) => !acknowledgedIds.has(update.id))
+      .map((update) => ({
+        id: update.id,
+        baselineUpdatedAt: entry.baseline?.updated_at,
+      }));
+  }
+
   enqueueInsert(party: Party, userId: string) {
     if (!this.acceptsUser(userId)) {
       this.refuseCrossUser("enqueueInsert", party.id, userId);

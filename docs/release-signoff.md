@@ -49,7 +49,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 76 files, 554 tests passed                                              |
+| Vitest                | 77 files, 562 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 205 application cases passed; 84 intentional cross-project skips        |
@@ -172,7 +172,13 @@ green.
   merely because older checklist items were created first. Its run sheet parses
   absolute and start-relative times, shows an honest live now/next countdown
   only on the gathering date, and labels future and past schedules as preview
-  or record rather than presenting them as live.
+  or record rather than presenting them as live. Authenticated guest-page
+  updates stay explicitly saving, device-only, failed, or conflicted until the
+  acknowledged server row contains the submitted update and has a newer
+  timestamp. Only then does Day-of Mode call the update visible; existing retry
+  and conflict controls remain beside the status. Copy also states that guests
+  see updates on open/refresh and that Confetti sends no text or push
+  notification.
 - Signed-out Talk is deterministic and device-local. It extracts only facts
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an

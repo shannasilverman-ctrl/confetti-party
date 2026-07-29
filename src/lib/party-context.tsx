@@ -982,6 +982,8 @@ type Ctx = {
   deleteParty: (id: string) => Promise<{ error: string | null }>;
   /** Save state per party id (idle | saving | saved | offline | error | conflict). */
   saveStates: Record<string, SaveStateSnapshot>;
+  /** Host updates still present only in the durable local write queue. */
+  getPendingHostUpdates: (id: string) => Array<{ id: string; baselineUpdatedAt?: string }>;
   /** Conflict metadata (columns + local/server previews) per party. */
   conflicts: Record<string, import("./party-persistence").PendingConflict>;
   /** Ids whose initial insert permanently failed — recoverable local drafts. */
@@ -1398,6 +1400,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       readState,
       isDemo,
       saveStates,
+      getPendingHostUpdates: (id) => store.getPendingHostUpdates(id),
       conflicts,
       insertRejected,
       retrySave: (id) => store.retry(id),

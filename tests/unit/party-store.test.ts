@@ -810,6 +810,35 @@ describe("PartyStore auth identity isolation", () => {
 });
 
 describe("PartyStore durable reload recovery", () => {
+  it("restores pending host-update delivery metadata from the durable queue", async () => {
+    const fake = new FakeDb();
+    const original = mkParty();
+    const baseline = {
+      ...partyToColumns(original, "user-a"),
+      updated_at: "2027-01-01T00:00:00Z",
+    };
+    fake.seed(baseline);
+    const latest = {
+      ...original,
+      hostUpdates: [
+        { id: "offline-update", text: "Parking moved to Oak Street", at: "2027-01-01T12:00:00Z" },
+      ],
+    };
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", baseline));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-a");
+
+    store.restorePending(await outbox.load("user-a"), [...fake.rows.values()], "user-a", false);
+
+    expect(store.getPendingHostUpdates("p1")).toEqual([
+      {
+        id: "offline-update",
+        baselineUpdatedAt: "2027-01-01T00:00:00Z",
+      },
+    ]);
+  });
+
   it("replays an offline update against its original baseline and preserves a guest RSVP", async () => {
     const fake = new FakeDb();
     const original = mkParty();

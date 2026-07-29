@@ -14,6 +14,8 @@ import { TaskDetailsDialog } from "@/components/task-details-dialog";
 import { prioritizeDayOfTasks } from "@/lib/day-of-actions";
 import { dayOfRunSheet, formatMinutesUntil } from "@/lib/day-of-run-sheet";
 import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
+import { SaveStatus } from "@/components/save-status";
+import { hostUpdateDelivery, type PendingHostUpdate } from "@/lib/host-update-delivery";
 
 export const Route = createFileRoute("/party/$id_/day-of")({
   component: DayOfPage,
@@ -31,10 +33,20 @@ export const Route = createFileRoute("/party/$id_/day-of")({
 
 function DayOfPage() {
   const { id } = Route.useParams();
-  const { parties, status, refetch, updateParty, isDemo } = useParties();
+  const {
+    parties,
+    status,
+    readState,
+    refetch,
+    updateParty,
+    isDemo,
+    saveStates,
+    getPendingHostUpdates,
+  } = useParties();
   const party = parties.find((p) => p.id === id);
   const [note, setNote] = useState("");
   const [postStatus, setPostStatus] = useState("");
+  const [pendingUpdates, setPendingUpdates] = useState<PendingHostUpdate[]>([]);
   const [now, setNow] = useState(() => new Date());
   // Compute derived state before any early return so hook order is stable
   // across renders where the party may briefly disappear (e.g. delete).
@@ -106,20 +118,27 @@ function DayOfPage() {
   function postUpdate() {
     const text = note.trim();
     if (!text) return;
+    const updateId = newId();
     updateParty(party!.id, (p) => ({
       ...p,
       hostUpdates: [
-        { id: newId(), text, at: new Date().toISOString() },
+        { id: updateId, text, at: new Date().toISOString() },
         ...(p.hostUpdates ?? []),
       ].slice(0, 20),
     }));
     setNote("");
-    const message = isSeededSample
-      ? "Sample update added here. No guests were notified."
-      : isLocalParty
-        ? "Update saved on this device only. No guests were notified."
-        : "Update posted to the guest page.";
-    setPostStatus(message);
+    if (isDemo) {
+      setPostStatus(
+        isSeededSample
+          ? "Sample update added here. No guests were notified."
+          : "Update saved on this device only. No guests were notified.",
+      );
+    } else {
+      setPostStatus("");
+      setPendingUpdates((current) =>
+        [...current, { id: updateId, baselineUpdatedAt: party!.updatedAt }].slice(-20),
+      );
+    }
   }
 
   const arrived = Object.keys(checkins).length;
@@ -148,6 +167,16 @@ function DayOfPage() {
     hour: "numeric",
     minute: "2-digit",
   }).format(now);
+  const delivery = isDemo
+    ? null
+    : hostUpdateDelivery({
+        submitted: pendingUpdates,
+        pending: getPendingHostUpdates(party.id),
+        hostUpdateIds: (party.hostUpdates ?? []).map((update) => update.id),
+        updatedAt: party.updatedAt,
+        saveState: saveStates[party.id] ?? "idle",
+        fromCache: readState.source === "cache",
+      });
 
   return (
     <div className="min-h-screen bg-background">
@@ -354,6 +383,28 @@ function DayOfPage() {
             <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">
               {postStatus}
             </p>
+          )}
+          {delivery && (
+            <p
+              className="mt-2 text-xs font-medium text-muted-foreground"
+              role="status"
+              aria-live="polite"
+              data-testid="host-update-delivery"
+              data-state={delivery.state}
+            >
+              {delivery.message}
+            </p>
+          )}
+          {!isDemo && (
+            <>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                Guests see updates when they open or refresh the guest page. Confetti does not send
+                a text or push notification.
+              </p>
+              <div className="mt-3">
+                <SaveStatus partyId={party.id} />
+              </div>
+            </>
           )}
           {(party.hostUpdates ?? []).length > 0 && (
             <ul className="mt-3 space-y-1.5">
