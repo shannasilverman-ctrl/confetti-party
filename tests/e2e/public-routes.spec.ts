@@ -61,6 +61,22 @@ test("home exposes the primary CTA", async ({ page }) => {
   await expect(page.getByText(/notes stay attached for reference/i)).toHaveCount(0);
 });
 
+test("home's memories promise opens a real retrospective and repeat plan", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.getByRole("link", { name: "Read the watch-party retro" }).click();
+
+  await expect(page).toHaveURL(/\/party\/world-cup-final-watch\/reveal$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "World Cup Final Watch Party" }),
+  ).toBeVisible();
+  await expect(page.getByText("Post-event retrospective", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ice and kid-friendly drinks.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Put dessert out before the second half so nobody misses it.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan the next one" })).toBeVisible();
+});
+
 test("home opens with a controllable multi-event party scene", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const hero = page.getByRole("region", { name: "Gatherings planned with Confetti" });
@@ -426,7 +442,7 @@ test("retrospective reveal can start the next gathering without setup friction",
   page,
 }) => {
   await page.goto("/party/world-cup-final-watch/reveal", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Add retrospective" }).click();
+  await page.getByRole("button", { name: "Edit retrospective" }).click();
   await page
     .getByRole("textbox", { name: "What ran out or fell short" })
     .fill("Ice and kid-friendly drinks");

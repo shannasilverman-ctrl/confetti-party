@@ -293,9 +293,9 @@ function Landing() {
                   title="Memories, so next time is easier."
                   body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Plan the next one and Confetti turns the improvements into real checklist tasks."
                   cta={{
-                    label: "Read Ava & Liam's retro",
+                    label: "Read the watch-party retro",
                     to: "/party/$id/reveal",
-                    params: { id: "ava-liam-wedding" },
+                    params: { id: "world-cup-final-watch" },
                   }}
                   tone="gold"
                   flip
@@ -894,16 +894,18 @@ function GuestWorldMini() {
 
 function MemoriesMini() {
   const bullets = [
-    { label: "What worked", body: "The buffet flow — nobody got stuck in a line." },
-    { label: "Ran out of", body: "Sparkling water. Double it next time." },
-    { label: "Change next time", body: "Start dessert 20 minutes earlier — kids faded." },
+    { label: "What worked", body: "Two screens kept the main room lively." },
+    { label: "Ran out of", body: "Ice and kid-friendly drinks." },
+    { label: "Change next time", body: "Put dessert out before the second half." },
   ];
   return (
     <div className="rotate-[1deg] rounded-3xl border border-border bg-card p-5 shadow-card">
       <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Sparkles className="h-3 w-3 text-accent" /> Retrospective
       </div>
-      <div className="font-display text-lg font-semibold text-secondary">Friendsgiving 2025</div>
+      <div className="font-display text-lg font-semibold text-secondary">
+        World Cup Final Watch · 2026
+      </div>
       <ul className="mt-3 space-y-2">
         {bullets.map((b, i) => (
           <li key={i} className="rounded-xl bg-muted/40 p-3">

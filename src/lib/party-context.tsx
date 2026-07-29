@@ -760,6 +760,12 @@ function seedWorldCup(): Party {
         at: "2026-07-16T18:00:00.000Z",
       },
     ],
+    retrospective: {
+      worked: "The two-screen setup kept the main room lively and gave kids a quieter option.",
+      ranOut: "Ice and kid-friendly drinks.",
+      changeNext: "Put dessert out before the second half so nobody misses it.",
+      updatedAt: "2026-07-20T14:00:00.000Z",
+    },
     hostNote:
       "Come early for coffee and breakfast bites. Kids are welcome; the den will have a quieter second screen.",
     heroImageUrl: "/brand/world-cup-watch-v1.jpg",
