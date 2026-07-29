@@ -166,6 +166,13 @@ local/staging infrastructure.
   personalization is not covered. The claim flow is exercised with
   credential-free client fakes and component tests, but a real
   signup/confirmation/import/reload pass still belongs in staging.
+- **Authenticated durable-write browser integration.** Unit integration tests
+  cover offline update replay, concurrent guest preservation, an insert that
+  landed immediately before a crash, a never-landed insert, identity
+  isolation, expiry, size/count limits, secret redaction, acknowledgement
+  cleanup, and refusal to resurrect a deleted row. A real authenticated
+  IndexedDB → reload → Supabase reconciliation pass still belongs in isolated
+  staging because public CI has no user credentials.
 - **CI does not run `test:db`.** It needs live database credentials;
   keeping GitHub CI secret-free is deliberate. Run it locally against a
   branch database or during release rehearsal.

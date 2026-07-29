@@ -1036,6 +1036,7 @@ const PartyContext = createContext<Ctx | null>(null);
 // share them. Re-export the shapes used elsewhere in this module.
 import { rowToParty as _rowToParty, partyToColumns, type PartyRow } from "./party-persistence";
 import { PartyStore, type StoreEvent } from "./party-store";
+import { makePartyOutbox, type PartyOutbox } from "./party-outbox";
 import { makeSupabaseClient } from "./party-supabase-client";
 
 function rowToParty(r: unknown): Party {
@@ -1141,10 +1142,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   // Persistence store — deterministic queue with column-diffed writes,
   // optimistic concurrency, 3-way merges, and bounded retry.
   const storeRef = useRef<PartyStore | null>(null);
+  const outboxRef = useRef<PartyOutbox | undefined>(undefined);
   if (!storeRef.current) {
+    outboxRef.current = makePartyOutbox();
     storeRef.current = new PartyStore({
       client: makeSupabaseClient(),
       isTombstoned: (id) => tombstonesRef.current.has(id),
+      outbox: outboxRef.current,
       onEvent: (ev: StoreEvent) => {
         if (ev.type === "state") {
           setSaveStates((prev) => ({ ...prev, [ev.id]: ev.state }));
@@ -1255,7 +1259,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       .from("parties")
       .select("*")
       .order("created_at", { ascending: true })
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (cancelled) return;
         // Guard against identity flipping again mid-fetch.
         if ((user?.id ?? null) !== prevIdentityRef.current) return;
@@ -1269,17 +1273,34 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           setStatus("error");
           return;
         }
-        const loaded = (data ?? []).map((r) => rowToParty(r));
+        const rows = (data ?? []) as import("./party-persistence").PartyRow[];
+        const loaded = rows.map((r) => rowToParty(r));
         const loadedRoles = Object.fromEntries(
           (data ?? []).map((row) => [
             row.id,
             row.user_id === user.id ? ("owner" as const) : ("cohost" as const),
           ]),
         );
-        partiesRef.current = loaded;
-        setParties(loaded);
-        setPartyRoles(loadedRoles);
         for (const p of loaded) store.seedBaseline(p, user.id);
+        const pending = await outboxRef.current?.load(user.id);
+        if (cancelled || user.id !== prevIdentityRef.current) return;
+        const restored = store.restorePending(pending ?? [], rows, user.id, false);
+        const restoredById = new Map(restored.map((party) => [party.id, party]));
+        const hydrated = loaded.map((party) => restoredById.get(party.id) ?? party);
+        for (const party of restored) {
+          if (!rows.some((row) => row.id === party.id)) hydrated.push(party);
+        }
+        partiesRef.current = hydrated;
+        setParties(hydrated);
+        setPartyRoles({
+          ...loadedRoles,
+          ...Object.fromEntries(
+            restored
+              .filter((party) => !rows.some((row) => row.id === party.id))
+              .map((party) => [party.id, "owner" as const]),
+          ),
+        });
+        for (const party of restored) store.retry(party.id);
         setDemoClaimCandidates(_loadDemoCustomParties().parties);
         setStatus("ready");
       });

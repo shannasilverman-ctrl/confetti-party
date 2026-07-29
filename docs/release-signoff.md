@@ -49,7 +49,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 66 files, 486 tests passed                                              |
+| Vitest                | 67 files, 497 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | 366,169 bytes raw; 113,499 bytes gzip; within enforced budget           |
 | Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
@@ -65,11 +65,10 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The combined local Playwright process passed 182 cases before Wrangler
-4.114.0 exited near the end of the mobile project. The one interrupted mobile
-case and all three connection-refused WebKit cases passed immediately in
-fresh Worker processes (1/1 and 3/3). CI runs the device projects with fresh
-Workers and remains the exact-SHA release authority.
+The combined local Playwright process passed all 186 applicable cases in one
+clean run (83 intentional cross-project skips), including all three WebKit
+critical-path cases. CI runs the device projects with fresh Workers and
+remains the exact-SHA release authority.
 
 The host dashboard also preserves the original Confetti visual contract:
 Outfit for product copy, Fraunces for expressive display type, warm editorial
@@ -86,6 +85,13 @@ green.
 
 - Party writes are column-diffed and use optimistic concurrency. Guest
   mutations are atomic RPCs and host retries do not blindly overwrite them.
+- Authenticated pending writes use a versioned, exact-user-scoped IndexedDB
+  outbox so offline edits and ambiguous insert acknowledgements survive a
+  reload. Recovery retains the original server baseline for three-way merge,
+  never replays one account's work under another identity, never resurrects a
+  server-deleted party, and removes a record only after cloud acknowledgement
+  or explicit discard. Records omit RSVP bearer tokens, expire after seven
+  days, and are capped at 20 per account, 60 total, and 1 MB each.
 - Public RSVP mutation RPCs have a private per-party database abuse budget.
 - Realtime voice reservations use a transaction-scoped Postgres advisory
   lock, enforcing the five-per-hour and two-concurrent limits across Worker
