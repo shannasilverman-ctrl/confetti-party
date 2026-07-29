@@ -52,7 +52,7 @@ Cloudflare Worker build:
 | Vitest                | 81 files, 596 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 221 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 223 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 221 applicable cases (84 intentional
+The complete Playwright matrix contains 223 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -200,7 +200,9 @@ green.
   timestamp. Only then does Day-of Mode call the update visible; existing retry
   and conflict controls remain beside the status. Copy also states that guests
   see updates on open/refresh and that Confetti sends no text or push
-  notification.
+  notification. Arrival check-ins are 44 px pressed-state toggles inside a
+  named region; their atomic polite live count lets keyboard and assistive
+  technology users confirm each change without leaving the guest list.
 - Signed-out Talk is deterministic and device-local. It extracts only facts
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an

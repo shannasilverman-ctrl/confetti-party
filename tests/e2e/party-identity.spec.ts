@@ -58,6 +58,27 @@ test.describe("Party route identity", () => {
     await expect(page.getByText("Sample schedule note")).toBeVisible();
   });
 
+  test("Day-of arrivals expose toggle state, a live count, and touch-sized controls", async ({
+    page,
+  }) => {
+    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
+    const arrivals = page.getByRole("region", { name: "Arrivals" });
+    const count = arrivals.getByRole("status", { name: "Arrival count" });
+    const guest = arrivals.getByRole("button", { name: "Ava Rossi (bride)" });
+
+    await expect(count).toHaveText("0 / 5 in");
+    await expect(guest).toHaveAttribute("aria-pressed", "false");
+    expect((await guest.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+    await guest.click();
+    await expect(guest).toHaveAttribute("aria-pressed", "true");
+    await expect(count).toHaveText("1 / 5 in");
+
+    await guest.click();
+    await expect(guest).toHaveAttribute("aria-pressed", "false");
+    await expect(count).toHaveText("0 / 5 in");
+  });
+
   test("unknown party id → branded not-found on all three modes", async ({ page }) => {
     for (const path of [
       "/party/does-not-exist",

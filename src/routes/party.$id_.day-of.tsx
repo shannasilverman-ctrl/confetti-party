@@ -420,15 +420,29 @@ function DayOfPage() {
           )}
         </Card>
 
-        <Card className="mt-4 p-5">
+        <Card
+          className="mt-4 p-5"
+          role="region"
+          aria-labelledby="day-of-arrivals-title"
+          aria-describedby="day-of-arrivals-help"
+        >
           <div className="mb-2 flex items-center justify-between text-sm font-semibold text-foreground">
-            <span className="flex items-center gap-2">
+            <span id="day-of-arrivals-title" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4 text-primary" /> Arrivals
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span
+              className="text-xs text-muted-foreground"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              aria-label="Arrival count"
+            >
               {arrived} / {yesGuests.length} in
             </span>
           </div>
+          <p id="day-of-arrivals-help" className="sr-only">
+            Toggle each guest when they arrive. The arrival count updates automatically.
+          </p>
           {yesGuests.length === 0 ? (
             <div className="text-sm text-muted-foreground">No yes RSVPs to check in.</div>
           ) : (
@@ -439,7 +453,8 @@ function DayOfPage() {
                   <li key={g.id}>
                     <button
                       onClick={(e) => toggleCheckin(g.id, e)}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${here ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}
+                      aria-pressed={here}
+                      className={`flex min-h-11 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition ${here ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"}`}
                     >
                       {here ? (
                         <CheckCircle2 className="h-5 w-5 text-primary" />
