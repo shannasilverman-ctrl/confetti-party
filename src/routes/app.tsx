@@ -58,6 +58,7 @@ import {
 import { toast } from "sonner";
 import { formatDateOnly } from "@/lib/date-only";
 import {
+  birthdayAgeBand,
   partyPlaybook,
   preschoolPartyPaths,
   type HostEffort,
@@ -669,16 +670,25 @@ function NewPartyWizard({
   const [theme, setTheme] = useState<Theme | null>(null);
   const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
   const [honoreeAge, setHonoreeAge] = useState("");
+  const [honoreeAgeTouched, setHonoreeAgeTouched] = useState(false);
   const [expectedKids, setExpectedKids] = useState("");
   const [expectedAdults, setExpectedAdults] = useState("");
   const [effort, setEffort] = useState<HostEffort>("balanced");
   const [partyFormat, setPartyFormat] = useState<PartyFormat>("help-me-choose");
 
-  const themeOptions = occasion ? themesForOccasion(occasion) : [];
   const ideaAnalysis = useMemo(() => (name.trim() ? analyzePlanningIdea(name) : null), [name]);
+  const inferredOccasion = OCCASIONS.some(
+    (option) => option.value === ideaAnalysis?.draftPatch.identity?.occasion,
+  )
+    ? (ideaAnalysis?.draftPatch.identity?.occasion as OccasionType)
+    : null;
+  const effectiveOccasion = occasion ?? inferredOccasion;
+  const themeOptions = effectiveOccasion ? themesForOccasion(effectiveOccasion) : [];
   const inferredBirthdayAge =
-    occasion === "birthday" ? ideaAnalysis?.draftPatch.identity?.honoreeAge : undefined;
-  const birthdayAge = honoreeAge || (inferredBirthdayAge ? String(inferredBirthdayAge) : "");
+    effectiveOccasion === "birthday" ? ideaAnalysis?.draftPatch.identity?.honoreeAge : undefined;
+  const birthdayAge = honoreeAgeTouched
+    ? honoreeAge
+    : honoreeAge || (inferredBirthdayAge ? String(inferredBirthdayAge) : "");
   const capturedStartTime =
     startTime.trim() || ideaAnalysis?.draftPatch.when?.startTime?.trim() || "";
 
@@ -700,6 +710,7 @@ function NewPartyWizard({
     setTheme(null);
     setHolidayStarter(null);
     setHonoreeAge("");
+    setHonoreeAgeTouched(false);
     setExpectedKids("");
     setExpectedAdults("");
     setEffort("balanced");
@@ -709,7 +720,7 @@ function NewPartyWizard({
   function finish() {
     const resolved = resolveQuickStart({
       idea: name,
-      occasion,
+      occasion: effectiveOccasion,
       date,
       startTime,
       location,
@@ -717,6 +728,7 @@ function NewPartyWizard({
       budget,
       holidayStarter,
       honoreeAge,
+      honoreeAgeTouched,
       expectedKids,
       expectedAdults,
       effort,
@@ -907,6 +919,7 @@ function NewPartyWizard({
     if (o !== "holiday") setHolidayStarter(null);
     if (o !== "birthday") {
       setHonoreeAge("");
+      setHonoreeAgeTouched(false);
     }
   }
 
@@ -999,9 +1012,10 @@ function NewPartyWizard({
                     key={o.value}
                     type="button"
                     data-testid={`wizard-occasion-${o.value}`}
+                    aria-pressed={effectiveOccasion === o.value}
                     onClick={() => selectOccasion(o.value)}
                     className={`inline-flex min-h-12 items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm transition ${
-                      occasion === o.value
+                      effectiveOccasion === o.value
                         ? "border-primary bg-primary/10 text-secondary shadow-sm"
                         : "border-border bg-background text-secondary hover:border-primary/40"
                     }`}
@@ -1011,9 +1025,18 @@ function NewPartyWizard({
                   </button>
                 ))}
               </div>
+              {occasion == null && effectiveOccasion && (
+                <p
+                  className="mt-2 text-xs text-muted-foreground"
+                  data-testid="wizard-inferred-occasion"
+                >
+                  From your idea: {OCCASION_LABELS[effectiveOccasion]}. Choose another kind above to
+                  correct it.
+                </p>
+              )}
             </fieldset>
 
-            {occasion === "holiday" && (
+            {effectiveOccasion === "holiday" && (
               <fieldset
                 aria-label="Holiday starter"
                 className="rounded-2xl border border-border bg-muted/30 p-3"
@@ -1053,10 +1076,13 @@ function NewPartyWizard({
                 </div>
               </fieldset>
             )}
-            {occasion === "birthday" && (
+            {effectiveOccasion === "birthday" && (
               <BirthdaySmartStart
                 age={birthdayAge}
-                onAgeChange={setHonoreeAge}
+                onAgeChange={(value) => {
+                  setHonoreeAgeTouched(true);
+                  setHonoreeAge(value);
+                }}
                 expectedKids={expectedKids}
                 onExpectedKidsChange={setExpectedKids}
                 expectedAdults={expectedAdults}
@@ -1068,9 +1094,9 @@ function NewPartyWizard({
                 startTime={startTime}
               />
             )}
-            {occasion && occasion !== "birthday" && (
+            {effectiveOccasion && effectiveOccasion !== "birthday" && (
               <GatheringSmartStart
-                occasion={occasion}
+                occasion={effectiveOccasion}
                 holidayPackId={holidayStarter ?? undefined}
                 expectedKids={expectedKids}
                 onExpectedKidsChange={setExpectedKids}
@@ -1282,7 +1308,7 @@ function NewPartyWizard({
                 variant="festive"
                 data-testid="wizard-create"
                 className="min-h-[45px] w-full min-[360px]:w-auto"
-                disabled={!name.trim() && !occasion}
+                disabled={!name.trim() && !effectiveOccasion}
                 onClick={finish}
               >
                 <PartyPopper /> Build my starting plan
@@ -1321,7 +1347,9 @@ function BirthdaySmartStart({
   startTime: string;
 }) {
   const parsedAge = Number(age);
-  const adultBirthday = parsedAge >= 18;
+  const birthdayBand = birthdayAgeBand(parsedAge > 0 ? parsedAge : undefined);
+  const adultBirthday = birthdayBand === "adult";
+  const teenBirthday = birthdayBand === "teen";
   const playbook = partyPlaybook({
     occasion: "birthday",
     profile: {
@@ -1380,12 +1408,18 @@ function BirthdaySmartStart({
               inputMode="numeric"
               value={age}
               onChange={(event) => onAgeChange(event.target.value)}
-              placeholder="4"
+              placeholder="e.g. 4 or 54"
               className="mt-1"
             />
           </div>
           <div>
-            <Label htmlFor="expected-kids">{adultBirthday ? "Children coming" : "Children"}</Label>
+            <Label htmlFor="expected-kids">
+              {adultBirthday
+                ? "Children coming"
+                : teenBirthday
+                  ? "Young people coming"
+                  : "Children"}
+            </Label>
             <Input
               id="expected-kids"
               type="number"
@@ -1401,7 +1435,13 @@ function BirthdaySmartStart({
           </div>
           <div>
             <Label htmlFor="expected-adults">
-              {adultBirthday ? "Adults coming" : "Adults staying"}
+              {adultBirthday
+                ? "Adults coming"
+                : teenBirthday
+                  ? "Adults helping"
+                  : birthdayBand
+                    ? "Adults staying"
+                    : "Adults"}
             </Label>
             <Input
               id="expected-adults"

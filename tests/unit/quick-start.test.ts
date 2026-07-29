@@ -15,6 +15,7 @@ function input(overrides: Partial<QuickStartInput> = {}): QuickStartInput {
     budget: "",
     holidayStarter: null,
     honoreeAge: "",
+    honoreeAgeTouched: false,
     expectedKids: "",
     expectedAdults: "",
     effort: "balanced",
@@ -130,5 +131,35 @@ describe("truthful intelligent quick start", () => {
         "Set the guest-list rule, plus-one approach, and private must-invite list",
       ]),
     );
+  });
+
+  it("lets the host clear an inferred age instead of silently restoring it", () => {
+    const resolved = resolveQuickStart(
+      input({
+        idea: "Bday for a 54 yr old",
+        occasion: "birthday",
+        honoreeAge: "",
+        honoreeAgeTouched: true,
+      }),
+      { now: NOW },
+    );
+    const { party } = materializeDraft(resolved.patch, { now: NOW });
+
+    expect(resolved.patch.identity?.honoreeAge).toBeUndefined();
+    expect(party.planningProfile?.honoreeAge).toBeUndefined();
+  });
+
+  it("lets a corrected explicit age win over the idea", () => {
+    const resolved = resolveQuickStart(
+      input({
+        idea: "Bday for a 54 yr old",
+        occasion: "birthday",
+        honoreeAge: "55",
+        honoreeAgeTouched: true,
+      }),
+      { now: NOW },
+    );
+
+    expect(resolved.patch.identity?.honoreeAge).toBe(55);
   });
 });

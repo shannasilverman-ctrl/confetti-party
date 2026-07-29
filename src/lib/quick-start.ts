@@ -14,6 +14,11 @@ export type QuickStartInput = {
   budget: string;
   holidayStarter: HolidayStarterId | null;
   honoreeAge: string;
+  /**
+   * Distinguishes untouched inferred age from a host intentionally clearing
+   * that inference. A blank touched field must stay blank.
+   */
+  honoreeAgeTouched: boolean;
   expectedKids: string;
   expectedAdults: string;
   effort: HostEffort;
@@ -51,18 +56,22 @@ function titleFromIdea(idea: string, patch: DraftPatch): string {
 export function resolveQuickStart(input: QuickStartInput, options: { now?: Date } = {}) {
   const analysis = analyzePlanningIdea(input.idea, options);
   const extracted = analysis.draftPatch;
+  const identity: NonNullable<DraftPatch["identity"]> = {
+    ...extracted.identity,
+    workingTitle: titleFromIdea(input.idea, extracted),
+    ...(input.occasion ? { occasion: input.occasion } : {}),
+    ...(input.occasion === "holiday" && input.holidayStarter
+      ? { holidayPackId: input.holidayStarter }
+      : {}),
+    ...(input.occasion === "birthday" && Number(input.honoreeAge) > 0
+      ? { honoreeAge: Number(input.honoreeAge) }
+      : {}),
+  };
+  if (input.occasion === "birthday" && input.honoreeAgeTouched && !input.honoreeAge.trim()) {
+    delete identity.honoreeAge;
+  }
   const explicit: DraftPatch = {
-    identity: {
-      ...extracted.identity,
-      workingTitle: titleFromIdea(input.idea, extracted),
-      ...(input.occasion ? { occasion: input.occasion } : {}),
-      ...(input.occasion === "holiday" && input.holidayStarter
-        ? { holidayPackId: input.holidayStarter }
-        : {}),
-      ...(input.occasion === "birthday" && Number(input.honoreeAge) > 0
-        ? { honoreeAge: Number(input.honoreeAge) }
-        : {}),
-    },
+    identity,
   };
 
   if (input.date || input.startTime.trim()) {
@@ -106,8 +115,13 @@ export function resolveQuickStart(input: QuickStartInput, options: { now?: Date 
     }
   }
 
+  const patch = mergeDraftLog([extracted, explicit]);
+  if (input.occasion === "birthday" && input.honoreeAgeTouched && !input.honoreeAge.trim()) {
+    delete patch.identity?.honoreeAge;
+  }
+
   return {
-    patch: mergeDraftLog([extracted, explicit]),
+    patch,
     capturedFacts: analysis.capturedFacts,
   } satisfies QuickStartResolution;
 }

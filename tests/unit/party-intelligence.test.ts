@@ -151,6 +151,54 @@ describe("party intelligence", () => {
     ).toBe(true);
   });
 
+  it("gives teens their own consent, independence, and transport-aware playbook", () => {
+    const playbook = partyPlaybook({
+      occasion: "birthday",
+      profile: {
+        version: 1,
+        honoreeAge: 16,
+        expectedKids: 14,
+        expectedAdults: 2,
+        format: "venue",
+      },
+      startTime: "18:00",
+    });
+
+    expect(playbook).toMatchObject({
+      id: "birthday-teen-v1",
+      ageBand: "teen",
+      recommendedDurationMinutes: 180,
+    });
+    expect(playbook?.title).toContain("16th birthday");
+    expect(playbook?.tasks.some((task) => task.title.includes("transport plan"))).toBe(true);
+    expect(playbook?.tasks.some((task) => task.title.includes("photos, posting"))).toBe(true);
+    expect(playbook?.rsvpQuestions.some((question) => question.includes("ride"))).toBe(true);
+    expect(playbook?.rsvpQuestions.some((question) => question.includes("group photos"))).toBe(
+      true,
+    );
+    expect(playbook?.timeline.at(-1)).toEqual({
+      time: "21:00",
+      activity: "Clear pickup, transport, payment, and host closeout",
+    });
+    expect(
+      playbook?.guardrails.some((guardrail) => guardrail.id === "teen-independence-boundaries"),
+    ).toBe(true);
+  });
+
+  it.each([
+    [12, "birthday-school-age-v1"],
+    [13, "birthday-teen-v1"],
+    [17, "birthday-teen-v1"],
+    [18, "birthday-adult-v1"],
+  ])("keeps the %i-year-old boundary in %s", (age, id) => {
+    expect(
+      partyPlaybook({
+        occasion: "birthday",
+        profile: { version: 1, honoreeAge: age },
+      })?.id,
+    ).toBe(id);
+  });
+
   it("builds an adult birthday around the person, guest mix, and hosting load", () => {
     const playbook = partyPlaybook({
       occasion: "birthday",

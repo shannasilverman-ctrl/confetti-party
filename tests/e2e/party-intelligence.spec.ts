@@ -15,15 +15,28 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
     await page.getByTestId("new-party-trigger").click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByTestId("wizard-occasion-birthday").click();
     await dialog.getByLabel("Start with the idea").fill("Bday for a 54 yr old");
 
+    await expect(dialog.getByTestId("wizard-inferred-occasion")).toContainText(
+      "From your idea: Birthday",
+    );
+    await expect(dialog.getByTestId("birthday-smart-start")).toBeVisible();
     await expect(dialog.getByLabel("Age they're turning")).toHaveValue("54");
     await expect(dialog.getByText("A 54th birthday that feels like the person")).toBeVisible();
     await expect(dialog.getByText("Contained play venue")).toHaveCount(0);
     await expect(dialog.getByLabel("Children coming")).toBeVisible();
     await expect(dialog.getByLabel("Adults coming")).toBeVisible();
     await expect(dialog.getByText("5 guest-ready RSVP questions")).toBeVisible();
+
+    await dialog.getByLabel("Age they're turning").clear();
+    await expect(dialog.getByLabel("Age they're turning")).toHaveValue("");
+    await expect(dialog.getByLabel("Adults", { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel("Adults staying")).toHaveCount(0);
+    await expect(dialog.getByLabel("Age they're turning")).toHaveAttribute(
+      "placeholder",
+      "e.g. 4 or 54",
+    );
+    await dialog.getByLabel("Age they're turning").fill("54");
 
     await dialog.getByTestId("wizard-create").click();
     await expect(dialog.getByText("Your plan is ready")).toBeVisible();
@@ -274,6 +287,12 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(smartStart.getByText("5 parent-ready RSVP questions")).toBeVisible();
     await expect(smartStart.getByLabel("Adults staying")).toBeVisible();
 
+    await smartStart.getByLabel("Age they're turning").fill("16");
+    await expect(smartStart.getByText("16th birthday with room to be themselves")).toBeVisible();
+    await expect(smartStart.getByText("About 180 minutes")).toBeVisible();
+    await expect(smartStart.getByLabel("Young people coming")).toBeVisible();
+    await expect(smartStart.getByLabel("Adults helping")).toBeVisible();
+
     await smartStart.getByLabel("Age they're turning").fill("40");
     await expect(smartStart.getByText("A 40th birthday that feels like the person")).toBeVisible();
     await expect(smartStart.getByText("About 180 minutes")).toBeVisible();
@@ -281,6 +300,7 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(smartStart.getByLabel("Adults coming")).toBeVisible();
     await expect(smartStart.getByLabel("Children coming")).toBeVisible();
     await expect(smartStart.getByText("8 party-specific jobs covered")).toBeVisible();
+    await expect(dialog.getByText("Contained play venue")).toHaveCount(0);
 
     await dialog.getByLabel("Start with the idea").fill("Jordan turns forty");
     await smartStart.getByLabel("Adults coming").fill("28");
@@ -291,6 +311,11 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(
       intelligence.getByText("A 40th birthday that feels like the person"),
     ).toBeVisible();
+    const localPlanning = page.getByTestId("local-planning");
+    await expect(localPlanning.getByText("A celebration space that fits the person")).toBeVisible();
+    await expect(localPlanning.getByText("Food and cake without losing the host")).toBeVisible();
+    await expect(localPlanning.getByText("At-home gathering with one shared moment")).toBeVisible();
+    await expect(localPlanning.getByText(/contained play|trampoline|play gym/i)).toHaveCount(0);
     await intelligence.getByRole("button", { name: "Review the 180-minute flow" }).click();
     await expect(
       page.getByText("Shared moment: toast, story, surprise, or activity reveal"),
