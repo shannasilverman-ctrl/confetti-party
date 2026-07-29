@@ -233,11 +233,48 @@ BEGIN
   IF proj->'rsvp_context' <> '{"kind":"adult-birthday"}'::jsonb THEN
     RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 context wrong: %', (proj->'rsvp_context')::text;
   END IF;
-  IF proj::text ~* '(honoreeAge|expectedAdults|expectedKids|effort|planningProfile)' THEN
+  IF proj::text ~* '(honoreeAge|honoreeLifeStage|expectedAdults|expectedKids|effort|planningProfile)' THEN
     RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 leaked planning profile: %', proj::text;
   END IF;
 
-  UPDATE public.parties SET occasion = 'baby-shower' WHERE id = party_id;
+  UPDATE public.parties
+  SET planning_profile = jsonb_build_object('version', 1, 'honoreeLifeStage', 'teen')
+  WHERE id = party_id;
+  proj := public.get_rsvp_party_v2(party_token);
+  IF proj->'rsvp_context' <> '{"kind":"teen-birthday"}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: stage-only teen RSVP context wrong: %', (proj->'rsvp_context')::text;
+  END IF;
+
+  UPDATE public.parties
+  SET planning_profile = jsonb_build_object(
+    'version', 1, 'honoreeAge', 40, 'honoreeLifeStage', 'adult'
+  )
+  WHERE id = party_id;
+  proj := public.get_rsvp_party_v2(party_token);
+  IF proj->'rsvp_context' <> '{"kind":"adult-birthday"}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: exact age did not override broad RSVP stage: %',
+      (proj->'rsvp_context')::text;
+  END IF;
+
+  UPDATE public.parties
+  SET planning_profile = jsonb_build_object(
+    'version', 1, 'honoreeAge', 8, 'honoreeLifeStage', 'child'
+  )
+  WHERE id = party_id;
+  UPDATE public.parties
+  SET planning_profile = jsonb_set(planning_profile, '{honoreeAge}', '54'::jsonb, true)
+  WHERE id = party_id;
+  IF (
+    SELECT planning_profile->>'honoreeLifeStage'
+    FROM public.parties
+    WHERE id = party_id
+  ) <> 'adult' THEN
+    RAISE EXCEPTION 'FAIL: old-client exact-age update was not canonicalized';
+  END IF;
+
+  UPDATE public.parties
+  SET occasion = 'baby-shower', planning_profile = jsonb_build_object('version', 1)
+  WHERE id = party_id;
   proj := public.get_rsvp_party_v2(party_token);
   IF proj->'rsvp_context' <> '{"kind":"baby-shower"}'::jsonb THEN
     RAISE EXCEPTION 'FAIL: baby-shower RSVP context wrong: %', (proj->'rsvp_context')::text;
@@ -249,7 +286,12 @@ BEGIN
     RAISE EXCEPTION 'FAIL: graduation RSVP context wrong: %', (proj->'rsvp_context')::text;
   END IF;
 
-  UPDATE public.parties SET occasion = 'birthday' WHERE id = party_id;
+  UPDATE public.parties
+  SET occasion = 'birthday',
+      planning_profile = jsonb_build_object(
+        'version', 1, 'honoreeAge', 40, 'honoreeLifeStage', 'adult'
+      )
+  WHERE id = party_id;
 
   -- list_bring_board: same allowlist as bring_board items.
   proj := public.list_bring_board(party_token);
@@ -581,6 +623,12 @@ BEGIN
   END IF;
   IF def !~ '_validate_confirm_collection' THEN
     RAISE EXCEPTION 'FAIL: confirm_gathering_draft missing collection validation';
+  END IF;
+  IF def !~ 'honoreeLifeStage'
+     OR def !~ 'child'
+     OR def !~ 'teen'
+     OR def !~ 'adult' THEN
+    RAISE EXCEPTION 'FAIL: confirm_gathering_draft missing life-stage validation';
   END IF;
 
   -- Abuse budget table must not be reachable via anon/authenticated.

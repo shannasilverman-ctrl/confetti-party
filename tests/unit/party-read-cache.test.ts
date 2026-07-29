@@ -105,6 +105,30 @@ describe("party read cache", () => {
     expect(safePartyReadSnapshot(snapshot({ parties, roles }))).toBeNull();
   });
 
+  it("never persists cohost parties beyond the current verified session", () => {
+    expect(
+      safePartyReadSnapshot(
+        snapshot({
+          parties: [party("owned"), party("shared")],
+          roles: { owned: "owner", shared: "cohost" },
+        }),
+      ),
+    ).toMatchObject({
+      parties: [{ id: "owned" }],
+      roles: { owned: "owner" },
+    });
+    expect(
+      parsePartyReadSnapshot(
+        snapshot({
+          parties: [party("shared")],
+          roles: { shared: "cohost" },
+        }),
+        "user-a",
+        11_000,
+      ),
+    ).toBeNull();
+  });
+
   it("fails closed for wrong-user, stale, future, corrupt, duplicate, and oversized records", () => {
     const now = PARTY_READ_CACHE_TTL_MS + 20_000;
     expect(parsePartyReadSnapshot(snapshot(), "user-b", now)).toBeNull();
@@ -135,6 +159,41 @@ describe("party read cache", () => {
         snapshot({
           syncedAt: now,
           parties: [{ ...party(), hostNote: "x".repeat(PARTY_READ_CACHE_MAX_BYTES) }],
+        }),
+        "user-a",
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("accepts only the three durable birthday life stages", () => {
+    const now = 11_000;
+    expect(
+      parsePartyReadSnapshot(
+        snapshot({
+          parties: [
+            {
+              ...party(),
+              planningProfile: { version: 1, honoreeLifeStage: "adult" },
+            },
+          ],
+        }),
+        "user-a",
+        now,
+      )?.parties[0]?.planningProfile,
+    ).toMatchObject({ honoreeLifeStage: "adult" });
+    expect(
+      parsePartyReadSnapshot(
+        snapshot({
+          parties: [
+            {
+              ...party(),
+              planningProfile: {
+                version: 1,
+                honoreeLifeStage: "senior",
+              } as unknown as NonNullable<Party["planningProfile"]>,
+            },
+          ],
         }),
         "user-a",
         now,

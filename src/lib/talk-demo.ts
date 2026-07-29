@@ -144,13 +144,58 @@ function extractAudience(text: string): { kids?: number; adults?: number } {
 }
 
 function extractBirthdayAge(text: string): number | undefined {
-  const match =
-    text.match(/\bturn(?:s|ing)?\s+(\d{1,3})\b/i) ??
-    text.match(/\b(\d{1,3})(?:st|nd|rd|th)?\s+birthday\b/i) ??
-    text.match(/\b(\d{1,3})[ -]?(?:years?|yrs?)[ -]?old\b/i) ??
-    text.match(/\b(\d{1,3})[ -]?y\/?o\b/i);
-  const age = match ? Number(match[1]) : NaN;
-  return Number.isFinite(age) && age >= 1 && age <= 120 ? age : undefined;
+  const candidates: Array<{ age: number; index: number }> = [];
+  const patterns = [
+    /\bturn(?:s|ing)?\s+(\d{1,3})\b/gi,
+    /\b(\d{1,3})(?:st|nd|rd|th)?\s+birthday\b/gi,
+    /\b(\d{1,3})[ -]?(?:years?|yrs?)[ -]?old\b/gi,
+    /\b(\d{1,3})[ -]?y\/?o\b/gi,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const index = match.index ?? 0;
+      const prefix = text.slice(Math.max(0, index - 16), index);
+      if (/\b(?:not|isn't|is not|no)\s+$/i.test(prefix)) continue;
+      const age = Number(match[1]);
+      if (Number.isFinite(age) && age >= 1 && age <= 120) {
+        candidates.push({ age, index });
+      }
+    }
+  }
+  return candidates.sort((a, b) => b.index - a.index)[0]?.age;
+}
+
+function extractBirthdayLifeStage(text: string): "child" | "teen" | "adult" | undefined {
+  const candidates: Array<{ stage: "child" | "teen" | "adult"; index: number }> = [];
+  const patterns: Array<{
+    stage: "child" | "teen" | "adult";
+    pattern: RegExp;
+  }> = [
+    {
+      stage: "adult",
+      pattern:
+        /\b(?:adult|grown[ -]?up)\s+(?:birthday|b-?day)\b|\b(?:birthday|b-?day)\s+(?:party\s+)?for\s+(?:an?\s+)?(?:adult|grown[ -]?up)\b/gi,
+    },
+    {
+      stage: "teen",
+      pattern:
+        /\b(?:teen|teenager|high[- ]school)\s+(?:birthday|b-?day)\b|\b(?:birthday|b-?day)\s+(?:party\s+)?for\s+(?:an?\s+)?(?:teen|teenager)\b/gi,
+    },
+    {
+      stage: "child",
+      pattern:
+        /\b(?:kid|kids|kid's|kids'|child|children|child's|children's|toddler|preschool)\s+(?:birthday|b-?day)\b|\b(?:birthday|b-?day)\s+(?:party\s+)?for\s+(?:a\s+)?(?:kid|child|toddler|preschooler)\b/gi,
+    },
+  ];
+  for (const { stage, pattern } of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const index = match.index ?? 0;
+      const prefix = text.slice(Math.max(0, index - 20), index);
+      if (/\b(?:not|isn't|is not|no)\s+(?:an?\s+)?$/i.test(prefix)) continue;
+      candidates.push({ stage, index });
+    }
+  }
+  return candidates.sort((a, b) => b.index - a.index)[0]?.stage;
 }
 
 function extractBudget(text: string): number | undefined {
@@ -206,6 +251,7 @@ function buildPatch(
   const budget = extractBudget(allUser);
   const startTime = extractStartTime(allUser);
   const birthdayAge = extractBirthdayAge(allUser);
+  const birthdayLifeStage = extractBirthdayLifeStage(allUser);
 
   if (date || /\b(?:next month|sometime|date tbd|not sure when)\b/i.test(allUser)) {
     patch.when = {
@@ -231,10 +277,19 @@ function buildPatch(
       holidayPackId: pack.id,
     };
   } else if (birthdayAge || /\b(?:birthday|b-?day)\b/i.test(allUser)) {
+    const stageTitle =
+      birthdayLifeStage === "adult"
+        ? "Adult Birthday"
+        : birthdayLifeStage === "teen"
+          ? "Teen Birthday"
+          : birthdayLifeStage === "child"
+            ? "Child's Birthday"
+            : "Birthday";
     patch.identity = {
-      workingTitle: birthdayAge ? `${ordinal(birthdayAge)} Birthday` : "Birthday",
+      workingTitle: birthdayAge ? `${ordinal(birthdayAge)} Birthday` : stageTitle,
       occasion: "birthday",
       ...(birthdayAge ? { honoreeAge: birthdayAge } : {}),
+      ...(birthdayLifeStage ? { honoreeLifeStage: birthdayLifeStage } : {}),
     };
   } else if (/\b(?:baby shower|sprinkle)\b/i.test(allUser)) {
     patch.identity = { workingTitle: "Baby Shower", occasion: "baby-shower" };

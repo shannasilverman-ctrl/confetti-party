@@ -214,6 +214,7 @@ describe("materializeDraft — age-aware birthday", () => {
     expect(party.planningProfile).toEqual({
       version: 1,
       honoreeAge: 4,
+      honoreeLifeStage: "child",
       expectedKids: 5,
       expectedAdults: 6,
       effort: "easy",
@@ -232,6 +233,37 @@ describe("materializeDraft — age-aware birthday", () => {
         task.title.includes("allergies, sibling attendance, and whether an adult is staying"),
       ),
     ).toBe(true);
+  });
+
+  it("persists a broad birthday stage and lets exact age win on conflict", () => {
+    const broad = materializeDraft(
+      {
+        identity: {
+          workingTitle: "Adult Birthday",
+          occasion: "birthday",
+          honoreeLifeStage: "adult",
+        },
+      },
+      { mkId: counterMkId(), now: FIXED_NOW },
+    ).party;
+    const exact = materializeDraft(
+      {
+        identity: {
+          workingTitle: "Teen Birthday",
+          occasion: "birthday",
+          honoreeAge: 16,
+          honoreeLifeStage: "adult",
+        },
+      },
+      { mkId: counterMkId(), now: FIXED_NOW },
+    ).party;
+
+    expect(broad.planningProfile).toMatchObject({ honoreeLifeStage: "adult" });
+    expect(broad.planningProfile?.honoreeAge).toBeUndefined();
+    expect(exact.planningProfile).toMatchObject({
+      honoreeAge: 16,
+      honoreeLifeStage: "teen",
+    });
   });
 
   it("carries explicitly discussed food decisions into quantity planning", () => {

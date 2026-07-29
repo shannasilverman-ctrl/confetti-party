@@ -41,6 +41,7 @@ const IdentityZ = z
     holidayPackId: SHORT.optional(),
     tone: SHORT.optional(),
     honoreeAge: z.number().int().min(1).max(120).optional(),
+    honoreeLifeStage: z.enum(["child", "teen", "adult"]).optional(),
   })
   .strict();
 

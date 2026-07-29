@@ -262,7 +262,9 @@ const OCCASION_SUGGESTIONS: Record<OccasionType, SuggestionSeed[]> = {
 
 export function localPlanningSuggestions(input: LocalPlanningInput): LocalPlanningSuggestion[] {
   const birthdayBand =
-    input.occasion === "birthday" ? birthdayAgeBand(input.planningProfile?.honoreeAge) : undefined;
+    input.occasion === "birthday"
+      ? birthdayAgeBand(input.planningProfile?.honoreeAge, input.planningProfile?.honoreeLifeStage)
+      : undefined;
 
   const seeds: SuggestionSeed[] =
     input.occasion === "birthday"
@@ -302,7 +304,9 @@ function birthdaySuggestions(
           ? TEEN_BIRTHDAY_SUGGESTIONS
           : band === "adult"
             ? ADULT_BIRTHDAY_SUGGESTIONS
-            : OCCASION_SUGGESTIONS.birthday;
+            : input.planningProfile?.honoreeLifeStage === "child"
+              ? CHILD_BIRTHDAY_SUGGESTIONS
+              : OCCASION_SUGGESTIONS.birthday;
   return rankForHost(seeds, input.planningProfile);
 }
 
@@ -331,6 +335,35 @@ const TODDLER_BIRTHDAY_SUGGESTIONS: SuggestionSeed[] = [
     title: "Short at-home play party",
     reason:
       "Use an easy arrival zone, one sensory or movement activity, food and cake, and a calm ending without over-programming.",
+    action: "theme",
+  },
+];
+
+const CHILD_BIRTHDAY_SUGGESTIONS: SuggestionSeed[] = [
+  {
+    id: "birthday-child-flexible-space",
+    kind: "venue",
+    title: "A child-ready space that fits the group",
+    reason:
+      "Compare spaces by supervision, bathrooms, food and allergy rules, accessibility, weather backup, activity fit, and pickup—not by a guessed age.",
+    query: "children birthday party flexible venue",
+    searchLabel: "Compare child-ready spaces",
+  },
+  {
+    id: "birthday-child-food",
+    kind: "food",
+    title: "Simple food for children and grown-ups",
+    reason:
+      "Choose food that is easy to identify and serve, collect allergy details, and include the adults who will stay.",
+    query: "children birthday party food allergy aware bakery",
+    searchLabel: "Compare food nearby",
+  },
+  {
+    id: "birthday-child-home",
+    kind: "at-home",
+    title: "At-home party with one strong activity",
+    reason:
+      "Use one age-confirmed activity, flexible play, food and cake, and a clear adult handoff without assuming a developmental stage.",
     action: "theme",
   },
 ];

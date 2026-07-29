@@ -27,8 +27,10 @@ import type { BudgetCategory, Bucket, OccasionType, TaskAction } from "./party-c
 import { generateShoppingItems, type ShoppingItem } from "./shopping";
 import { isoDateInDaysLocal } from "./date-only";
 import {
+  birthdayLifeStage,
   materializePlaybook,
   partyPlaybook,
+  type HonoreeLifeStage,
   type PartyPlanningProfile,
 } from "./party-intelligence";
 import { generatedTaskMetadata } from "./task-guidance";
@@ -69,6 +71,7 @@ export type DraftPatch = {
     holidayPackId?: string;
     tone?: string;
     honoreeAge?: number;
+    honoreeLifeStage?: HonoreeLifeStage;
   };
   when?: {
     date?: string;
@@ -353,6 +356,7 @@ export function materializeDraft(
     typeof merged.identity?.honoreeAge === "number"
       ? clampInt(merged.identity.honoreeAge, 1, 120, 1)
       : undefined;
+  const honoreeLifeStage = birthdayLifeStage(honoreeAge, merged.identity?.honoreeLifeStage);
   const format =
     merged.where?.venueKind === "home" || merged.where?.venueKind === "backyard"
       ? ("home" as const)
@@ -368,6 +372,7 @@ export function materializeDraft(
   const planningProfile: PartyPlanningProfile = {
     version: 1,
     ...(occasion === "birthday" && honoreeAge != null ? { honoreeAge } : {}),
+    ...(occasion === "birthday" && honoreeLifeStage ? { honoreeLifeStage } : {}),
     ...(kids != null ? { expectedKids: kids } : {}),
     ...(adults != null ? { expectedAdults: adults } : {}),
     ...(merged.food?.approach === "snacks-only" ? { foodRole: "light-bites" as const } : {}),

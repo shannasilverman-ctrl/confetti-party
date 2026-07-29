@@ -59,9 +59,11 @@ import { toast } from "sonner";
 import { formatDateOnly } from "@/lib/date-only";
 import {
   birthdayAgeBand,
+  birthdayLifeStage,
   partyPlaybook,
   preschoolPartyPaths,
   type HostEffort,
+  type HonoreeLifeStage,
   type PartyFormat,
   type PartyPlanningProfile,
 } from "@/lib/party-intelligence";
@@ -671,6 +673,8 @@ function NewPartyWizard({
   const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
   const [honoreeAge, setHonoreeAge] = useState("");
   const [honoreeAgeTouched, setHonoreeAgeTouched] = useState(false);
+  const [honoreeLifeStage, setHonoreeLifeStage] = useState<HonoreeLifeStage | "">("");
+  const [honoreeLifeStageTouched, setHonoreeLifeStageTouched] = useState(false);
   const [expectedKids, setExpectedKids] = useState("");
   const [expectedAdults, setExpectedAdults] = useState("");
   const [effort, setEffort] = useState<HostEffort>("balanced");
@@ -686,9 +690,20 @@ function NewPartyWizard({
   const themeOptions = effectiveOccasion ? themesForOccasion(effectiveOccasion) : [];
   const inferredBirthdayAge =
     effectiveOccasion === "birthday" ? ideaAnalysis?.draftPatch.identity?.honoreeAge : undefined;
+  const inferredBirthdayLifeStage =
+    effectiveOccasion === "birthday"
+      ? ideaAnalysis?.draftPatch.identity?.honoreeLifeStage
+      : undefined;
   const birthdayAge = honoreeAgeTouched
     ? honoreeAge
     : honoreeAge || (inferredBirthdayAge ? String(inferredBirthdayAge) : "");
+  const birthdayLifeStageValue =
+    birthdayLifeStage(
+      Number(birthdayAge) > 0 ? Number(birthdayAge) : undefined,
+      honoreeLifeStageTouched
+        ? honoreeLifeStage || undefined
+        : honoreeLifeStage || inferredBirthdayLifeStage,
+    ) ?? "";
   const capturedStartTime =
     startTime.trim() || ideaAnalysis?.draftPatch.when?.startTime?.trim() || "";
 
@@ -711,6 +726,8 @@ function NewPartyWizard({
     setHolidayStarter(null);
     setHonoreeAge("");
     setHonoreeAgeTouched(false);
+    setHonoreeLifeStage("");
+    setHonoreeLifeStageTouched(false);
     setExpectedKids("");
     setExpectedAdults("");
     setEffort("balanced");
@@ -729,6 +746,8 @@ function NewPartyWizard({
       holidayStarter,
       honoreeAge,
       honoreeAgeTouched,
+      honoreeLifeStage: birthdayLifeStageValue,
+      honoreeLifeStageTouched,
       expectedKids,
       expectedAdults,
       effort,
@@ -920,6 +939,8 @@ function NewPartyWizard({
     if (o !== "birthday") {
       setHonoreeAge("");
       setHonoreeAgeTouched(false);
+      setHonoreeLifeStage("");
+      setHonoreeLifeStageTouched(false);
     }
   }
 
@@ -1082,6 +1103,16 @@ function NewPartyWizard({
                 onAgeChange={(value) => {
                   setHonoreeAgeTouched(true);
                   setHonoreeAge(value);
+                }}
+                lifeStage={birthdayLifeStageValue}
+                onLifeStageChange={(value) => {
+                  if (value === birthdayLifeStageValue && birthdayAge) return;
+                  setHonoreeLifeStageTouched(true);
+                  setHonoreeLifeStage(value);
+                  if (birthdayAge) {
+                    setHonoreeAgeTouched(true);
+                    setHonoreeAge("");
+                  }
                 }}
                 expectedKids={expectedKids}
                 onExpectedKidsChange={setExpectedKids}
@@ -1324,6 +1355,8 @@ function NewPartyWizard({
 function BirthdaySmartStart({
   age,
   onAgeChange,
+  lifeStage,
+  onLifeStageChange,
   expectedKids,
   onExpectedKidsChange,
   expectedAdults,
@@ -1336,6 +1369,8 @@ function BirthdaySmartStart({
 }: {
   age: string;
   onAgeChange: (value: string) => void;
+  lifeStage: HonoreeLifeStage | "";
+  onLifeStageChange: (value: HonoreeLifeStage | "") => void;
   expectedKids: string;
   onExpectedKidsChange: (value: string) => void;
   expectedAdults: string;
@@ -1347,7 +1382,10 @@ function BirthdaySmartStart({
   startTime: string;
 }) {
   const parsedAge = Number(age);
-  const birthdayBand = birthdayAgeBand(parsedAge > 0 ? parsedAge : undefined);
+  const birthdayBand = birthdayAgeBand(
+    parsedAge > 0 ? parsedAge : undefined,
+    lifeStage || undefined,
+  );
   const adultBirthday = birthdayBand === "adult";
   const teenBirthday = birthdayBand === "teen";
   const playbook = partyPlaybook({
@@ -1355,6 +1393,7 @@ function BirthdaySmartStart({
     profile: {
       version: 1,
       ...(parsedAge > 0 ? { honoreeAge: parsedAge } : {}),
+      ...(lifeStage ? { honoreeLifeStage: lifeStage } : {}),
       effort,
       format,
     },
@@ -1363,6 +1402,7 @@ function BirthdaySmartStart({
   const pathOptions = preschoolPartyPaths({
     version: 1,
     ...(parsedAge > 0 ? { honoreeAge: parsedAge } : {}),
+    ...(lifeStage ? { honoreeLifeStage: lifeStage } : {}),
     ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
     ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
     effort,
@@ -1397,6 +1437,36 @@ function BirthdaySmartStart({
       </div>
 
       <div className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">Who is this birthday for?</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {[
+              ["child", "Child"],
+              ["teen", "Teen"],
+              ["adult", "Adult"],
+              ["", "Not sure"],
+            ].map(([value, label]) => (
+              <button
+                key={label}
+                type="button"
+                data-testid={`birthday-life-stage-${value || "unknown"}`}
+                aria-pressed={lifeStage === value}
+                onClick={() => onLifeStageChange(value as HonoreeLifeStage | "")}
+                className={`min-h-11 rounded-2xl border px-3 py-2 text-sm ${
+                  lifeStage === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            This keeps the plan age-appropriate without requiring an exact age. The selection stays
+            in the host workspace; guests may see age-appropriate attendance wording.
+          </p>
+        </fieldset>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <Label htmlFor="honoree-age">Age they&apos;re turning</Label>

@@ -116,6 +116,19 @@ describe("adaptive RSVP attendance copy", () => {
     });
   });
 
+  it("uses age-safe broad child and teen birthday copy", () => {
+    expect(contextualRsvpCopy({ kind: "child-birthday" })).toMatchObject({
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      defaultKids: 1,
+    });
+    expect(contextualRsvpCopy({ kind: "teen-birthday" })).toMatchObject({
+      adultLabel: "Adults helping",
+      kidLabel: "Young people coming",
+      defaultKids: 1,
+    });
+  });
+
   it("asks an adult birthday only for plan-changing arrival and access context", () => {
     expect(contextualRsvpCopy({ kind: "adult-birthday" })).toMatchObject({
       adultLabel: "Adults coming",

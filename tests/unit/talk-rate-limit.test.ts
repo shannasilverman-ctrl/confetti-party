@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeRateWindow } from "@/lib/talk-brain.functions";
+import { birthdayLifeStageProfilePatch, computeRateWindow } from "@/lib/talk-brain.functions";
 
 const HOUR = 60 * 60 * 1000;
 const NOW = new Date("2026-01-01T12:00:00Z").getTime();
@@ -41,5 +41,36 @@ describe("computeRateWindow — rolling per-hour turn limit", () => {
     const r = computeRateWindow({ aiTurns: 200, hourStartISO: null }, NOW);
     expect(r.allowed).toBe(true);
     expect(r.nextTurns).toBe(1);
+  });
+});
+
+describe("Talk life-stage persistence verification", () => {
+  it("repairs a missing legacy stage while preserving the current profile", () => {
+    expect(
+      birthdayLifeStageProfilePatch(
+        { version: 1, expectedAdults: 12, effort: "balanced" },
+        "adult",
+      ),
+    ).toEqual({
+      version: 1,
+      expectedAdults: 12,
+      effort: "balanced",
+      honoreeLifeStage: "adult",
+    });
+  });
+
+  it("uses persisted exact age and leaves an already-canonical profile untouched", () => {
+    expect(
+      birthdayLifeStageProfilePatch(
+        { version: 1, honoreeAge: 15, honoreeLifeStage: "adult" },
+        "adult",
+      ),
+    ).toMatchObject({ honoreeAge: 15, honoreeLifeStage: "teen" });
+    expect(
+      birthdayLifeStageProfilePatch(
+        { version: 1, honoreeAge: 54, honoreeLifeStage: "adult" },
+        "adult",
+      ),
+    ).toBeNull();
   });
 });

@@ -114,6 +114,36 @@ describe("party intelligence", () => {
     ).toBeNull();
   });
 
+  it("uses a durable broad stage for teen and adult birthdays without inventing an age", () => {
+    expect(
+      partyPlaybook({
+        occasion: "birthday",
+        profile: { version: 1, honoreeLifeStage: "teen" },
+      })?.id,
+    ).toBe("birthday-teen-v1");
+    expect(
+      partyPlaybook({
+        occasion: "birthday",
+        profile: { version: 1, honoreeLifeStage: "adult" },
+      })?.id,
+    ).toBe("birthday-adult-v1");
+    expect(
+      partyPlaybook({
+        occasion: "birthday",
+        profile: { version: 1, honoreeLifeStage: "child" },
+      }),
+    ).toBeNull();
+  });
+
+  it("lets exact age override a conflicting broad stage", () => {
+    expect(
+      partyPlaybook({
+        occasion: "birthday",
+        profile: { version: 1, honoreeAge: 15, honoreeLifeStage: "adult" },
+      })?.id,
+    ).toBe("birthday-teen-v1");
+  });
+
   it("builds a school-age birthday around one anchor and a clear parent handoff", () => {
     const playbook = partyPlaybook({
       occasion: "birthday",

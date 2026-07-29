@@ -2,6 +2,7 @@ import type { Bucket, OccasionType, Party, Task, TimelineItem } from "./party-co
 
 export type HostEffort = "easy" | "balanced" | "all-out";
 export type PartyFormat = "home" | "venue" | "help-me-choose";
+export type HonoreeLifeStage = "child" | "teen" | "adult";
 export type FoodRole = "light-bites" | "full-meal" | "grazing";
 export type FoodServiceStyle = "self-serve" | "family-style" | "served";
 
@@ -30,6 +31,11 @@ export type LocalSourcingOption = {
 export type PartyPlanningProfile = {
   version: 1;
   honoreeAge?: number;
+  /**
+   * A coarse, private planning signal for hosts who do not want or need to
+   * enter an exact age. Exact age always wins when both are present.
+   */
+  honoreeLifeStage?: HonoreeLifeStage;
   expectedKids?: number;
   expectedAdults?: number;
   effort?: HostEffort;
@@ -164,13 +170,28 @@ export type PartyAgeBand = "toddler" | "preschool" | "school-age" | "teen" | "ad
  * Missing ages remain unknown; callers must not turn absence into a child
  * default.
  */
-export function birthdayAgeBand(age?: number): PartyAgeBand | undefined {
-  if (age == null) return undefined;
+export function birthdayLifeStage(
+  age?: number,
+  explicitStage?: HonoreeLifeStage,
+): HonoreeLifeStage | undefined {
+  const band = birthdayAgeBand(age);
+  if (band === "adult") return "adult";
+  if (band === "teen") return "teen";
+  if (band) return "child";
+  return explicitStage;
+}
+
+export function birthdayAgeBand(
+  age?: number,
+  lifeStage?: HonoreeLifeStage,
+): PartyAgeBand | undefined {
+  if (age == null) return lifeStage === "teen" || lifeStage === "adult" ? lifeStage : undefined;
   if (age <= 3) return "toddler";
   if (age <= 5) return "preschool";
   if (age <= 12) return "school-age";
   if (age <= 17) return "teen";
-  return "adult";
+  if (age <= 120) return "adult";
+  return lifeStage === "teen" || lifeStage === "adult" ? lifeStage : undefined;
 }
 
 function ordinal(value: number): string {
@@ -757,7 +778,7 @@ export function partyPlaybook(input: {
   holidayPackId?: string;
 }): PartyPlaybook | null {
   const age = input.profile?.honoreeAge;
-  const band = birthdayAgeBand(age);
+  const band = birthdayAgeBand(age, input.profile?.honoreeLifeStage);
 
   if (input.occasion === "birthday" && band === "preschool") {
     const turning = age ? `turning ${age}` : "preschool";

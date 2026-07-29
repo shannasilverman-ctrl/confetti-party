@@ -49,9 +49,10 @@ function PrivacyPage() {
               Party data you enter: name, date, optional start time and location, guest list (names,
               optional dietary and allergen tags), checklist, budget, shopping items, theme choices,
               host notes, bring-board items, timeline, retrospective notes, and optional planning
-              details such as the birthday honoree&apos;s age and the expected number of children
-              and adults. Confetti uses those optional details to change timing, activities, guest
-              questions, quantities, safety reminders, and local-search suggestions.
+              details such as the birthday honoree&apos;s exact age or broad child, teen, or adult
+              life stage and the expected number of children and adults. Confetti uses those
+              optional details to change timing, activities, guest questions, quantities, safety
+              reminders, and local-search suggestions.
             </li>
             <li>
               Guest-facing RSVP token that lets anyone with the link view and respond to your party
@@ -127,11 +128,15 @@ function PrivacyPage() {
             the bring board and only show aggregate counts.
           </p>
           <p className="mt-3 text-sm">
-            Planning details such as the exact honoree age and child/adult estimates stay in the
-            private host workspace and are available to cohosts the host explicitly accepts. They
-            are not included as hidden fields in the RSVP response. Guests can still see any age or
-            other detail the host chooses to keep in the party name, invitation preview, host note,
-            or guest update, so hosts should review those surfaces before sharing the RSVP link.
+            Planning details such as the exact honoree age, broad child/teen/adult life stage, and
+            child/adult estimates stay in the private host workspace and are available to cohosts
+            the host explicitly accepts. The RSVP page receives an age-group category needed to ask
+            appropriate attendance questions, so its wording may make clear that a birthday is for a
+            child, teen, or adult. It does not receive the exact age or full private planning
+            profile. Guests can still see any age or other detail the host chooses to keep in the
+            party name, invitation preview, host note, or guest update, so hosts should review those
+            surfaces before sharing the RSVP link. Durable offline snapshots are stored only for
+            parties you own, not parties shared with you as a cohost.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Questions</h2>

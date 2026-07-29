@@ -139,6 +139,51 @@ describe("input-aware local Talk planner", () => {
     });
   });
 
+  it.each([
+    ["Turning 54. Actually, 55th birthday", 55],
+    ["54th birthday. Correction: turning 55", 55],
+    ["Not turning 54 — it is a 55th birthday", 55],
+  ] as const)("uses the latest affirmed exact-age correction in “%s”", (idea, age) => {
+    expect(analyzePlanningIdea(idea, { now: NOW }).draftPatch.identity).toMatchObject({
+      occasion: "birthday",
+      honoreeAge: age,
+    });
+  });
+
+  it.each([
+    ["Adult birthday with three kids invited", "adult", "Adult Birthday"],
+    ["Teen birthday at home", "teen", "Teen Birthday"],
+    ["Kids birthday next month", "child", "Child's Birthday"],
+  ] as const)("keeps the broad birthday stage in “%s”", (idea, stage, title) => {
+    expect(analyzePlanningIdea(idea, { now: NOW }).draftPatch.identity).toMatchObject({
+      occasion: "birthday",
+      workingTitle: title,
+      honoreeLifeStage: stage,
+    });
+  });
+
+  it.each([
+    ["Adult birthday, actually teen birthday", "teen"],
+    ["Not an adult birthday, a teen birthday", "teen"],
+    ["Kids birthday — correction: adult birthday", "adult"],
+  ] as const)("uses the latest affirmed birthday-stage correction in “%s”", (idea, stage) => {
+    expect(analyzePlanningIdea(idea, { now: NOW }).draftPatch.identity).toMatchObject({
+      occasion: "birthday",
+      honoreeLifeStage: stage,
+    });
+  });
+
+  it("uses the later Talk turn when the host corrects the stage", () => {
+    expect(
+      demoReply(conversation("Adult birthday", "Actually, teen birthday"), {
+        now: NOW,
+      }).draftPatch.identity,
+    ).toMatchObject({
+      occasion: "birthday",
+      honoreeLifeStage: "teen",
+    });
+  });
+
   it("recognizes a holiday pack while keeping rituals optional downstream", () => {
     const result = demoReply(conversation("Shabbat dinner this Friday for 10 guests"), {
       now: NOW,

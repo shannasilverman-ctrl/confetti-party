@@ -19,9 +19,12 @@ import {
   type PlanningDetail,
 } from "@/lib/party-context";
 import {
+  birthdayLifeStage,
   reconcilePartyPlaybook,
   type HostEffort,
+  type HonoreeLifeStage,
   type PartyFormat,
+  type PartyPlanningProfile,
 } from "@/lib/party-intelligence";
 import { resizePartySizedShopping } from "@/lib/shopping";
 import { rebaseBudgetCategories } from "@/lib/budget";
@@ -58,6 +61,7 @@ export function EditDetailsDialog({
   const [budget, setBudget] = useState("");
   const [hostNote, setHostNote] = useState("");
   const [honoreeAge, setHonoreeAge] = useState("");
+  const [honoreeLifeStage, setHonoreeLifeStage] = useState<HonoreeLifeStage | "">("");
   const [expectedKids, setExpectedKids] = useState("");
   const [expectedAdults, setExpectedAdults] = useState("");
   const [effort, setEffort] = useState<HostEffort>("balanced");
@@ -77,6 +81,11 @@ export function EditDetailsDialog({
     setHonoreeAge(
       party.planningProfile?.honoreeAge != null ? String(party.planningProfile.honoreeAge) : "",
     );
+    setHonoreeLifeStage(
+      party.planningProfile?.honoreeAge == null
+        ? (party.planningProfile?.honoreeLifeStage ?? "")
+        : "",
+    );
     setExpectedKids(
       party.planningProfile?.expectedKids != null ? String(party.planningProfile.expectedKids) : "",
     );
@@ -90,6 +99,11 @@ export function EditDetailsDialog({
   }, [open, party]);
 
   if (!party) return null;
+  const displayedLifeStage =
+    birthdayLifeStage(
+      Number(honoreeAge) > 0 ? Number(honoreeAge) : undefined,
+      honoreeLifeStage || undefined,
+    ) ?? "";
 
   const save = () => {
     if (!name.trim()) return;
@@ -179,18 +193,23 @@ export function EditDetailsDialog({
         },
         details,
       );
-      const profile = {
+      const profile: PartyPlanningProfile = {
         ...p.planningProfile,
         version: 1 as const,
-        ...(p.occasion === "birthday" && Number(honoreeAge) > 0
-          ? { honoreeAge: Number(honoreeAge) }
-          : {}),
         ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
         ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
         effort,
         format: partyFormat,
         eventTimeZone: canonicalTimeZone ?? undefined,
       };
+      delete profile.honoreeAge;
+      delete profile.honoreeLifeStage;
+      if (p.occasion === "birthday") {
+        const age = Number(honoreeAge) > 0 ? Number(honoreeAge) : undefined;
+        const lifeStage = birthdayLifeStage(age, honoreeLifeStage || undefined);
+        if (age) profile.honoreeAge = age;
+        if (lifeStage) profile.honoreeLifeStage = lifeStage;
+      }
       next = reconcilePartyPlaybook(next, profile, () => newId());
       const audienceTotal = (profile.expectedKids ?? 0) + (profile.expectedAdults ?? 0);
       if (audienceTotal > 0) next = { ...next, guestEstimate: audienceTotal };
@@ -332,6 +351,43 @@ export function EditDetailsDialog({
                 Update these and Confetti refreshes only its recommendations. Your own tasks stay
                 untouched.
               </p>
+              {party.occasion === "birthday" && (
+                <fieldset className="mt-3">
+                  <legend className="text-xs font-medium text-secondary">
+                    Who is this birthday for?
+                  </legend>
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    {[
+                      ["child", "Child"],
+                      ["teen", "Teen"],
+                      ["adult", "Adult"],
+                      ["", "Not sure"],
+                    ].map(([value, label]) => (
+                      <button
+                        key={label}
+                        type="button"
+                        aria-pressed={displayedLifeStage === value}
+                        onClick={() => {
+                          if (value === displayedLifeStage && honoreeAge) return;
+                          setHonoreeLifeStage(value as HonoreeLifeStage | "");
+                          if (honoreeAge) setHonoreeAge("");
+                        }}
+                        className={`min-h-11 rounded-xl border px-2 py-1.5 text-xs ${
+                          displayedLifeStage === value
+                            ? "border-primary bg-primary/10 font-medium text-secondary"
+                            : "border-border bg-background text-secondary"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                    The selection stays in the host workspace; guests may see age-appropriate
+                    attendance wording.
+                  </p>
+                </fieldset>
+              )}
               <div
                 className={`mt-3 grid gap-2 ${
                   party.occasion === "birthday" ? "grid-cols-3" : "grid-cols-2"

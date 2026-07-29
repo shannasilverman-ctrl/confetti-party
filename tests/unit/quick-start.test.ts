@@ -16,6 +16,8 @@ function input(overrides: Partial<QuickStartInput> = {}): QuickStartInput {
     holidayStarter: null,
     honoreeAge: "",
     honoreeAgeTouched: false,
+    honoreeLifeStage: "",
+    honoreeLifeStageTouched: false,
     expectedKids: "",
     expectedAdults: "",
     effort: "balanced",
@@ -161,5 +163,48 @@ describe("truthful intelligent quick start", () => {
     );
 
     expect(resolved.patch.identity?.honoreeAge).toBe(55);
+  });
+
+  it("keeps a broad adult birthday signal without inventing an exact age", () => {
+    const { patch } = resolveQuickStart(
+      input({
+        idea: "An adult birthday with a few kids invited",
+        occasion: "birthday",
+        honoreeLifeStage: "adult",
+      }),
+      { now: NOW },
+    );
+    const { party } = materializeDraft(patch, { now: NOW });
+
+    expect(patch.identity).toMatchObject({
+      occasion: "birthday",
+      honoreeLifeStage: "adult",
+    });
+    expect(party.planningProfile).toMatchObject({
+      honoreeLifeStage: "adult",
+    });
+    expect(party.planningProfile?.honoreeAge).toBeUndefined();
+  });
+
+  it("lets an explicit age override a conflicting broad life stage", () => {
+    const { party } = materializeDraft(
+      resolveQuickStart(
+        input({
+          idea: "Adult birthday",
+          occasion: "birthday",
+          honoreeAge: "15",
+          honoreeAgeTouched: true,
+          honoreeLifeStage: "adult",
+          honoreeLifeStageTouched: true,
+        }),
+        { now: NOW },
+      ).patch,
+      { now: NOW },
+    );
+
+    expect(party.planningProfile).toMatchObject({
+      honoreeAge: 15,
+      honoreeLifeStage: "teen",
+    });
   });
 });

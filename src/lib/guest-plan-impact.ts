@@ -1,4 +1,5 @@
 import type { Guest, Party } from "./party-context";
+import { birthdayLifeStage } from "./party-intelligence";
 
 export type AttendanceBreakdown = {
   adults: number;
@@ -394,8 +395,13 @@ function humanList(values: string[]): string {
 }
 
 function isChildBirthday(party: Party): boolean {
-  const age = party.planningProfile?.honoreeAge;
-  return party.occasion === "birthday" && age != null && age >= 1 && age <= 12;
+  return (
+    party.occasion === "birthday" &&
+    birthdayLifeStage(
+      party.planningProfile?.honoreeAge,
+      party.planningProfile?.honoreeLifeStage,
+    ) === "child"
+  );
 }
 
 function safeCount(value: number | undefined): number {
