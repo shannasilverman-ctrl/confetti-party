@@ -1,10 +1,8 @@
 import {
   allDayStampPlusDays,
-  combineDateAndTime,
   parseDateOnly,
   parseWallClockTime,
   toAllDayStamp,
-  toLocalCalendarStamp,
   toUtcCalendarStamp,
 } from "@/lib/date-only";
 
@@ -12,26 +10,180 @@ export type CalendarParty = {
   name: string;
   date: string;
   start_time?: string | null;
+  event_time_zone?: string | null;
   location?: string | null;
+  details?: string | null;
 };
 
+const DEFAULT_DETAILS = "See you there — sent via Confetti.";
+
+export function isValidEventTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length < 3 || value.length > 80) return false;
+  if (value !== "UTC" && !/^[A-Za-z_+-]+(?:\/[A-Za-z0-9_+-]+)+$/.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function canonicalEventTimeZone(value: unknown): string | null {
+  if (!isValidEventTimeZone(value)) return null;
+  try {
+    const canonical = new Intl.DateTimeFormat("en-US", { timeZone: value }).resolvedOptions()
+      .timeZone;
+    return isValidEventTimeZone(canonical) ? canonical : null;
+  } catch {
+    return null;
+  }
+}
+
+export function deviceEventTimeZone(): string | null {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return canonicalEventTimeZone(zone);
+  } catch {
+    return null;
+  }
+}
+
+function zonedParts(instant: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value);
+  return {
+    y: read("year"),
+    m: read("month"),
+    d: read("day"),
+    h: read("hour"),
+    min: read("minute"),
+    s: read("second"),
+  };
+}
+
+function sameWallTime(left: ReturnType<typeof zonedParts>, right: ReturnType<typeof zonedParts>) {
+  return (
+    left.y === right.y &&
+    left.m === right.m &&
+    left.d === right.d &&
+    left.h === right.h &&
+    left.min === right.min &&
+    left.s === right.s
+  );
+}
+
+/** Convert an IANA-zoned wall time to its absolute instant, independent of the viewer's zone. */
+export function zonedWallTimeToUtc(date: string, time: string, timeZone: string): Date {
+  const day = parseDateOnly(date);
+  const clock = parseWallClockTime(time);
+  if (!day || !clock) throw new Error("Party has an invalid date or time");
+  const canonicalTimeZone = canonicalEventTimeZone(timeZone);
+  if (!canonicalTimeZone) throw new Error("Party has an invalid time zone");
+
+  const desired = { y: day.y, m: day.m, d: day.d, h: clock.h, min: clock.m, s: 0 };
+  const desiredAsUtc = Date.UTC(day.y, day.m - 1, day.d, clock.h, clock.m, 0, 0);
+
+  // Collect every offset in effect around the requested wall time, then test
+  // each possible instant. This catches both sides of a fall-back overlap
+  // instead of silently choosing one of two real instants.
+  const offsets = new Set<number>();
+  for (let hour = -36; hour <= 36; hour += 6) {
+    const sampleMs = desiredAsUtc + hour * 60 * 60 * 1000;
+    const actual = zonedParts(new Date(sampleMs), canonicalTimeZone);
+    const actualAsUtc = Date.UTC(actual.y, actual.m - 1, actual.d, actual.h, actual.min, actual.s);
+    offsets.add(actualAsUtc - sampleMs);
+  }
+
+  const matches = [...offsets]
+    .map((offset) => new Date(desiredAsUtc - offset))
+    .filter((instant) => sameWallTime(zonedParts(instant, canonicalTimeZone), desired))
+    .filter(
+      (instant, index, candidates) =>
+        candidates.findIndex((candidate) => candidate.getTime() === instant.getTime()) === index,
+    );
+
+  if (matches.length === 0) {
+    throw new Error("Party time does not exist in the selected time zone");
+  }
+  if (matches.length > 1) {
+    throw new Error("Party time is ambiguous in the selected time zone");
+  }
+  return matches[0];
+}
+
+function localStamp(date: Date): string {
+  return [
+    date.getUTCFullYear().toString().padStart(4, "0"),
+    (date.getUTCMonth() + 1).toString().padStart(2, "0"),
+    date.getUTCDate().toString().padStart(2, "0"),
+    "T",
+    date.getUTCHours().toString().padStart(2, "0"),
+    date.getUTCMinutes().toString().padStart(2, "0"),
+    "00",
+  ].join("");
+}
+
+export type CalendarExportIssue =
+  | "invalid-date"
+  | "invalid-time"
+  | "missing-time-zone"
+  | "nonexistent-wall-time"
+  | "ambiguous-wall-time";
+
+export function calendarExportIssue(party: CalendarParty): CalendarExportIssue | null {
+  if (!parseDateOnly(party.date)) return "invalid-date";
+  if (!party.start_time?.trim()) return null;
+  if (!parseWallClockTime(party.start_time)) return "invalid-time";
+  if (!isValidEventTimeZone(party.event_time_zone)) return "missing-time-zone";
+  try {
+    zonedWallTimeToUtc(party.date, party.start_time, party.event_time_zone);
+    return null;
+  } catch (error) {
+    return error instanceof Error && /ambiguous/i.test(error.message)
+      ? "ambiguous-wall-time"
+      : "nonexistent-wall-time";
+  }
+}
+
 function buildCalendarPayload(party: CalendarParty) {
-  // Until the host's time zone is captured, event times remain floating wall
-  // times. Adding three to the hour (instead of elapsed milliseconds) keeps a
-  // three-hour party a three-hour wall-clock event across DST transitions.
   const time = parseWallClockTime(party.start_time);
   if (time) {
     const date = parseDateOnly(party.date);
     if (!date) throw new Error("Party has an invalid date");
-    const start = combineDateAndTime(party.date, time);
-    const end = new Date(date.y, date.m - 1, date.d, time.h + 3, time.m, 0, 0);
+    if (!isValidEventTimeZone(party.event_time_zone)) {
+      throw new Error("Party needs a valid event time zone");
+    }
+    const start = zonedWallTimeToUtc(party.date, party.start_time!, party.event_time_zone);
+    const endWall = new Date(Date.UTC(date.y, date.m - 1, date.d, time.h + 3, time.m, 0, 0));
+    const endDate = [
+      endWall.getUTCFullYear().toString().padStart(4, "0"),
+      (endWall.getUTCMonth() + 1).toString().padStart(2, "0"),
+      endWall.getUTCDate().toString().padStart(2, "0"),
+    ].join("-");
+    const endTime = `${endWall.getUTCHours().toString().padStart(2, "0")}:${endWall
+      .getUTCMinutes()
+      .toString()
+      .padStart(2, "0")}`;
+    const end = zonedWallTimeToUtc(endDate, endTime, party.event_time_zone);
+    const startWall = new Date(Date.UTC(date.y, date.m - 1, date.d, time.h, time.m, 0, 0));
     return {
-      googleDates: `${toLocalCalendarStamp(start)}/${toLocalCalendarStamp(end)}`,
-      icsStart: toLocalCalendarStamp(start),
-      icsEnd: toLocalCalendarStamp(end),
+      googleDates: `${localStamp(startWall)}/${localStamp(endWall)}`,
+      icsStart: toUtcCalendarStamp(start),
+      icsEnd: toUtcCalendarStamp(end),
       icsAllDay: false,
     };
   }
+  if (party.start_time?.trim()) throw new Error("Party has an invalid start time");
 
   const startStamp = toAllDayStamp(party.date);
   const endStamp = allDayStampPlusDays(party.date, 1);
@@ -49,9 +201,13 @@ export function googleCalUrl(party: CalendarParty): string {
     action: "TEMPLATE",
     text: party.name,
     dates: payload.googleDates,
-    details: "See you there — sent via Confetti.",
+    details: party.details ?? DEFAULT_DETAILS,
   });
   if (party.location) params.set("location", party.location);
+  const canonicalTimeZone = canonicalEventTimeZone(party.event_time_zone);
+  if (payload.icsAllDay === false && canonicalTimeZone) {
+    params.set("ctz", canonicalTimeZone);
+  }
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
@@ -85,9 +241,13 @@ export function foldIcsLine(line: string): string[] {
 }
 
 function stableUid(party: CalendarParty): string {
-  const source = [party.name, party.date, party.start_time ?? "", party.location ?? ""].join(
-    "\u001f",
-  );
+  const source = [
+    party.name,
+    party.date,
+    party.start_time ?? "",
+    party.event_time_zone ?? "",
+    party.location ?? "",
+  ].join("\u001f");
   let hash = 0x811c9dc5;
   for (let index = 0; index < source.length; index += 1) {
     hash ^= source.charCodeAt(index);
@@ -111,7 +271,7 @@ export function buildIcs(party: CalendarParty, generatedAt: Date = new Date()): 
     payload.icsAllDay ? `DTEND;VALUE=DATE:${payload.icsEnd}` : `DTEND:${payload.icsEnd}`,
     `SUMMARY:${escapeIcsText(party.name)}`,
     party.location ? `LOCATION:${escapeIcsText(party.location)}` : null,
-    "DESCRIPTION:See you there — sent via Confetti.",
+    `DESCRIPTION:${escapeIcsText(party.details ?? DEFAULT_DETAILS)}`,
     "STATUS:CONFIRMED",
     "END:VEVENT",
     "END:VCALENDAR",

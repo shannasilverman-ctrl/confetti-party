@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { CalendarActions } from "@/components/calendar-actions";
@@ -35,6 +36,7 @@ import {
   type SampleRSVP,
   type SampleState,
 } from "@/lib/sample-invite-state";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 /**
  * The showroom sample invitation.
@@ -61,6 +63,7 @@ const SAMPLE_CALENDAR_PARTY = {
   name: SAMPLE.name,
   date: SAMPLE.date,
   start_time: SAMPLE.startTime,
+  event_time_zone: "Europe/Rome",
   location: SAMPLE.location,
 } as const;
 
@@ -120,6 +123,10 @@ function SampleInvitePage() {
   const [loadNotice, setLoadNotice] = useState<string | null>(null);
   const [interactionKey, setInteractionKey] = useState(0);
 
+  useEffect(() => {
+    trackProductEvent("invite_opened", { once: true });
+  }, []);
+
   // Client-only load — never call localStorage during SSR.
   useEffect(() => {
     const { state: loaded, corruption } = loadSampleState();
@@ -166,6 +173,7 @@ function SampleInvitePage() {
 
   function onSubmit(entry: NonNullable<SampleState["rsvp"]>) {
     setState((prev) => ({ ...prev, rsvp: entry }));
+    trackProductEvent("rsvp_completed");
     if (entry.choice === "yes") celebrate("cannon");
   }
 
@@ -189,6 +197,7 @@ function SampleInvitePage() {
           : b,
       ),
     }));
+    trackProductEvent("bring_item_claimed");
     celebrate("micro");
     return { ok: true };
   }
@@ -261,6 +270,8 @@ function SampleInvitePage() {
       <main
         className="relative z-10 mx-auto -mt-6 max-w-lg px-4 pb-4 sm:px-6"
         data-testid="sample-invite-content"
+        data-hydrated={hydrated ? "true" : "false"}
+        aria-busy={!hydrated}
       >
         {loadNotice && (
           <div
@@ -292,7 +303,7 @@ function SampleInvitePage() {
           {done ? (
             <SuccessCard entry={state.rsvp!} counts={counts} onChange={onChangeResponse} />
           ) : (
-            <RsvpForm counts={counts} onSubmit={onSubmit} />
+            <RsvpForm counts={counts} onSubmit={onSubmit} hydrated={hydrated} />
           )}
 
           <SampleBringBoard
@@ -348,9 +359,11 @@ function SampleBanner({ onReset }: { onReset: () => void }) {
 function RsvpForm({
   counts,
   onSubmit,
+  hydrated,
 }: {
   counts: { yes: number; maybe: number };
   onSubmit: (entry: NonNullable<SampleState["rsvp"]>) => void;
+  hydrated: boolean;
 }) {
   const [name, setName] = useState("");
   const [household, setHousehold] = useState("");
@@ -361,6 +374,7 @@ function RsvpForm({
   const [dietaryOther, setDietaryOther] = useState("");
   const [allergens, setAllergens] = useState<string[]>([]);
   const [allergensOther, setAllergensOther] = useState("");
+  const [accessNotes, setAccessNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (v: string) =>
@@ -394,6 +408,8 @@ function RsvpForm({
       kids: choice === "yes" ? kids : 0,
       dietary: dietaryOut,
       allergens: allergensOut,
+      accessNotes:
+        choice !== "no" && accessNotes.trim() ? accessNotes.trim().slice(0, 200) : undefined,
       at: new Date().toISOString(),
     });
   }
@@ -403,6 +419,9 @@ function RsvpForm({
       onSubmit={handleSubmit}
       className="space-y-5 rounded-3xl border border-border bg-card p-6 shadow-card"
       data-testid="sample-rsvp-form"
+      data-hydrated={hydrated ? "true" : "false"}
+      aria-busy={!hydrated}
+      inert={!hydrated}
     >
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Users className="h-4 w-4" />
@@ -443,7 +462,11 @@ function RsvpForm({
         <RadioGroup
           aria-label="Can you make it?"
           value={choice}
-          onValueChange={(v) => setChoice(v as SampleRSVP)}
+          onValueChange={(v) => {
+            const next = v as SampleRSVP;
+            if (next === "no") setAccessNotes("");
+            setChoice(next);
+          }}
           className="grid grid-cols-3 gap-2"
         >
           {(["yes", "maybe", "no"] as SampleRSVP[]).map((val) => (
@@ -488,6 +511,29 @@ function RsvpForm({
               className="min-h-11"
             />
           </div>
+        </div>
+      )}
+
+      {choice !== "no" && (
+        <div
+          className="space-y-2 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4"
+          data-testid="sample-access-question"
+        >
+          <Label htmlFor="sample-access-notes">
+            Anything that would help you participate or feel comfortable?
+          </Label>
+          <Textarea
+            id="sample-access-notes"
+            value={accessNotes}
+            onChange={(event) => setAccessNotes(event.target.value)}
+            placeholder="Optional — share only what would help the host prepare"
+            maxLength={200}
+            aria-describedby="sample-access-notes-help"
+            className="min-h-20 resize-y bg-background"
+          />
+          <p id="sample-access-notes-help" className="text-[11px] text-muted-foreground">
+            Optional and host-only. Don&apos;t include medical records or emergency contact details.
+          </p>
         </div>
       )}
 

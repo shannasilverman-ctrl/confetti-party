@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 import { AuthNav } from "@/components/auth-nav";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,10 @@ import { affiliateDisclosureEnabled, AFFILIATE_DISCLOSURE } from "@/lib/affiliat
 import { getActiveSeasonalMoment } from "@/lib/seasonal";
 import { X } from "lucide-react";
 import { celebrate, fireCannon } from "@/components/confetti-burst";
-import { daysUntilLocal, formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
+import { daysUntilUtc, formatDateOnly, nextWeekdayDateOnlyUtc } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 import { EventHeroCarousel } from "@/components/event-hero-carousel";
+import { trackProductEvent } from "@/lib/product-telemetry";
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
@@ -29,6 +30,23 @@ import {
 
 export const Route = createFileRoute("/")({
   component: Landing,
+  loader: () => {
+    const sampleCardDate = nextWeekdayDateOnlyUtc(6, 21);
+    const sampleDays = daysUntilUtc(sampleCardDate);
+    return {
+      sampleCardDateLabel: formatDateOnly(
+        sampleCardDate,
+        {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        },
+        "en-US",
+      ),
+      sampleCountdown:
+        sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Soon",
+    };
+  },
   head: () => ({
     meta: [
       { title: "Confetti — Plan unforgettable gatherings" },
@@ -51,20 +69,9 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const navigate = useNavigate();
   // A rolling illustrative Saturday keeps the mock date and countdown
-  // truthful instead of quietly going stale after a launch milestone.
-  const sampleCardDate = useMemo(() => nextWeekdayDateOnly(6, 21), []);
-  const sampleDays = useMemo(() => daysUntilLocal(sampleCardDate), [sampleCardDate]);
-  const sampleCountdown =
-    sampleDays > 0 ? `${sampleDays} days out` : sampleDays === 0 ? "Today" : "Soon";
-  const sampleCardDateLabel = useMemo(
-    () =>
-      formatDateOnly(sampleCardDate, {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      }),
-    [sampleCardDate],
-  );
+  // truthful instead of quietly going stale after a launch milestone. The
+  // loader snapshots it once so SSR and hydration cannot cross a day boundary.
+  const { sampleCardDateLabel, sampleCountdown } = Route.useLoaderData();
   useEffect(() => {
     // Gentle cannon behind the headline once the wordmark letters have popped in.
     const t = setTimeout(() => {
@@ -78,7 +85,12 @@ function Landing() {
   }, []);
 
   const startPlanning = (e: React.MouseEvent) => {
+    trackProductEvent("landing_plan_started");
     celebrate("cannon", { x: e.clientX, y: e.clientY });
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      void navigate({ to: "/app", search: { new: true } });
+      return;
+    }
     // Let the burst breathe for a beat before navigating.
     setTimeout(() => navigate({ to: "/app", search: { new: true } }), 220);
   };
@@ -267,7 +279,7 @@ function Landing() {
                 <StoryRow
                   chapter="05 · Stay present"
                   title="Day-of Mode."
-                  body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a broadcast box for 'pizza's on the way' — designed for one thumb."
+                  body="The morning-of, minute by minute. Next-three-actions, arrivals check-in, and a guest-page update for 'pizza's on the way' — designed for one thumb."
                   cta={{
                     label: "Open Day-of Mode",
                     to: "/party/$id/day-of",
@@ -279,11 +291,11 @@ function Landing() {
                 <StoryRow
                   chapter="06 · Make the next one easier"
                   title="Memories, so next time is easier."
-                  body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Duplicate the plan later and those notes stay attached for reference."
+                  body="A five-minute private retrospective after the toast: what worked, what ran out, what to change. Plan the next one and Confetti turns the improvements into real checklist tasks."
                   cta={{
-                    label: "Read Ava & Liam's retro",
+                    label: "Read the watch-party retro",
                     to: "/party/$id/reveal",
-                    params: { id: "ava-liam-wedding" },
+                    params: { id: "world-cup-final-watch" },
                   }}
                   tone="gold"
                   flip
@@ -882,16 +894,18 @@ function GuestWorldMini() {
 
 function MemoriesMini() {
   const bullets = [
-    { label: "What worked", body: "The buffet flow — nobody got stuck in a line." },
-    { label: "Ran out of", body: "Sparkling water. Double it next time." },
-    { label: "Change next time", body: "Start dessert 20 minutes earlier — kids faded." },
+    { label: "What worked", body: "Two screens kept the main room lively." },
+    { label: "Ran out of", body: "Ice and kid-friendly drinks." },
+    { label: "Change next time", body: "Put dessert out before the second half." },
   ];
   return (
     <div className="rotate-[1deg] rounded-3xl border border-border bg-card p-5 shadow-card">
       <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <Sparkles className="h-3 w-3 text-accent" /> Retrospective
       </div>
-      <div className="font-display text-lg font-semibold text-secondary">Friendsgiving 2025</div>
+      <div className="font-display text-lg font-semibold text-secondary">
+        World Cup Final Watch · 2026
+      </div>
       <ul className="mt-3 space-y-2">
         {bullets.map((b, i) => (
           <li key={i} className="rounded-xl bg-muted/40 p-3">

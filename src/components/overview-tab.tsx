@@ -4,28 +4,46 @@ import { toast } from "sonner";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { EditDetailsDialog } from "@/components/edit-details-dialog";
+import { QuantityTunerDialog } from "@/components/quantity-tuner-dialog";
+import { LocalSourcingPlanner } from "@/components/local-sourcing-planner";
 import {
-  BUCKETS,
+  TASK_ACTION_LABELS,
   daysUntil,
   guestCounts,
   shoppingProjectedRemaining,
   totalSpent,
   useParties,
-  planningDetailForTask,
+  newId,
   planningDetailIsOpen,
+  resizePartySizedShopping,
+  resolvePlanningDetails,
   type PlanningDetail,
-  type Task,
 } from "@/lib/party-context";
+import {
+  rankNextPartyTasks,
+  type NextActionPhase,
+  type RankedPartyTask,
+} from "@/lib/next-party-actions";
+import { TaskDetailsDialog } from "@/components/task-details-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { celebrate, celebrateAtEvent } from "@/components/confetti-burst";
 import {
-  localPlanningSuggestions,
-  locationIsSpecific,
-  type LocalPlanningKind,
-} from "@/lib/local-planning";
+  partyPlaybook,
+  preschoolPartyPaths,
+  reconcilePartyPlaybook,
+  type PartyPlanningProfile,
+  type PartyPlaybook,
+} from "@/lib/party-intelligence";
+import { partyQuantityPlan, type PartyQuantityPlan } from "@/lib/party-quantities";
+import {
+  guestPlanSnapshot,
+  materializeGuestImpact,
+  type GuestPlanImpact,
+  type GuestPlanSnapshot,
+} from "@/lib/guest-plan-impact";
 import {
   AlertTriangle,
   ArrowRight,
@@ -41,11 +59,11 @@ import {
   Users,
   Wallet,
   ShoppingCart,
-  ExternalLink,
-  House,
-  MapPinned,
-  UtensilsCrossed,
+  ShieldCheck,
+  WandSparkles,
+  Calculator,
 } from "lucide-react";
+import { guestShareReadiness } from "@/lib/guest-share-readiness";
 
 type NavTab =
   | "overview"
@@ -64,7 +82,15 @@ export function OverviewTab({
   partyId: string;
   onNavigate: (tab: NavTab) => void;
 }) {
-  const { getParty, updateParty } = useParties();
+  const {
+    getParty,
+    updateParty,
+    isDemo,
+    isPartyCloudVerified,
+    saveStates,
+    conflicts,
+    insertRejected,
+  } = useParties();
   const party = getParty(partyId)!;
   const [inviteOpen, setInviteOpen] = useState(false);
 
@@ -76,17 +102,34 @@ export function OverviewTab({
   const remainingEst = shoppingProjectedRemaining(party);
   const projected = spent + remainingEst;
   const overBudget = !budgetTbd && projected > party.budget;
-  const bucketIdx = (b: Task["bucket"]) => BUCKETS.indexOf(b);
-  const sortedIncomplete = [...party.tasks]
-    .filter((t) => !t.done)
-    .sort((a, b) => bucketIdx(a.bucket) - bucketIdx(b.bucket));
-  const planningMoves = sortedIncomplete.filter((task) => planningDetailForTask(task));
-  const hasPlanningMoves = planningMoves.length > 0;
-  const upNext = hasPlanningMoves ? planningMoves : sortedIncomplete.slice(0, 3);
+  const rankedActions = rankNextPartyTasks(party);
+  const upNext = rankedActions.slice(0, 3);
+  const leadPhase = upNext[0]?.phase;
+  const hasPlanningMoves = leadPhase === "decision";
+  const nextActionCopy = nextActionPresentation(leadPhase);
 
   const noReply = party.guests.filter((gu) => gu.rsvp === "invited").slice(0, 4);
   const partyWeek = !dateTbd && days <= 7 && days >= 0;
-  const localSuggestions = localPlanningSuggestions(party);
+  const playbook = partyPlaybook({
+    occasion: party.occasion,
+    profile: party.planningProfile,
+    startTime: party.startTime,
+    holidayPackId: party.holidayPackId,
+  });
+  const quantities = partyQuantityPlan(party.planningProfile, {
+    occasion: party.occasion,
+    holidayPackId: party.holidayPackId,
+  });
+  const guestPlan = guestPlanSnapshot(party);
+  const shareReadiness = guestShareReadiness({
+    isDemo,
+    hasRsvpToken: !!party.rsvpToken,
+    dateIsOpen: dateTbd,
+    cloudVerified: isPartyCloudVerified(partyId),
+    saveState: saveStates[partyId] ?? "idle",
+    hasConflict: !!conflicts[partyId],
+    insertRejected: !!insertRejected[partyId],
+  });
 
   const toggleTask = (id: string) =>
     updateParty(partyId, (p) => ({
@@ -103,6 +146,7 @@ export function OverviewTab({
         hasPhotoDrop={!!party.photoDrop}
         rsvpToken={party.rsvpToken}
         dateTbd={dateTbd}
+        guestShareReady={shareReadiness.canShare}
         onOpenInvite={() => setInviteOpen(true)}
         onOpenBring={() => onNavigate("bring" as NavTab)}
       />
@@ -110,40 +154,56 @@ export function OverviewTab({
       {/* Next-best actions: unresolved inputs become actions, never checkboxes. */}
       <section
         aria-label={hasPlanningMoves ? "Your next moves" : "Up next tasks"}
-        className="rounded-2xl border border-border bg-card p-5 shadow-card"
+        data-testid="next-action-card"
+        className="overflow-hidden rounded-3xl border border-primary/20 bg-card shadow-card"
       >
-        <div className="flex items-center gap-2">
-          <ListChecks className="h-4 w-4 text-primary" />
-          <h3 className="font-display text-lg font-semibold text-secondary">
-            {hasPlanningMoves ? "Your next moves" : "Up next"}
-          </h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={() => onNavigate("checklist")}
-          >
-            All tasks <ArrowRight />
-          </Button>
+        <div className="bg-[linear-gradient(135deg,hsl(var(--primary)/0.1),hsl(var(--accent)/0.06))] p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <span
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary"
+              aria-hidden
+            >
+              <ListChecks className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                Confetti’s pick
+              </div>
+              <h3 className="mt-1 font-display text-xl font-semibold text-secondary">
+                {nextActionCopy.title}
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                {nextActionCopy.body}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="hidden shrink-0 sm:inline-flex"
+              onClick={() => onNavigate("checklist")}
+            >
+              All tasks <ArrowRight />
+            </Button>
+          </div>
         </div>
-        {hasPlanningMoves && (
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Pick whichever feels easiest. One answer is enough—the rest can wait.
-          </p>
-        )}
         {upNext.length === 0 ? (
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="p-5 text-sm text-muted-foreground">
             You're caught up. Nothing left on the checklist.
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {upNext.map((task) => {
-              const planningDetail = planningDetailForTask(task);
+          <ul className="space-y-2 p-4 sm:p-5">
+            {upNext.map((action, index) => {
+              const { task, planningDetail } = action;
               return (
                 <li
                   key={task.id}
                   data-testid={planningDetail ? `next-move-${planningDetail}` : undefined}
-                  className="flex min-h-14 items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2"
+                  data-next-action-phase={action.phase}
+                  className={`flex min-h-14 items-center gap-3 rounded-2xl border px-3 py-3 ${
+                    index === 0
+                      ? "border-primary/25 bg-primary/[0.045]"
+                      : "border-border bg-background/60"
+                  }`}
                 >
                   {planningDetail ? (
                     <>
@@ -154,6 +214,11 @@ export function OverviewTab({
                         <PlanningMoveIcon detail={planningDetail} />
                       </div>
                       <div className="min-w-0 flex-1">
+                        {index === 0 && (
+                          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                            Start here
+                          </div>
+                        )}
                         <div className="text-sm font-medium text-secondary">{task.title}</div>
                         <div className="text-xs text-muted-foreground">
                           {planningMoveCopy(planningDetail).hint}
@@ -187,12 +252,36 @@ export function OverviewTab({
                         className="h-5 w-5"
                         aria-label={`Complete: ${task.title}`}
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm text-secondary">
-                        {task.title}
-                      </span>
-                      <span className="hidden text-[11px] text-muted-foreground sm:inline">
-                        {task.bucket}
-                      </span>
+                      <div className="min-w-0 flex-1 py-1">
+                        {index === 0 && (
+                          <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+                            Start here
+                          </div>
+                        )}
+                        <div className="text-sm font-medium text-secondary">{task.title}</div>
+                        <div className="mt-0.5 text-xs font-medium text-primary">
+                          {nextActionTimingLabel(action)}
+                        </div>
+                        {task.reason && (
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {task.reason}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <TaskDetailsDialog partyId={partyId} task={task} />
+                          {task.action && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-11"
+                              onClick={() => onNavigate(task.action!)}
+                            >
+                              {TASK_ACTION_LABELS[task.action]} <ArrowRight />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </>
                   )}
                 </li>
@@ -200,77 +289,34 @@ export function OverviewTab({
             })}
           </ul>
         )}
+        <div className="border-t border-border px-4 py-3 sm:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-11 w-full"
+            onClick={() => onNavigate("checklist")}
+          >
+            See the full checklist <ArrowRight />
+          </Button>
+        </div>
       </section>
 
-      <section
-        aria-labelledby="local-planning-title"
-        data-testid="local-planning"
-        className="overflow-hidden rounded-2xl border border-border bg-card shadow-card"
-      >
-        <div className="border-b border-border bg-primary/5 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <MapPinned className="h-4 w-4 text-primary" aria-hidden />
-                <h3
-                  id="local-planning-title"
-                  className="font-display text-lg font-semibold text-secondary"
-                >
-                  Make it local
-                </h3>
-              </div>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Confetti gives you the paths. Maps gives you current businesses, ratings, and
-                hours—so we never pretend inventory is live when it isn't.
-              </p>
-            </div>
-            {!locationIsSpecific(party.location) && (
-              <EditDetailsDialog partyId={party.id} triggerLabel="Add city or ZIP" />
-            )}
-          </div>
-        </div>
-        <div className="grid gap-px bg-border sm:grid-cols-3">
-          {localSuggestions.map((suggestion) => (
-            <article key={suggestion.id} className="flex flex-col bg-card p-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <LocalPlanningIcon kind={suggestion.kind} />
-              </div>
-              <h4 className="mt-3 font-display text-base font-semibold text-secondary">
-                {suggestion.title}
-              </h4>
-              <p className="mt-1 flex-1 text-sm leading-6 text-muted-foreground">
-                {suggestion.reason}
-              </p>
-              {suggestion.searchUrl && suggestion.searchLabel ? (
-                <Button asChild variant="outline" size="sm" className="mt-4 min-h-11">
-                  <a
-                    href={suggestion.searchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    referrerPolicy="no-referrer"
-                  >
-                    {suggestion.searchLabel} <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 min-h-11"
-                  onClick={() => onNavigate(suggestion.action ?? "theme")}
-                >
-                  {suggestion.action === "shopping" ? "Open the list" : "Build this version"}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </article>
-          ))}
-        </div>
-        <p className="px-5 py-3 text-[11px] leading-5 text-muted-foreground">
-          Search links are starting points, not endorsements. Confirm pricing, fit, accessibility,
-          reviews, and availability with each provider.
-        </p>
-      </section>
+      {playbook && (
+        <PartyIntelligenceCard
+          partyId={party.id}
+          playbook={playbook}
+          profile={party.planningProfile}
+          onNavigate={onNavigate}
+        />
+      )}
+      {guestPlan && (
+        <GuestPlanImpactCard partyId={party.id} snapshot={guestPlan} onNavigate={onNavigate} />
+      )}
+      {quantities && (
+        <PartyQuantityCard partyId={party.id} plan={quantities} onNavigate={onNavigate} />
+      )}
+
+      <LocalSourcingPlanner partyId={party.id} onNavigate={onNavigate} />
 
       {/* RSVP snapshot */}
       <section className="rounded-2xl border border-border bg-card p-5 shadow-card">
@@ -391,10 +437,400 @@ export function OverviewTab({
   );
 }
 
-function LocalPlanningIcon({ kind }: { kind: LocalPlanningKind }) {
-  if (kind === "food") return <UtensilsCrossed className="h-4 w-4" aria-hidden />;
-  if (kind === "at-home") return <House className="h-4 w-4" aria-hidden />;
-  return <MapPinned className="h-4 w-4" aria-hidden />;
+function GuestPlanImpactCard({
+  partyId,
+  snapshot,
+  onNavigate,
+}: {
+  partyId: string;
+  snapshot: GuestPlanSnapshot;
+  onNavigate: (tab: NavTab) => void;
+}) {
+  const { updateParty } = useParties();
+
+  const applyCurrentReplies = () => {
+    const suggestion = snapshot.countSuggestion;
+    if (!suggestion) {
+      onNavigate("guests");
+      return;
+    }
+    updateParty(partyId, (party) => {
+      const profile = {
+        version: 1 as const,
+        ...party.planningProfile,
+        expectedAdults: suggestion.adults,
+        expectedKids: suggestion.kids,
+      };
+      const reconciled = reconcilePartyPlaybook(party, profile, newId);
+      const resizedShopping = resizePartySizedShopping(reconciled.shoppingItems, suggestion.total);
+      return resolvePlanningDetails(
+        {
+          ...reconciled,
+          guestEstimate: suggestion.total,
+          shoppingItems: resizedShopping.items,
+        },
+        ["guests"],
+      );
+    });
+    toast.success(
+      `Quantities now use ${suggestion.total} current yes/maybe ${suggestion.total === 1 ? "reply" : "replies"}.`,
+    );
+    celebrate("micro");
+  };
+
+  const actOnImpact = (impact: GuestPlanImpact) => {
+    if (impact.id === "headcount" && snapshot.countSuggestion) {
+      applyCurrentReplies();
+      return;
+    }
+    if (impact.id !== "headcount" && !impact.applied) {
+      updateParty(partyId, (party) => materializeGuestImpact(party, impact, newId).party);
+      toast.success(
+        impact.id === "arrival"
+          ? "Arrival plan added to the timeline"
+          : "Planning check added to the checklist",
+      );
+      celebrate("micro");
+    }
+    onNavigate(impact.action);
+  };
+
+  return (
+    <section
+      aria-labelledby="guest-plan-impact-title"
+      data-testid="guest-plan-impact-card"
+      className="overflow-hidden rounded-3xl border border-primary/20 bg-card shadow-card"
+    >
+      <div className="bg-[linear-gradient(135deg,hsl(var(--primary)/0.1),hsl(var(--accent)/0.08))] p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary"
+            aria-hidden
+          >
+            <Users className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Live from your guest list
+            </div>
+            <h3
+              id="guest-plan-impact-title"
+              className="mt-1 font-display text-xl font-semibold text-secondary"
+            >
+              Guest answers, turned into a plan
+            </h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              Confetti translates replies into the food, timing, comfort, and responsibility checks
+              they affect—so you do not have to reread every answer and remember the consequence.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 gap-2 sm:max-w-xl">
+          <MiniStat label="Confirmed" value={String(snapshot.confirmed.total)} />
+          <MiniStat label="Maybe" value={String(snapshot.maybe.total)} />
+          <MiniStat label="Waiting" value={String(snapshot.pending.total)} />
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-background/80 px-2.5 py-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden />
+            Rule-based, not guessed
+          </span>
+          <span className="rounded-full border border-primary/15 bg-background/80 px-2.5 py-1">
+            Nothing changes without you
+          </span>
+        </div>
+      </div>
+
+      <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+        {snapshot.impacts.map((impact) => (
+          <article
+            key={impact.id}
+            data-testid={`guest-plan-impact-${impact.id}`}
+            className={`flex flex-col rounded-2xl border p-4 ${
+              impact.priority === "action"
+                ? "border-primary/20 bg-primary/[0.035]"
+                : "border-border bg-background/60"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              {impact.priority === "action" ? (
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+              ) : (
+                <ShieldCheck
+                  className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+              )}
+              <div className="min-w-0">
+                <h4 className="text-sm font-semibold leading-5 text-secondary">{impact.title}</h4>
+                <p className="mt-1 text-xs leading-5 text-secondary">{impact.summary}</p>
+                <p className="mt-1 text-[11px] leading-5 text-muted-foreground">{impact.reason}</p>
+              </div>
+            </div>
+            <Button
+              variant={impact.priority === "action" ? "outline" : "ghost"}
+              size="sm"
+              className="mt-3 min-h-11 self-start"
+              onClick={() => actOnImpact(impact)}
+            >
+              {impact.actionLabel} <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PartyQuantityCard({
+  partyId,
+  plan,
+  onNavigate,
+}: {
+  partyId: string;
+  plan: PartyQuantityPlan;
+  onNavigate: (tab: NavTab) => void;
+}) {
+  return (
+    <section
+      aria-labelledby="party-quantity-title"
+      data-testid="party-quantity-card"
+      className="rounded-3xl border border-border bg-card p-5 shadow-card sm:p-6"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+            aria-hidden
+          >
+            <Calculator className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              {plan.confidence === "tuned" ? "Tuned estimate" : "Working estimate"}
+            </div>
+            <h3
+              id="party-quantity-title"
+              className="mt-0.5 font-display text-xl font-semibold text-secondary"
+            >
+              Enough for {plan.children} {plan.children === 1 ? "child" : "children"} and{" "}
+              {plan.adults} {plan.adults === 1 ? "adult" : "adults"}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {plan.confidence === "tuned"
+                ? "Built from the food plan you confirmed."
+                : "A useful starting point—with every assumption visible."}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <EditDetailsDialog partyId={partyId} triggerLabel="Adjust counts" />
+          <QuantityTunerDialog partyId={partyId} />
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Quantity estimate facts">
+        {plan.knownFacts.map((fact) => (
+          <span
+            key={fact}
+            className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-medium text-secondary"
+          >
+            {fact}
+          </span>
+        ))}
+      </div>
+
+      {plan.assumptions.length > 0 && (
+        <div
+          className="mt-4 rounded-2xl border border-primary/15 bg-primary/[0.045] p-3"
+          data-testid="quantity-assumptions"
+        >
+          <div className="text-xs font-semibold text-secondary">
+            Confetti is still assuming {plan.openQuestions.length}{" "}
+            {plan.openQuestions.length === 1 ? "detail" : "details"}
+          </div>
+          <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] leading-5 text-muted-foreground">
+            {plan.assumptions.map((assumption) => (
+              <li key={assumption}>{assumption}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        {plan.estimates.map((item) => (
+          <div key={item.id} className="rounded-2xl border border-border bg-background/70 p-3">
+            <div className="font-display text-2xl font-semibold text-secondary">
+              {item.recommendation}
+            </div>
+            <div className="mt-0.5 text-xs font-medium text-secondary">{item.label}</div>
+            <div className="mt-1 text-[10px] leading-4 text-muted-foreground">
+              {item.assumption}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[10px] leading-4 text-muted-foreground">{plan.note}</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="min-h-11 shrink-0"
+          onClick={() => onNavigate("shopping")}
+        >
+          Use while shopping <ArrowRight aria-hidden />
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function PartyIntelligenceCard({
+  partyId,
+  playbook,
+  profile,
+  onNavigate,
+}: {
+  partyId: string;
+  playbook: PartyPlaybook;
+  profile?: PartyPlanningProfile;
+  onNavigate: (tab: NavTab) => void;
+}) {
+  const startingPath = preschoolPartyPaths(profile)[0];
+  const pathIsRecommendation =
+    startingPath != null && (!profile?.format || profile.format === "help-me-choose");
+
+  return (
+    <section
+      aria-labelledby="party-intelligence-title"
+      data-testid="party-intelligence-card"
+      className="overflow-hidden rounded-3xl border border-primary/20 bg-card shadow-card"
+    >
+      <div className="bg-primary/[0.065] p-5 sm:p-6">
+        <div className="flex items-start gap-3">
+          <span
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary"
+            aria-hidden
+          >
+            <WandSparkles className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Confetti understands this party
+            </div>
+            <h3
+              id="party-intelligence-title"
+              className="mt-1 font-display text-xl font-semibold text-secondary"
+            >
+              {playbook.title}
+            </h3>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              {playbook.promise}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-secondary">
+          {playbook.recommendedDurationMinutes && (
+            <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
+              {playbook.recommendedDurationMinutes}-minute flow
+            </span>
+          )}
+          <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
+            {playbook.rsvpQuestions.length} useful RSVP questions
+          </span>
+          <span className="rounded-full border border-primary/15 bg-background px-3 py-1.5">
+            {playbook.guardrails.length}{" "}
+            {playbook.ageBand ? "age-aware guardrails" : "planning guardrails"}
+          </span>
+        </div>
+
+        {startingPath && (
+          <div
+            data-testid="preschool-starting-path"
+            className="mt-4 rounded-2xl border border-primary/15 bg-background p-4"
+          >
+            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary">
+              Starting path · {pathIsRecommendation ? "Confetti recommendation" : "Your choice"}
+            </div>
+            <div className="mt-1 font-display text-base font-semibold text-secondary">
+              {startingPath.title}
+            </div>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {startingPath.recommendationReason}
+            </p>
+            <p className="mt-2 text-xs font-medium leading-5 text-secondary">
+              Next: {startingPath.nextStep}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="min-h-11"
+                onClick={() => {
+                  if (startingPath.format === "home") {
+                    onNavigate("theme");
+                    return;
+                  }
+                  document
+                    .getElementById("local-planning-title")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                {startingPath.format === "home"
+                  ? "Build the at-home version"
+                  : "Compare local options"}
+                <ArrowRight />
+              </Button>
+              <EditDetailsDialog partyId={partyId} triggerLabel="Change path" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-px bg-border md:grid-cols-[1.15fr_0.85fr]">
+        <div className="bg-card p-5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-secondary">
+            <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
+            Already handled in your plan
+          </div>
+          <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            {playbook.guardrails.slice(0, 4).map((item) => (
+              <li key={item.id} className="rounded-xl bg-muted/55 px-3 py-2.5">
+                <span className="font-medium text-secondary">{item.title}</span>
+                <span className="mt-0.5 block text-xs leading-5">{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="flex flex-col justify-between bg-card p-5">
+          <div>
+            <div className="text-sm font-semibold text-secondary">The next no-brainer</div>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              Review the party flow first. Then your checklist, food, and guest communication can
+              follow the same plan.
+            </p>
+          </div>
+          <Button
+            variant="festive"
+            size="sm"
+            className="mt-4 min-h-11 w-full"
+            onClick={() => onNavigate("timeline")}
+          >
+            Review
+            {playbook.recommendedDurationMinutes
+              ? ` the ${playbook.recommendedDurationMinutes}-minute flow`
+              : " the party flow"}{" "}
+            <ArrowRight />
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function planningMoveCopy(detail: PlanningDetail): { action: string; hint: string } {
@@ -407,6 +843,63 @@ function planningMoveCopy(detail: PlanningDetail): { action: string; hint: strin
       return { action: "Set budget", hint: "Choose a comfortable ceiling—or decide later." };
     case "theme":
       return { action: "Explore looks", hint: "Find a direction without locking it in." };
+  }
+}
+
+function nextActionPresentation(phase?: NextActionPhase): { title: string; body: string } {
+  switch (phase) {
+    case "decision":
+      return {
+        title: "One decision unlocks the rest",
+        body: "Start with the highest-leverage answer. A rough choice is enough, and everything else can wait.",
+      };
+    case "overdue":
+      return {
+        title: "Start here—this needs attention",
+        body: "This work is past its suggested planning window. Confetti put the most foundational step first.",
+      };
+    case "active":
+      return {
+        title: "This is the right moment",
+        body: "These are the useful things to handle in the current planning window—one is enough for now.",
+      };
+    case "upcoming":
+      return {
+        title: "Here’s what comes next",
+        body: "Nothing is on fire. Confetti sorted the next useful moves around your party date.",
+      };
+    case "past":
+      return {
+        title: "Close the loop",
+        body: "The party has passed. Finish only what still matters, then capture what will make next time easier.",
+      };
+    case "unscheduled":
+      return {
+        title: "Keep the plan moving",
+        body: "The date can stay flexible. Pick one useful action now and Confetti will time the rest once it is set.",
+      };
+    default:
+      return {
+        title: "You’re beautifully caught up",
+        body: "There is nothing waiting on the checklist. Enjoy the breathing room.",
+      };
+  }
+}
+
+function nextActionTimingLabel(action: RankedPartyTask): string {
+  switch (action.phase) {
+    case "overdue":
+      return "Needs attention now";
+    case "active":
+      return action.timing ? `Good time to do this · ${action.timing.windowLabel}` : "Good time";
+    case "upcoming":
+      return action.timing ? `Coming up · ${action.timing.windowLabel}` : action.task.bucket;
+    case "past":
+      return "Party has passed";
+    case "unscheduled":
+      return action.task.bucket;
+    case "decision":
+      return "Unlocks the plan";
   }
 }
 
@@ -458,6 +951,7 @@ function PartyJourneyActions({
   hasPhotoDrop,
   rsvpToken,
   dateTbd,
+  guestShareReady,
   onOpenInvite,
   onOpenBring,
 }: {
@@ -466,11 +960,12 @@ function PartyJourneyActions({
   hasPhotoDrop: boolean;
   rsvpToken?: string;
   dateTbd: boolean;
+  guestShareReady: boolean;
   onOpenInvite: () => void;
   onOpenBring: () => void;
 }) {
   const copyGuestLink = async () => {
-    if (!rsvpToken || dateTbd) {
+    if (!rsvpToken || dateTbd || !guestShareReady) {
       onOpenInvite();
       return;
     }

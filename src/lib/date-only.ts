@@ -136,6 +136,34 @@ export function nextWeekdayDateOnly(
 }
 
 /**
+ * Find a weekday using the UTC calendar rather than the viewer's local one.
+ * Use this only for SSR-rendered illustrative dates, where the server and
+ * browser must derive identical copy from the same instant.
+ */
+export function nextWeekdayDateOnlyUtc(
+  weekday: number,
+  minimumDays: number,
+  now: Date = new Date(),
+): string {
+  if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) {
+    throw new Error("weekday must be an integer from 0 through 6");
+  }
+  if (!Number.isInteger(minimumDays) || minimumDays < 0) {
+    throw new Error("minimumDays must be a non-negative integer");
+  }
+  const earliest = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + minimumDays),
+  );
+  const daysToWeekday = (weekday - earliest.getUTCDay() + 7) % 7;
+  earliest.setUTCDate(earliest.getUTCDate() + daysToWeekday);
+  return [
+    earliest.getUTCFullYear().toString().padStart(4, "0"),
+    (earliest.getUTCMonth() + 1).toString().padStart(2, "0"),
+    earliest.getUTCDate().toString().padStart(2, "0"),
+  ].join("-");
+}
+
+/**
  * Difference between two date-only values in calendar days (b - a). Uses
  * local components so DST does not distort the count.
  */
@@ -155,6 +183,16 @@ export function calendarDaysBetween(aISO: string, bISO: string): number {
 /** Local-calendar days until a date-only string, from `now` (default today). */
 export function daysUntilLocal(dateISO: string, now: Date = new Date()): number {
   const today = localDateToDateOnly(now);
+  return calendarDaysBetween(today, dateISO);
+}
+
+/** UTC-calendar days until a date-only string, for deterministic SSR copy. */
+export function daysUntilUtc(dateISO: string, now: Date = new Date()): number {
+  const today = [
+    now.getUTCFullYear().toString().padStart(4, "0"),
+    (now.getUTCMonth() + 1).toString().padStart(2, "0"),
+    now.getUTCDate().toString().padStart(2, "0"),
+  ].join("-");
   return calendarDaysBetween(today, dateISO);
 }
 

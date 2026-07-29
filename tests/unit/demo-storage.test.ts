@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_MAX_BYTES, DEMO_STORAGE_KEY, loadDemoState, saveDemoState } from "@/lib/demo-storage";
+import {
+  DEMO_MAX_BYTES,
+  DEMO_STORAGE_KEY,
+  loadDemoCustomParties,
+  loadDemoState,
+  removeDemoCustomParties,
+  saveDemoState,
+} from "@/lib/demo-storage";
 import type { Party } from "@/lib/party-context";
 
 function seed(id: string, over: Partial<Party> = {}): Party {
@@ -64,6 +71,54 @@ describe("demo-storage", () => {
     expect(out.parties[1]?.name).toBe("Party b"); // fresh seed
   });
 
+  it("backfills new seed fields into an older stored sample override", () => {
+    const s = new MemStorage();
+    const retrospective = {
+      worked: "The quieter second screen helped.",
+      updatedAt: "2030-01-02T00:00:00.000Z",
+    };
+    const freshSeed = seed("a", { retrospective });
+    const olderOverride = seed("a", { name: "My edited sample" });
+    delete (olderOverride as Partial<Party>).retrospective;
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { a: olderOverride },
+        custom: [],
+      }),
+    );
+
+    const out = loadDemoState([freshSeed], s);
+    expect(out.parties[0]).toMatchObject({
+      id: "a",
+      name: "My edited sample",
+      retrospective,
+    });
+  });
+
+  it("preserves an explicit stored null instead of restoring a new seed field", () => {
+    const s = new MemStorage();
+    const freshSeed = seed("a", {
+      retrospective: {
+        worked: "The quieter second screen helped.",
+        updatedAt: "2030-01-02T00:00:00.000Z",
+      },
+    });
+    const clearedOverride = seed("a", { retrospective: null });
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { a: clearedOverride },
+        custom: [],
+      }),
+    );
+
+    const out = loadDemoState([freshSeed], s);
+    expect(out.parties[0]?.retrospective).toBeNull();
+  });
+
   it("drops corrupt JSON and warns", () => {
     const s = new MemStorage();
     s.store.set(DEMO_STORAGE_KEY, "{not json");
@@ -78,6 +133,25 @@ describe("demo-storage", () => {
     s.store.set(DEMO_STORAGE_KEY, JSON.stringify(["not", "the", "right", "shape"]));
     const out = loadDemoState([seed("a")], s);
     expect(out.warning).toBe("corrupt");
+  });
+
+  it("drops only the invalid party while preserving other saved parties", () => {
+    const s = new MemStorage();
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: {
+          a: { ...seed("a"), name: "" },
+        },
+        custom: [{ nonsense: true }, seed("valid-custom")],
+      }),
+    );
+
+    const out = loadDemoState([seed("a")], s);
+    expect(out.warning).toBe("corrupt");
+    expect(out.parties.map((party) => party.id)).toEqual(["a", "valid-custom"]);
+    expect(out.parties[0]?.name).toBe("Party a");
   });
 
   it("splits samples from custom parties on save/load roundtrip", () => {
@@ -95,6 +169,67 @@ describe("demo-storage", () => {
     const out = loadDemoState(seeds, s);
     expect(out.parties.map((p) => p.id)).toEqual(["a", "custom-1"]);
     expect(out.parties[0]?.name).toBe("Edited seed");
+  });
+
+  it("exposes only validated custom parties for an explicit account claim", () => {
+    const s = new MemStorage();
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { sample: seed("sample", { name: "Edited sample" }) },
+        custom: [seed("custom-1"), { id: "bad", name: "" }, seed("custom-2")],
+      }),
+    );
+
+    const out = loadDemoCustomParties(s);
+    expect(out.parties.map((party) => party.id)).toEqual(["custom-1", "custom-2"]);
+    expect(out.warning).toBe("corrupt");
+  });
+
+  it("removes only acknowledged custom parties and preserves samples and failures", () => {
+    const s = new MemStorage();
+    const invalid = { id: "keep-invalid", name: "" };
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { sample: seed("sample", { name: "Edited sample" }) },
+        custom: [seed("claimed"), seed("retry"), invalid],
+      }),
+    );
+
+    expect(removeDemoCustomParties(["claimed"], s)).toEqual({ ok: true });
+    const raw = JSON.parse(s.getItem(DEMO_STORAGE_KEY)!);
+    expect(raw.samples.sample.name).toBe("Edited sample");
+    expect(raw.custom.map((party: { id: string }) => party.id)).toEqual(["retry", "keep-invalid"]);
+    expect(loadDemoCustomParties(s).parties.map((party) => party.id)).toEqual(["retry"]);
+  });
+
+  it("leaves the browser copy untouched when selective cleanup cannot write", () => {
+    const s = new MemStorage();
+    const custom = seed("custom-1");
+    expect(saveDemoState([custom], [], s).ok).toBe(true);
+    const before = s.getItem(DEMO_STORAGE_KEY);
+    s.quota = 1;
+
+    expect(removeDemoCustomParties(["custom-1"], s)).toEqual({
+      ok: false,
+      reason: "quota",
+    });
+    expect(s.getItem(DEMO_STORAGE_KEY)).toBe(before);
+  });
+
+  it("keeps a decide-later party with no date across a save/load roundtrip", () => {
+    const s = new MemStorage();
+    const custom = seed("date-tbd", { date: "" });
+
+    expect(saveDemoState([custom], [], s).ok).toBe(true);
+
+    const out = loadDemoState([], s);
+    expect(out.warning).toBeUndefined();
+    expect(out.parties).toHaveLength(1);
+    expect(out.parties[0]).toMatchObject({ id: "date-tbd", date: "" });
   });
 
   it("does not resurrect orphaned seed overrides after seed removal", () => {

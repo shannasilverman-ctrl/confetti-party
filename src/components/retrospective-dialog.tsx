@@ -52,8 +52,8 @@ export function RetrospectiveDialog({ partyId }: { partyId: string }) {
         <DialogHeader>
           <DialogTitle>How did it go?</DialogTitle>
           <DialogDescription>
-            Only you can see this. If you duplicate the party, a private copy of these notes comes
-            with it for reference.
+            Only you can see this. When you plan the next one, Confetti turns what fell short and
+            what you would change into private planning tasks.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">

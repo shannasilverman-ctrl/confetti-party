@@ -23,6 +23,8 @@ import type {
   PartyRetrospective,
 } from "./party-context";
 import type { ShoppingItem } from "./shopping";
+import type { PartyPlanningProfile } from "./party-intelligence";
+import { withTaskGuidance } from "./task-guidance";
 
 // ----- Row shape used by the Supabase adapter -----
 
@@ -49,6 +51,7 @@ export type PartyRow = {
   bring_board: unknown;
   host_updates: unknown;
   holiday_pack_id: string | null;
+  planning_profile: unknown;
   photo_drop: unknown;
   checkins: unknown;
   retrospective: unknown;
@@ -79,6 +82,7 @@ export const HOST_COLUMNS = [
   "bring_board",
   "host_updates",
   "holiday_pack_id",
+  "planning_profile",
   "photo_drop",
   "checkins",
   "retrospective",
@@ -119,6 +123,7 @@ export function partyToColumns(p: Party, userId: string): PartyRow {
     bring_board: p.bringBoard ?? [],
     host_updates: p.hostUpdates ?? [],
     holiday_pack_id: p.holidayPackId ?? null,
+    planning_profile: p.planningProfile ?? {},
     photo_drop: p.photoDrop ?? null,
     checkins: p.checkins ?? {},
     retrospective: p.retrospective ?? null,
@@ -138,7 +143,7 @@ export function rowToParty(r: PartyRow): Party {
     theme: r.theme,
     themeId: r.theme_id ?? undefined,
     rsvpToken: r.rsvp_token ?? undefined,
-    tasks: (r.tasks as Task[]) ?? [],
+    tasks: ((r.tasks as Task[]) ?? []).map(withTaskGuidance),
     guests: (r.guests as Guest[]) ?? [],
     budgetCategories: (r.budget_categories as BudgetCategory[]) ?? [],
     shoppingItems: (r.shopping_items as ShoppingItem[]) ?? [],
@@ -149,6 +154,7 @@ export function rowToParty(r: PartyRow): Party {
     bringBoard: (r.bring_board as BringItem[]) ?? [],
     hostUpdates: (r.host_updates as HostUpdate[]) ?? [],
     holidayPackId: r.holiday_pack_id ?? undefined,
+    planningProfile: (r.planning_profile as PartyPlanningProfile | null) ?? undefined,
     photoDrop: (r.photo_drop as Party["photoDrop"]) ?? null,
     checkins: (r.checkins as Record<string, string>) ?? {},
     retrospective: (r.retrospective as PartyRetrospective | null) ?? null,
@@ -191,7 +197,13 @@ export function diffColumns(
 
 /** Guest-domain fields that indicate a real guest write on an item. */
 function guestDomainDiffersGuest(a: Guest, b: Guest): boolean {
-  return a.rsvp !== b.rsvp;
+  return (
+    a.rsvp !== b.rsvp ||
+    a.household !== b.household ||
+    JSON.stringify(a.dietary ?? []) !== JSON.stringify(b.dietary ?? []) ||
+    JSON.stringify(a.allergens ?? []) !== JSON.stringify(b.allergens ?? []) ||
+    JSON.stringify(a.responseDetails ?? {}) !== JSON.stringify(b.responseDetails ?? {})
+  );
 }
 function guestDomainDiffersBring(a: BringItem, b: BringItem): boolean {
   return (
@@ -234,8 +246,20 @@ export function mergeGuests(
     }
     if (b && !s) continue;
     if (l && s) {
-      const rsvp = b && s.rsvp !== b.rsvp ? s.rsvp : l.rsvp;
-      items.push({ ...l, rsvp });
+      const serverGuestWrite = Boolean(b && guestDomainDiffersGuest(s, b));
+      items.push(
+        serverGuestWrite
+          ? {
+              ...l,
+              rsvp: s.rsvp,
+              household: s.household,
+              dietary: s.dietary,
+              allergens: s.allergens,
+              responseDetails: s.responseDetails,
+              source: s.source ?? l.source,
+            }
+          : l,
+      );
       continue;
     }
     items.push((l ?? s) as Guest);
@@ -301,15 +325,46 @@ export function mergeBringBoard(
   return { items, hadRemoveVsServerChange };
 }
 
-/** Key-union: keep the max ISO timestamp per key. */
+/**
+ * Three-way merge for arrival toggles.
+ *
+ * A key removed on one side must stay removed when the other side did not
+ * change that same guest. The previous key-union behavior resurrected an
+ * explicit checkout whenever another browser changed an unrelated check-in.
+ * When both sides changed the same guest concurrently, an arrival timestamp
+ * wins over a removal; when both recorded an arrival, keep the later ISO
+ * timestamp.
+ */
 export function mergeCheckins(
-  _baseline: Record<string, string>,
+  baseline: Record<string, string>,
   local: Record<string, string>,
   server: Record<string, string>,
 ): Record<string, string> {
-  const out: Record<string, string> = { ...server };
-  for (const [k, v] of Object.entries(local)) {
-    if (!out[k] || v > out[k]) out[k] = v;
+  const out: Record<string, string> = {};
+  const guestIds = new Set([
+    ...Object.keys(baseline),
+    ...Object.keys(local),
+    ...Object.keys(server),
+  ]);
+
+  for (const guestId of guestIds) {
+    const before = baseline[guestId];
+    const localValue = local[guestId];
+    const serverValue = server[guestId];
+    const localChanged = localValue !== before;
+    const serverChanged = serverValue !== before;
+
+    let selected: string | undefined;
+    if (!localChanged) selected = serverValue;
+    else if (!serverChanged) selected = localValue;
+    else if (localValue === serverValue) selected = localValue;
+    else if (localValue && serverValue) {
+      selected = localValue > serverValue ? localValue : serverValue;
+    } else {
+      selected = localValue ?? serverValue;
+    }
+
+    if (selected) out[guestId] = selected;
   }
   return out;
 }

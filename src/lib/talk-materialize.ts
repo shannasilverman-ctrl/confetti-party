@@ -23,9 +23,16 @@ import {
 } from "./holiday-packs";
 // Types are erased at build; importing them from party-context does NOT drag
 // the React/Supabase client module into the server-fn bundle.
-import type { Bucket, OccasionType } from "./party-context";
+import type { BudgetCategory, Bucket, OccasionType, TaskAction } from "./party-context";
 import { generateShoppingItems, type ShoppingItem } from "./shopping";
 import { isoDateInDaysLocal } from "./date-only";
+import {
+  materializePlaybook,
+  partyPlaybook,
+  type PartyPlanningProfile,
+} from "./party-intelligence";
+import { generatedTaskMetadata } from "./task-guidance";
+import { createBudgetCategories } from "./budget";
 
 // Minimal, deterministic baseline tasks per occasion. Kept in this file (not
 // imported from party-context) so the materializer stays server-safe.
@@ -38,6 +45,7 @@ function baselineTasks(
     { title: "Send invites", bucket: "3-5 weeks" },
     { title: "Plan menu", bucket: "1-2 weeks" },
     { title: "Shop and prep", bucket: "Party week" },
+    { title: "Confirm RSVPs", bucket: "Party week" },
     { title: "Set up on the day", bucket: "Day of" },
   ];
   const extras: Partial<Record<OccasionType, Array<{ title: string; bucket: Bucket }>>> = {
@@ -60,6 +68,7 @@ export type DraftPatch = {
     occasion?: string;
     holidayPackId?: string;
     tone?: string;
+    honoreeAge?: number;
   };
   when?: {
     date?: string;
@@ -69,12 +78,17 @@ export type DraftPatch = {
   };
   where?: {
     display?: string;
+    venueKind?: "home" | "backyard" | "park" | "venue" | "virtual" | "unknown";
     contingency?: { needed: boolean; kind?: string; plan?: string };
   };
-  people?: { expectedCount?: number; households?: number; kids?: number };
+  people?: { expectedCount?: number; households?: number; kids?: number; adults?: number };
   effort?: { level?: "low" | "medium" | "high"; hostReadyTarget?: string };
   budget?: { total?: number; stance?: "strict" | "flexible" | "no-limit" };
-  food?: { approach?: string; peakMoment?: string };
+  food?: {
+    approach?: string;
+    peakMoment?: string;
+    portionModel?: "per-guest" | "per-adult+kid" | "family-style" | "unknown";
+  };
   constraints?: {
     dietary?: string[];
     accessibility?: string[];
@@ -213,8 +227,17 @@ export type MaterializedParty = {
   theme: string;
   themeId: string | null;
   holidayPackId: PackId | null;
+  planningProfile: PartyPlanningProfile | null;
   hostNote: string | null;
-  tasks: Array<{ id: string; title: string; bucket: Bucket; done: false }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    bucket: Bucket;
+    done: false;
+    reason?: string;
+    action?: TaskAction;
+    guidanceSource?: "curated" | "inferred";
+  }>;
   bringBoard: Array<{
     id: string;
     category: string;
@@ -228,7 +251,7 @@ export type MaterializedParty = {
   }>;
   shoppingItems: ShoppingItem[];
   timeline: Array<{ id: string; time: string; activity: string }>;
-  budgetCategories: Array<{ id: string; name: string; planned: number; expenses: [] }>;
+  budgetCategories: BudgetCategory[];
 };
 
 export type MaterializeOptions = {
@@ -318,6 +341,51 @@ export function materializeDraft(
   const guestEstimate = hasGuestCount ? clampInt(merged.people?.expectedCount, 0, 500, 0) : 0;
   const hasBudget = typeof merged.budget?.total === "number";
   const budget = hasBudget ? clampInt(merged.budget?.total, 0, 100_000, 0) : 0;
+  const kids =
+    typeof merged.people?.kids === "number" ? clampInt(merged.people.kids, 0, 500, 0) : undefined;
+  const adults =
+    typeof merged.people?.adults === "number"
+      ? clampInt(merged.people.adults, 0, 500, 0)
+      : hasGuestCount && kids != null
+        ? Math.max(0, guestEstimate - kids)
+        : undefined;
+  const honoreeAge =
+    typeof merged.identity?.honoreeAge === "number"
+      ? clampInt(merged.identity.honoreeAge, 1, 120, 1)
+      : undefined;
+  const format =
+    merged.where?.venueKind === "home" || merged.where?.venueKind === "backyard"
+      ? ("home" as const)
+      : merged.where?.venueKind === "venue"
+        ? ("venue" as const)
+        : ("help-me-choose" as const);
+  const effort =
+    merged.effort?.level === "low"
+      ? ("easy" as const)
+      : merged.effort?.level === "high"
+        ? ("all-out" as const)
+        : ("balanced" as const);
+  const planningProfile: PartyPlanningProfile = {
+    version: 1,
+    ...(occasion === "birthday" && honoreeAge != null ? { honoreeAge } : {}),
+    ...(kids != null ? { expectedKids: kids } : {}),
+    ...(adults != null ? { expectedAdults: adults } : {}),
+    ...(merged.food?.approach === "snacks-only" ? { foodRole: "light-bites" as const } : {}),
+    ...(merged.food?.portionModel === "family-style"
+      ? { foodServiceStyle: "family-style" as const }
+      : {}),
+    effort,
+    format,
+  };
+  const smart = materializePlaybook(
+    partyPlaybook({
+      occasion,
+      profile: planningProfile,
+      startTime: startTime ?? undefined,
+      holidayPackId: pack?.id,
+    }),
+    mkId,
+  );
 
   // ---- Tasks: occasion baseline + pack seeds + captured-field derived +
   //      open-question converts. Deduped case-insensitively by title.
@@ -439,16 +507,19 @@ export function materializeDraft(
     title: t.title,
     bucket: t.bucket,
     done: false as const,
+    ...generatedTaskMetadata(t.title),
   }));
   const derived = derivedTasks.map((t) => ({
     id: mkId(),
     title: t.title,
     bucket: t.bucket,
     done: false as const,
+    ...generatedTaskMetadata(t.title),
   }));
   const tasks = dedupeTasks([
     ...packTaskEntries.map((t) => ({ ...t, done: false as const })),
     ...occasionTasks,
+    ...smart.tasks,
     ...derived,
   ]);
 
@@ -472,7 +543,7 @@ export function materializeDraft(
 
   // ---- Timeline: anchors + activities. Anchors carry a time; activities become
   //      untimed rows so the host slots them in.
-  const timeline: Array<{ id: string; time: string; activity: string }> = [];
+  const timeline: Array<{ id: string; time: string; activity: string }> = [...smart.timeline];
   for (const a of merged.when?.anchors ?? []) {
     if (!a.label) continue;
     timeline.push({ id: mkId(), time: a.at || "", activity: a.label });
@@ -490,14 +561,9 @@ export function materializeDraft(
     return true;
   });
 
-  // ---- Budget categories: occasion-tuned splits stay untouched by materialize;
-  //      we produce a simple food-heavy split for holidays here for determinism.
-  const budgetCategories = [
-    { id: mkId(), name: "Food & Drink", planned: Math.round(budget * 0.55), expenses: [] as [] },
-    { id: mkId(), name: "Decorations", planned: Math.round(budget * 0.15), expenses: [] as [] },
-    { id: mkId(), name: "Supplies", planned: Math.round(budget * 0.15), expenses: [] as [] },
-    { id: mkId(), name: "Extras", planned: Math.round(budget * 0.15), expenses: [] as [] },
-  ];
+  // ---- Budget categories: deterministic occasion-aware targets always add
+  //      up to the host's stated total, including small and zero budgets.
+  const budgetCategories = createBudgetCategories(occasion, budget, mkId);
 
   // ---- Theme: light-touch from creativeDirection.vibe. No inference of themeId.
   const theme = (merged.vibe?.creativeDirection?.vibe ?? "").trim();
@@ -565,6 +631,7 @@ export function materializeDraft(
       theme,
       themeId: null,
       holidayPackId: pack?.id ?? null,
+      planningProfile,
       hostNote,
       tasks,
       bringBoard,

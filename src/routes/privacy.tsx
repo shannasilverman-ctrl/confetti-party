@@ -60,12 +60,20 @@ function PrivacyPage() {
               feature requires an OpenAI key to be configured and may be unavailable in this
               deployment.
             </li>
+            <li>
+              Privacy-minimal product events: an allowlisted action such as “plan created” or “RSVP
+              completed,” the broad page category where it happened, and the deployed release. These
+              events contain no account, party, guest, or device identifier; no invitation token; no
+              contact information; and none of the words you enter. They are used only to understand
+              whether core journeys work and where failures occur.
+            </li>
           </ul>
 
           <h2 className="mt-8 font-display text-xl font-semibold">What we do not collect</h2>
           <ul className="mt-3 list-disc space-y-1 pl-6 text-sm">
             <li>Payment information — Confetti has no billing.</li>
             <li>Cross-site tracking cookies or third-party ad networks.</li>
+            <li>Persistent analytics identifiers or cross-session behavioral profiles.</li>
             <li>Guest email addresses or phone numbers (unless you type them into a note).</li>
             <li>
               Photos used in Party Booth. The original and event-framed image are processed only in
@@ -93,11 +101,13 @@ function PrivacyPage() {
               Account page
             </Link>{" "}
             you can also download a JSON export of everything we store for your account, or
-            permanently delete your account. Deleting your account cascades: every party, guest
-            RSVP, bring-board item, host update, draft, and voice-session record tied to your
-            account is removed from the active database. Infrastructure providers may retain
-            encrypted operational backups according to the deployment's configured backup schedule;
-            this beta does not promise a specific backup purge window.
+            permanently delete your account. If a party has a cohost, Confetti first requires you to
+            transfer it or remove the cohost so account deletion cannot silently destroy another
+            planner's work. Account deletion then cascades through your remaining parties, guest
+            RSVPs, bring-board items, host updates, drafts, and voice-session records.
+            Infrastructure providers may retain encrypted operational backups according to the
+            deployment's configured backup schedule; this beta does not promise a specific backup
+            purge window.
           </p>
           <p className="mt-3 text-sm">
             Confetti also stores a small amount of sample/demo state in this browser's local storage
@@ -108,8 +118,10 @@ function PrivacyPage() {
           <h2 className="mt-8 font-display text-xl font-semibold">Guest data</h2>
           <p className="mt-3 text-sm">
             When a guest submits an RSVP through your invitation link, their name and any
-            dietary/allergen tags they enter are stored on your party. Public views of the guest
-            page strip attendee identities from the bring board and only show aggregate counts.
+            dietary/allergen tags, arrival preference, or optional comfort/access note they enter
+            are stored on your party. Confetti asks guests not to include medical records or
+            emergency contact details. Public views of the guest page strip attendee identities from
+            the bring board and only show aggregate counts.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Questions</h2>

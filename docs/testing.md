@@ -12,6 +12,7 @@ bun run lint          # ESLint + Prettier
 bun run typecheck     # tsgo --noEmit (strict)
 bun run test          # Vitest unit tests (jsdom)
 bun run test:coverage # Vitest with v8 coverage (HTML report under ./coverage)
+bun run rehearse:migration # sanitized Firebase shadow transform/reconciliation
 bun run build         # Vite production build (must precede E2E)
 bun run test:e2e      # Playwright against the production preview server
 ```
@@ -22,7 +23,9 @@ non-sandbox host, or `dist/server/wrangler.json` inside the Lovable
 sandbox. `scripts/wrangler-config-path.mjs` resolves the path from
 whichever directory actually exists, so you must have run
 `bun run build` at least once (CI does this in-order). Override the port
-with `PW_PORT`.
+with `PW_PORT`. Playwright intentionally uses one worker locally and in
+CI: concurrent browser contexts can exhaust the single preview Worker and
+turn otherwise healthy routes into misleading connection-refused failures.
 
 GitHub runs `test:e2e:desktop` and `test:e2e:mobile` as separate steps.
 Both execute the same suite, but each starts a fresh Wrangler process so
@@ -43,24 +46,74 @@ and does not need this override.
 
 ## Layers
 
-- **Unit (`tests/unit/`)** — pure product logic and one small component
-  behavior test. Current coverage: affiliate link builders, holiday-pack
-  detection & materialization, shopping seed generation, and the `LogoLockup`
-  wordmark render.
+- **Unit (`tests/unit/`)** — pure product logic and focused component behavior.
+  This includes browser-to-account claim validation, seed exclusion,
+  authority stripping, owner collision denial, idempotent retry, partial
+  failure, selective cleanup, masked-account confirmation, and identity
+  transition contracts. The signed-out Talk parser is deterministic and
+  tested for explicit and relative dates, adult/kid totals, budget, setting,
+  dietary needs, holiday packs, bounded turns, and non-invention. Authenticated
+  read-cache tests cover exact-user isolation, RSVP-token redaction, TTL and
+  future-clock rejection, count/size bounds, nested corruption, duplicate
+  parties, complete role maps, and permission-vs-transient failure gating.
 - **E2E (`tests/e2e/`)** — Playwright hits the built app at desktop (1280x900)
   and mobile (390x844 / Pixel 7) for every public critical path: `/`,
   `/talk`, `/app`, `/party/ava-liam-wedding`, `/party/ava-liam-wedding/reveal`,
   `/party/ava-liam-wedding/day-of`, plus the RSVP not-found state on a
   synthetic UUID. Each page must render the full "Confetti" wordmark, expose
   a landmark (`<main>` or `<h1>`), and produce no horizontal overflow.
+  The Talk journey also enters a host's exact words, verifies the tailored
+  response, creates a browser-saved party, checks the explicit year, guest
+  count, and budget, then reloads the workspace on desktop and mobile.
+  The production asset contract also confirms the release-scoped service
+  worker excludes sensitive paths and reopens a previously controlled
+  dashboard shell with the browser network disabled on desktop and mobile.
 - **Accessibility** — `@axe-core/playwright` scans `/` and `/talk` and fails
   on any `serious` or `critical` WCAG 2.0 A/AA violation.
+
+## Firebase migration shadow rehearsal (`bun run rehearse:migration`)
+
+This credential-free gate takes the checked-in sanitized Firebase snapshot
+through the versioned field map and a logical, in-memory shadow transform. It
+does not connect to Firebase, Supabase, or any other database and cannot import
+data.
+
+Provide an explicit 32-byte-or-longer rehearsal HMAC key and a non-secret key
+identifier:
+
+```bash
+CONFETTI_MIGRATION_HMAC_KEY='replace-with-an-ephemeral-rehearsal-key' \
+CONFETTI_MIGRATION_KEY_ID='local-sanitized-v2' \
+bun run rehearse:migration
+```
+
+The command fails closed on unclassified or ambiguous fields, malformed root
+containers, unsafe JSON values and keys, invalid or future timestamps,
+duplicate logical entities, dangling owners/members/bookings, unknown roles
+or providers, and target-reference collisions. It builds sensitive logical
+target rows only in process memory, applies them twice to an in-memory ledger,
+and independently reconciles the expected and observed target sets.
+
+Standard output is deterministic and redacted. It contains only
+domain-separated keyed references and revisions, decision/target counts,
+keyed roots, idempotency counts, and stable reconciliation codes. It never
+contains source UIDs, names, emails, event codes, integration credentials,
+messages, object paths, URLs, or raw content hashes. The output always says
+`rehearsalOnly: true`, `databaseWrites: false`, and `productionReady: false`.
+The explicit key is required even when the input claims to be sanitized;
+untrusted input cannot opt itself into a built-in known key.
+
+CI runs this rehearsal with an ephemeral fixture-only key after unit coverage.
+This proves transform determinism, report opacity, logical idempotency, delta
+classification, and reconciliation behavior. It does not prove Postgres
+constraints/RLS, restore integrity, production export completeness, or a real
+Firebase-to-Supabase import.
 
 ## Database integration harness (`bun run test:db`)
 
 `supabase/tests/rpc_harness.sql` exercises the token-scoped RPCs
-(`get_rsvp_party`, `list_bring_board`, `submit_rsvp`, `claim_bring_item`,
-`release_bring_item`). The entire script runs inside a single
+(`get_rsvp_party`, `get_rsvp_party_v2`, `list_bring_board`, `submit_rsvp`,
+`submit_rsvp_v2`, `claim_bring_item`, `release_bring_item`). The entire script runs inside a single
 `BEGIN ... ROLLBACK` with `ON_ERROR_STOP=1`; every fixture row is tagged
 with a unique per-run marker (`rpc_harness_fixture_<epoch-ns>`) so a
 post-run persistence check can prove zero rows leaked.
@@ -71,9 +124,12 @@ Assertions:
   both `anon` and `authenticated` grants present; the obsolete 5-argument
   `submit_rsvp` overload is absent; function bodies retain
   `SECURITY DEFINER`, explicit `search_path`, wildcard `ESCAPE` in
-  `submit_rsvp`, and `FOR UPDATE` row locks in
+  `submit_rsvp`, the v2 public projection exposes only a coarse contextual
+  RSVP kind, v2 answer details are allow-listed and size-bounded, and
+  `FOR UPDATE` row locks remain in
   `claim_bring_item` / `release_bring_item`.
-- **Behavioural (Phase B)**: `get_rsvp_party` / `list_bring_board` return
+- **Behavioural (Phase B)**: `get_rsvp_party` / `get_rsvp_party_v2` /
+  `list_bring_board` return
   only allow-listed keys (no `assigneeName`, `assigneeHousehold`,
   `claimSecret`, `dietary`, or item `notes`), and sanitized
   `host_updates` / `photo_drop` projections match an exact key set.
@@ -83,7 +139,9 @@ Assertions:
   by a `raised` sentinel so the harness cannot pass on its own thrown
   error), and byte-identical snapshots of `guests` and `bring_board`
   prove state was unchanged after each rejection. `submit_rsvp` happy
-  path updates `yes_count`; first `claim_bring_item` returns `ok=true`
+  path updates `yes_count`; v2 submission stores only the allowed arrival
+  plan and short comfort/access note on the matched primary guest; first
+  `claim_bring_item` returns `ok=true`
   with a non-empty `claimSecret`, the second returns `unavailable`;
   `release_bring_item` fails without and with a wrong receipt and only
   succeeds with the exact receipt; the receipt never appears in either
@@ -147,13 +205,33 @@ local/staging infrastructure.
   available in public CI. The E2E suite only asserts the not-found/error
   surface for an unknown token; the RPC-level happy path is now covered
   by `test:db`.
-- **AI/talk backend.** `/talk` is smoke-tested for render only; realtime
-  OpenAI calls are not exercised.
+- **AI/talk backend.** Signed-out local Talk and browser-plan creation are
+  covered end to end. Authenticated realtime OpenAI calls are not exercised.
 - **Auth flows.** `/app` renders the signed-out/demo shell in CI — signed-in
-  personalization is not covered.
+  personalization is not covered. The claim flow is exercised with
+  credential-free client fakes and component tests, but a real
+  signup/confirmation/import/reload pass still belongs in staging.
+- **Authenticated durable-write browser integration.** Unit integration tests
+  cover offline update replay, concurrent guest preservation, an insert that
+  landed immediately before a crash, a never-landed insert, identity
+  isolation, expiry, size/count limits, secret redaction, acknowledgement
+  cleanup, and refusal to resurrect a deleted row. A real authenticated
+  IndexedDB → reload → Supabase reconciliation pass still belongs in isolated
+  staging because public CI has no user credentials.
+- **Authenticated offline read browser integration.** Unit tests cover
+  validated user-scoped snapshots and fallback gating, while Playwright covers
+  the public shell offline. A real authenticated Day-of/workspace cold reload,
+  offline edit, token absence, account switch, concurrent RSVP, and reconnect
+  reconciliation pass still belongs in isolated staging because public CI has
+  no user credentials.
 - **CI does not run `test:db`.** It needs live database credentials;
   keeping GitHub CI secret-free is deliberate. Run it locally against a
   branch database or during release rehearsal.
+- **The Firebase shadow rehearsal is not an importer.** It intentionally keeps
+  transformed rows in memory and uses sanitized fixture data. A restore drill,
+  representative staging export, service-only idempotent importer, second
+  source snapshot, reconciliation against actual Supabase rows, and
+  freeze/delta/cutover/rollback rehearsal remain required.
 
 ## Adding a regression test
 

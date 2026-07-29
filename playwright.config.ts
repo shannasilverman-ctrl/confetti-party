@@ -16,7 +16,10 @@ export default defineConfig({
   // Keep the production Worker and Chromium inside the constrained GitHub
   // runner's memory envelope. Two workers can outlive the local Worker and
   // turn otherwise-valid routes into a cascade of ERR_CONNECTION_REFUSED.
-  workers: process.env.CI ? 1 : undefined,
+  // Keep local verification deterministic too. An unrestricted CPU-derived
+  // worker count can overwhelm the single Wrangler preview process and turn
+  // healthy routes into ERR_CONNECTION_REFUSED noise.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
@@ -32,9 +35,19 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
+      testIgnore: /mobile-safari-critical\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
-    { name: "mobile", use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } } },
+    {
+      name: "mobile",
+      testIgnore: /mobile-safari-critical\.spec\.ts/,
+      use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } },
+    },
+    {
+      name: "mobile-webkit",
+      testMatch: /mobile-safari-critical\.spec\.ts/,
+      use: { ...devices["iPhone 13"], browserName: "webkit" },
+    },
   ],
   webServer: {
     // Serve the production build via the Cloudflare Worker preview

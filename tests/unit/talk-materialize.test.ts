@@ -114,6 +114,7 @@ describe("materializeDraft — rich case", () => {
     expect(titles.some((t) => t.includes("coordinate contributions"))).toBe(true);
     expect(titles.some((t) => t.startsWith("optional: empty seat"))).toBe(true);
     expect(titles.some((t) => t.includes("peak moment: carving"))).toBe(true);
+    expect(titles).toContain("confirm rsvps");
 
     // Timeline includes both anchors and activities.
     const timelineLabels = party.timeline.map((t) => t.activity);
@@ -192,6 +193,68 @@ describe("materializeDraft — missing / empty patch", () => {
   });
 });
 
+describe("materializeDraft — age-aware birthday", () => {
+  it("uses the same preschool playbook as quick creation", () => {
+    const { party } = materializeDraft(
+      {
+        identity: {
+          workingTitle: "Eliana turns four",
+          occasion: "birthday",
+          honoreeAge: 4,
+        },
+        when: { date: "2026-09-12", startTime: "10:30" },
+        where: { display: "Flying Squirrel", venueKind: "venue" },
+        people: { expectedCount: 11, kids: 5, adults: 6 },
+        effort: { level: "low" },
+        budget: { total: 650, stance: "strict" },
+      },
+      { mkId: counterMkId(), now: FIXED_NOW },
+    );
+
+    expect(party.planningProfile).toEqual({
+      version: 1,
+      honoreeAge: 4,
+      expectedKids: 5,
+      expectedAdults: 6,
+      effort: "easy",
+      format: "venue",
+    });
+    expect(party.timeline[0]).toMatchObject({
+      time: "10:30",
+      activity: "Easy arrival play while families settle in",
+    });
+    expect(party.timeline.at(-1)).toMatchObject({
+      time: "12:00",
+      activity: "Party ends before the room runs out of steam",
+    });
+    expect(
+      party.tasks.some((task) =>
+        task.title.includes("allergies, sibling attendance, and whether an adult is staying"),
+      ),
+    ).toBe(true);
+  });
+
+  it("carries explicitly discussed food decisions into quantity planning", () => {
+    const { party } = materializeDraft(
+      {
+        identity: {
+          workingTitle: "Eliana turns four",
+          occasion: "birthday",
+          honoreeAge: 4,
+        },
+        people: { expectedCount: 11, kids: 5, adults: 6 },
+        food: { approach: "snacks-only", portionModel: "family-style" },
+      },
+      { mkId: counterMkId(), now: FIXED_NOW },
+    );
+
+    expect(party.planningProfile).toMatchObject({
+      foodRole: "light-bites",
+      foodServiceStyle: "family-style",
+    });
+  });
+});
+
 describe("summarize", () => {
   it("returns counts matching the materialized party", () => {
     const s = summarize(
@@ -205,7 +268,7 @@ describe("summarize", () => {
     expect(s.essentials.name).toBe("Test");
     expect(s.essentials.occasion).toBe("cookout");
     expect(s.counts.tasks).toBeGreaterThan(0);
-    expect(s.counts.budgetCategories).toBe(4);
+    expect(s.counts.budgetCategories).toBe(5);
     expect(s.counts.shoppingItems).toBeGreaterThan(0);
   });
 });

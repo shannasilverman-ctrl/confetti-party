@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -33,7 +35,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ReviewSummary } from "@/lib/talk-materialize";
+import { materializeDraft, type ReviewSummary } from "@/lib/talk-materialize";
+import { deviceEventTimeZone } from "@/lib/calendar-export";
+import {
+  resolveTalkEventTimeZone,
+  talkTimeZoneIssueMessage,
+  type TalkTimeZoneIssue,
+} from "@/lib/talk-time-zone";
+import {
+  newId,
+  PLANNING_TASK_TITLES,
+  useParties,
+  type BringCategory,
+  type Party,
+  type Task,
+} from "@/lib/party-context";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 export const Route = createFileRoute("/talk")({
   ssr: false,
@@ -96,6 +113,7 @@ function friendlyTalkError(category: TalkErrorCategory, err: unknown): string {
 
 function TalkRoute() {
   const { user, loading } = useAuth();
+  const { createParty, updateParty, status: partyStatus } = useParties();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<"text" | "voice">("text");
@@ -220,6 +238,7 @@ function TalkRoute() {
   const authReady = !loading;
   const isDemo = authReady && !user;
   const [demoTurn, setDemoTurn] = useState(0);
+  const [demoEventTimeZone, setDemoEventTimeZone] = useState("");
   const demoLimitReached = isDemo && demoTurn >= DEMO_MAX_TURNS;
   // Announcement region for screen readers: thinking, send/connect errors,
   // demo-limit reached, connection lifecycle.
@@ -250,7 +269,9 @@ function TalkRoute() {
 
   useEffect(() => {
     if (demoLimitReached) {
-      setStatusAnnouncement("Demo turns used. Sign up free to keep going and save your plan.");
+      setStatusAnnouncement(
+        "Demo turns used. Build the browser plan now, or sign up to keep planning across devices.",
+      );
     }
   }, [demoLimitReached]);
 
@@ -259,15 +280,17 @@ function TalkRoute() {
     if (!text || thinking) return;
     if (isDemo && demoLimitReached) return;
     if (!isDemo && !draftId) return;
+    trackProductEvent("planning_started", { once: true });
     const next: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setTyped("");
     setThinking(true);
     try {
       if (isDemo) {
-        // Bounded local demo — no network, no persistence, no server brain.
+        // Bounded local planner — input-aware, private to this browser, and
+        // deterministic. No server or AI request occurs before signup.
         await new Promise((r) => setTimeout(r, 500));
-        const d = demoReply(demoTurn);
+        const d = demoReply(next);
         setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
         setOpenQs(d.openQuestions);
         setAssumptions(d.assumptions);
@@ -287,7 +310,153 @@ function TalkRoute() {
     } finally {
       setThinking(false);
     }
-  }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
+  }, [typed, thinking, draftId, messages, isDemo, demoLimitReached]);
+
+  const demoPlanPreview = useMemo(() => {
+    if (!isDemo || demoTurn === 0) return null;
+    return materializeDraft(demoReply(messages).draftPatch).party;
+  }, [demoTurn, isDemo, messages]);
+  const demoTimeZoneResolution = useMemo(
+    () =>
+      resolveTalkEventTimeZone({
+        date: demoPlanPreview?.date ?? "",
+        startTime: demoPlanPreview?.startTime,
+        eventTimeZone: demoEventTimeZone,
+      }),
+    [demoEventTimeZone, demoPlanPreview],
+  );
+
+  const createDemoPlan = useCallback(() => {
+    if (!isDemo || demoTurn === 0 || partyStatus !== "ready") return;
+    const result = demoReply(messages);
+    const { party, blockingUnknowns, optionalUnknowns } = materializeDraft(result.draftPatch);
+    const timeZone = resolveTalkEventTimeZone({
+      date: party.date,
+      startTime: party.startTime,
+      eventTimeZone: demoEventTimeZone,
+    });
+    if (timeZone.issue) {
+      const message = talkTimeZoneIssueMessage(timeZone.issue) ?? "Confirm the party's time zone.";
+      toast.error(message);
+      setStatusAnnouncement(message);
+      return;
+    }
+    const planningProfile: NonNullable<Party["planningProfile"]> = {
+      ...(party.planningProfile ?? { version: 1 }),
+      ...(timeZone.eventTimeZone ? { eventTimeZone: timeZone.eventTimeZone } : {}),
+    };
+    const missing = new Set([
+      ...blockingUnknowns.map((unknown) => unknown.field),
+      ...optionalUnknowns.map((unknown) => unknown.field),
+    ]);
+    const planningTasks: Task[] = [
+      ...(missing.has("date")
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.date,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(missing.has("guestEstimate")
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.guests,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(missing.has("budget")
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.budget,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(!party.theme
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.theme,
+              bucket: "3-5 weeks" as const,
+              done: false,
+            },
+          ]
+        : []),
+    ];
+    const seenTasks = new Set<string>();
+    const tasks = [...planningTasks, ...party.tasks].filter((task) => {
+      const key = task.title.trim().toLowerCase();
+      if (seenTasks.has(key)) return false;
+      seenTasks.add(key);
+      return true;
+    });
+    const allowedBringCategories = new Set<BringCategory>([
+      "Main",
+      "Sides",
+      "Dessert",
+      "Drinks",
+      "Ice / Serveware",
+      "Kids",
+      "Décor",
+    ]);
+    const bringBoard: NonNullable<Party["bringBoard"]> = party.bringBoard.map((item) => ({
+      ...item,
+      category: allowedBringCategories.has(item.category as BringCategory)
+        ? (item.category as BringCategory)
+        : "Sides",
+    }));
+
+    const id = createParty({
+      name: party.name,
+      occasion: party.occasion,
+      date: party.date,
+      startTime: party.startTime ?? undefined,
+      location: party.location ?? undefined,
+      guestEstimate: party.guestEstimate,
+      budget: party.budget,
+      theme: party.theme || "Make it yours",
+      planningProfile,
+    });
+    trackProductEvent("plan_created");
+    updateParty(id, (current) => ({
+      ...current,
+      name: party.name,
+      occasion: party.occasion,
+      date: party.date,
+      startTime: party.startTime ?? undefined,
+      location: party.location ?? undefined,
+      guestEstimate: party.guestEstimate,
+      budget: party.budget,
+      theme: party.theme || "Make it yours",
+      holidayPackId: party.holidayPackId ?? undefined,
+      planningProfile,
+      hostNote: party.hostNote ?? undefined,
+      tasks,
+      bringBoard,
+      shoppingItems: party.shoppingItems,
+      timeline: party.timeline,
+      budgetCategories: party.budgetCategories,
+    }));
+    celebrate("cannon");
+    void navigate({ to: "/party/$id", params: { id } });
+  }, [
+    createParty,
+    demoEventTimeZone,
+    demoTurn,
+    isDemo,
+    messages,
+    navigate,
+    partyStatus,
+    updateParty,
+  ]);
 
   const openReview = useCallback(async () => {
     if (!draftId || isDemo) return;
@@ -319,7 +488,7 @@ function TalkRoute() {
   }, [draftId, isDemo, navigate]);
 
   const confirmAndCreate = useCallback(
-    async (opts: { acknowledgePlaceholderDate?: boolean } = {}) => {
+    async (opts: { acknowledgePlaceholderDate?: boolean; eventTimeZone?: string } = {}) => {
       if (!draftId || isDemo || confirming) return;
       setConfirming(true);
       try {
@@ -327,8 +496,10 @@ function TalkRoute() {
           data: {
             draftId,
             acknowledgePlaceholderDate: !!opts.acknowledgePlaceholderDate,
+            eventTimeZone: opts.eventTimeZone,
           },
         });
+        trackProductEvent("plan_created");
         celebrate("big");
         toast.success("Plan created — welcome to your workspace.");
         setReviewOpen(false);
@@ -604,15 +775,12 @@ function TalkRoute() {
                 {isDemo && (
                   <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-white/80 bg-white/72 px-4 py-3 text-xs text-secondary shadow-soft backdrop-blur">
                     <Badge variant="secondary" className="uppercase tracking-wide">
-                      Demo
+                      Private browser demo
                     </Badge>
                     <span className="min-w-0 flex-1">
-                      You're chatting with a preview brain — {DEMO_MAX_TURNS} turns, no account
-                      needed. Sign up free to save the plan and unlock voice.
+                      Confetti reads what you type locally for {DEMO_MAX_TURNS} turns, then builds a
+                      plan saved in this browser. No account, AI call, or upload.
                     </span>
-                    <Button asChild size="sm" variant="festive">
-                      <a href="/auth?mode=signup">Sign up free</a>
-                    </Button>
                   </div>
                 )}
                 <Card className="flex h-[540px] flex-col overflow-hidden rounded-[1.75rem] border-white/80 bg-white/92 shadow-lift md:h-[440px]">
@@ -680,7 +848,7 @@ function TalkRoute() {
                         }}
                         placeholder={
                           demoLimitReached
-                            ? "Demo turns used — sign up free to keep going."
+                            ? "Demo turns used — build the browser plan when ready."
                             : "Tell Confetti the brain dump…"
                         }
                         rows={2}
@@ -786,14 +954,31 @@ function TalkRoute() {
                 </Card>
                 {isDemo ? (
                   <>
-                    <Button asChild variant="festive" size="lg" className="w-full">
-                      <a href="/auth?mode=signup">
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> Sign up to save this plan
-                      </a>
+                    {demoPlanPreview?.startTime && (
+                      <TimeZoneConfirmation
+                        value={demoEventTimeZone}
+                        onChange={setDemoEventTimeZone}
+                        issue={demoTimeZoneResolution.issue}
+                        testIdPrefix="talk-demo"
+                      />
+                    )}
+                    <Button
+                      variant="festive"
+                      size="lg"
+                      className="w-full"
+                      onClick={createDemoPlan}
+                      disabled={
+                        demoTurn === 0 || partyStatus !== "ready" || !!demoTimeZoneResolution.issue
+                      }
+                      data-testid="talk-build-browser-plan"
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />{" "}
+                      {demoTurn === 0 ? "Share one idea first" : "Build my browser plan"}
                     </Button>
                     <p className="text-[11px] text-muted-foreground">
-                      Demo replies are canned so you can feel the flow. Real Confetti tailors the
-                      plan, saves your workspace, and unlocks voice.
+                      Your words stay on this device. Confetti leaves unknown details visibly open;
+                      sign up later only if you want the plan across devices and shareable guest
+                      links.
                     </p>
                   </>
                 ) : (
@@ -947,18 +1132,33 @@ function ReviewDialog({
   loading: boolean;
   review: ReviewSummary | null;
   confirming: boolean;
-  onConfirm: (opts: { acknowledgePlaceholderDate?: boolean }) => void;
+  onConfirm: (opts: { acknowledgePlaceholderDate?: boolean; eventTimeZone?: string }) => void;
 }) {
   const [ackDate, setAckDate] = useState(false);
+  const [eventTimeZone, setEventTimeZone] = useState("");
   // Reset acknowledgement whenever the dialog reopens with a new review.
   useEffect(() => {
-    if (!open) setAckDate(false);
+    if (!open) {
+      setAckDate(false);
+      setEventTimeZone("");
+    }
   }, [open]);
 
   const dateBlocked = !!review?.blockingUnknowns?.some((b) => b.field === "date");
   const otherBlockers = (review?.blockingUnknowns ?? []).filter((b) => b.field !== "date");
+  const timeZone = resolveTalkEventTimeZone({
+    date: review?.essentials.date ?? "",
+    startTime: review?.essentials.startTime,
+    eventTimeZone,
+    dateIsPlaceholder: dateBlocked,
+  });
   const canCreate =
-    !!review && !loading && !confirming && otherBlockers.length === 0 && (!dateBlocked || ackDate);
+    !!review &&
+    !loading &&
+    !confirming &&
+    otherBlockers.length === 0 &&
+    (!dateBlocked || ackDate) &&
+    !timeZone.issue;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1022,6 +1222,15 @@ function ReviewDialog({
                 )}
               </dl>
             </section>
+
+            {review.essentials.startTime && (
+              <TimeZoneConfirmation
+                value={eventTimeZone}
+                onChange={setEventTimeZone}
+                issue={timeZone.issue}
+                testIdPrefix="talk-review"
+              />
+            )}
 
             {dateBlocked && (
               <section
@@ -1120,7 +1329,12 @@ function ReviewDialog({
           </Button>
           <Button
             variant="festive"
-            onClick={() => onConfirm({ acknowledgePlaceholderDate: ackDate })}
+            onClick={() =>
+              onConfirm({
+                acknowledgePlaceholderDate: ackDate,
+                eventTimeZone: timeZone.eventTimeZone ?? undefined,
+              })
+            }
             disabled={!canCreate}
             data-testid="talk-confirm-create"
             className="min-h-11"
@@ -1138,6 +1352,63 @@ function ReviewDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TimeZoneConfirmation({
+  value,
+  onChange,
+  issue,
+  testIdPrefix,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  issue: TalkTimeZoneIssue | null;
+  testIdPrefix: string;
+}) {
+  const suggestion = deviceEventTimeZone();
+  const message = talkTimeZoneIssueMessage(issue);
+  const inputId = `${testIdPrefix}-time-zone`;
+
+  return (
+    <section
+      className="rounded-xl border border-border bg-muted/25 p-3"
+      data-testid={`${testIdPrefix}-time-zone-confirmation`}
+    >
+      <Label htmlFor={inputId}>Party time zone</Label>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Confirm the place’s time zone. Confetti won’t guess from your device or location.
+      </p>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        <Input
+          id={inputId}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="America/New_York"
+          autoComplete="off"
+          aria-invalid={!!issue}
+          aria-describedby={`${inputId}-message`}
+          data-testid={`${testIdPrefix}-time-zone-input`}
+        />
+        {suggestion && suggestion !== value && (
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => onChange(suggestion)}
+          >
+            Use {suggestion}
+          </Button>
+        )}
+      </div>
+      <p
+        id={`${inputId}-message`}
+        className={cn("mt-1.5 text-xs", issue ? "text-destructive" : "text-muted-foreground")}
+        aria-live="polite"
+      >
+        {message ?? `Confirmed as ${value}.`}
+      </p>
+    </section>
   );
 }
 

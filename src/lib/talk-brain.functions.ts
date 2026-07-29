@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { detectPack, type PackId } from "./holiday-packs";
+import type { PackId } from "./holiday-packs";
 import { TALK_SYSTEM_PROMPT } from "./gathering-draft";
 import {
   materializeDraft,
@@ -14,6 +14,8 @@ import {
   type ReviewSummary,
 } from "./talk-materialize";
 import { safeParseDraftPatch, sanitizeStringList } from "./talk-schemas";
+import { demoReply } from "./talk-demo";
+import { resolveTalkEventTimeZone, talkTimeZoneIssueMessage } from "./talk-time-zone";
 
 const MAX_TURNS_PER_HOUR = 40;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -71,10 +73,10 @@ type TurnResult = {
 const SCHEMA_HINT = `{
   "reply": "<= 3 short sentences, warm, ask ONE question at a time",
   "draftPatch": {
-    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string },
+    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string, "honoreeAge"?: number },
     "when": { "date"?: "YYYY-MM-DD", "startTime"?: "7:00 PM", "dateCertainty"?: "fixed"|"window"|"tbd", "anchors"?: [{ "label": string, "at": "7:30 PM", "kind"?: "kickoff"|"toast"|"meal"|"activity" }] },
-    "where": { "display"?: string, "contingency"?: { "needed": true, "kind"?: "weather"|"backup-venue", "plan"?: string } },
-    "people": { "expectedCount"?: number, "households"?: number, "kids"?: number },
+    "where": { "display"?: string, "venueKind"?: "home"|"backyard"|"park"|"venue"|"virtual"|"unknown", "contingency"?: { "needed": true, "kind"?: "weather"|"backup-venue", "plan"?: string } },
+    "people": { "expectedCount"?: number, "households"?: number, "kids"?: number, "adults"?: number },
     "effort": { "level"?: "low"|"medium"|"high", "hostReadyTarget"?: "one hour before" },
     "budget": { "total"?: number, "stance"?: "strict"|"flexible"|"no-limit" },
     "food": { "approach"?: "cook"|"catering"|"grocery-prepared"|"potluck"|"mix"|"snacks-only", "peakMoment"?: string },
@@ -89,127 +91,10 @@ const SCHEMA_HINT = `{
   "suggestedPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"..."
 }`;
 
-// -------- Deterministic demo brain --------
-
-function extractDate(text: string): string | undefined {
-  const iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return iso[0];
-  const md = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
-  if (md) {
-    const months = [
-      "jan",
-      "feb",
-      "mar",
-      "apr",
-      "may",
-      "jun",
-      "jul",
-      "aug",
-      "sep",
-      "oct",
-      "nov",
-      "dec",
-    ];
-    const m = months.indexOf(md[1].slice(0, 3).toLowerCase());
-    const d = parseInt(md[2], 10);
-    const year = new Date().getFullYear();
-    const dt = new Date(year, m, d);
-    if (dt.getTime() < Date.now()) dt.setFullYear(year + 1);
-    return dt.toISOString().slice(0, 10);
-  }
-  return undefined;
-}
-
-function extractCount(text: string): number | undefined {
-  const m = text.match(/\b(\d{1,3})\s*(?:people|guests?|adults?|folks?|of us)\b/i);
-  if (m) return parseInt(m[1], 10);
-  return undefined;
-}
-
-function extractBudget(text: string): number | undefined {
-  const m = text.match(/\$\s?(\d{2,5})/);
-  if (m) return parseInt(m[1], 10);
-  return undefined;
-}
-
 type TurnMessages = z.infer<typeof TurnInput>["messages"];
 
 function demoBrain(messages: TurnMessages): TurnResult {
-  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  const allUser = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.content)
-    .join(" ");
-  const pack = detectPack(allUser);
-  const patch: DraftPatch = {};
-  const questions: string[] = [];
-  const assumptions: string[] = [];
-
-  const date = extractDate(allUser);
-  if (date) patch.when = { ...(patch.when ?? {}), date, dateCertainty: "fixed" };
-  const count = extractCount(allUser);
-  if (count) patch.people = { expectedCount: count };
-  const budget = extractBudget(allUser);
-  if (budget) patch.budget = { total: budget, stance: "flexible" };
-
-  if (pack) {
-    patch.identity = { workingTitle: pack.label, occasion: "holiday", holidayPackId: pack.id };
-  } else if (/birthday/i.test(allUser)) {
-    patch.identity = { workingTitle: "Birthday", occasion: "birthday" };
-  } else if (/bbq|cookout|grill/i.test(allUser)) {
-    patch.identity = { workingTitle: "Backyard BBQ", occasion: "cookout" };
-  } else if (/watch|game day|super bowl|world cup/i.test(allUser)) {
-    patch.identity = { workingTitle: "Watch Party", occasion: "game-day" };
-    patch.vibe = { broadcast: { source: "tv", needsSoundCheck: true } };
-  }
-
-  if (/potluck|everyone brings|bring a dish/i.test(allUser)) {
-    patch.food = { approach: "potluck" };
-    patch.contributions = { mode: "open-signup" };
-  } else if (/caterer|catering/i.test(allUser)) {
-    patch.food = { approach: "catering" };
-  }
-
-  let reply = "";
-  const turnCount = messages.filter((m) => m.role === "user").length;
-
-  if (turnCount === 1) {
-    reply = pack
-      ? `Love it — ${pack.label}. Want me to start from the ${pack.label} pack (rituals stay optional)? And when is it — a set date or a window?`
-      : `Got it. Tell me the shape of it: when, roughly how many people, and what should it feel like?`;
-    if (pack) patch.identity = { ...(patch.identity ?? {}), holidayPackId: pack.id };
-    if (!date) questions.push("What date (or window)?");
-  } else if (!date) {
-    reply = "When are you thinking? A firm date or a rough window both work.";
-    questions.push("What date (or window)?");
-  } else if (!count) {
-    reply = "How many people are you expecting? A rough number is fine.";
-    questions.push("Expected headcount?");
-  } else if (!patch.budget && !/no budget|no-limit|money is fine/i.test(allUser)) {
-    reply = "What kind of budget are we working with — strict, flexible, or no ceiling?";
-    questions.push("Budget?");
-  } else {
-    reply =
-      "Here's what I'm hearing: I have the essentials to draft this. Want to review the plan and confirm?";
-    assumptions.push(
-      pack
-        ? `Using the ${pack.label} pack as the starting template.`
-        : "Using a general gathering template.",
-    );
-  }
-
-  if (/help|stuck|overwhelm/i.test(lastUser)) {
-    reply = "One step at a time. Let's lock the date first — do you have one in mind?";
-  }
-
-  return {
-    reply,
-    draftPatch: patch,
-    openQuestions: questions,
-    assumptions,
-    suggestedPackId: pack?.id,
-    usedDemo: true,
-  };
+  return demoReply(messages);
 }
 
 // -------- Server functions --------
@@ -424,6 +309,8 @@ const ConfirmInput = z.object({
    * silently create a fake-date party.
    */
   acknowledgePlaceholderDate: z.boolean().optional().default(false),
+  /** Explicit host confirmation; the model must never infer this value. */
+  eventTimeZone: z.string().trim().min(3).max(80).optional(),
 });
 
 export const confirmDraft = createServerFn({ method: "POST" })
@@ -453,6 +340,23 @@ export const confirmDraft = createServerFn({ method: "POST" })
       );
     }
 
+    const timeZone = resolveTalkEventTimeZone({
+      date: party.date,
+      startTime: party.startTime,
+      eventTimeZone: data.eventTimeZone,
+      dateIsPlaceholder: dateBlocked,
+    });
+    if (timeZone.issue) {
+      throw new Error(
+        talkTimeZoneIssueMessage(timeZone.issue) ??
+          "Confirm the party's time zone before creating the plan.",
+      );
+    }
+    const planningProfile = {
+      ...(party.planningProfile ?? { version: 1 as const }),
+      ...(timeZone.eventTimeZone ? { eventTimeZone: timeZone.eventTimeZone } : {}),
+    };
+
     // Single transactional RPC: locks the draft row, checks ownership,
     // returns the existing party id if already confirmed, otherwise inserts
     // the party and claims the draft in one shot. Removes the previous
@@ -469,6 +373,7 @@ export const confirmDraft = createServerFn({ method: "POST" })
       themeId: party.themeId,
       holidayPackId: party.holidayPackId,
       hostNote: party.hostNote,
+      planningProfile,
       tasks: party.tasks,
       budgetCategories: party.budgetCategories,
       shoppingItems: party.shoppingItems,

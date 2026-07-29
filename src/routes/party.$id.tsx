@@ -18,6 +18,7 @@ import {
   type RSVP,
 } from "@/lib/party-context";
 import { BrandLockup } from "@/components/brand";
+import { partyHeroImage } from "@/lib/party-visual";
 import { DeletePartyButton } from "@/components/delete-party-button";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +45,9 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
+  Pencil,
+  Check,
+  X,
   Sparkles,
   Palette,
   ShoppingCart,
@@ -62,25 +66,28 @@ import { OverviewTab } from "@/components/overview-tab";
 import { RsvpShareButton } from "@/components/rsvp-share-button";
 import { InviteDialog } from "@/components/invite-dialog";
 import { BringBoardEditor } from "@/components/bring-board-editor";
+import { HostMessageHelper } from "@/components/host-message-helper";
 import { PhotoDropEditor } from "@/components/photo-drop-editor";
 import { ConfirmDelete } from "@/components/confirm-delete";
 import { ChecklistTaskRow } from "@/components/checklist-task-row";
+import { TaskOwnershipFollowThrough } from "@/components/task-ownership-follow-through";
+import { PartyPeopleDialog } from "@/components/party-people-dialog";
 import { SaveStatus } from "@/components/save-status";
 import { formatDateOnly } from "@/lib/date-only";
-import { themeById } from "@/lib/themes";
+import { partyTabFromSearch, type PartyTabKey } from "@/lib/party-tabs";
+import { taskTimingWindow } from "@/lib/task-timing";
+import { generatedTaskMetadata } from "@/lib/task-guidance";
+import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
+import { plannedBudgetTotal, rebaseBudgetCategories } from "@/lib/budget";
 
-export type TabKey =
-  | "overview"
-  | "theme"
-  | "shopping"
-  | "checklist"
-  | "guests"
-  | "bring"
-  | "budget"
-  | "timeline";
+export type TabKey = PartyTabKey;
 
 export const Route = createFileRoute("/party/$id")({
   component: PartyWorkspace,
+  validateSearch: (search: Record<string, unknown>): { tab?: PartyTabKey } => {
+    const tab = partyTabFromSearch(search.tab);
+    return tab === "overview" ? {} : { tab };
+  },
   head: ({ params }) => ({
     meta: [
       { title: "Party workspace · Confetti" },
@@ -93,9 +100,33 @@ export const Route = createFileRoute("/party/$id")({
 
 function PartyWorkspace() {
   const { id } = Route.useParams();
-  const { getParty, status } = useParties();
+  const search = Route.useSearch();
+  const tab = partyTabFromSearch(search.tab);
+  const navigate = Route.useNavigate();
+  const { getParty, getPartyRole, refetch, status } = useParties();
   const party = getParty(id);
-  const [tab, setTab] = useState<TabKey>("overview");
+  const partyRole = getPartyRole(id);
+  const shouldScrollToContent = useRef(false);
+  const [timelineEditing, setTimelineEditing] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+
+  useEffect(() => {
+    if (!shouldScrollToContent.current) return;
+    shouldScrollToContent.current = false;
+    const frame = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      document
+        .getElementById("party-workspace-content")
+        ?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [tab]);
+
+  const openTab = (nextTab: TabKey) => {
+    if (nextTab === tab) return;
+    shouldScrollToContent.current = true;
+    void navigate({ search: nextTab === "overview" ? {} : { tab: nextTab } });
+  };
 
   if (status === "loading") {
     return (
@@ -125,8 +156,7 @@ function PartyWorkspace() {
   const g = guestCounts(party);
   const spent = totalSpent(party);
   const prog = progressPct(party);
-  const eventVisual =
-    party.heroImageUrl ?? (party.themeId ? themeById(party.themeId)?.heroImage : undefined);
+  const eventVisual = partyHeroImage(party);
 
   const cartCount = party.shoppingItems.filter(
     (i) => i.status === "needed" || i.status === "in-cart",
@@ -160,6 +190,15 @@ function PartyWorkspace() {
               <BrandLockup />
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPeopleOpen(true)}
+                aria-label="Plan together"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden lg:inline">Plan together</span>
+              </Button>
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link to="/party/$id/reveal" params={{ id: party.id }}>
                   <Sparkle className="h-4 w-4" /> Reveal
@@ -170,35 +209,27 @@ function PartyWorkspace() {
                   <Timer className="h-4 w-4" /> Day-of
                 </Link>
               </Button>
-              <DeletePartyButton
-                partyId={party.id}
-                partyName={party.name}
-                redirectOnDelete
-                variant="ghost"
-                size="sm"
-              />
+              {partyRole === "owner" ? (
+                <DeletePartyButton
+                  partyId={party.id}
+                  partyName={party.name}
+                  redirectOnDelete
+                  variant="ghost"
+                  size="sm"
+                />
+              ) : null}
             </div>
           </div>
 
+          <OfflineSnapshotNotice className="mt-3" />
+
           <div className="relative mt-4 min-h-[23rem] overflow-hidden rounded-[2rem] bg-festive text-primary-foreground shadow-brand sm:min-h-[28rem] sm:rounded-[2.5rem]">
-            {eventVisual ? (
-              <img
-                src={eventVisual}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-            ) : (
-              <>
-                <div
-                  className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-white/16 blur-3xl"
-                  aria-hidden
-                />
-                <div
-                  className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-accent/20 blur-3xl"
-                  aria-hidden
-                />
-              </>
-            )}
+            <img
+              src={eventVisual}
+              alt=""
+              data-party-banner={party.id}
+              className="absolute inset-0 h-full w-full object-cover"
+            />
             <div
               className="absolute inset-0 bg-gradient-to-t from-[hsl(270_49%_14%/0.96)] via-[hsl(270_49%_18%/0.38)] to-[hsl(270_49%_14%/0.08)]"
               aria-hidden
@@ -293,7 +324,7 @@ function PartyWorkspace() {
               <button
                 key={t.key}
                 data-testid={`party-tab-${t.key}`}
-                onClick={() => setTab(t.key)}
+                onClick={() => openTab(t.key)}
                 className={`flex min-h-11 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
                   tab === t.key
                     ? "border-primary text-primary"
@@ -313,11 +344,14 @@ function PartyWorkspace() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-        {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={setTab} />}
+      <main
+        id="party-workspace-content"
+        className="mx-auto scroll-mt-4 max-w-6xl px-4 py-8 sm:px-6 sm:py-10"
+      >
+        {tab === "overview" && <OverviewTab partyId={party.id} onNavigate={openTab} />}
         {tab === "theme" && <ThemeTab partyId={party.id} />}
         {tab === "shopping" && <ShoppingTab partyId={party.id} />}
-        {tab === "checklist" && <ChecklistTab partyId={party.id} onNavigate={setTab} />}
+        {tab === "checklist" && <ChecklistTab partyId={party.id} onNavigate={openTab} />}
         {tab === "guests" && <GuestsTab partyId={party.id} />}
         {tab === "bring" && (
           <div className="space-y-10">
@@ -326,13 +360,15 @@ function PartyWorkspace() {
           </div>
         )}
         {tab === "budget" && <BudgetTab partyId={party.id} />}
-        {tab === "timeline" && <TimelineTab partyId={party.id} />}
+        {tab === "timeline" && (
+          <TimelineTab partyId={party.id} onEditingChange={setTimelineEditing} />
+        )}
       </main>
 
       {/* Mobile bottom tab nav - horizontally scrollable, respects safe area */}
       <nav
         data-testid="party-mobile-nav"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden"
+        className={`${timelineEditing ? "hidden" : "fixed"} inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur md:hidden`}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Party sections"
       >
@@ -341,7 +377,7 @@ function PartyWorkspace() {
             <button
               key={t.key}
               data-testid={`party-tab-mobile-${t.key}`}
-              onClick={() => setTab(t.key)}
+              onClick={() => openTab(t.key)}
               className={`relative flex min-h-[56px] min-w-[68px] flex-1 shrink-0 flex-col items-center justify-center gap-1 py-2 text-[11px] transition ${
                 tab === t.key ? "text-primary" : "text-muted-foreground"
               }`}
@@ -360,6 +396,13 @@ function PartyWorkspace() {
           ))}
         </div>
       </nav>
+      <PartyPeopleDialog
+        partyId={party.id}
+        partyName={party.name}
+        open={peopleOpen}
+        onOpenChange={setPeopleOpen}
+        onMembershipChanged={refetch}
+      />
     </div>
   );
 }
@@ -389,6 +432,7 @@ function ChecklistTab({
 }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
+  const dateTbd = planningDetailIsOpen(party, "date");
   const [newTitle, setNewTitle] = useState("");
   const [newBucket, setNewBucket] = useState<Bucket>("1-2 weeks");
   const [poppedId, setPoppedId] = useState<string | null>(null);
@@ -426,7 +470,16 @@ function ChecklistTab({
     if (!newTitle.trim()) return;
     updateParty(partyId, (p) => ({
       ...p,
-      tasks: [...p.tasks, { id: newId(), title: newTitle.trim(), bucket: newBucket, done: false }],
+      tasks: [
+        ...p.tasks,
+        {
+          id: newId(),
+          title: newTitle.trim(),
+          bucket: newBucket,
+          done: false,
+          ...generatedTaskMetadata(newTitle.trim()),
+        },
+      ],
     }));
     setNewTitle("");
   };
@@ -436,6 +489,8 @@ function ChecklistTab({
 
   return (
     <div className="space-y-8">
+      <TaskOwnershipFollowThrough partyId={partyId} tasks={party.tasks} />
+
       {/* Add task */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -446,7 +501,7 @@ function ChecklistTab({
             onKeyDown={(e) => e.key === "Enter" && addTask()}
           />
           <Select value={newBucket} onValueChange={(v) => setNewBucket(v as Bucket)}>
-            <SelectTrigger className="sm:w-48">
+            <SelectTrigger className="sm:w-48" aria-label="Task timing">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -467,10 +522,14 @@ function ChecklistTab({
         const items = party.tasks.filter((t) => t.bucket === bucket);
         if (items.length === 0) return null;
         const doneCount = items.filter((t) => t.done).length;
+        const timing = dateTbd ? null : taskTimingWindow(party.date, bucket);
         return (
           <section key={bucket}>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-secondary">{bucket}</h2>
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-secondary">{bucket}</h2>
+                {timing && <p className="text-xs font-medium text-primary">{timing.windowLabel}</p>}
+              </div>
               <span className="text-xs text-muted-foreground">
                 {doneCount}/{items.length} done
               </span>
@@ -487,6 +546,7 @@ function ChecklistTab({
                   onResolvePlanning={(detail) =>
                     onNavigate(detail === "theme" ? "theme" : "overview")
                   }
+                  onOpenAction={(action) => onNavigate(action)}
                 />
               ))}
             </ul>
@@ -513,6 +573,12 @@ const RSVP_STYLES: Record<
   invited: { label: "No reply", variant: "soft" },
 };
 
+const ARRIVAL_PLAN_LABELS = {
+  "from-start": "Joining from the start",
+  "arriving-later": "Arriving later",
+  "not-sure": "Arrival time not sure yet",
+} as const;
+
 function GuestsTab({ partyId }: { partyId: string }) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
@@ -534,15 +600,28 @@ function GuestsTab({ partyId }: { partyId: string }) {
 
   const updateGuest = (id: string, patch: Partial<Guest>) => {
     const prev = party.guests.find((gg) => gg.id === id);
-    updateParty(partyId, (p) => ({
-      ...p,
-      guests: p.guests.map((gg) => (gg.id === id ? { ...gg, ...patch } : gg)),
-    }));
+    updateParty(partyId, (p) => {
+      const checkins = { ...(p.checkins ?? {}) };
+      if (patch.rsvp && patch.rsvp !== "yes") delete checkins[id];
+      return {
+        ...p,
+        guests: p.guests.map((gg) => (gg.id === id ? { ...gg, ...patch } : gg)),
+        checkins,
+      };
+    });
     if (patch.rsvp === "yes" && prev && prev.rsvp !== "yes") celebrate("micro");
   };
 
   const remove = (id: string) =>
-    updateParty(partyId, (p) => ({ ...p, guests: p.guests.filter((gg) => gg.id !== id) }));
+    updateParty(partyId, (p) => {
+      const checkins = { ...(p.checkins ?? {}) };
+      delete checkins[id];
+      return {
+        ...p,
+        guests: p.guests.filter((gg) => gg.id !== id),
+        checkins,
+      };
+    });
 
   return (
     <div className="space-y-6">
@@ -564,6 +643,7 @@ function GuestsTab({ partyId }: { partyId: string }) {
         </span>
       </div>
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} partyId={partyId} />
+      <HostMessageHelper partyId={partyId} />
 
       {/* Add */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
@@ -603,17 +683,55 @@ function GuestsTab({ partyId }: { partyId: string }) {
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-secondary">
                   {guest.name.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <Input
-                    className="min-w-0 border-transparent bg-transparent focus-visible:border-input sm:max-w-[220px]"
-                    value={guest.name}
-                    aria-label={`Edit name for ${guest.name || "guest"}`}
-                    onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
-                  />
-                  {guest.source === "link" && (
-                    <Badge variant="soft" className="hidden shrink-0 text-[10px] sm:inline-flex">
-                      via link
-                    </Badge>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Input
+                      className="min-w-0 border-transparent bg-transparent focus-visible:border-input sm:max-w-[220px]"
+                      value={guest.name}
+                      aria-label={`Edit name for ${guest.name || "guest"}`}
+                      onChange={(e) => updateGuest(guest.id, { name: e.target.value })}
+                    />
+                    {guest.source === "link" && (
+                      <Badge variant="soft" className="hidden shrink-0 text-[10px] sm:inline-flex">
+                        via link
+                      </Badge>
+                    )}
+                  </div>
+                  {(guest.responseDetails?.arrivalPlan ||
+                    guest.responseDetails?.accessNotes ||
+                    guest.dietary?.length ||
+                    guest.allergens?.length) && (
+                    <div
+                      className="mt-1.5 flex flex-wrap gap-1.5 px-3 text-[11px] leading-4 text-muted-foreground"
+                      data-testid={`guest-planning-details-${guest.id}`}
+                    >
+                      {guest.responseDetails?.arrivalPlan && (
+                        <span className="rounded-full bg-primary/8 px-2 py-1 text-secondary">
+                          {ARRIVAL_PLAN_LABELS[guest.responseDetails.arrivalPlan]}
+                        </span>
+                      )}
+                      {guest.dietary?.map((item, index) => (
+                        <span
+                          key={`dietary-${index}-${item}`}
+                          className="rounded-full bg-muted px-2 py-1"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                      {guest.allergens?.map((item, index) => (
+                        <span
+                          key={`allergen-${index}-${item}`}
+                          className="rounded-full bg-destructive/8 px-2 py-1 text-destructive"
+                        >
+                          Avoid {item}
+                        </span>
+                      ))}
+                      {guest.responseDetails?.accessNotes && (
+                        <span className="w-full whitespace-pre-wrap break-words text-secondary">
+                          Comfort/access: {guest.responseDetails.accessNotes}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="col-start-2 flex min-w-0 items-center gap-2 sm:contents">
@@ -671,7 +789,12 @@ function GuestsTab({ partyId }: { partyId: string }) {
                         if (p.guests.some((candidate) => candidate.id === guest.id)) return p;
                         const guests = [...p.guests];
                         guests.splice(Math.min(guestIndex, guests.length), 0, guest);
-                        return { ...p, guests };
+                        const checkins = { ...(p.checkins ?? {}) };
+                        const checkedInAt = party.checkins?.[guest.id];
+                        if (guest.rsvp === "yes" && checkedInAt) {
+                          checkins[guest.id] = checkedInAt;
+                        }
+                        return { ...p, guests, checkins };
                       });
                     }}
                     trigger={
@@ -701,6 +824,8 @@ function BudgetTab({ partyId }: { partyId: string }) {
   const party = getParty(partyId)!;
   const spent = totalSpent(party);
   const remaining = party.budget - spent;
+  const planned = plannedBudgetTotal(party.budgetCategories);
+  const needsRebalance = planned !== party.budget;
 
   const addExpense = (catId: string, label: string, amount: number) =>
     updateParty(partyId, (p) => ({
@@ -718,8 +843,19 @@ function BudgetTab({ partyId }: { partyId: string }) {
       ),
     }));
 
+  const rebalance = () => {
+    updateParty(partyId, (p) => ({
+      ...p,
+      budgetCategories: rebaseBudgetCategories(p.budgetCategories, p.budget, p.occasion),
+    }));
+    toast.success(`Category plan rebalanced to $${party.budget}.`, {
+      description: "Existing expenses were left unchanged.",
+    });
+  };
+
   return (
     <div className="space-y-6">
+      <h2 className="sr-only">Budget breakdown</h2>
       {/* Totals */}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl bg-festive p-5 text-primary-foreground shadow-card">
@@ -752,6 +888,26 @@ function BudgetTab({ partyId }: { partyId: string }) {
           </div>
         </div>
       </div>
+
+      {needsRebalance && (
+        <div
+          className="flex flex-col gap-4 rounded-2xl border border-warning bg-warning/10 p-5 sm:flex-row sm:items-center sm:justify-between"
+          data-testid="budget-rebalance-notice"
+        >
+          <div>
+            <h3 className="font-display text-lg font-semibold text-secondary">
+              Category plan does not match your total
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Categories currently add up to ${planned}. Rebalance their targets to your $
+              {party.budget} budget without changing any expenses.
+            </p>
+          </div>
+          <Button className="shrink-0" onClick={rebalance}>
+            Rebalance to ${party.budget}
+          </Button>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="space-y-4">
@@ -796,6 +952,8 @@ function CategoryCard({
       className={`rounded-2xl border bg-card p-5 shadow-card ${
         over ? "border-warning" : "border-border"
       }`}
+      data-testid="budget-category"
+      data-planned={category.planned}
     >
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -864,11 +1022,30 @@ function CategoryCard({
 
 /* ---------------- Timeline ---------------- */
 
-function TimelineTab({ partyId }: { partyId: string }) {
+function TimelineTab({
+  partyId,
+  onEditingChange,
+}: {
+  partyId: string;
+  onEditingChange: (editing: boolean) => void;
+}) {
   const { getParty, updateParty } = useParties();
   const party = getParty(partyId)!;
   const [time, setTime] = useState("");
   const [activity, setActivity] = useState("");
+  const [editing, setEditing] = useState<{
+    id: string;
+    time: string;
+    activity: string;
+  } | null>(null);
+  const editingRowRef = useRef<HTMLLIElement | null>(null);
+  const editingId = editing?.id;
+
+  useEffect(() => {
+    onEditingChange(Boolean(editingId));
+    if (editingId) editingRowRef.current?.scrollIntoView({ block: "center" });
+    return () => onEditingChange(false);
+  }, [editingId, onEditingChange]);
 
   const add = () => {
     if (!time.trim() || !activity.trim()) return;
@@ -892,6 +1069,23 @@ function TimelineTab({ partyId }: { partyId: string }) {
       [arr[idx], arr[next]] = [arr[next], arr[idx]];
       return { ...p, timeline: arr };
     });
+
+  const saveEdit = () => {
+    if (!editing?.time.trim() || !editing.activity.trim()) return;
+    updateParty(partyId, (p) => ({
+      ...p,
+      timeline: p.timeline.map((item) =>
+        item.id === editing.id
+          ? {
+              ...item,
+              time: editing.time.trim().slice(0, 60),
+              activity: editing.activity.trim().slice(0, 240),
+            }
+          : item,
+      ),
+    }));
+    setEditing(null);
+  };
 
   return (
     <div className="space-y-6">
@@ -924,39 +1118,109 @@ function TimelineTab({ partyId }: { partyId: string }) {
       ) : (
         <ol className="relative space-y-3 border-l-2 border-primary/25 pl-6">
           {party.timeline.map((item, idx) => (
-            <li key={item.id} className="group relative">
+            <li
+              key={item.id}
+              ref={editingId === item.id ? editingRowRef : null}
+              className="group relative"
+            >
               <span className="absolute -left-[31px] top-2 h-4 w-4 rounded-full border-2 border-primary bg-background" />
-              <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4 shadow-card sm:gap-3">
-                <div className="font-display text-lg font-semibold text-primary">{item.time}</div>
-                <div className="min-w-0 flex-1 text-sm text-secondary">{item.activity}</div>
-                <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                  <button
-                    type="button"
-                    onClick={() => move(item.id, -1)}
-                    disabled={idx === 0}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
-                    aria-label="Move up"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => move(item.id, 1)}
-                    disabled={idx === party.timeline.length - 1}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
-                    aria-label="Move down"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(item.id)}
-                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive sm:min-h-8 sm:min-w-8"
-                    aria-label="Remove"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+              <div
+                data-testid={`timeline-item-${item.id}`}
+                className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-4 shadow-card sm:gap-3"
+              >
+                {editing?.id === item.id ? (
+                  <>
+                    <Input
+                      className="min-h-11 sm:w-44"
+                      value={editing.time}
+                      maxLength={60}
+                      aria-label={`Time for ${item.activity}`}
+                      onChange={(event) =>
+                        setEditing((current) =>
+                          current ? { ...current, time: event.target.value } : current,
+                        )
+                      }
+                    />
+                    <Input
+                      className="min-h-11 min-w-0 flex-1"
+                      value={editing.activity}
+                      maxLength={240}
+                      aria-label="Timeline activity"
+                      onChange={(event) =>
+                        setEditing((current) =>
+                          current ? { ...current, activity: event.target.value } : current,
+                        )
+                      }
+                      onKeyDown={(event) => event.key === "Enter" && saveEdit()}
+                    />
+                    <Button
+                      type="button"
+                      variant="festive"
+                      size="sm"
+                      className="min-h-11"
+                      onClick={saveEdit}
+                      disabled={!editing.time.trim() || !editing.activity.trim()}
+                    >
+                      <Check aria-hidden /> Save
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="min-h-11"
+                      onClick={() => setEditing(null)}
+                    >
+                      <X aria-hidden /> Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="font-display text-lg font-semibold text-primary">
+                      {item.time}
+                    </div>
+                    <div className="min-w-0 flex-1 text-sm text-secondary">{item.activity}</div>
+                  </>
+                )}
+                {editing?.id !== item.id && (
+                  <div className="ml-auto flex items-center gap-1 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditing({ id: item.id, time: item.time, activity: item.activity })
+                      }
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary sm:min-h-8 sm:min-w-8"
+                      aria-label={`Edit ${item.activity}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(item.id, -1)}
+                      disabled={idx === 0}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
+                      aria-label="Move up"
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(item.id, 1)}
+                      disabled={idx === party.timeline.length - 1}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-secondary disabled:opacity-30 sm:min-h-8 sm:min-w-8"
+                      aria-label="Move down"
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(item.id)}
+                      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive sm:min-h-8 sm:min-w-8"
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </li>
           ))}

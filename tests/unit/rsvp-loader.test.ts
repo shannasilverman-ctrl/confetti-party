@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolveRsvpLoaderData } from "@/lib/rsvp.functions";
+import {
+  attendanceCopy,
+  contextualRsvpCopy,
+  resolveRsvpLoaderData,
+  rsvpResponseDetails,
+} from "@/lib/rsvp.functions";
 
 const cfg = { origin: "https://x", supabaseUrl: "https://u", supabaseKey: "sb_publishable_x" };
 const T = "00000000-0000-0000-0000-000000000001";
@@ -68,5 +73,73 @@ describe("resolveRsvpLoaderData", () => {
     });
     expect(r.status).toBe("ok");
     expect(r.party).toMatchObject(payload);
+  });
+});
+
+describe("adaptive RSVP attendance copy", () => {
+  it("explains adults staying and siblings for a preschool birthday", () => {
+    expect(
+      attendanceCopy({
+        kind: "preschool-birthday",
+        adultLabel: "Adults staying",
+        kidLabel: "Children coming",
+        kidHint: "Include invited children and any siblings joining.",
+      }),
+    ).toEqual({
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      kidHint: "Include invited children and any siblings joining.",
+      intro: "Count the people actually attending so food, seating, and supervision match.",
+    });
+  });
+
+  it("keeps generic attendance concise while offering a private comfort prompt", () => {
+    expect(attendanceCopy()).toEqual({
+      adultLabel: "Adults",
+      kidLabel: "Kids",
+      kidHint: null,
+      intro: null,
+    });
+    expect(contextualRsvpCopy()).toMatchObject({
+      arrivalQuestion: null,
+      accessPrompt: "Anything that would help you participate or feel comfortable?",
+    });
+  });
+
+  it("starts a child birthday with the invited child, not one generic adult", () => {
+    expect(contextualRsvpCopy({ kind: "school-age-birthday" })).toMatchObject({
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      defaultAdults: 0,
+      defaultKids: 1,
+      arrivalQuestion: null,
+    });
+  });
+
+  it("asks an adult birthday only for plan-changing arrival and access context", () => {
+    expect(contextualRsvpCopy({ kind: "adult-birthday" })).toMatchObject({
+      adultLabel: "Adults coming",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "When do you expect to join?",
+      accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
+    });
+  });
+});
+
+describe("private RSVP response details", () => {
+  it("keeps bounded yes/maybe details and trims the note", () => {
+    expect(rsvpResponseDetails("maybe", "arriving-later", "  A quiet seat would help.  ")).toEqual({
+      arrivalPlan: "arriving-later",
+      accessNotes: "A quiet seat would help.",
+    });
+    expect(rsvpResponseDetails("yes", "", "x".repeat(240))).toEqual({
+      accessNotes: "x".repeat(200),
+    });
+  });
+
+  it("omits empty details and clears every private detail for a no", () => {
+    expect(rsvpResponseDetails("yes", "", "   ")).toBeUndefined();
+    expect(rsvpResponseDetails("no", "arriving-later", "Keep this private")).toBeUndefined();
   });
 });

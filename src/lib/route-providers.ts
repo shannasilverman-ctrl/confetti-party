@@ -6,13 +6,14 @@ export type RouteProviderNeeds = { auth: boolean; party: boolean };
  * calls useAuth/useParties requires an accompanying test update.
  */
 export function routeProviderNeeds(pathname: string): RouteProviderNeeds {
-  const party = pathname === "/app" || pathname.startsWith("/party/");
+  const party = pathname === "/app" || pathname === "/talk" || pathname.startsWith("/party/");
   const auth =
     pathname === "/" ||
     pathname === "/talk" ||
     pathname === "/auth" ||
     pathname === "/reset-password" ||
     pathname === "/account" ||
+    pathname === "/collaborate" ||
     party;
   return { auth, party };
 }

@@ -12,7 +12,7 @@ test.describe("Party route identity", () => {
   test("workspace renders Overview identity, not Reveal/Day-of", async ({ page }) => {
     await page.goto(AVA, { waitUntil: "domcontentloaded" });
     // Workspace-only markers
-    await expect(page.getByRole("heading", { name: /Up next/i })).toBeVisible();
+    await expect(page.getByTestId("next-action-card")).toBeVisible();
     await expect(page.getByRole("heading", { name: /RSVP snapshot/i })).toBeVisible();
     // Must NOT leak reveal/day-of chrome
     const body = (await page.textContent("body")) ?? "";
@@ -34,7 +34,10 @@ test.describe("Party route identity", () => {
   test("day-of renders Day-of identity, NOT workspace Overview", async ({ page }) => {
     const resp = await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
     expect(resp?.ok()).toBeTruthy();
-    await expect(page.getByRole("heading", { name: "Next three actions" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "See the day before it gets busy" }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
     await expect(page.getByText("Sample Day-of Mode.")).toBeVisible();
     const body = (await page.textContent("body")) ?? "";
     expect(body).not.toMatch(/RSVP snapshot/i);
@@ -51,7 +54,47 @@ test.describe("Party route identity", () => {
       .fill("Sample schedule note");
     await page.getByRole("button", { name: "Add sample update" }).click();
     await expect(page.getByText(/No guests were notified/i)).toBeVisible();
+    await expect(page.getByText(/Visible on the guest page/i)).toHaveCount(0);
     await expect(page.getByText("Sample schedule note")).toBeVisible();
+  });
+
+  test("Day-of arrivals expose toggle state, a live count, and touch-sized controls", async ({
+    page,
+  }) => {
+    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
+    const arrivals = page.getByRole("region", { name: "Arrivals" });
+    const count = arrivals.getByRole("status", { name: "Arrival count" });
+    const guest = arrivals.getByRole("button", { name: "Ava Rossi (bride)" });
+
+    await expect(count).toHaveText("0 / 5 in");
+    await expect(guest).toHaveAttribute("aria-pressed", "false");
+    expect((await guest.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+
+    await guest.click();
+    await expect(guest).toHaveAttribute("aria-pressed", "true");
+    await expect(count).toHaveText("1 / 5 in");
+
+    await page.goto(AVA, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Guests", exact: true }).click();
+    const rsvp = page.getByRole("combobox", { name: "RSVP for Ava Rossi (bride)" });
+    await rsvp.click();
+    await page.getByRole("option", { name: "No", exact: true }).click();
+
+    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
+    const updatedArrivals = page.getByRole("region", { name: "Arrivals" });
+    await expect(updatedArrivals.getByRole("status", { name: "Arrival count" })).toHaveText(
+      "0 / 4 in",
+    );
+    await expect(updatedArrivals.getByRole("button", { name: "Ava Rossi (bride)" })).toHaveCount(0);
+
+    await page.goto(AVA, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Guests", exact: true }).click();
+    await page.getByRole("combobox", { name: "RSVP for Ava Rossi (bride)" }).click();
+    await page.getByRole("option", { name: "Yes", exact: true }).click();
+    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("region", { name: "Arrivals" }).getByRole("status", { name: "Arrival count" }),
+    ).toHaveText("0 / 5 in");
   });
 
   test("unknown party id → branded not-found on all three modes", async ({ page }) => {

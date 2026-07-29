@@ -41,11 +41,40 @@ for (const path of ROUTES) {
   });
 }
 
+test("private RSVP responses never enter browser or intermediary caches", async ({ request }) => {
+  for (const path of ["/rsvp/not-a-uuid", "/rsvp/00000000-0000-0000-0000-000000000000"]) {
+    const response = await request.get(path);
+    expect(response.ok(), `HTTP status for ${path}`).toBeTruthy();
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    expect(response.headers()["pragma"]).toBe("no-cache");
+  }
+});
+
 test("home exposes the primary CTA", async ({ page }) => {
   await page.goto("/");
   // Landing CTAs link to /talk (Talk it out) — assert at least one exists.
   const cta = page.locator('a[href="/talk"], a[href^="/talk?"]').first();
   await expect(cta).toBeVisible();
+  await expect(page.getByText(/turns the improvements into real checklist tasks/i)).toBeVisible();
+  await expect(page.getByText(/a guest-page update for 'pizza's on the way'/i)).toBeVisible();
+  await expect(page.getByText(/a broadcast box for/i)).toHaveCount(0);
+  await expect(page.getByText(/notes stay attached for reference/i)).toHaveCount(0);
+});
+
+test("home's memories promise opens a real retrospective and repeat plan", async ({ page }) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.getByRole("link", { name: "Read the watch-party retro" }).click();
+
+  await expect(page).toHaveURL(/\/party\/world-cup-final-watch\/reveal$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "World Cup Final Watch Party" }),
+  ).toBeVisible();
+  await expect(page.getByText("Post-event retrospective", { exact: true })).toBeVisible();
+  await expect(page.getByText("Ice and kid-friendly drinks.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Put dessert out before the second half so nobody misses it.", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan the next one" })).toBeVisible();
 });
 
 test("home opens with a controllable multi-event party scene", async ({ page }) => {
@@ -147,10 +176,9 @@ test("RSVP page: well-formed but unknown token → sanitized copy at 200", async
 test("/talk renders a signed-out demo experience (no redirect to /auth)", async ({ page }) => {
   await page.goto("/talk", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/talk/);
-  // Demo affordance visible and steers toward sign-up without forcing it.
-  await expect(page.getByText(/demo/i).first()).toBeVisible();
-  const signup = page.getByRole("link", { name: /sign up/i }).first();
-  await expect(signup).toBeVisible();
+  await expect(page.getByText("Private browser demo")).toBeVisible();
+  await expect(page.getByText(/No account, AI call, or upload/i)).toBeVisible();
+  await expect(page.getByTestId("talk-build-browser-plan")).toBeDisabled();
 });
 
 test("/talk makes a messy idea easy to start in text or voice", async ({ page }) => {
@@ -164,6 +192,65 @@ test("/talk makes a messy idea easy to start in text or voice", async ({ page })
 
   await page.getByRole("tab", { name: "Voice" }).click();
   await expect(page.getByRole("heading", { name: /Say it out loud/i })).toBeVisible();
+});
+
+test("/talk turns the host's words into a real browser-saved plan", async ({ page }) => {
+  await page.goto("/talk", { waitUntil: "domcontentloaded" });
+  await page
+    .getByLabel("Message Confetti")
+    .fill(
+      "A relaxed backyard birthday for 18 friends on August 15, 2027 with a $600 budget and vegetarian food",
+    );
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(
+    page.getByText(/I caught Birthday, 18 guests, \$600 budget, backyard/i),
+  ).toBeVisible();
+  await expect(page.getByText(/What I'm hearing/i)).toBeVisible();
+  const build = page.getByTestId("talk-build-browser-plan");
+  await expect(build).toBeEnabled();
+  await build.click();
+
+  await expect(page).toHaveURL(/\/party\/[0-9a-f-]+$/i);
+  await expect(page.getByRole("heading", { name: "Birthday", exact: true })).toBeVisible();
+  await expect(page.getByText("Sunday, August 15, 2027", { exact: true })).toBeVisible();
+  await page.getByTestId("edit-details-trigger").click();
+  await expect(page.getByLabel("Guest estimate (optional)")).toHaveValue("18");
+  await expect(page.getByLabel("Budget (optional)")).toHaveValue("600");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  const partyUrl = page.url();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(partyUrl);
+  await expect(page.getByRole("heading", { name: "Birthday", exact: true })).toBeVisible();
+  await expect(page.getByText("Sunday, August 15, 2027", { exact: true })).toBeVisible();
+});
+
+test("/talk requires an explicit time zone before building a timed browser plan", async ({
+  page,
+}) => {
+  await page.goto("/talk", { waitUntil: "domcontentloaded" });
+  await page
+    .getByLabel("Message Confetti")
+    .fill("A relaxed dinner for 8 friends on August 15, 2027 at 7:00 PM");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  const confirmation = page.getByTestId("talk-demo-time-zone-confirmation");
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText(/won.t guess/i);
+  const build = page.getByTestId("talk-build-browser-plan");
+  await expect(build).toBeDisabled();
+
+  await confirmation.getByLabel("Party time zone").fill("America/New_York");
+  await expect(confirmation).toContainText("Confirmed as America/New_York.");
+  await expect(build).toBeEnabled();
+  await build.click();
+
+  await expect(page).toHaveURL(/\/party\/[0-9a-f-]+$/i);
+  await page.getByTestId("edit-details-trigger").click();
+  await expect(page.getByRole("dialog").getByLabel("Event time zone")).toHaveValue(
+    "America/New_York",
+  );
 });
 
 test("/app party cards use accessible non-nested interactive controls", async ({ page }) => {
@@ -194,7 +281,7 @@ test("a seeded party offers truthful local paths without fake marketplace data",
   const local = page.getByRole("region", { name: "Make it local" });
   await expect(local).toBeVisible();
   await expect(
-    local.getByText(/Maps gives you current businesses, ratings, and hours/i),
+    local.getByText(/bring the finalists back here.*keep the choice, price, and follow-through/i),
   ).toBeVisible();
   await expect(local.getByRole("link", { name: /Search venues/i })).toHaveAttribute(
     "href",
@@ -215,10 +302,63 @@ test("/app shows completed demo guest lists truthfully", async ({ page }) => {
   await expect(gameDayParty.getByText("5", { exact: true })).toBeVisible();
 });
 
+test("every demo gathering renders a complete, loaded banner", async ({ page }) => {
+  const partyIds = ["maya-8th", "ava-liam-wedding", "grad-bbq", "world-cup-final-watch"] as const;
+
+  await page.goto("/app", { waitUntil: "networkidle" });
+  for (const partyId of partyIds) {
+    const banner = page.locator(`[data-party-banner="${partyId}"]`);
+    await expect(banner).toHaveCount(1);
+    await expect(banner).toBeVisible();
+    await expect
+      .poll(() =>
+        banner.evaluate((image: HTMLImageElement) => ({
+          complete: image.complete,
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+        })),
+      )
+      .toMatchObject({ complete: true });
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(
+      400,
+    );
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalHeight)).toBeGreaterThan(
+      200,
+    );
+  }
+
+  for (const partyId of partyIds) {
+    await page.goto(`/party/${partyId}`, { waitUntil: "networkidle" });
+    const banner = page.locator(`[data-party-banner="${partyId}"]`);
+    await expect(banner).toBeVisible();
+    expect(await banner.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(
+      400,
+    );
+
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    const hitTarget = await heading.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const x = rect.left + Math.min(rect.width / 2, 24);
+      const y = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return hit === element || element.contains(hit);
+    });
+    expect(hitTarget, `${partyId} banner must not cover its heading`).toBe(true);
+  }
+});
+
 test("/app tells demo hosts where their parties are actually saved", async ({ page }) => {
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
   await expect(page.getByText(/Sign up free to save your parties/i)).toHaveCount(0);
+
+  const keepLink = page.getByRole("link", { name: "Keep them everywhere" });
+  const href = await keepLink.getAttribute("href");
+  const destination = new URL(href ?? "", page.url());
+  expect(destination.pathname).toBe("/auth");
+  expect(destination.searchParams.get("mode")).toBe("signup");
+  expect(destination.searchParams.get("returnTo")).toBe("/app?claimDemo=1");
 });
 
 test("a date-TBD quick start never exposes its placeholder date to guests", async ({ page }) => {
@@ -234,11 +374,11 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
 
   const nextMoves = page.getByRole("region", { name: "Your next moves" });
   await expect(nextMoves).toBeVisible();
-  await expect(nextMoves.getByText(/One answer is enough/i)).toBeVisible();
+  await expect(nextMoves.getByText(/One decision unlocks the rest/i)).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Choose date" })).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Estimate guests" })).toBeVisible();
   await expect(nextMoves.getByRole("button", { name: "Set budget" })).toBeVisible();
-  await expect(nextMoves.getByRole("button", { name: "Explore looks" })).toBeVisible();
+  await expect(nextMoves.getByText("Start here", { exact: true })).toBeVisible();
   await expect(nextMoves.getByText("Send invites", { exact: true })).toHaveCount(0);
 
   await nextMoves.getByRole("button", { name: "Choose date" }).click();
@@ -283,7 +423,9 @@ test("a date-TBD quick start never exposes its placeholder date to guests", asyn
 
   const dayOfUrl = page.url().replace(/\/reveal$/, "/day-of");
   await page.goto(dayOfUrl, { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Next three actions" })).toBeVisible();
+  await expect(page.getByTestId("day-of-run-sheet")).toBeVisible();
+  await expect(page.getByText("Live run sheet", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "What needs attention" })).toBeVisible();
   await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
   await expect(page.getByText("Sample Day-of Mode.", { exact: false })).toHaveCount(0);
   await expect(page.getByText("Choose the party date", { exact: true })).toHaveCount(0);
@@ -300,6 +442,15 @@ test("retrospective reveal can start the next gathering without setup friction",
   page,
 }) => {
   await page.goto("/party/world-cup-final-watch/reveal", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Edit retrospective" }).click();
+  await page
+    .getByRole("textbox", { name: "What ran out or fell short" })
+    .fill("Ice and kid-friendly drinks");
+  await page
+    .getByRole("textbox", { name: "What to change next time" })
+    .fill("Move dessert before the final match");
+  await page.getByRole("button", { name: "Save retrospective" }).click();
+
   const nextButton = page.getByRole("button", { name: "Plan the next one" });
   await expect(nextButton).toBeVisible();
   await nextButton.click();
@@ -309,22 +460,93 @@ test("retrospective reveal can start the next gathering without setup friction",
     page.getByRole("heading", { level: 1, name: "World Cup Final Watch Party — next time" }),
   ).toBeVisible();
   await expect(page.getByText("0 maybe · 0 pending")).toBeVisible();
+  await page.getByRole("button", { name: "Checklist", exact: true }).click();
+  await expect(page.getByText("Plan for what ran short last time", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Apply the change you wanted next time", { exact: true }),
+  ).toBeVisible();
+  const copiedPartyPath = new URL(page.url()).pathname;
+  await page.goto(`${copiedPartyPath}/reveal`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: "Plan the next one" })).toHaveCount(0);
+  await expect(page.getByText("Post-event retrospective", { exact: true })).toHaveCount(0);
 });
 
 test("sample invite exposes the same practical guest details and calendar actions", async ({
   page,
 }) => {
   await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("sample-rsvp-form")).toHaveAttribute("data-hydrated", "true");
   await expect(page.getByRole("textbox", { name: "Group name (optional)" })).toBeVisible();
-  const foodDetails = page.getByText("Dietary needs or allergies?", { exact: true });
-  await expect(foodDetails).toBeVisible();
+  const foodDetails = page.locator("details").filter({
+    hasText: "Dietary needs or allergies?",
+  });
+  const foodSummary = foodDetails.locator("summary");
+  await expect(foodSummary).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeHidden();
-  await foodDetails.click();
+  await foodSummary.click();
   await expect(page.getByRole("textbox", { name: "Other dietary needs" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Other allergens" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Google Calendar/i })).toBeVisible();
+  const googleCalendar = page.getByRole("link", { name: /Google Calendar/i }).first();
+  await expect(googleCalendar).toBeVisible();
+  await expect(googleCalendar).toHaveAttribute("href", /ctz=Europe%2FRome/);
   await expect(page.getByRole("button", { name: /Apple \/ .ics/i })).toBeVisible();
+  await expect(page.getByText("Calendar time zone: Europe/Rome").first()).toBeVisible();
   await expect(page.getByRole("link", { name: /Directions/i })).toBeVisible();
+});
+
+test("sample invite keeps an optional comfort note host-only and clears it on reset", async ({
+  page,
+}) => {
+  const privateNote = "A chair away from the speakers would help.";
+  await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+  const sampleForm = page.getByTestId("sample-rsvp-form");
+  await expect(sampleForm).toHaveAttribute("data-hydrated", "true");
+
+  const accessNotes = sampleForm.getByRole("textbox", {
+    name: "Anything that would help you participate or feel comfortable?",
+  });
+  await expect(accessNotes).toBeVisible();
+  await expect(page.getByText(/Optional and host-only/i)).toBeVisible();
+  await expect(
+    page.getByText(/don.t include medical records or emergency contact details/i),
+  ).toBeVisible();
+
+  const attendanceChoice = sampleForm.getByRole("radiogroup", { name: "Can you make it?" });
+  await accessNotes.fill(privateNote);
+  await attendanceChoice.locator("label").filter({ hasText: /^no$/i }).click();
+  await expect(accessNotes).toBeHidden();
+  await attendanceChoice
+    .locator("label")
+    .filter({ hasText: /^maybe$/i })
+    .click();
+  await expect(accessNotes).toBeVisible();
+  await expect(accessNotes).toHaveValue("");
+
+  await sampleForm.getByRole("textbox", { name: "Your name" }).fill("Sam Rivera");
+  await accessNotes.fill(privateNote);
+  await sampleForm.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByTestId("sample-success")).toBeVisible();
+  await expect(page.getByText(privateNote, { exact: true })).toHaveCount(0);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("confetti:sample-invite:v2");
+        return raw ? JSON.parse(raw).rsvp?.accessNotes : null;
+      }),
+    )
+    .toBe(privateNote);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("sample-success")).toBeVisible();
+  await expect(page.getByText(privateNote, { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Reset the sample invite" }).click();
+  await expect(sampleForm).toBeVisible();
+  await expect(accessNotes).toHaveValue("");
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("confetti:sample-invite:v2")))
+    .not.toContain(privateNote);
 });
 
 test("sample invite turns a guest photo into a private event keepsake", async ({ page }) => {

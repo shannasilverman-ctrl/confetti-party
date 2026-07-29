@@ -52,6 +52,17 @@ async function openWizard(page: Page) {
 }
 
 test.describe("New Party dialog — keyboard + focus contract", () => {
+  test("the first keyboard stop skips repeated chrome to routed content", async ({ page }) => {
+    await page.goto("/app");
+    await page.waitForLoadState("networkidle");
+
+    await page.keyboard.press("Tab");
+    const skip = page.getByRole("link", { name: "Skip to main content" });
+    await expect(skip).toBeFocused();
+    await skip.press("Enter");
+    await expect(page.locator("#route-content")).toBeFocused();
+  });
+
   test("focus trap, labels, Escape returns focus to the exact trigger", async ({ page }) => {
     await page.goto("/app");
     await page.waitForLoadState("networkidle");

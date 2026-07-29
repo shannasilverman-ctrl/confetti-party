@@ -10,6 +10,7 @@
 // This module deliberately owns no React state; PartyProvider adapts it.
 
 import type { Party } from "./party-context";
+import type { PartyOutbox, PendingPartyWrite } from "./party-outbox";
 import {
   type PartyClient,
   type PartyRow,
@@ -30,6 +31,7 @@ import {
 type Entry = {
   latest: Party;
   baseline: PartyRow | null; // null = never persisted → insert
+  insertBase: PartyRow | null;
   running: boolean;
   attempts: number;
   state: SaveState;
@@ -58,13 +60,15 @@ export interface PartyStoreOptions {
   isOnline?: () => boolean;
   /** Redacted logger (defaults to console.warn). */
   logError?: (event: string, meta: Record<string, unknown>) => void;
+  outbox?: PartyOutbox;
 }
 
 // Generic, user-safe copy — never interpolate raw provider messages.
 const GENERIC_SAVE_ERROR = "Couldn't save your changes. Tap retry.";
 const GENERIC_OFFLINE = "You're offline. We'll retry when you're back.";
 const GENERIC_CONFLICT = "This party changed elsewhere. Choose which to keep.";
-const GENERIC_REJECTED = "This party couldn't be saved to the cloud. It's kept on this device.";
+const GENERIC_REJECTED =
+  "This party isn't in the cloud yet. Your changes are still here—tap retry.";
 
 export class PartyStore {
   private queue = new Map<string, Entry>();
@@ -76,10 +80,11 @@ export class PartyStore {
    *  match will be refused. */
   private currentUserId: string | null = null;
   private opts: Required<
-    Omit<PartyStoreOptions, "onEvent" | "client" | "isTombstoned" | "logError">
+    Omit<PartyStoreOptions, "onEvent" | "client" | "isTombstoned" | "logError" | "outbox">
   > &
     Pick<PartyStoreOptions, "onEvent" | "client" | "isTombstoned"> & {
       logError: NonNullable<PartyStoreOptions["logError"]>;
+      outbox?: PartyOutbox;
     };
 
   constructor(opts: PartyStoreOptions) {
@@ -90,6 +95,7 @@ export class PartyStore {
       onEvent: opts.onEvent,
       client: opts.client,
       isTombstoned: opts.isTombstoned,
+      outbox: opts.outbox,
       logError:
         opts.logError ??
         ((event, meta) => {
@@ -146,6 +152,7 @@ export class PartyStore {
       this.queue.set(party.id, {
         latest: party,
         baseline: row,
+        insertBase: null,
         running: false,
         attempts: 0,
         state: "idle",
@@ -169,6 +176,25 @@ export class PartyStore {
     };
   }
 
+  /** Host-update writes that exist in the latest local party but not in the
+   * last acknowledged server row. Derived from the durable outbox-backed
+   * queue so Day-of delivery truth survives navigation and reload. */
+  getPendingHostUpdates(id: string): Array<{ id: string; baselineUpdatedAt?: string }> {
+    const entry = this.queue.get(id);
+    if (!entry) return [];
+    const acknowledgedIds = new Set(
+      entry.baseline
+        ? (rowToParty(entry.baseline).hostUpdates ?? []).map((update) => update.id)
+        : [],
+    );
+    return (entry.latest.hostUpdates ?? [])
+      .filter((update) => !acknowledgedIds.has(update.id))
+      .map((update) => ({
+        id: update.id,
+        baselineUpdatedAt: entry.baseline?.updated_at,
+      }));
+  }
+
   enqueueInsert(party: Party, userId: string) {
     if (!this.acceptsUser(userId)) {
       this.refuseCrossUser("enqueueInsert", party.id, userId);
@@ -183,6 +209,7 @@ export class PartyStore {
       this.queue.set(party.id, {
         latest: party,
         baseline: null,
+        insertBase: null,
         running: false,
         attempts: 0,
         state: "idle",
@@ -192,6 +219,7 @@ export class PartyStore {
         epoch: this.epoch,
       });
     }
+    this.persist(party.id);
     void this.kick(party.id);
   }
 
@@ -208,10 +236,13 @@ export class PartyStore {
     }
     e.latest = party;
     e.userId = userId;
+    this.persist(party.id);
     void this.kick(party.id);
   }
 
   drop(id: string) {
+    const e = this.queue.get(id);
+    if (e) this.opts.outbox?.remove(e.userId, id);
     this.queue.delete(id);
   }
 
@@ -253,12 +284,13 @@ export class PartyStore {
     e.latest = merged;
     e.pendingConflict = null;
     e.attempts = 0;
+    this.persist(id);
     const { changed } = diffColumns(e.baseline, partyToColumns(merged, e.userId));
     if (changed.length === 0) {
       // No safe work remains (typical pure "Keep theirs"). Emit the exact
       // canonical row so React cannot retain a speculative merged view.
       this.emit({ type: "server-row", id, party: merged });
-      this.setState(id, "saved");
+      this.done(id);
     } else {
       // Clear conflict state so kick() can persist the safe/selected result.
       this.setState(id, "idle");
@@ -269,6 +301,8 @@ export class PartyStore {
   /** Discard a locally-recoverable draft that failed permanent insert.
    *  Removes from queue; caller should also remove local state and tombstone. */
   discardLocalDraft(id: string) {
+    const e = this.queue.get(id);
+    if (e) this.opts.outbox?.remove(e.userId, id);
     this.queue.delete(id);
   }
 
@@ -279,6 +313,78 @@ export class PartyStore {
 
   private emit(ev: StoreEvent) {
     this.opts.onEvent(ev);
+  }
+
+  private persist(id: string) {
+    const e = this.queue.get(id);
+    if (!e || !this.opts.outbox) return;
+    this.opts.outbox.put({
+      v: 1,
+      userId: e.userId,
+      partyId: id,
+      savedAt: Date.now(),
+      latest: e.latest,
+      baseline: e.baseline,
+      insertBase: e.insertBase,
+    });
+  }
+
+  /** Restore writes after the authenticated server snapshot has loaded.
+   * Returns the local versions to overlay in React while normal concurrency
+   * handling safely reconciles them with the fresh rows. */
+  restorePending(
+    records: PendingPartyWrite[],
+    serverRows: PartyRow[],
+    userId: string,
+    autoKick = true,
+  ): Party[] {
+    if (!this.acceptsUser(userId)) return [];
+    const serverById = new Map(serverRows.map((row) => [row.id, row]));
+    const restored: Party[] = [];
+    for (const record of records) {
+      if (
+        record.userId !== userId ||
+        record.partyId !== record.latest.id ||
+        (record.baseline && record.baseline.user_id !== userId) ||
+        (record.insertBase && record.insertBase.user_id !== userId)
+      ) {
+        continue;
+      }
+      const server = serverById.get(record.partyId);
+      let baseline = record.baseline;
+      if (!baseline && server) {
+        if (!record.insertBase) {
+          this.opts.outbox?.remove(userId, record.partyId);
+          continue;
+        }
+        baseline = record.insertBase;
+      } else if (baseline && !server) {
+        // A previously saved party was deleted elsewhere. Never resurrect it
+        // as a new insert without explicit user action.
+        this.opts.outbox?.remove(userId, record.partyId);
+        continue;
+      }
+      const latest = {
+        ...record.latest,
+        ...(server?.rsvp_token ? { rsvpToken: server.rsvp_token } : {}),
+      };
+      this.queue.set(record.partyId, {
+        latest,
+        baseline,
+        insertBase: record.insertBase,
+        running: false,
+        attempts: 0,
+        state: "offline",
+        pendingConflict: null,
+        insertRejected: false,
+        userId,
+        epoch: this.epoch,
+      });
+      restored.push(latest);
+      this.persist(record.partyId);
+      if (autoKick) void this.kick(record.partyId);
+    }
+    return restored;
   }
 
   private setState(id: string, state: SaveState) {
@@ -333,6 +439,10 @@ export class PartyStore {
       // INSERT path.
       if (!e.baseline) {
         const row = partyToColumns(snapshot, userId);
+        if (!e.insertBase) {
+          e.insertBase = row;
+          this.persist(id);
+        }
         const { data, error } = await this.opts.client.insert(row);
         // Identity may have changed while awaiting I/O. If so, discard the
         // result — do NOT persist server-row events into the new account.
@@ -346,6 +456,7 @@ export class PartyStore {
         const eNow = this.queue.get(id)!;
         if (data) {
           eNow.baseline = data;
+          eNow.insertBase = null;
           eNow.insertRejected = false;
           const merged: Party = { ...rowToParty(data), ...localOnlyFields(snapshot) };
           this.emit({ type: "server-row", id, party: merged });
@@ -384,6 +495,7 @@ export class PartyStore {
       const eNow = this.queue.get(id)!;
       if (data) {
         eNow.baseline = data;
+        this.persist(id);
         const merged: Party = {
           ...rowToParty(data),
           ...localOnlyFields(snapshot),
@@ -402,6 +514,7 @@ export class PartyStore {
     e.attempts = 0;
     e.pendingConflict = null;
     e.insertRejected = false;
+    this.opts.outbox?.remove(e.userId, id);
     this.setState(id, "saved");
   }
 
@@ -500,6 +613,7 @@ export class PartyStore {
     };
     this.emit({ type: "server-row", id, party: mergedFull });
     e.latest = mergedFull;
+    this.persist(id);
 
     if (unresolvedNonMergeable.length > 0) {
       const localValues: Partial<PartyRow> = {};

@@ -48,6 +48,12 @@ jobs:
       - name: Unit tests with coverage
         run: bun run test:coverage
 
+      - name: Rehearse sanitized Firebase migration
+        env:
+          CONFETTI_MIGRATION_HMAC_KEY: ci-only-sanitized-rehearsal-key-2026-07
+          CONFETTI_MIGRATION_KEY_ID: ci-sanitized-v2
+        run: bun run rehearse:migration
+
       - name: Build
         run: bun run build
 
@@ -55,7 +61,7 @@ jobs:
         run: bun run check:bundle
 
       - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps chromium webkit
 
       - name: Verify webServer contract (spawn declared command, wait for 200)
         # Distinct port from the E2E suite so a SIGKILL-teardown race cannot
@@ -64,14 +70,36 @@ jobs:
           PW_PORT: "4271"
         run: bun run verify:webserver
 
-      # Run each responsive matrix in a fresh Wrangler process. The local
-      # Worker runtime can exit after a long mixed-device suite on constrained
-      # runners, which turns otherwise passing cases into connection errors.
-      - name: E2E tests — desktop
-        run: bun run test:e2e:desktop
+      # Each command gets its own Playwright-managed Wrangler process. Keeping
+      # the production Worker lifecycle bounded by behavior area prevents a
+      # constrained runner from turning one preview-process exit into dozens
+      # of unrelated connection-refused failures.
+      - name: E2E tests — desktop asset contract
+        run: bunx playwright test tests/e2e/asset-contract.spec.ts --project=desktop
+
+      - name: E2E tests — desktop dialog contract
+        run: bunx playwright test tests/e2e/dialog-contract.spec.ts --project=desktop
+
+      - name: E2E tests — desktop Bring Board coordination
+        run: bunx playwright test tests/e2e/bring-board-coordination.spec.ts --project=desktop
+
+      - name: E2E tests — desktop party intelligence
+        run: bunx playwright test tests/e2e/party-intelligence.spec.ts --project=desktop
+
+      - name: E2E tests — desktop route identity
+        run: bunx playwright test tests/e2e/party-identity.spec.ts --project=desktop
+
+      - name: E2E tests — desktop public journeys
+        run: bunx playwright test tests/e2e/public-routes.spec.ts --project=desktop
+
+      - name: E2E tests — desktop product telemetry
+        run: bunx playwright test tests/e2e/product-telemetry.spec.ts --project=desktop
 
       - name: E2E tests — mobile
         run: bun run test:e2e:mobile
+
+      - name: E2E tests — Mobile Safari critical journeys
+        run: bun run test:e2e:webkit
 
       - name: Upload Playwright report
         if: always()

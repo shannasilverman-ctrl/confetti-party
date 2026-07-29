@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   daysUntil,
   guestCounts,
@@ -8,17 +8,20 @@ import {
   useParties,
   OCCASION_LABELS,
   type OccasionType,
+  type BringCategory,
+  type Party,
   type Task,
   newId,
   openPlanningDetails,
   planningDetailIsOpen,
   PLANNING_TASK_TITLES,
 } from "@/lib/party-context";
-import { themeById, themesForOccasion, type Theme } from "@/lib/themes";
+import { themesForOccasion, type Theme } from "@/lib/themes";
 import { HOLIDAY_STARTERS, getStarter, type HolidayStarterId } from "@/lib/holiday-packs";
 import { LegalFooter } from "@/components/legal-footer";
 
 import { partiesSummary } from "@/lib/parties-summary";
+import { partyHeroImage } from "@/lib/party-visual";
 
 import { BrandLockup } from "@/components/brand";
 import { DeletePartyButton } from "@/components/delete-party-button";
@@ -38,6 +41,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DemoClaimDialog } from "@/components/demo-claim-dialog";
 import {
   CalendarDays,
   Users,
@@ -52,14 +56,38 @@ import {
   Copy,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
+import { formatDateOnly } from "@/lib/date-only";
+import {
+  partyPlaybook,
+  preschoolPartyPaths,
+  type HostEffort,
+  type PartyFormat,
+  type PartyPlanningProfile,
+} from "@/lib/party-intelligence";
+import { useAuth } from "@/lib/auth";
+import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
+import { analyzePlanningIdea } from "@/lib/talk-demo";
+import { materializeDraft } from "@/lib/talk-materialize";
+import { resolveQuickStart } from "@/lib/quick-start";
+import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
+import {
+  calendarExportIssue,
+  canonicalEventTimeZone,
+  deviceEventTimeZone,
+  isValidEventTimeZone,
+} from "@/lib/calendar-export";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
-type AppSearch = { new?: boolean };
+type AppSearch = { new?: boolean; claimDemo?: boolean };
 
 export const Route = createFileRoute("/app")({
   component: Dashboard,
   validateSearch: (s: Record<string, unknown>): AppSearch => ({
     new: s.new === true || s.new === "true" || s.new === "1" || s.new === 1 ? true : undefined,
+    claimDemo:
+      s.claimDemo === true || s.claimDemo === "true" || s.claimDemo === "1" || s.claimDemo === 1
+        ? true
+        : undefined,
   }),
   head: () => ({
     meta: [
@@ -71,20 +99,52 @@ export const Route = createFileRoute("/app")({
 });
 
 function Dashboard() {
-  const { parties, status, isDemo, refetch, cloneParty } = useParties();
+  const {
+    parties,
+    status,
+    readState,
+    isDemo,
+    refetch,
+    cloneParty,
+    demoClaimCandidates,
+    claimDemoParties,
+  } = useParties();
+  const { user } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [wizardOpen, setWizardOpen] = useState(!!search.new);
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [claimReminderDismissed, setClaimReminderDismissed] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const planningReady = status === "ready";
 
   useEffect(() => {
     if (search.new) {
       setWizardOpen(true);
-      void navigate({ to: "/app", search: {}, replace: true });
+      void navigate({
+        to: "/app",
+        search: search.claimDemo ? { claimDemo: true } : {},
+        replace: true,
+      });
     }
-  }, [search.new, navigate]);
+  }, [search.new, search.claimDemo, navigate]);
+
+  useEffect(() => {
+    if (!search.claimDemo || isDemo || status !== "ready") return;
+    if (demoClaimCandidates.length === 0) {
+      void navigate({ to: "/app", search: {}, replace: true });
+      return;
+    }
+    setClaimOpen(true);
+  }, [search.claimDemo, isDemo, status, demoClaimCandidates.length, navigate]);
 
   const showBanner = isDemo && !bannerDismissed;
+  const showClaimReminder =
+    !isDemo &&
+    status === "ready" &&
+    demoClaimCandidates.length > 0 &&
+    !claimOpen &&
+    !claimReminderDismissed;
   const isEmptyLoggedIn = !isDemo && status === "ready" && parties.length === 0;
   const featuredParty =
     status === "ready"
@@ -92,15 +152,18 @@ function Dashboard() {
           .filter((party) => !planningDetailIsOpen(party, "date") && daysUntil(party.date) >= 0)
           .sort((a, b) => daysUntil(a.date) - daysUntil(b.date))[0]
       : undefined;
-  const featuredPartyImage =
-    featuredParty?.heroImageUrl ??
-    (featuredParty?.themeId ? themeById(featuredParty.themeId)?.heroImage : undefined);
+  const featuredPartyImage = featuredParty ? partyHeroImage(featuredParty) : undefined;
   const otherParties = featuredParty
     ? parties.filter((party) => party.id !== featuredParty.id)
     : parties;
 
   return (
-    <div className="min-h-screen bg-brand-wash">
+    <div
+      className="min-h-screen bg-brand-wash"
+      data-testid="party-dashboard"
+      data-hydrated={planningReady ? "true" : "false"}
+      aria-busy={!planningReady}
+    >
       <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6 sm:pt-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 rounded-[1.35rem] border border-white/80 bg-white/90 px-3 py-2.5 shadow-elevated backdrop-blur-xl sm:rounded-full sm:px-5">
           <BrandLockup />
@@ -116,6 +179,7 @@ function Dashboard() {
               variant="festive"
               size="sm"
               onClick={() => setWizardOpen(true)}
+              disabled={!planningReady}
               data-testid="new-party-trigger"
               aria-label="New Party"
             >
@@ -128,6 +192,44 @@ function Dashboard() {
 
       <AppSaveStatus />
 
+      {readState.source === "cache" && (
+        <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6">
+          <OfflineSnapshotNotice />
+        </div>
+      )}
+
+      {showClaimReminder && (
+        <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6" data-testid="demo-claim-reminder">
+          <div className="relative rounded-2xl border border-primary/15 bg-white/85 p-4 pr-14 shadow-soft backdrop-blur sm:flex sm:items-center sm:gap-3 sm:py-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary sm:mt-0" />
+              <p className="text-sm leading-5 text-secondary">
+                {demoClaimCandidates.length === 1
+                  ? "One party is still saved only in this browser."
+                  : `${demoClaimCandidates.length} parties are still saved only in this browser.`}
+                {" Nothing moves without your confirmation."}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="festive"
+              className="mt-3 w-full sm:mt-0 sm:w-auto"
+              onClick={() => setClaimOpen(true)}
+            >
+              Review browser {demoClaimCandidates.length === 1 ? "party" : "parties"}
+            </Button>
+            <button
+              type="button"
+              aria-label="Dismiss browser party reminder"
+              className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:static"
+              onClick={() => setClaimReminderDismissed(true)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showBanner && (
         <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6">
           <div className="relative rounded-2xl border border-primary/10 bg-white/75 p-4 pr-14 shadow-soft backdrop-blur sm:flex sm:items-center sm:gap-3 sm:py-3">
@@ -139,7 +241,7 @@ function Dashboard() {
               </p>
             </div>
             <Button asChild size="sm" variant="festive" className="mt-3 w-full sm:mt-0 sm:w-auto">
-              <Link to="/auth" search={{ mode: "signup" }}>
+              <Link to="/auth" search={{ mode: "signup", returnTo: DEMO_CLAIM_RETURN_TO }}>
                 Keep them everywhere
               </Link>
             </Button>
@@ -189,7 +291,11 @@ function Dashboard() {
                     : partiesSummary(parties).copy}
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Button variant="festive" onClick={() => setWizardOpen(true)}>
+              <Button
+                variant="festive"
+                onClick={() => setWizardOpen(true)}
+                disabled={!planningReady}
+              >
                 <Plus className="h-4 w-4" /> Start a party
               </Button>
               <Button asChild variant="ghost" className="text-secondary">
@@ -210,6 +316,7 @@ function Dashboard() {
                 <img
                   src={featuredPartyImage}
                   alt=""
+                  data-party-banner={featuredParty.id}
                   className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-[1.035]"
                 />
               ) : (
@@ -310,7 +417,12 @@ function Dashboard() {
               One idea is enough. Confetti will build the starting plan and keep track of anything
               you want to decide later.
             </p>
-            <Button className="mt-6" variant="festive" onClick={() => setWizardOpen(true)}>
+            <Button
+              className="mt-6"
+              variant="festive"
+              onClick={() => setWizardOpen(true)}
+              disabled={!planningReady}
+            >
               <Plus /> Start a party
             </Button>
           </div>
@@ -350,7 +462,7 @@ function Dashboard() {
                 const hasGuestList = g.total > 0;
                 const spent = totalSpent(p);
                 const prog = progressPct(p);
-                const cardImage = p.heroImageUrl ?? themeById(p.themeId)?.heroImage;
+                const cardImage = partyHeroImage(p);
                 const isFeatureCard = !featuredParty && index === 0;
                 return (
                   <article
@@ -365,23 +477,18 @@ function Dashboard() {
                     <div
                       className={`relative overflow-hidden p-5 ${
                         isFeatureCard ? "h-56 sm:h-72 lg:h-full lg:min-h-[27rem]" : "h-36"
-                      } ${cardImage ? "bg-secondary" : "bg-festive"}`}
+                      } bg-secondary`}
                     >
-                      {cardImage && (
-                        <img
-                          src={cardImage}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                        />
-                      )}
+                      <img
+                        src={cardImage}
+                        alt=""
+                        data-party-banner={p.id}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
                       <div
-                        className={`absolute inset-0 ${
-                          cardImage
-                            ? "bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
-                            : "bg-confetti opacity-40 mix-blend-overlay"
-                        }`}
+                        className="absolute inset-0 bg-gradient-to-b from-secondary/20 via-secondary/25 to-secondary/85"
                         aria-hidden
                       />
                       <Badge variant="onFestive" className="relative">
@@ -492,6 +599,7 @@ function Dashboard() {
 
               <button
                 onClick={() => setWizardOpen(true)}
+                disabled={!planningReady}
                 className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-[1.75rem] border-2 border-dashed border-secondary/20 bg-white/35 p-6 text-muted-foreground backdrop-blur-sm transition hover:-translate-y-1 hover:border-secondary/45 hover:bg-white/80 hover:text-secondary hover:shadow-card"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -506,6 +614,22 @@ function Dashboard() {
       </main>
 
       <NewPartyWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+      <DemoClaimDialog
+        open={claimOpen}
+        onOpenChange={setClaimOpen}
+        parties={demoClaimCandidates}
+        accountEmail={user?.email}
+        onClaim={claimDemoParties}
+        onFinish={(partyId) => {
+          setClaimOpen(false);
+          if (partyId) {
+            void navigate({ to: "/party/$id", params: { id: partyId } });
+          } else {
+            setClaimReminderDismissed(true);
+            void navigate({ to: "/app", search: {}, replace: true });
+          }
+        }}
+      />
       <LegalFooter />
     </div>
   );
@@ -529,7 +653,7 @@ function NewPartyWizard({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { createParty, getParty } = useParties();
+  const { createParty, getParty, updateParty } = useParties();
   const navigate = Route.useNavigate();
   const [step, setStep] = useState<"idea" | "done">("idea");
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -537,13 +661,30 @@ function NewPartyWizard({
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [startTime, setStartTime] = useState("");
+  const [eventTimeZone, setEventTimeZone] = useState("");
+  const [suggestedTimeZone, setSuggestedTimeZone] = useState<string | null>(null);
   const [location, setLocation] = useState("");
   const [guestEstimate, setGuestEstimate] = useState("");
   const [budget, setBudget] = useState("");
   const [theme, setTheme] = useState<Theme | null>(null);
   const [holidayStarter, setHolidayStarter] = useState<HolidayStarterId | null>(null);
+  const [honoreeAge, setHonoreeAge] = useState("");
+  const [expectedKids, setExpectedKids] = useState("");
+  const [expectedAdults, setExpectedAdults] = useState("");
+  const [effort, setEffort] = useState<HostEffort>("balanced");
+  const [partyFormat, setPartyFormat] = useState<PartyFormat>("help-me-choose");
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
+  const ideaAnalysis = useMemo(() => (name.trim() ? analyzePlanningIdea(name) : null), [name]);
+  const inferredBirthdayAge =
+    occasion === "birthday" ? ideaAnalysis?.draftPatch.identity?.honoreeAge : undefined;
+  const birthdayAge = honoreeAge || (inferredBirthdayAge ? String(inferredBirthdayAge) : "");
+  const capturedStartTime =
+    startTime.trim() || ideaAnalysis?.draftPatch.when?.startTime?.trim() || "";
+
+  useEffect(() => {
+    setSuggestedTimeZone(deviceEventTimeZone());
+  }, []);
 
   function reset() {
     setStep("idea");
@@ -552,18 +693,84 @@ function NewPartyWizard({
     setName("");
     setDate("");
     setStartTime("");
+    setEventTimeZone("");
     setLocation("");
     setGuestEstimate("");
     setBudget("");
     setTheme(null);
     setHolidayStarter(null);
+    setHonoreeAge("");
+    setExpectedKids("");
+    setExpectedAdults("");
+    setEffort("balanced");
+    setPartyFormat("help-me-choose");
   }
 
   function finish() {
-    const chosenOccasion = occasion ?? "other";
-    const chosenTheme = theme ?? themesForOccasion(chosenOccasion)[0] ?? null;
+    const resolved = resolveQuickStart({
+      idea: name,
+      occasion,
+      date,
+      startTime,
+      location,
+      guestEstimate,
+      budget,
+      holidayStarter,
+      honoreeAge,
+      expectedKids,
+      expectedAdults,
+      effort,
+      partyFormat,
+    });
+    const {
+      party: generated,
+      blockingUnknowns,
+      optionalUnknowns,
+    } = materializeDraft(resolved.patch);
+    const cleanTimeZone = eventTimeZone.trim();
+    const canonicalTimeZone = canonicalEventTimeZone(cleanTimeZone);
+    if (generated.startTime && !isValidEventTimeZone(cleanTimeZone)) {
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.", {
+        id: "event-time-zone-required",
+      });
+      return;
+    }
+    const dateIsOpen = blockingUnknowns.some((unknown) => unknown.field === "date");
+    const calendarIssue =
+      generated.startTime && !dateIsOpen
+        ? calendarExportIssue({
+            name: generated.name,
+            date: generated.date,
+            start_time: generated.startTime,
+            event_time_zone: canonicalTimeZone,
+          })
+        : null;
+    if (calendarIssue === "ambiguous-wall-time") {
+      toast.error(
+        "That start time happens twice when the clocks change. Choose a time outside that clock-change hour.",
+      );
+      return;
+    }
+    if (calendarIssue === "nonexistent-wall-time") {
+      toast.error(
+        "That start time does not exist when the clocks change. Choose another start time.",
+      );
+      return;
+    }
+    if (calendarIssue === "invalid-time") {
+      toast.error("Use a clear start time, such as 6:30 PM.");
+      return;
+    }
+    const planningProfile: PartyPlanningProfile = {
+      ...(generated.planningProfile ?? { version: 1 as const }),
+      ...(canonicalTimeZone ? { eventTimeZone: canonicalTimeZone } : {}),
+    };
+    const missing = new Set([
+      ...blockingUnknowns.map((unknown) => unknown.field),
+      ...optionalUnknowns.map((unknown) => unknown.field),
+    ]);
     const planningTasks: Task[] = [
-      ...(!date
+      ...(missing.has("date")
         ? [
             {
               id: newId(),
@@ -573,7 +780,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!guestEstimate
+      ...(missing.has("guestEstimate")
         ? [
             {
               id: newId(),
@@ -583,7 +790,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!budget
+      ...(missing.has("budget")
         ? [
             {
               id: newId(),
@@ -593,7 +800,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!theme
+      ...(theme == null
         ? [
             {
               id: newId(),
@@ -606,7 +813,7 @@ function NewPartyWizard({
     ];
     // Seed a small set of theme decor tasks into the checklist.
     // Skip purely instructional ideas (estPrice 0) so seeded tasks are actionable items.
-    const themeTasks: Task[] = (chosenTheme?.decorIdeas ?? [])
+    const themeTasks: Task[] = (theme?.decorIdeas ?? [])
       .filter((idea) => idea.estPrice > 0)
       .slice(0, 4)
       .map((idea) => ({
@@ -615,22 +822,68 @@ function NewPartyWizard({
         bucket: idea.bucket,
         done: false,
       }));
-    const id = createParty({
-      name: name.trim() || `New ${OCCASION_LABELS[chosenOccasion]}`,
-      occasion: chosenOccasion,
-      // The data layer still requires a sortable date. A skipped date gets a
-      // neutral planning horizon and an explicit open task; UI surfaces treat
-      // that task as "Date TBD" rather than presenting the fallback as fact.
-      date: date || nextWeekdayDateOnly(6, 28),
-      startTime: startTime.trim() || undefined,
-      location: location.trim() || undefined,
-      guestEstimate: Number(guestEstimate) || 0,
-      budget: Number(budget) || 0,
-      theme: chosenTheme?.name ?? "Make it yours",
-      themeId: chosenTheme?.id,
-      extraTasks: [...planningTasks, ...themeTasks],
-      holidayPackId: chosenOccasion === "holiday" && holidayStarter ? holidayStarter : undefined,
+    const seenTasks = new Set<string>();
+    const tasks = [...planningTasks, ...generated.tasks, ...themeTasks].filter((task) => {
+      const key = task.title.trim().toLowerCase();
+      if (seenTasks.has(key)) return false;
+      seenTasks.add(key);
+      return true;
     });
+    const allowedBringCategories = new Set<BringCategory>([
+      "Main",
+      "Sides",
+      "Dessert",
+      "Drinks",
+      "Ice / Serveware",
+      "Kids",
+      "Décor",
+    ]);
+    const bringBoard: NonNullable<Party["bringBoard"]> = generated.bringBoard.map((item) => ({
+      ...item,
+      category: allowedBringCategories.has(item.category as BringCategory)
+        ? (item.category as BringCategory)
+        : "Sides",
+    }));
+    const resolvedHolidayStarter = HOLIDAY_STARTERS.some(
+      (starter) => starter.id === generated.holidayPackId,
+    )
+      ? (generated.holidayPackId as HolidayStarterId)
+      : undefined;
+
+    const id = createParty({
+      name: generated.name,
+      occasion: generated.occasion,
+      date: generated.date,
+      startTime: generated.startTime ?? undefined,
+      location: generated.location ?? undefined,
+      guestEstimate: generated.guestEstimate,
+      budget: generated.budget,
+      theme: theme?.name ?? "",
+      themeId: theme?.id,
+      holidayPackId: resolvedHolidayStarter,
+      planningProfile,
+    });
+    trackProductEvent("plan_created");
+    updateParty(id, (current) => ({
+      ...current,
+      name: generated.name,
+      occasion: generated.occasion,
+      date: generated.date,
+      startTime: generated.startTime ?? undefined,
+      location: generated.location ?? undefined,
+      guestEstimate: generated.guestEstimate,
+      budget: generated.budget,
+      theme: theme?.name ?? "",
+      themeId: theme?.id,
+      holidayPackId: resolvedHolidayStarter,
+      planningProfile,
+      hostNote: generated.hostNote ?? undefined,
+      tasks,
+      bringBoard,
+      shoppingItems: theme ? current.shoppingItems : generated.shoppingItems,
+      timeline: generated.timeline,
+      budgetCategories: generated.budgetCategories,
+    }));
     setCreatedId(id);
     setStep("done");
     // Big physics cannon for the "your plan is ready" moment.
@@ -652,6 +905,9 @@ function NewPartyWizard({
     setOccasion(o);
     setTheme(null);
     if (o !== "holiday") setHolidayStarter(null);
+    if (o !== "birthday") {
+      setHonoreeAge("");
+    }
   }
 
   function pickStarter(id: HolidayStarterId) {
@@ -697,7 +953,10 @@ function NewPartyWizard({
         </DialogHeader>
 
         {step === "idea" && (
-          <div className="grid gap-5 py-4" data-testid="wizard-step-1">
+          <div
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 py-4"
+            data-testid="wizard-step-1"
+          >
             <div>
               <Label htmlFor="name">Start with the idea</Label>
               <Input
@@ -708,6 +967,25 @@ function NewPartyWizard({
                 placeholder="Sunday dinner, Maya's birthday, World Cup watch party…"
                 className="mt-1.5"
               />
+              {ideaAnalysis && ideaAnalysis.capturedFacts.length > 0 && (
+                <div
+                  className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5"
+                  data-testid="wizard-captured-facts"
+                  aria-live="polite"
+                >
+                  <p className="text-xs font-semibold text-secondary">Picked up from your idea</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {ideaAnalysis.capturedFacts.map((fact) => (
+                      <Badge key={fact} variant="secondary" className="font-normal">
+                        {fact}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    These become editable starting details. Anything we did not catch stays open.
+                  </p>
+                </div>
+              )}
             </div>
 
             <fieldset>
@@ -774,6 +1052,36 @@ function NewPartyWizard({
                   })}
                 </div>
               </fieldset>
+            )}
+            {occasion === "birthday" && (
+              <BirthdaySmartStart
+                age={birthdayAge}
+                onAgeChange={setHonoreeAge}
+                expectedKids={expectedKids}
+                onExpectedKidsChange={setExpectedKids}
+                expectedAdults={expectedAdults}
+                onExpectedAdultsChange={setExpectedAdults}
+                effort={effort}
+                onEffortChange={setEffort}
+                format={partyFormat}
+                onFormatChange={setPartyFormat}
+                startTime={startTime}
+              />
+            )}
+            {occasion && occasion !== "birthday" && (
+              <GatheringSmartStart
+                occasion={occasion}
+                holidayPackId={holidayStarter ?? undefined}
+                expectedKids={expectedKids}
+                onExpectedKidsChange={setExpectedKids}
+                expectedAdults={expectedAdults}
+                onExpectedAdultsChange={setExpectedAdults}
+                effort={effort}
+                onEffortChange={setEffort}
+                format={partyFormat}
+                onFormatChange={setPartyFormat}
+                startTime={startTime}
+              />
             )}
             <details className="group rounded-2xl border border-border bg-muted/20">
               <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium text-secondary">
@@ -842,6 +1150,42 @@ function NewPartyWizard({
               </div>
             </details>
 
+            {capturedStartTime && (
+              <div
+                className="rounded-xl border border-border bg-muted/30 p-3"
+                data-testid="wizard-time-zone-confirmation"
+              >
+                <p className="text-sm font-medium text-secondary">
+                  Confirm the time zone for {capturedStartTime}
+                </p>
+                <Label className="mt-2 block" htmlFor="event-time-zone">
+                  Event time zone
+                </Label>
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="event-time-zone"
+                    value={eventTimeZone}
+                    onChange={(event) => setEventTimeZone(event.target.value)}
+                    placeholder="e.g. America/New_York"
+                    autoComplete="off"
+                  />
+                  {suggestedTimeZone && eventTimeZone !== suggestedTimeZone && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEventTimeZone(suggestedTimeZone)}
+                    >
+                      Use {suggestedTimeZone}
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Confirm the zone where the party happens so every guest gets the right calendar
+                  time.
+                </p>
+              </div>
+            )}
+
             {themeOptions.length > 0 && (
               <div>
                 <div className="text-sm font-medium text-secondary">
@@ -889,7 +1233,10 @@ function NewPartyWizard({
             <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
               <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
               <PlanStat label="Shopping items" value={createdParty.shoppingItems.length} />
-              <PlanStat label="Suggested look" value={createdParty.theme} />
+              <PlanStat
+                label="Look"
+                value={createdParty.themeId ? createdParty.theme : "To decide"}
+              />
               <PlanStat
                 label="Open decisions"
                 value={openPlanningDetails(createdParty).length || "None"}
@@ -945,6 +1292,465 @@ function NewPartyWizard({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function BirthdaySmartStart({
+  age,
+  onAgeChange,
+  expectedKids,
+  onExpectedKidsChange,
+  expectedAdults,
+  onExpectedAdultsChange,
+  effort,
+  onEffortChange,
+  format,
+  onFormatChange,
+  startTime,
+}: {
+  age: string;
+  onAgeChange: (value: string) => void;
+  expectedKids: string;
+  onExpectedKidsChange: (value: string) => void;
+  expectedAdults: string;
+  onExpectedAdultsChange: (value: string) => void;
+  effort: HostEffort;
+  onEffortChange: (value: HostEffort) => void;
+  format: PartyFormat;
+  onFormatChange: (value: PartyFormat) => void;
+  startTime: string;
+}) {
+  const parsedAge = Number(age);
+  const adultBirthday = parsedAge >= 18;
+  const playbook = partyPlaybook({
+    occasion: "birthday",
+    profile: {
+      version: 1,
+      ...(parsedAge > 0 ? { honoreeAge: parsedAge } : {}),
+      effort,
+      format,
+    },
+    startTime,
+  });
+  const pathOptions = preschoolPartyPaths({
+    version: 1,
+    ...(parsedAge > 0 ? { honoreeAge: parsedAge } : {}),
+    ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
+    ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
+    effort,
+    format,
+  });
+
+  return (
+    <section
+      aria-labelledby="birthday-smart-start-title"
+      className="rounded-3xl border border-primary/20 bg-primary/[0.055] p-4 sm:p-5"
+      data-testid="birthday-smart-start"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-xl"
+          aria-hidden
+        >
+          🎈
+        </span>
+        <div>
+          <h3
+            id="birthday-smart-start-title"
+            className="font-display text-lg font-semibold text-secondary"
+          >
+            Help Confetti understand this birthday
+          </h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            These few details change the timing, activities, guest questions, safety checks, and
+            local ideas we recommend.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <Label htmlFor="honoree-age">Age they&apos;re turning</Label>
+            <Input
+              id="honoree-age"
+              type="number"
+              min={1}
+              max={120}
+              inputMode="numeric"
+              value={age}
+              onChange={(event) => onAgeChange(event.target.value)}
+              placeholder="4"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="expected-kids">{adultBirthday ? "Children coming" : "Children"}</Label>
+            <Input
+              id="expected-kids"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedKids}
+              onChange={(event) => onExpectedKidsChange(event.target.value)}
+              placeholder={
+                playbook?.recommendedKidCount ? String(playbook.recommendedKidCount) : "?"
+              }
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="expected-adults">
+              {adultBirthday ? "Adults coming" : "Adults staying"}
+            </Label>
+            <Input
+              id="expected-adults"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedAdults}
+              onChange={(event) => onExpectedAdultsChange(event.target.value)}
+              placeholder="Not sure"
+              className="mt-1"
+            />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">How much should you carry?</legend>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {[
+              ["easy", "Make it easy"],
+              ["balanced", "Balanced"],
+              ["all-out", "Go all out"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onEffortChange(value as HostEffort)}
+                aria-pressed={effort === value}
+                className={`min-h-11 rounded-2xl border px-2 py-2 text-xs sm:text-sm ${
+                  effort === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {pathOptions.length > 0 ? (
+          <fieldset
+            data-testid="preschool-party-paths"
+            className="rounded-2xl border border-primary/20 bg-background p-3.5"
+          >
+            <legend className="px-1 text-sm font-semibold text-secondary">
+              {format === "help-me-choose"
+                ? "Confetti’s starting recommendation"
+                : "Your party path"}
+            </legend>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {pathOptions[0].recommendationReason} You can change this anytime.
+            </p>
+            <div
+              className="mt-3 grid gap-2 sm:grid-cols-2"
+              role="radiogroup"
+              aria-label="Party path"
+            >
+              {pathOptions.map((path) => {
+                const active = path.recommended;
+                const choiceLabel =
+                  format === "help-me-choose"
+                    ? active
+                      ? "Confetti pick"
+                      : "Another good path"
+                    : format === path.format
+                      ? "Your choice"
+                      : "Alternative";
+                return (
+                  <button
+                    key={path.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    onClick={() => onFormatChange(path.format)}
+                    className={`min-h-11 rounded-2xl border p-3 text-left transition ${
+                      active
+                        ? "border-primary bg-primary/[0.065] shadow-sm"
+                        : "border-border bg-background hover:border-primary/40"
+                    }`}
+                  >
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                        active ? "text-primary" : "text-muted-foreground"
+                      }`}
+                    >
+                      {choiceLabel}
+                    </span>
+                    <span className="mt-1 block font-display text-base font-semibold text-secondary">
+                      {path.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {path.bestFor}
+                    </span>
+                    {active ? (
+                      <>
+                        <span className="mt-2 block text-xs font-medium leading-5 text-secondary">
+                          {path.flow}
+                        </span>
+                        <span className="mt-2 block text-[11px] leading-4 text-muted-foreground">
+                          Tradeoff: {path.tradeoff}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="mt-2 block text-[11px] font-medium text-primary">
+                        Select to see the plan and tradeoff
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {format !== "help-me-choose" && (
+              <button
+                type="button"
+                className="mt-2 min-h-11 px-1 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                onClick={() => onFormatChange("help-me-choose")}
+              >
+                Let Confetti choose from my answers
+              </button>
+            )}
+          </fieldset>
+        ) : (
+          <fieldset>
+            <legend className="text-sm font-medium text-secondary">Where should it happen?</legend>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {[
+                ["help-me-choose", "Help me choose"],
+                ["home", "At home"],
+                ["venue", "At a venue"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onFormatChange(value as PartyFormat)}
+                  aria-pressed={format === value}
+                  className={`min-h-11 rounded-full border px-4 py-2 text-sm ${
+                    format === value
+                      ? "border-primary bg-primary/10 font-medium text-secondary"
+                      : "border-border bg-background text-secondary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+
+        {playbook && (
+          <div className="rounded-2xl border border-primary/20 bg-background p-3.5">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Confetti gets it
+            </div>
+            <div className="mt-1 font-display text-lg font-semibold text-secondary">
+              {playbook.title}
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{playbook.promise}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-secondary">
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                About {playbook.recommendedDurationMinutes} minutes
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.tasks.length} party-specific jobs covered
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.rsvpQuestions.length} {adultBirthday ? "guest-ready" : "parent-ready"}{" "}
+                RSVP questions
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function GatheringSmartStart({
+  occasion,
+  holidayPackId,
+  expectedKids,
+  onExpectedKidsChange,
+  expectedAdults,
+  onExpectedAdultsChange,
+  effort,
+  onEffortChange,
+  format,
+  onFormatChange,
+  startTime,
+}: {
+  occasion: OccasionType;
+  holidayPackId?: string;
+  expectedKids: string;
+  onExpectedKidsChange: (value: string) => void;
+  expectedAdults: string;
+  onExpectedAdultsChange: (value: string) => void;
+  effort: HostEffort;
+  onEffortChange: (value: HostEffort) => void;
+  format: PartyFormat;
+  onFormatChange: (value: PartyFormat) => void;
+  startTime: string;
+}) {
+  const playbook = partyPlaybook({
+    occasion,
+    profile: {
+      version: 1,
+      ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
+      ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
+      effort,
+      format,
+    },
+    startTime,
+    holidayPackId,
+  });
+
+  return (
+    <section
+      aria-labelledby="gathering-smart-start-title"
+      className="rounded-3xl border border-primary/20 bg-primary/[0.055] p-4 sm:p-5"
+      data-testid="gathering-smart-start"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-xl"
+          aria-hidden
+        >
+          ✨
+        </span>
+        <div>
+          <h3
+            id="gathering-smart-start-title"
+            className="font-display text-lg font-semibold text-secondary"
+          >
+            Help Confetti understand this gathering
+          </h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            A rough audience and effort level are enough to change the quantities, flow, checklist,
+            and local shortcuts we build.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label htmlFor="gathering-expected-adults">Adults</Label>
+            <Input
+              id="gathering-expected-adults"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedAdults}
+              onChange={(event) => onExpectedAdultsChange(event.target.value)}
+              placeholder="Not sure"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="gathering-expected-kids">Children</Label>
+            <Input
+              id="gathering-expected-kids"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={expectedKids}
+              onChange={(event) => onExpectedKidsChange(event.target.value)}
+              placeholder="None or not sure"
+              className="mt-1"
+            />
+          </div>
+        </div>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">Where will people gather?</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              ["help-me-choose", "Help me choose"],
+              ["home", "At home"],
+              ["venue", "At a venue"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onFormatChange(value as PartyFormat)}
+                aria-pressed={format === value}
+                className={`min-h-11 rounded-full border px-4 py-2 text-sm ${
+                  format === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-sm font-medium text-secondary">
+            How much should the host carry?
+          </legend>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {[
+              ["easy", "Make it easy"],
+              ["balanced", "Balanced"],
+              ["all-out", "Go all out"],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onEffortChange(value as HostEffort)}
+                aria-pressed={effort === value}
+                className={`min-h-11 rounded-2xl border px-2 py-2 text-xs sm:text-sm ${
+                  effort === value
+                    ? "border-primary bg-primary/10 font-medium text-secondary"
+                    : "border-border bg-background text-secondary"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        {playbook && (
+          <div className="rounded-2xl border border-primary/20 bg-background p-3.5">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Confetti gets it
+            </div>
+            <div className="mt-1 font-display text-lg font-semibold text-secondary">
+              {playbook.title}
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{playbook.promise}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-secondary">
+              {playbook.recommendedDurationMinutes && (
+                <span className="rounded-full bg-muted px-3 py-1.5">
+                  A {playbook.recommendedDurationMinutes}-minute starting flow
+                </span>
+              )}
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.tasks.length} easy-to-miss jobs covered
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1.5">
+                {playbook.rsvpQuestions.length} useful guest questions
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

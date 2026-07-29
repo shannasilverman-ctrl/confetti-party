@@ -64,7 +64,7 @@ describe("deployment verification", () => {
   });
 
   it("verifies the complete route, asset, metadata, and manifest contract", async () => {
-    const fetchImpl = async (input: string | URL | Request) => {
+    const fetchImpl = async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
       if (url.pathname === "/release.json") {
         return Response.json(
@@ -77,12 +77,38 @@ describe("deployment verification", () => {
           },
         );
       }
-      if (["/", "/app", "/talk"].includes(url.pathname)) {
+      if (url.pathname === "/api/telemetry") {
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          event: "plan_created",
+          surface: "quick_start",
+          partyId: "deployment-probe-must-not-pass",
+        });
+        return new Response(null, {
+          status: 400,
+          headers: secureHeaders({ "cache-control": "no-store" }),
+        });
+      }
+      if (
+        [
+          "/",
+          "/app",
+          "/talk",
+          "/sample-invite",
+          "/party/maya-8th",
+          "/party/ava-liam-wedding",
+          "/party/ava-liam-wedding/reveal",
+          "/party/ava-liam-wedding/day-of",
+          "/party/grad-bbq",
+          "/party/world-cup-final-watch",
+        ].includes(url.pathname)
+      ) {
         return new Response(
           [
             '<meta name="theme-color" content="#3B1E5E">',
             '<link rel="manifest" href="/manifest.webmanifest">',
             '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+            '<link rel="canonical" href="https://www.confettiapp.ai/">',
           ].join(""),
           { headers: secureHeaders({ "content-type": "text/html; charset=utf-8" }) },
         );
@@ -102,7 +128,14 @@ describe("deployment verification", () => {
           { headers: { "content-type": "application/manifest+json" } },
         );
       }
-      return new Response("png", { headers: { "content-type": "image/png" } });
+      const contentType = url.pathname.endsWith(".js")
+        ? "application/javascript"
+        : url.pathname.endsWith(".jpg")
+          ? "image/jpeg"
+          : url.pathname.endsWith(".webm")
+            ? "video/webm"
+            : "image/png";
+      return new Response("asset", { headers: { "content-type": contentType } });
     };
 
     await expect(
@@ -113,8 +146,8 @@ describe("deployment verification", () => {
     ).resolves.toEqual({
       baseUrl: "https://preview.example.com",
       releaseSha: RELEASE_SHA,
-      htmlRoutes: 3,
-      assets: 4,
+      htmlRoutes: 10,
+      assets: 12,
     });
   });
 
@@ -133,6 +166,29 @@ describe("deployment verification", () => {
     ).rejects.toThrow(`/release.json: expected ${RELEASE_SHA}`);
   });
 
+  it("rejects a deployment without the telemetry privacy boundary", async () => {
+    const fetchImpl = async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === "/release.json") {
+        return Response.json(
+          { release: RELEASE_SHA },
+          { headers: secureHeaders({ "content-type": "application/json" }) },
+        );
+      }
+      return new Response("not found", {
+        status: 404,
+        headers: secureHeaders({ "content-type": "text/html" }),
+      });
+    };
+
+    await expect(
+      verifyDeployment("https://preview.example.com", {
+        fetchImpl,
+        expectedReleaseSha: RELEASE_SHA,
+      }),
+    ).rejects.toThrow("/api/telemetry: expected privacy rejection 400, received 404");
+  });
+
   it("retries a partial edge response and then verifies the deployment", async () => {
     let calls = 0;
     const retryAttempts: number[] = [];
@@ -147,12 +203,32 @@ describe("deployment verification", () => {
           { headers: secureHeaders({ "content-type": "application/json" }) },
         );
       }
-      if (["/", "/app", "/talk"].includes(url.pathname)) {
+      if (url.pathname === "/api/telemetry") {
+        return new Response(null, {
+          status: 400,
+          headers: secureHeaders({ "cache-control": "no-store" }),
+        });
+      }
+      if (
+        [
+          "/",
+          "/app",
+          "/talk",
+          "/sample-invite",
+          "/party/maya-8th",
+          "/party/ava-liam-wedding",
+          "/party/ava-liam-wedding/reveal",
+          "/party/ava-liam-wedding/day-of",
+          "/party/grad-bbq",
+          "/party/world-cup-final-watch",
+        ].includes(url.pathname)
+      ) {
         return new Response(
           [
             '<meta name="theme-color" content="#3B1E5E">',
             '<link rel="manifest" href="/manifest.webmanifest">',
             '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
+            '<link rel="canonical" href="https://www.confettiapp.ai/">',
           ].join(""),
           { headers: secureHeaders({ "content-type": "text/html; charset=utf-8" }) },
         );
@@ -172,7 +248,14 @@ describe("deployment verification", () => {
           { headers: { "content-type": "application/manifest+json" } },
         );
       }
-      return new Response("png", { headers: { "content-type": "image/png" } });
+      const contentType = url.pathname.endsWith(".js")
+        ? "application/javascript"
+        : url.pathname.endsWith(".jpg")
+          ? "image/jpeg"
+          : url.pathname.endsWith(".webm")
+            ? "video/webm"
+            : "image/png";
+      return new Response("asset", { headers: { "content-type": contentType } });
     };
 
     await expect(

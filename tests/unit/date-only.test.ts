@@ -5,12 +5,14 @@ import {
   dateOnlyToLocalDate,
   localDateToDateOnly,
   nextWeekdayDateOnly,
+  nextWeekdayDateOnlyUtc,
   nextAnnualDateOnly,
   todayDateOnly,
   addDaysDateOnly,
   isoDateInDaysLocal,
   calendarDaysBetween,
   daysUntilLocal,
+  daysUntilUtc,
   formatDateOnly,
   toAllDayStamp,
   allDayStampPlusDays,
@@ -48,6 +50,16 @@ describe("nextWeekdayDateOnly", () => {
   it("rejects invalid weekday and range inputs", () => {
     expect(() => nextWeekdayDateOnly(7, 1)).toThrow(/weekday/);
     expect(() => nextWeekdayDateOnly(6, -1)).toThrow(/minimumDays/);
+  });
+});
+
+describe("UTC-stable illustrative dates", () => {
+  it("keeps SSR copy stable when an instant falls on different local calendar days", () => {
+    const nearMidnight = new Date("2026-07-29T00:30:00.000Z");
+    const target = nextWeekdayDateOnlyUtc(6, 21, nearMidnight);
+
+    expect(target).toBe("2026-08-22");
+    expect(daysUntilUtc(target, nearMidnight)).toBe(24);
   });
 });
 

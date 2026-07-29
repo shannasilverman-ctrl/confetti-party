@@ -15,6 +15,7 @@ import {
   mergeCheckins,
 } from "@/lib/party-persistence";
 import { PartyStore, type StoreEvent } from "@/lib/party-store";
+import { MemoryPartyOutbox, type PartyOutbox, type PendingPartyWrite } from "@/lib/party-outbox";
 
 function mkParty(over: Partial<Party> = {}): Party {
   return {
@@ -86,7 +87,7 @@ class FakeDb {
   }
 }
 
-function mkStore(fake: FakeDb, tombstones = new Set<string>()) {
+function mkStore(fake: FakeDb, tombstones = new Set<string>(), outbox?: PartyOutbox) {
   const events: StoreEvent[] = [];
   const store = new PartyStore({
     client: fake.client(),
@@ -94,8 +95,26 @@ function mkStore(fake: FakeDb, tombstones = new Set<string>()) {
     sleep: () => Promise.resolve(),
     isOnline: () => true,
     onEvent: (e) => events.push(e),
+    outbox,
   });
   return { store, events, tombstones };
+}
+
+function pendingRecord(
+  latest: Party,
+  userId: string,
+  baseline: PartyRow | null,
+  insertBase: PartyRow | null = null,
+): PendingPartyWrite {
+  return {
+    v: 1,
+    userId,
+    partyId: latest.id,
+    savedAt: Date.now(),
+    latest,
+    baseline,
+    insertBase,
+  };
 }
 
 async function flush() {
@@ -136,6 +155,34 @@ describe("mergeGuests", () => {
     const merged = mergeGuests(baseline, local, server).items;
     expect(merged.find((g) => g.id === "g1")?.rsvp).toBe("yes");
     expect(merged.find((g) => g.id === "g2")?.name).toBe("Robert");
+  });
+
+  it("preserves a concurrent guest's planning answers while keeping the host's name edit", () => {
+    const baseline = [{ id: "g1", name: "Sam", kind: "adult" as const, rsvp: "invited" as const }];
+    const local = [{ ...baseline[0], name: "Sam Rivera" }];
+    const server = [
+      {
+        ...baseline[0],
+        rsvp: "yes" as const,
+        dietary: ["Vegetarian"],
+        responseDetails: {
+          arrivalPlan: "arriving-later" as const,
+          accessNotes: "A chair away from the speaker would help.",
+        },
+        source: "link" as const,
+      },
+    ];
+
+    expect(mergeGuests(baseline, local, server).items[0]).toMatchObject({
+      name: "Sam Rivera",
+      rsvp: "yes",
+      dietary: ["Vegetarian"],
+      responseDetails: {
+        arrivalPlan: "arriving-later",
+        accessNotes: "A chair away from the speaker would help.",
+      },
+      source: "link",
+    });
   });
 });
 
@@ -188,6 +235,39 @@ describe("mergeCheckins", () => {
       g1: "2027-01-01T01:00:00Z",
       g2: "2027-01-01T00:30:00Z",
     });
+  });
+
+  it("preserves an explicit checkout when the server changes another guest", () => {
+    const merged = mergeCheckins(
+      { g1: "2027-01-01T01:00:00Z" },
+      {},
+      {
+        g1: "2027-01-01T01:00:00Z",
+        g2: "2027-01-01T01:05:00Z",
+      },
+    );
+    expect(merged).toEqual({ g2: "2027-01-01T01:05:00Z" });
+  });
+
+  it("preserves a server checkout when the host checks in another guest", () => {
+    const merged = mergeCheckins(
+      { g1: "2027-01-01T01:00:00Z" },
+      {
+        g1: "2027-01-01T01:00:00Z",
+        g2: "2027-01-01T01:05:00Z",
+      },
+      {},
+    );
+    expect(merged).toEqual({ g2: "2027-01-01T01:05:00Z" });
+  });
+
+  it("keeps a concurrent arrival over a checkout for the same guest", () => {
+    const merged = mergeCheckins(
+      { g1: "2027-01-01T01:00:00Z" },
+      {},
+      { g1: "2027-01-01T01:10:00Z" },
+    );
+    expect(merged).toEqual({ g1: "2027-01-01T01:10:00Z" });
   });
 });
 
@@ -759,5 +839,143 @@ describe("PartyStore auth identity isolation", () => {
     store.reset("user-B");
     expect(store.getState("pA").state).toBe("idle");
     expect(store.getState("pA").conflict).toBeNull();
+  });
+});
+
+describe("PartyStore durable reload recovery", () => {
+  it("restores pending host-update delivery metadata from the durable queue", async () => {
+    const fake = new FakeDb();
+    const original = mkParty();
+    const baseline = {
+      ...partyToColumns(original, "user-a"),
+      updated_at: "2027-01-01T00:00:00Z",
+    };
+    fake.seed(baseline);
+    const latest = {
+      ...original,
+      hostUpdates: [
+        { id: "offline-update", text: "Parking moved to Oak Street", at: "2027-01-01T12:00:00Z" },
+      ],
+    };
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", baseline));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-a");
+
+    store.restorePending(await outbox.load("user-a"), [...fake.rows.values()], "user-a", false);
+
+    expect(store.getPendingHostUpdates("p1")).toEqual([
+      {
+        id: "offline-update",
+        baselineUpdatedAt: "2027-01-01T00:00:00Z",
+      },
+    ]);
+  });
+
+  it("replays an offline update against its original baseline and preserves a guest RSVP", async () => {
+    const fake = new FakeDb();
+    const original = mkParty();
+    const baseline = {
+      ...partyToColumns(original, "user-a"),
+      updated_at: "2027-01-01T00:00:00Z",
+    };
+    fake.seed(baseline);
+    fake.patchServer("p1", {
+      guests: original.guests.map((guest) =>
+        guest.id === "g1" ? { ...guest, rsvp: "yes" as const } : guest,
+      ),
+    });
+    const latest = {
+      ...original,
+      guests: original.guests.map((guest) =>
+        guest.id === "g2" ? { ...guest, name: "Robert" } : guest,
+      ),
+    };
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", baseline));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-a");
+    const records = await outbox.load("user-a");
+
+    const restored = store.restorePending(records, [...fake.rows.values()], "user-a");
+    expect(restored[0].guests.find((guest) => guest.id === "g2")?.name).toBe("Robert");
+    await flush();
+
+    const saved = rowToParty(fake.rows.get("p1")!);
+    expect(saved.guests.find((guest) => guest.id === "g1")?.rsvp).toBe("yes");
+    expect(saved.guests.find((guest) => guest.id === "g2")?.name).toBe("Robert");
+    expect(await outbox.load("user-a")).toEqual([]);
+  });
+
+  it("recognizes an insert that landed before a crash and saves only later edits", async () => {
+    const fake = new FakeDb();
+    const initial = mkParty({ id: "new-party", name: "Initial name" });
+    const insertBase = partyToColumns(initial, "user-a");
+    fake.seed(insertBase);
+    fake.patchServer("new-party", {
+      guests: initial.guests.map((guest) =>
+        guest.id === "g1" ? { ...guest, rsvp: "yes" as const } : guest,
+      ),
+    });
+    const latest = { ...initial, name: "Edited after create" };
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", null, insertBase));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-a");
+
+    store.restorePending(await outbox.load("user-a"), [...fake.rows.values()], "user-a");
+    await flush();
+
+    expect(fake.rows.get("new-party")?.name).toBe("Edited after create");
+    expect(
+      rowToParty(fake.rows.get("new-party")!).guests.find((guest) => guest.id === "g1")?.rsvp,
+    ).toBe("yes");
+    expect(await outbox.load("user-a")).toEqual([]);
+  });
+
+  it("retries a new party whose insert never reached the server", async () => {
+    const fake = new FakeDb();
+    const latest = mkParty({ id: "offline-new", name: "Offline draft" });
+    const insertBase = partyToColumns(latest, "user-a");
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", null, insertBase));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-a");
+
+    store.restorePending(await outbox.load("user-a"), [], "user-a");
+    await flush();
+
+    expect(fake.rows.get("offline-new")?.name).toBe("Offline draft");
+    expect(await outbox.load("user-a")).toEqual([]);
+  });
+
+  it("never restores a pending record under a different identity", async () => {
+    const fake = new FakeDb();
+    const latest = mkParty({ name: "A secret draft" });
+    const baseline = partyToColumns(latest, "user-a");
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", baseline));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-b");
+
+    expect(store.restorePending(await outbox.load("user-b"), [], "user-b")).toEqual([]);
+    await flush();
+    expect(fake.rows.size).toBe(0);
+    expect(await outbox.load("user-a")).toHaveLength(1);
+  });
+
+  it("does not resurrect an update when the server row was deleted elsewhere", async () => {
+    const fake = new FakeDb();
+    const latest = mkParty({ name: "Stale local edit" });
+    const baseline = partyToColumns(mkParty(), "user-a");
+    const outbox = new MemoryPartyOutbox();
+    outbox.put(pendingRecord(latest, "user-a", baseline));
+    const { store } = mkStore(fake, new Set(), outbox);
+    store.reset("user-a");
+
+    expect(store.restorePending(await outbox.load("user-a"), [], "user-a")).toEqual([]);
+    await flush();
+    expect(fake.rows.size).toBe(0);
+    expect(await outbox.load("user-a")).toEqual([]);
   });
 });

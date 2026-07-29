@@ -7,7 +7,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /** Bumped whenever the shape of the export payload changes. */
-export const EXPORT_SCHEMA_VERSION = 1 as const;
+export const EXPORT_SCHEMA_VERSION = 2 as const;
 
 /**
  * The export is returned as a pre-serialized JSON string so the transport
@@ -20,6 +20,7 @@ export type AccountExportEnvelope = {
   userId: string;
   email: string | null;
   partyCount: number;
+  membershipCount: number;
   draftCount: number;
   sessionCount: number;
   transcriptCount: number;
@@ -45,8 +46,12 @@ export const exportMyData = createServerFn({ method: "GET" })
     const { supabase, userId, claims } = context;
 
     // Fetch in parallel; each query is RLS-scoped to auth.uid().
-    const [parties, drafts, sessions, transcripts] = await Promise.all([
+    const [parties, memberships, drafts, sessions, transcripts] = await Promise.all([
       supabase.from("parties").select("*").eq("user_id", userId),
+      supabase
+        .from("party_memberships")
+        .select("party_id,user_id,role,display_name,created_at,joined_at")
+        .eq("user_id", userId),
       supabase.from("gathering_drafts").select("*").eq("user_id", userId),
       supabase
         .from("talk_sessions")
@@ -59,10 +64,11 @@ export const exportMyData = createServerFn({ method: "GET" })
       supabase.from("talk_transcripts").select("*").eq("user_id", userId),
     ]);
 
-    if (parties.error || drafts.error || sessions.error || transcripts.error) {
+    if (parties.error || memberships.error || drafts.error || sessions.error || transcripts.error) {
       // Never leak DB error text to the caller.
       console.error("[export] db_failure", {
         parties: parties.error?.code ?? null,
+        memberships: memberships.error?.code ?? null,
         drafts: drafts.error?.code ?? null,
         sessions: sessions.error?.code ?? null,
         transcripts: transcripts.error?.code ?? null,
@@ -76,6 +82,7 @@ export const exportMyData = createServerFn({ method: "GET" })
       stripPartyClaimSecrets(row as Record<string, unknown>),
     );
     const draftRows = drafts.data ?? [];
+    const membershipRows = memberships.data ?? [];
     const sessionRows = sessions.data ?? [];
     const transcriptRows = transcripts.data ?? [];
 
@@ -87,9 +94,10 @@ export const exportMyData = createServerFn({ method: "GET" })
       email,
       source: {
         description:
-          "All rows the signed-in user owns in Confetti's application database, fetched with row-level security scoped to their user id. No other user's data is included.",
+          "Rows the signed-in user owns, plus their own party-membership records, fetched with row-level security. Other collaborators' membership records are excluded.",
         tables: [
           "public.parties (full row — includes embedded guest names, dietary, allergens, bring board, host updates)",
+          "public.party_memberships (only the signed-in user's own role records)",
           "public.gathering_drafts (full row — voice/text intake draft state)",
           "public.talk_sessions (metadata only — no transcripts)",
           "public.talk_transcripts (caller-owned rows, when full transcript retention was enabled)",
@@ -102,6 +110,7 @@ export const exportMyData = createServerFn({ method: "GET" })
         ],
       },
       parties: cleanedParties,
+      partyMemberships: membershipRows,
       gatheringDrafts: draftRows,
       talkSessions: sessionRows,
       talkTranscripts: transcriptRows,
@@ -113,6 +122,7 @@ export const exportMyData = createServerFn({ method: "GET" })
       userId,
       email,
       partyCount: cleanedParties.length,
+      membershipCount: membershipRows.length,
       draftCount: draftRows.length,
       sessionCount: sessionRows.length,
       transcriptCount: transcriptRows.length,
@@ -143,16 +153,22 @@ export function stripPartyClaimSecrets(party: Record<string, unknown>): Record<s
  */
 export const deleteMyAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<{ ok: true } | { ok: false; reason: "reauth" }> => {
-    const { supabase } = context;
-    const { data, error } = await supabase.rpc("delete_own_account");
-    if (error) {
-      const msg = String(error.message ?? "").toLowerCase();
-      if (msg.includes("reauth")) return { ok: false, reason: "reauth" };
-      console.error("[delete_account] rpc_failed", { code: error.code ?? null });
-      throw new Error("delete_failed");
-    }
-    // Generic success — never echo raw RPC payload.
-    void data;
-    return { ok: true };
-  });
+  .handler(
+    async ({
+      context,
+    }): Promise<{ ok: true } | { ok: false; reason: "reauth" | "shared_parties" }> => {
+      const { supabase } = context;
+      const { data, error } = await supabase.rpc("delete_own_account");
+      if (error) {
+        const msg = String(error.message ?? "").toLowerCase();
+        if (msg.includes("reauth")) return { ok: false, reason: "reauth" };
+        if (msg.includes("shared parties require transfer"))
+          return { ok: false, reason: "shared_parties" };
+        console.error("[delete_account] rpc_failed", { code: error.code ?? null });
+        throw new Error("delete_failed");
+      }
+      // Generic success — never echo raw RPC payload.
+      void data;
+      return { ok: true };
+    },
+  );

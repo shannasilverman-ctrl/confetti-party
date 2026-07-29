@@ -17,6 +17,7 @@ import {
   CalendarClock,
   LockKeyhole,
   Printer,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,10 @@ import { themeById } from "@/lib/themes";
 import { formatDateOnly } from "@/lib/date-only";
 import { buildPartyBoothUrl } from "@/lib/photo-booth";
 import { openPrintableSign } from "@/lib/printable-sign";
+import { partyHeroImage } from "@/lib/party-visual";
+import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
+import { guestShareReadiness } from "@/lib/guest-share-readiness";
+import { SaveStatus } from "@/components/save-status";
 
 function formatDate(dateISO: string) {
   return formatDateOnly(dateISO, {
@@ -64,7 +69,8 @@ export function InviteDialog({
   onOpenChange: (v: boolean) => void;
   partyId: string;
 }) {
-  const { getParty, isDemo } = useParties();
+  const { getParty, isDemo, isPartyCloudVerified, saveStates, conflicts, insertRejected } =
+    useParties();
   const party = getParty(partyId);
   const cardRef = useRef<HTMLDivElement>(null);
   const boothQrRef = useRef<HTMLDivElement>(null);
@@ -78,14 +84,29 @@ export function InviteDialog({
   if (!party) return null;
 
   const theme = themeById(party.themeId);
+  const heroImage = partyHeroImage(party);
   const isReal = !isDemo && !!party.rsvpToken;
   const dateTbd = planningDetailIsOpen(party, "date");
-  const url = isReal ? `${clientOrigin}/rsvp/${party.rsvpToken}` : "Your private RSVP link";
+  const readiness = guestShareReadiness({
+    isDemo,
+    hasRsvpToken: !!party.rsvpToken,
+    dateIsOpen: dateTbd,
+    cloudVerified: isPartyCloudVerified(partyId),
+    saveState: saveStates[partyId] ?? "idle",
+    hasConflict: !!conflicts[partyId],
+    insertRejected: !!insertRejected[partyId],
+  });
+  const sharingLocked = !isDemo && !readiness.canShare;
+  const url = readiness.canShare
+    ? `${clientOrigin}/rsvp/${party.rsvpToken}`
+    : readiness.canPreview
+      ? "Your private RSVP link"
+      : "Available after the latest details save";
   const boothUrl = dateTbd
     ? null
-    : isReal
+    : readiness.canShare
       ? buildPartyBoothUrl(url)
-      : party.id === "ava-liam-wedding"
+      : readiness.canPreview && party.id === "ava-liam-wedding"
         ? buildPartyBoothUrl(`${clientOrigin}/sample-invite`)
         : null;
 
@@ -100,6 +121,7 @@ export function InviteDialog({
       toast.info("Sign up free to get a real shareable link.");
       return;
     }
+    if (!readiness.canShare) return;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("RSVP link copied");
@@ -114,6 +136,7 @@ export function InviteDialog({
       toast.info("Add the real date before copying an invite message.");
       return;
     }
+    if (sharingLocked) return;
     const text = buildInviteText(party, url);
     try {
       await navigator.clipboard.writeText(text);
@@ -131,6 +154,7 @@ export function InviteDialog({
       toast.info("Add the real date before downloading an invitation.");
       return;
     }
+    if (sharingLocked) return;
     if (!cardRef.current) return;
     setDownloading(true);
     try {
@@ -158,6 +182,7 @@ export function InviteDialog({
       toast.info("Add the real date before sharing this invitation.");
       return;
     }
+    if (sharingLocked) return;
     if (!canShare) return;
     const text = buildInviteText(party, url);
     try {
@@ -168,7 +193,7 @@ export function InviteDialog({
   };
 
   const copyBoothLink = async () => {
-    if (!boothUrl) return;
+    if (!boothUrl || sharingLocked) return;
     try {
       await navigator.clipboard.writeText(boothUrl);
       toast.success("Party Booth link copied", {
@@ -181,7 +206,7 @@ export function InviteDialog({
   };
 
   const shareBooth = async () => {
-    if (!boothUrl || !canShare) return;
+    if (!boothUrl || !canShare || sharingLocked) return;
     try {
       await navigator.share({
         title: `${party.name} Party Booth`,
@@ -194,7 +219,7 @@ export function InviteDialog({
   };
 
   const printBoothSign = () => {
-    if (!boothUrl) return;
+    if (!boothUrl || sharingLocked) return;
     const qrSvg = boothQrRef.current?.querySelector("svg")?.outerHTML;
     if (
       !qrSvg ||
@@ -210,15 +235,13 @@ export function InviteDialog({
     }
   };
 
-  const heroStyle: React.CSSProperties = theme
-    ? {
-        backgroundImage: `linear-gradient(135deg, hsl(${theme.palette[0]} / 0.55), hsl(${theme.palette[1]} / 0.65)), url(${theme.heroImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : {
-        backgroundImage: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
-      };
+  const heroStyle: React.CSSProperties = {
+    backgroundImage: theme
+      ? `linear-gradient(135deg, hsl(${theme.palette[0]} / 0.55), hsl(${theme.palette[1]} / 0.65)), url(${heroImage})`
+      : `linear-gradient(135deg, hsl(270 49% 18% / 0.76), hsl(330 58% 42% / 0.45)), url(${heroImage})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -252,6 +275,29 @@ export function InviteDialog({
           </div>
         )}
 
+        {sharingLocked && (
+          <div
+            role="status"
+            data-testid="guest-share-readiness"
+            data-state={readiness.kind}
+            className="rounded-2xl border border-warning/35 bg-warning/10 p-4 text-sm text-secondary"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle
+                className="mt-0.5 h-5 w-5 shrink-0 text-warning-foreground"
+                aria-hidden
+              />
+              <div>
+                <p className="font-semibold">{readiness.title}</p>
+                <p className="mt-0.5 text-muted-foreground">{readiness.message}</p>
+              </div>
+            </div>
+            <div className="mt-3">
+              <SaveStatus partyId={partyId} />
+            </div>
+          </div>
+        )}
+
         {/* Invite card */}
         <div
           ref={cardRef}
@@ -268,7 +314,9 @@ export function InviteDialog({
               <h2 className="font-display text-4xl font-semibold leading-tight drop-shadow sm:text-5xl">
                 {party.name}
               </h2>
-              <p className="text-sm/relaxed text-white/85">{party.theme}</p>
+              {party.themeId && party.theme.trim() && (
+                <p className="text-sm/relaxed text-white/85">{party.theme}</p>
+              )}
 
               <div className="space-y-1.5 pt-2 text-sm">
                 <div className="flex items-center gap-2">
@@ -299,7 +347,7 @@ export function InviteDialog({
           </div>
         </div>
 
-        {!isReal && (
+        {isDemo && (
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs text-secondary">
             You're viewing a demo party. Sign up free to get a real shareable RSVP link for your own
             invites.
@@ -307,17 +355,37 @@ export function InviteDialog({
         )}
 
         <div className="grid grid-cols-2 gap-2" aria-label="Invitation sharing actions">
-          <Button variant="outline" size="sm" onClick={copyLink} disabled={dateTbd}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyLink}
+            disabled={dateTbd || sharingLocked}
+          >
             <Link2 /> Copy link
           </Button>
-          <Button variant="outline" size="sm" onClick={copyMessage} disabled={dateTbd}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyMessage}
+            disabled={dateTbd || sharingLocked}
+          >
             <Copy /> Copy message
           </Button>
-          <Button variant="outline" size="sm" onClick={download} disabled={dateTbd || downloading}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={download}
+            disabled={dateTbd || sharingLocked || downloading}
+          >
             <Download /> {downloading ? "Preparing…" : "Download image"}
           </Button>
           {canShare && (
-            <Button variant="outline" size="sm" onClick={shareNative} disabled={dateTbd}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={shareNative}
+              disabled={dateTbd || sharingLocked}
+            >
               <Share2 /> Share…
             </Button>
           )}
@@ -393,14 +461,14 @@ export function InviteDialog({
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {!isReal && (
+          {isDemo && (
             <Button asChild variant="festive">
-              <Link to="/auth" search={{ mode: "signup" }}>
+              <Link to="/auth" search={{ mode: "signup", returnTo: DEMO_CLAIM_RETURN_TO }}>
                 <Sparkles /> Sign up free
               </Link>
             </Button>
           )}
-          {isReal && !dateTbd && (
+          {readiness.canShare && (
             <a
               href={`mailto:?subject=${encodeURIComponent(`You're invited to ${party.name}`)}&body=${encodeURIComponent(buildInviteText(party, url))}`}
               className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"

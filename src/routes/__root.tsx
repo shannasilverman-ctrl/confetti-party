@@ -8,10 +8,11 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { routeProviderNeeds } from "@/lib/route-providers";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 const LazyToaster = lazy(() =>
   import("@/components/ui/sonner").then((module) => ({ default: module.Toaster })),
@@ -48,6 +49,9 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  useEffect(() => {
+    trackProductEvent("client_render_failed", { once: true });
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -84,7 +88,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      {
+        name: "viewport",
+        content: "width=device-width, initial-scale=1, viewport-fit=cover",
+      },
       { title: "Confetti — Plan unforgettable gatherings" },
       {
         name: "description",
@@ -134,7 +141,15 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <a
+          href="#route-content"
+          className="absolute left-3 top-3 z-[10000] -translate-y-[calc(100%+1rem)] rounded-full bg-secondary px-4 py-2 font-semibold text-secondary-foreground shadow-elevated transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 motion-reduce:transition-none"
+        >
+          Skip to main content
+        </a>
+        <div id="route-content" tabIndex={-1}>
+          {children}
+        </div>
         <Scripts />
       </body>
     </html>
@@ -170,10 +185,25 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ServiceWorkerRegistration />
       {outlet}
       <Suspense fallback={null}>
         <LazyToaster />
       </Suspense>
     </QueryClientProvider>
   );
+}
+
+function ServiceWorkerRegistration() {
+  useEffect(() => {
+    if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker
+      .register(`/sw.js?v=${encodeURIComponent(__CONFETTI_RELEASE_SHA__)}`, { scope: "/" })
+      .catch(() => {
+        // The app remains fully usable online when browser policy or storage
+        // settings deny service workers.
+      });
+  }, []);
+
+  return null;
 }

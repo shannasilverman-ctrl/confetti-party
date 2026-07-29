@@ -6,12 +6,31 @@ export const DEFAULT_DEPLOYMENT_URL =
 export const DEFAULT_VERIFY_ATTEMPTS = 15;
 export const DEFAULT_VERIFY_DELAY_MS = 3_000;
 
-const HTML_ROUTES = ["/", "/app", "/talk"];
+const HTML_ROUTES = [
+  "/",
+  "/app",
+  "/talk",
+  "/sample-invite",
+  "/party/maya-8th",
+  "/party/ava-liam-wedding",
+  "/party/ava-liam-wedding/reveal",
+  "/party/ava-liam-wedding/day-of",
+  "/party/grad-bbq",
+  "/party/world-cup-final-watch",
+];
 const ASSETS = [
+  ["/sw.js", "javascript"],
   ["/manifest.webmanifest", "application/manifest+json"],
   ["/apple-touch-icon.png", "image/png"],
   ["/app-icon-192.png", "image/png"],
   ["/app-icon-512.png", "image/png"],
+  ["/brand/ava-liam.jpg", "image/jpeg"],
+  ["/brand/birthday-hero-v1.jpg", "image/jpeg"],
+  ["/brand/kids-party-v1.jpg", "image/jpeg"],
+  ["/brand/hosting-dinner-v1.jpg", "image/jpeg"],
+  ["/brand/world-cup-watch-v1.jpg", "image/jpeg"],
+  ["/brand/confetti-hero-poster.jpg", "image/jpeg"],
+  ["/brand/confetti-hero-loop-v1.webm", "video/webm"],
 ];
 
 function invariant(condition, message) {
@@ -85,6 +104,35 @@ async function fetchChecked(fetchImpl, url, expectedType) {
   return response;
 }
 
+async function verifyTelemetryPrivacyContract(fetchImpl, normalizedBase, cacheBust) {
+  const url = new URL("/api/telemetry", `${normalizedBase}/`);
+  url.searchParams.set("verify", cacheBust);
+  const response = await fetchImpl(url, {
+    method: "POST",
+    redirect: "error",
+    headers: {
+      "cache-control": "no-cache",
+      "content-type": "application/json",
+    },
+    // This deliberately invalid payload proves the deployed route rejects
+    // arbitrary private fields without adding a synthetic product event.
+    body: JSON.stringify({
+      event: "plan_created",
+      surface: "quick_start",
+      partyId: "deployment-probe-must-not-pass",
+    }),
+  });
+  invariant(
+    response.status === 400,
+    `/api/telemetry: expected privacy rejection 400, received ${response.status}`,
+  );
+  invariant(
+    response.headers.get("cache-control")?.toLowerCase() === "no-store",
+    "/api/telemetry: privacy rejection must be no-store",
+  );
+  assertHtmlSecurityHeaders(response.headers, "/api/telemetry");
+}
+
 export async function verifyDeployment(
   baseUrl,
   { fetchImpl = fetch, expectedReleaseSha = resolveExpectedReleaseSha() } = {},
@@ -101,6 +149,7 @@ export async function verifyDeployment(
     releasePayload?.release === expectedReleaseSha,
     `/release.json: expected ${expectedReleaseSha}, received ${releasePayload?.release ?? "no release"}`,
   );
+  await verifyTelemetryPrivacyContract(fetchImpl, normalizedBase, cacheBust);
 
   for (const route of HTML_ROUTES) {
     const url = new URL(route, `${normalizedBase}/`);
@@ -121,6 +170,12 @@ export async function verifyDeployment(
         "/: missing Apple touch icon link",
       );
       invariant(/<meta[^>]+name=["']theme-color["']/i.test(html), "/: missing theme-color meta");
+      invariant(
+        /<link[^>]+rel=["']canonical["'][^>]+href=["']https:\/\/www\.confettiapp\.ai\/["']/i.test(
+          html,
+        ),
+        "/: missing canonical confettiapp.ai URL",
+      );
     }
   }
 

@@ -123,6 +123,14 @@ function AccountPage() {
         });
         return;
       }
+      if (!res.ok && res.reason === "shared_parties") {
+        toast.error("Transfer or remove cohosts before deleting your account.", {
+          description: "Confetti won't delete a shared party out from under another planner.",
+        });
+        setDeleteOpen(false);
+        setDeleting(false);
+        return;
+      }
       // Success — clear local traces, sign out, land on a calm state.
       try {
         clearDemoState();
@@ -195,9 +203,9 @@ function AccountPage() {
             <Card className="p-4 sm:p-5">
               <h2 className="font-display text-lg font-semibold text-secondary">Export my data</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Download a JSON file with every party, guest, dietary/allergen tag, bring-board
-                item, host update, draft, voice-session record, and retained transcript Confetti
-                stores for your account. Claim secrets and other users' data are excluded.
+                Download a JSON file with every party you own, your own collaboration roles, guest
+                and planning data on owned parties, drafts, voice-session records, and retained
+                transcripts. Claim secrets and other collaborators' role records are excluded.
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 File format: JSON, schema version {EXPORT_SCHEMA_VERSION}.
@@ -242,9 +250,10 @@ function AccountPage() {
                     Delete my account
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Permanently removes your account, every party you've created, guest RSVPs on
-                    those parties, drafts, and voice-session metadata. Guest RSVP links you shared
-                    will stop working. This can't be undone. Export first if you want a copy.
+                    Permanently removes your account, unshared parties you've created, guest RSVPs
+                    on those parties, drafts, and voice-session metadata. Shared parties must be
+                    transferred or have their cohosts removed first, so another planner never loses
+                    access without warning. This can't be undone. Export first if you want a copy.
                   </p>
                   <div className="mt-4">
                     <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
@@ -274,8 +283,10 @@ function AccountPage() {
           <DialogHeader>
             <DialogTitle>Delete your account?</DialogTitle>
             <DialogDescription>
-              This deletes your account and every party, RSVP, bring-board item, and voice-session
-              record we have for you. Guest links stop working immediately. This can't be undone.
+              This deletes your account and every unshared party, RSVP, bring-board item, and
+              voice-session record we have for you. Confetti will stop and ask you to resolve any
+              shared party first. Guest links for deleted parties stop working immediately. This
+              can't be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

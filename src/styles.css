@@ -258,6 +258,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
   .animate-letter-pop,
   .animate-piece-fly,
   .animate-confetti,
@@ -266,7 +277,7 @@
     animation: none !important;
   }
   .motion-reduce-fade {
-    animation: fade-in 0.3s ease-out both !important;
+    animation: none !important;
   }
 }
 @keyframes fade-in {

@@ -1,0 +1,425 @@
+{
+  "version": "firebase-supabase-v2",
+  "sourceTenant": "confetti-d8be9",
+  "fields": [
+    { "path": "meta.sanitized", "action": "retire", "destination": null, "pii": "none" },
+    {
+      "path": "meta.snapshotAt",
+      "action": "migrate",
+      "destination": "migration_runs.snapshot_at",
+      "pii": "none"
+    },
+    {
+      "path": "meta.sourceTenant",
+      "action": "migrate",
+      "destination": "migration_runs.source_tenant",
+      "pii": "none"
+    },
+    { "path": "auth[]", "action": "retire", "destination": null, "pii": "none" },
+    {
+      "path": "auth[].uid",
+      "action": "migrate",
+      "destination": "external_identities.external_subject_hash",
+      "pii": "identifier"
+    },
+    {
+      "path": "auth[].providers[]",
+      "action": "reauthorize",
+      "destination": "supabase_auth_provider",
+      "pii": "identifier"
+    },
+    {
+      "path": "auth[].disabled",
+      "action": "migrate",
+      "destination": "identity_review_state",
+      "pii": "none"
+    },
+    { "path": "users", "action": "retire", "destination": null, "pii": "none" },
+    { "path": "users.*", "action": "quarantine", "destination": null, "pii": "personal" },
+    {
+      "path": "users.*.eventCode",
+      "action": "migrate",
+      "destination": "legacy_link_reconciliation_only",
+      "pii": "secret"
+    },
+    {
+      "path": "users.*.name",
+      "action": "migrate",
+      "destination": "party_memberships.display_name",
+      "pii": "personal"
+    },
+    {
+      "path": "users.*.fcmTokens[]",
+      "action": "reauthorize",
+      "destination": null,
+      "pii": "secret"
+    },
+    { "path": "events", "action": "retire", "destination": null, "pii": "none" },
+    {
+      "path": "events.*.code",
+      "action": "migrate",
+      "destination": "legacy_link_reconciliation_only",
+      "pii": "secret"
+    },
+    {
+      "path": "events.*.ownerUid",
+      "action": "migrate",
+      "destination": "party_memberships.user_id",
+      "pii": "identifier"
+    },
+    {
+      "path": "events.*.updatedAt",
+      "action": "migrate",
+      "destination": "migration_records.source_updated_at",
+      "pii": "none"
+    },
+    { "path": "events.*.data.setup", "action": "retire", "destination": null, "pii": "none" },
+    {
+      "path": "events.*.data.kind",
+      "action": "migrate",
+      "destination": "parties.occasion",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.emoji",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.title",
+      "action": "migrate",
+      "destination": "parties.name",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.location",
+      "action": "migrate",
+      "destination": "parties.location",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.time",
+      "action": "migrate",
+      "destination": "parties.start_time",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.date",
+      "action": "migrate",
+      "destination": "parties.date",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[]",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].id",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].name",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.categories[].budget",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].spent",
+      "action": "migrate",
+      "destination": "parties.budget_categories",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.categories[].progress",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.vendors[]",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.vendors[].id",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.vendors[].name",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.guests[]",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.guests[].id",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.guests[].name",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.guests[].email",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.guests[].kind",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.guests[].rsvp",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.guests[].dietary[]",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.guests[].allergens[]",
+      "action": "migrate",
+      "destination": "parties.guests",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.pins[]",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.pins[].id",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.pins[].url",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.tasks[]",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.tasks[].id",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.tasks[].title",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.tasks[].done",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.tasks[].bucket",
+      "action": "migrate",
+      "destination": "parties.tasks",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.members[]",
+      "action": "migrate",
+      "destination": "party_memberships",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.members[].id",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.members[].uid",
+      "action": "migrate",
+      "destination": "party_memberships",
+      "pii": "identifier"
+    },
+    {
+      "path": "events.*.data.members[].name",
+      "action": "migrate",
+      "destination": "party_memberships.display_name",
+      "pii": "personal"
+    },
+    {
+      "path": "events.*.data.members[].email",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "sensitive"
+    },
+    {
+      "path": "events.*.data.members[].role",
+      "action": "migrate",
+      "destination": "party_memberships.role",
+      "pii": "none"
+    },
+    {
+      "path": "events.*.data.members[].status",
+      "action": "migrate",
+      "destination": "party_memberships",
+      "pii": "none"
+    },
+    {
+      "path": "events.invite:*.code",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "secret"
+    },
+    {
+      "path": "events.invite:*.role",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "events.invite:*.at",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    { "path": "vendors", "action": "archive", "destination": "migration_archive", "pii": "none" },
+    {
+      "path": "vendors.*",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "personal"
+    },
+    {
+      "path": "vendors.*.*",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "personal"
+    },
+    { "path": "bookings", "action": "archive", "destination": "migration_archive", "pii": "none" },
+    {
+      "path": "bookings.*.plannerUid",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "identifier"
+    },
+    {
+      "path": "bookings.*.vendorUid",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "identifier"
+    },
+    {
+      "path": "bookings.*.status",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "bookings.*.createdAt",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "bookings.*.updatedAt",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "bookings.*.thread[]",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "bookings.*.thread[].*",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "sensitive"
+    },
+    {
+      "path": "bookings.*.attachments[]",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "none"
+    },
+    {
+      "path": "bookings.*.attachments[].*",
+      "action": "archive",
+      "destination": "migration_archive",
+      "pii": "sensitive"
+    },
+    { "path": "integrations", "action": "reauthorize", "destination": null, "pii": "none" },
+    { "path": "integrations.*", "action": "reauthorize", "destination": null, "pii": "secret" },
+    { "path": "integrations.*.*", "action": "reauthorize", "destination": null, "pii": "secret" },
+    {
+      "path": "storage.attachments[]",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
+    },
+    {
+      "path": "storage.attachments[].path",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "sensitive"
+    },
+    {
+      "path": "storage.attachments[].sha256",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
+    },
+    {
+      "path": "storage.attachments[].size",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
+    },
+    {
+      "path": "storage.attachments[].contentType",
+      "action": "migrate",
+      "destination": "managed_object_storage",
+      "pii": "none"
+    }
+  ]
+}

@@ -31,7 +31,10 @@ const PartySchema = z
     id: z.string().min(1),
     name: z.string().min(1),
     occasion: z.string().min(1),
-    date: z.string().min(1),
+    // A date is intentionally optional during Smart Start. Keep the empty
+    // string so "decide later" parties survive refresh instead of being
+    // mistaken for corrupt storage.
+    date: z.string(),
     startTime: z.string().optional(),
     location: z.string().optional(),
     guestEstimate: z.coerce.number().finite().nonnegative().default(0),
@@ -59,10 +62,10 @@ const PartySchema = z
   // rely on them.
   .passthrough();
 
-const StoredShape = z.object({
+const StoredEnvelope = z.object({
   v: z.literal(2),
-  samples: z.record(PartySchema).default({}),
-  custom: z.array(PartySchema).default([]),
+  samples: z.record(z.unknown()).default({}),
+  custom: z.array(z.unknown()).default([]),
 });
 
 export type DemoStoreResult = {
@@ -75,9 +78,9 @@ export type DemoStoreResult = {
   warning?: "corrupt" | "quota" | "oversized";
 };
 
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export type DemoStorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-function getStorage(): StorageLike | null {
+function getStorage(): DemoStorageLike | null {
   if (typeof window === "undefined") return null;
   try {
     // Access can throw in private mode.
@@ -99,7 +102,7 @@ function utf8Bytes(s: string): number {
  */
 export function loadDemoState(
   seeds: Party[],
-  storage: StorageLike | null = getStorage(),
+  storage: DemoStorageLike | null = getStorage(),
 ): DemoStoreResult {
   const seedIds = new Set(seeds.map((s) => s.id));
   if (!storage) return { parties: seeds };
@@ -116,28 +119,47 @@ export function loadDemoState(
   } catch {
     return { parties: seeds, warning: "corrupt" };
   }
-  const outcome = StoredShape.safeParse(parsed);
+  const outcome = StoredEnvelope.safeParse(parsed);
   if (!outcome.success) {
     return { parties: seeds, warning: "corrupt" };
   }
   const store = outcome.data;
+  let droppedInvalidParty = false;
 
-  // Merge samples: seed base, override with stored copy when the id still
-  // exists in code. Orphaned overrides (deleted from code) are discarded.
+  // Merge samples: keep the fresh code seed as the base and layer the stored
+  // user copy over it when the id still exists. This lets newly shipped
+  // top-level sample fields reach returning browsers without erasing explicit
+  // edits (including null values). Orphaned overrides are discarded.
   const merged = seeds.map((s) => {
-    const override = store.samples[s.id];
-    if (!override) return s;
+    const rawOverride = store.samples[s.id];
+    if (!rawOverride) return s;
+    const parsedOverride = PartySchema.safeParse(rawOverride);
+    if (!parsedOverride.success) {
+      droppedInvalidParty = true;
+      return s;
+    }
     // Preserve the seed id explicitly — never let a stored blob rewrite id.
-    return { ...(override as unknown as Party), id: s.id };
+    return { ...s, ...(parsedOverride.data as unknown as Party), id: s.id };
   });
 
   // Custom parties: drop any whose id collides with a seed to avoid duplicate
   // ids in the list, and cap total count.
-  const custom = (store.custom as unknown as Party[])
-    .filter((p) => !seedIds.has(p.id))
+  const custom = store.custom
+    .flatMap((candidate) => {
+      const parsedParty = PartySchema.safeParse(candidate);
+      if (!parsedParty.success) {
+        droppedInvalidParty = true;
+        return [];
+      }
+      return [parsedParty.data as unknown as Party];
+    })
+    .filter((party) => !seedIds.has(party.id))
     .slice(0, DEMO_MAX_PARTIES);
 
-  return { parties: [...merged, ...custom] };
+  return {
+    parties: [...merged, ...custom],
+    ...(droppedInvalidParty ? { warning: "corrupt" as const } : {}),
+  };
 }
 
 /**
@@ -149,7 +171,7 @@ export function loadDemoState(
 export function saveDemoState(
   parties: Party[],
   seeds: Party[],
-  storage: StorageLike | null = getStorage(),
+  storage: DemoStorageLike | null = getStorage(),
 ): { ok: boolean; reason?: "quota" | "oversized" } {
   if (!storage) return { ok: false, reason: "quota" };
   const seedIds = new Set(seeds.map((s) => s.id));
@@ -183,7 +205,105 @@ export function saveDemoState(
   }
 }
 
-export function clearDemoState(storage: StorageLike | null = getStorage()): void {
+export type DemoCustomStoreResult = {
+  parties: Party[];
+  warning?: "corrupt";
+};
+
+/**
+ * Read only user-created browser parties. Seed samples and their local
+ * overrides are deliberately excluded so account claiming can never turn
+ * Confetti's examples into a user's cloud data.
+ */
+export function loadDemoCustomParties(
+  storage: DemoStorageLike | null = getStorage(),
+): DemoCustomStoreResult {
+  if (!storage) return { parties: [] };
+  let raw: string | null;
+  try {
+    raw = storage.getItem(DEMO_STORAGE_KEY);
+  } catch {
+    return { parties: [] };
+  }
+  if (!raw) return { parties: [] };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { parties: [], warning: "corrupt" };
+  }
+  const outcome = StoredEnvelope.safeParse(parsed);
+  if (!outcome.success) return { parties: [], warning: "corrupt" };
+
+  let droppedInvalidParty = false;
+  const parties = outcome.data.custom
+    .flatMap((candidate) => {
+      const parsedParty = PartySchema.safeParse(candidate);
+      if (!parsedParty.success) {
+        droppedInvalidParty = true;
+        return [];
+      }
+      return [parsedParty.data as unknown as Party];
+    })
+    .slice(0, DEMO_MAX_PARTIES);
+
+  return {
+    parties,
+    ...(droppedInvalidParty ? { warning: "corrupt" as const } : {}),
+  };
+}
+
+/**
+ * Remove only custom parties that have been acknowledged by the cloud.
+ * Unknown/corrupt entries and sample overrides are preserved rather than
+ * being collateral damage. A failed cleanup is safe to retry because account
+ * claiming preserves ids and verifies existing owned rows first.
+ */
+export function removeDemoCustomParties(
+  ids: Iterable<string>,
+  storage: DemoStorageLike | null = getStorage(),
+): { ok: boolean; reason?: "corrupt" | "quota" | "oversized" } {
+  if (!storage) return { ok: false, reason: "quota" };
+  const selected = new Set(ids);
+  if (selected.size === 0) return { ok: true };
+
+  let raw: string | null;
+  try {
+    raw = storage.getItem(DEMO_STORAGE_KEY);
+  } catch {
+    return { ok: false, reason: "quota" };
+  }
+  if (!raw) return { ok: true };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: "corrupt" };
+  }
+  const outcome = StoredEnvelope.safeParse(parsed);
+  if (!outcome.success) return { ok: false, reason: "corrupt" };
+
+  const next = {
+    v: 2 as const,
+    samples: outcome.data.samples,
+    custom: outcome.data.custom.filter((candidate) => {
+      const party = PartySchema.safeParse(candidate);
+      return !party.success || !selected.has(party.data.id);
+    }),
+  };
+  const json = JSON.stringify(next);
+  if (utf8Bytes(json) > DEMO_MAX_BYTES) return { ok: false, reason: "oversized" };
+  try {
+    storage.setItem(DEMO_STORAGE_KEY, json);
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "quota" };
+  }
+}
+
+export function clearDemoState(storage: DemoStorageLike | null = getStorage()): void {
   if (!storage) return;
   try {
     storage.removeItem(DEMO_STORAGE_KEY);

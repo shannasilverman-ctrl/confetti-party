@@ -24,7 +24,7 @@ type AuthCtx = {
    * Resend the signup confirmation email. Never re-invokes signUp and never
    * requires the password. Uses Supabase's dedicated resend API.
    */
-  resendSignupConfirmation: (email: string) => Promise<{ error: string | null }>;
+  resendSignupConfirmation: (email: string, returnTo?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
@@ -106,9 +106,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const s = data.session ?? null;
         return { error: null, session: s, needsConfirmation: !s };
       },
-      resendSignupConfirmation: async (email) => {
+      resendSignupConfirmation: async (email, returnTo) => {
         const origin = originOrUndefined();
-        const emailRedirectTo = origin ? `${origin}/app` : undefined;
+        const emailRedirectTo = origin
+          ? new URL(normalizeAuthReturnTo(returnTo), origin).toString()
+          : undefined;
         const { error } = await supabase.auth.resend({
           type: "signup",
           email,

@@ -29,12 +29,21 @@ const SECURITY_HEADERS: Readonly<Record<string, string>> = {
  */
 export function withSecurityHeaders(request: Request, response: Response): Response {
   const headers = new Headers(response.headers);
+  const url = new URL(request.url);
 
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     headers.set(name, value);
   }
 
-  if (new URL(request.url).protocol === "https:") {
+  // RSVP paths are bearer-capability pages whose HTML can contain the token
+  // and private event details. Never let a browser or intermediary retain
+  // either valid or invalid token responses.
+  if (url.pathname.startsWith("/rsvp/")) {
+    headers.set("Cache-Control", "no-store");
+    headers.set("Pragma", "no-cache");
+  }
+
+  if (url.protocol === "https:") {
     headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
 

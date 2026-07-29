@@ -62,6 +62,207 @@ export type Database = {
         }
         Relationships: []
       }
+      external_identities: {
+        Row: {
+          created_at: string
+          external_subject_hash: string
+          id: string
+          proof_method: string | null
+          source_system: string
+          source_tenant: string
+          status: string
+          updated_at: string
+          user_id: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          external_subject_hash: string
+          id?: string
+          proof_method?: string | null
+          source_system: string
+          source_tenant: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          external_subject_hash?: string
+          id?: string
+          proof_method?: string | null
+          source_system?: string
+          source_tenant?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
+      migration_records: {
+        Row: {
+          entity_kind: string
+          error_code: string | null
+          id: string
+          imported_at: string | null
+          run_id: string
+          source_key_hmac: string
+          source_payload_hash: string
+          source_updated_at: string | null
+          status: string
+          target_id: string | null
+          target_kind: string | null
+        }
+        Insert: {
+          entity_kind: string
+          error_code?: string | null
+          id?: string
+          imported_at?: string | null
+          run_id: string
+          source_key_hmac: string
+          source_payload_hash: string
+          source_updated_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_kind?: string | null
+        }
+        Update: {
+          entity_kind?: string
+          error_code?: string | null
+          id?: string
+          imported_at?: string | null
+          run_id?: string
+          source_key_hmac?: string
+          source_payload_hash?: string
+          source_updated_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_kind?: string | null
+        }
+        Relationships: []
+      }
+      migration_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          exporter_version: string
+          field_map_version: string
+          id: string
+          snapshot_at: string
+          source_counts: Json
+          source_hashes: Json
+          source_system: string
+          source_tenant: string
+          started_at: string | null
+          status: string
+          target_counts: Json
+          target_hashes: Json
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          exporter_version: string
+          field_map_version: string
+          id?: string
+          snapshot_at: string
+          source_counts?: Json
+          source_hashes?: Json
+          source_system: string
+          source_tenant: string
+          started_at?: string | null
+          status?: string
+          target_counts?: Json
+          target_hashes?: Json
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          exporter_version?: string
+          field_map_version?: string
+          id?: string
+          snapshot_at?: string
+          source_counts?: Json
+          source_hashes?: Json
+          source_system?: string
+          source_tenant?: string
+          started_at?: string | null
+          status?: string
+          target_counts?: Json
+          target_hashes?: Json
+        }
+        Relationships: []
+      }
+      party_collaboration_invitations: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          party_id: string
+          revoked_at: string | null
+          role: string
+          token_hash: string
+          token_hint: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          party_id: string
+          revoked_at?: string | null
+          role?: string
+          token_hash: string
+          token_hint: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          party_id?: string
+          revoked_at?: string | null
+          role?: string
+          token_hash?: string
+          token_hint?: string
+        }
+        Relationships: []
+      }
+      party_memberships: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          joined_at: string
+          party_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          joined_at?: string
+          party_id: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          joined_at?: string
+          party_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       parties: {
         Row: {
           bring_board: Json
@@ -81,6 +282,7 @@ export type Database = {
           location: string | null
           name: string
           occasion: string
+          planning_profile: Json
           photo_drop: Json | null
           pinned_inspiration: Json
           retrospective: Json | null
@@ -113,6 +315,7 @@ export type Database = {
           location?: string | null
           name: string
           occasion: string
+          planning_profile?: Json
           photo_drop?: Json | null
           pinned_inspiration?: Json
           retrospective?: Json | null
@@ -145,6 +348,7 @@ export type Database = {
           location?: string | null
           name?: string
           occasion?: string
+          planning_profile?: Json
           photo_drop?: Json | null
           pinned_inspiration?: Json
           retrospective?: Json | null
@@ -299,6 +503,10 @@ export type Database = {
         Returns: undefined
       }
       bump_ai_turn: { Args: { _draft_id: string }; Returns: Json }
+      accept_collaboration_invite: {
+        Args: { _display_name: string; _token: string }
+        Returns: Json
+      }
       claim_bring_item: {
         Args: {
           guest_name: string
@@ -313,9 +521,20 @@ export type Database = {
         Args: { _draft_id: string; _party: Json }
         Returns: Json
       }
+      create_collaboration_invite: {
+        Args: { _expires_in_hours?: number; _party_id: string }
+        Returns: Json
+      }
       delete_own_account: { Args: never; Returns: Json }
       get_rsvp_party: { Args: { token: string }; Returns: Json }
+      get_rsvp_party_v2: { Args: { token: string }; Returns: Json }
       list_bring_board: { Args: { token: string }; Returns: Json }
+      leave_party: { Args: { _party_id: string }; Returns: Json }
+      list_party_people: { Args: { _party_id: string }; Returns: Json }
+      remove_party_member: {
+        Args: { _party_id: string; _user_id: string }
+        Returns: Json
+      }
       release_bring_item: {
         Args: {
           claim_secret?: string
@@ -336,6 +555,28 @@ export type Database = {
           rsvp: string
           token: string
         }
+        Returns: Json
+      }
+      submit_rsvp_v2: {
+        Args: {
+          adults: number
+          allergens?: Json
+          dietary?: Json
+          guest_name: string
+          household_label?: string
+          kids: number
+          response_details?: Json
+          rsvp: string
+          token: string
+        }
+        Returns: Json
+      }
+      revoke_collaboration_invite: {
+        Args: { _invitation_id: string; _party_id: string }
+        Returns: Json
+      }
+      transfer_party_ownership: {
+        Args: { _new_owner_id: string; _party_id: string }
         Returns: Json
       }
     }

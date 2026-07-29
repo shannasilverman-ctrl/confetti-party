@@ -38,4 +38,28 @@ describe("withSecurityHeaders", () => {
 
     expect(response.headers.has("strict-transport-security")).toBe(false);
   });
+
+  it("prevents valid or invalid RSVP bearer pages from entering HTTP caches", () => {
+    for (const path of ["/rsvp/valid-token", "/rsvp/not-a-valid-token"]) {
+      const response = withSecurityHeaders(
+        new Request(`https://confetti.example${path}`),
+        new Response("invite", { headers: { "cache-control": "public, max-age=3600" } }),
+      );
+
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("pragma")).toBe("no-cache");
+    }
+  });
+
+  it("preserves existing cache policy outside RSVP bearer pages", () => {
+    for (const path of ["/", "/assets/app.js"]) {
+      const response = withSecurityHeaders(
+        new Request(`https://confetti.example${path}`),
+        new Response("public", { headers: { "cache-control": "public, max-age=3600" } }),
+      );
+
+      expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
+      expect(response.headers.has("pragma")).toBe(false);
+    }
+  });
 });

@@ -6,7 +6,8 @@
 
 import { z } from "zod";
 
-export const SAMPLE_STATE_STORAGE_KEY = "confetti:sample-invite:v1";
+export const SAMPLE_STATE_STORAGE_KEY = "confetti:sample-invite:v2";
+const LEGACY_SAMPLE_STATE_STORAGE_KEY = "confetti:sample-invite:v1";
 const MAX_BYTES = 32 * 1024;
 const MAX_STRING_BYTES = 512;
 const DANGEROUS_KEYS = new Set(["__proto__", "prototype", "constructor"]);
@@ -33,35 +34,56 @@ const SafeIdSchema = z
   .regex(/^[a-zA-Z0-9_-]+$/)
   .refine((value) => !DANGEROUS_KEYS.has(value), "Reserved identifier");
 
+const SampleRsvpShape = {
+  name: ShortText,
+  household: ShortText.optional(),
+  choice: ChoiceSchema,
+  adults: z.number().int().min(0).max(20),
+  kids: z.number().int().min(0).max(20),
+  dietary: z.array(TagSchema).max(12),
+  allergens: z.array(TagSchema).max(12),
+  at: z
+    .string()
+    .max(40)
+    .refine((value) => Number.isFinite(Date.parse(value)), "Invalid timestamp"),
+};
+
+type SampleRsvpRefinement = {
+  choice: "yes" | "maybe" | "no";
+  adults: number;
+  kids: number;
+  dietary: string[];
+  allergens: string[];
+  accessNotes?: string;
+};
+
+function refineSampleRsvp(entry: SampleRsvpRefinement, context: z.RefinementCtx): void {
+  if (entry.choice === "yes" && entry.adults + entry.kids < 1) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Yes requires an attendee" });
+  }
+  if (entry.choice !== "yes" && (entry.adults !== 0 || entry.kids !== 0)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Non-yes counts must be zero" });
+  }
+  if (entry.choice === "no" && entry.accessNotes) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "No response cannot keep notes" });
+  }
+  if (new Set(entry.dietary).size !== entry.dietary.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate dietary tag" });
+  }
+  if (new Set(entry.allergens).size !== entry.allergens.length) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate allergen" });
+  }
+}
+
+const LegacySampleRsvpSchema = z.object(SampleRsvpShape).strict().superRefine(refineSampleRsvp);
+
 const SampleRsvpSchema = z
   .object({
-    name: ShortText,
-    household: ShortText.optional(),
-    choice: ChoiceSchema,
-    adults: z.number().int().min(0).max(20),
-    kids: z.number().int().min(0).max(20),
-    dietary: z.array(TagSchema).max(12),
-    allergens: z.array(TagSchema).max(12),
-    at: z
-      .string()
-      .max(40)
-      .refine((value) => Number.isFinite(Date.parse(value)), "Invalid timestamp"),
+    ...SampleRsvpShape,
+    accessNotes: BoundedString(200).optional(),
   })
   .strict()
-  .superRefine((entry, context) => {
-    if (entry.choice === "yes" && entry.adults + entry.kids < 1) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Yes requires an attendee" });
-    }
-    if (entry.choice !== "yes" && (entry.adults !== 0 || entry.kids !== 0)) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Non-yes counts must be zero" });
-    }
-    if (new Set(entry.dietary).size !== entry.dietary.length) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate dietary tag" });
-    }
-    if (new Set(entry.allergens).size !== entry.allergens.length) {
-      context.addIssue({ code: z.ZodIssueCode.custom, message: "Duplicate allergen" });
-    }
-  });
+  .superRefine(refineSampleRsvp);
 
 const SampleBringItemSchema = z
   .object({
@@ -77,20 +99,38 @@ const SampleBringItemSchema = z
     message: "Only a claimed item can belong to this sample guest",
   });
 
-const SampleStateSchema = z
+const SampleStateFields = {
+  bring: z.array(SampleBringItemSchema).max(50),
+  baseline: z
+    .object({
+      yes: z.number().int().min(0).max(10_000),
+      maybe: z.number().int().min(0).max(10_000),
+    })
+    .strict(),
+};
+
+const uniqueBringIds = (state: { bring: SampleBringItem[] }) =>
+  new Set(state.bring.map((item) => item.id)).size === state.bring.length;
+
+const LegacySampleStateSchema = z
   .object({
     v: z.literal(1),
-    rsvp: SampleRsvpSchema.nullable(),
-    bring: z.array(SampleBringItemSchema).max(50),
-    baseline: z
-      .object({
-        yes: z.number().int().min(0).max(10_000),
-        maybe: z.number().int().min(0).max(10_000),
-      })
-      .strict(),
+    rsvp: LegacySampleRsvpSchema.nullable(),
+    ...SampleStateFields,
   })
   .strict()
-  .refine((state) => new Set(state.bring.map((item) => item.id)).size === state.bring.length, {
+  .refine(uniqueBringIds, {
+    message: "Bring item IDs must be unique",
+  });
+
+const SampleStateSchema = z
+  .object({
+    v: z.literal(2),
+    rsvp: SampleRsvpSchema.nullable(),
+    ...SampleStateFields,
+  })
+  .strict()
+  .refine(uniqueBringIds, {
     message: "Bring item IDs must be unique",
   });
 
@@ -108,7 +148,7 @@ const DEFAULT_BRING: SampleBringItem[] = [
 
 export function defaultSampleState(): SampleState {
   return {
-    v: 1,
+    v: 2,
     rsvp: null,
     bring: DEFAULT_BRING.map((item) => ({ ...item })),
     baseline: { yes: 14, maybe: 3 },
@@ -126,9 +166,9 @@ function browserStorage(): SampleStorage | null {
   }
 }
 
-function removeInvalid(storage: SampleStorage): void {
+function removeInvalid(storage: SampleStorage, key = SAMPLE_STATE_STORAGE_KEY): void {
   try {
-    storage.removeItem(SAMPLE_STATE_STORAGE_KEY);
+    storage.removeItem(key);
   } catch {
     // A blocked store is equivalent to a fresh, non-persistent sample.
   }
@@ -140,34 +180,57 @@ export type LoadSampleStateResult = {
   corruption?: SampleStateCorruption;
 };
 
+function parseStoredState<T>(
+  raw: string,
+  schema: z.ZodType<T>,
+): { data: T } | { corruption: SampleStateCorruption } {
+  if (utf8Bytes(raw) > MAX_BYTES) return { corruption: "oversize" };
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return { corruption: "parse" };
+  }
+  const parsed = schema.safeParse(json);
+  return parsed.success ? { data: parsed.data } : { corruption: "invalid" };
+}
+
 export function loadSampleState(
   storage: SampleStorage | null = browserStorage(),
 ): LoadSampleStateResult {
   if (!storage) return { state: defaultSampleState() };
   let raw: string | null;
+  let legacyRaw: string | null;
   try {
     raw = storage.getItem(SAMPLE_STATE_STORAGE_KEY);
+    legacyRaw = raw ? null : storage.getItem(LEGACY_SAMPLE_STATE_STORAGE_KEY);
   } catch {
     return { state: defaultSampleState() };
   }
-  if (!raw) return { state: defaultSampleState() };
-  if (utf8Bytes(raw) > MAX_BYTES) {
-    removeInvalid(storage);
-    return { state: defaultSampleState(), corruption: "oversize" };
+  if (raw) {
+    const parsed = parseStoredState(raw, SampleStateSchema);
+    if ("corruption" in parsed) {
+      removeInvalid(storage);
+      return { state: defaultSampleState(), corruption: parsed.corruption };
+    }
+    return { state: parsed.data };
   }
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    removeInvalid(storage);
-    return { state: defaultSampleState(), corruption: "parse" };
+  if (!legacyRaw) return { state: defaultSampleState() };
+
+  const legacy = parseStoredState(legacyRaw, LegacySampleStateSchema);
+  if ("corruption" in legacy) {
+    removeInvalid(storage, LEGACY_SAMPLE_STATE_STORAGE_KEY);
+    return { state: defaultSampleState(), corruption: legacy.corruption };
   }
-  const parsed = SampleStateSchema.safeParse(json);
-  if (!parsed.success) {
-    removeInvalid(storage);
-    return { state: defaultSampleState(), corruption: "invalid" };
+  const migrated: SampleState = {
+    ...legacy.data,
+    v: 2,
+    rsvp: legacy.data.rsvp ? { ...legacy.data.rsvp } : null,
+  };
+  if (saveSampleState(migrated, storage).ok) {
+    removeInvalid(storage, LEGACY_SAMPLE_STATE_STORAGE_KEY);
   }
-  return { state: parsed.data };
+  return { state: migrated };
 }
 
 export function saveSampleState(
@@ -191,6 +254,7 @@ export function resetSampleState(storage: SampleStorage | null = browserStorage(
   if (!storage) return;
   try {
     storage.removeItem(SAMPLE_STATE_STORAGE_KEY);
+    storage.removeItem(LEGACY_SAMPLE_STATE_STORAGE_KEY);
   } catch {
     // The UI still resets its in-memory state.
   }

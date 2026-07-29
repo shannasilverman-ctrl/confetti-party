@@ -13,11 +13,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountRouteImport } from './routes/account'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CollaborateRouteImport } from './routes/collaborate'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SampleInviteRouteImport } from './routes/sample-invite'
 import { Route as TalkRouteImport } from './routes/talk'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiTelemetryRouteImport } from './routes/api/telemetry'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
 import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
@@ -44,6 +46,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollaborateRoute = CollaborateRouteImport.update({
+  id: '/collaborate',
+  path: '/collaborate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
@@ -67,6 +74,11 @@ const TalkRoute = TalkRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTelemetryRoute = ApiTelemetryRouteImport.update({
+  id: '/api/telemetry',
+  path: '/api/telemetry',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartyIdRoute = PartyIdRouteImport.update({
@@ -100,11 +112,13 @@ export interface FileRoutesByFullPath {
   '/account': typeof AccountRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/collaborate': typeof CollaborateRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -116,11 +130,13 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/collaborate': typeof CollaborateRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -133,11 +149,13 @@ export interface FileRoutesById {
   '/account': typeof AccountRoute
   '/app': typeof AppRoute
   '/auth': typeof AuthRoute
+  '/collaborate': typeof CollaborateRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -151,11 +169,13 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/auth'
+    | '/collaborate'
     | '/privacy'
     | '/reset-password'
     | '/sample-invite'
     | '/talk'
     | '/terms'
+    | '/api/telemetry'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -167,11 +187,13 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/auth'
+    | '/collaborate'
     | '/privacy'
     | '/reset-password'
     | '/sample-invite'
     | '/talk'
     | '/terms'
+    | '/api/telemetry'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -183,11 +205,13 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/auth'
+    | '/collaborate'
     | '/privacy'
     | '/reset-password'
     | '/sample-invite'
     | '/talk'
     | '/terms'
+    | '/api/telemetry'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -200,11 +224,13 @@ export interface RootRouteChildren {
   AccountRoute: typeof AccountRoute
   AppRoute: typeof AppRoute
   AuthRoute: typeof AuthRoute
+  CollaborateRoute: typeof CollaborateRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SampleInviteRoute: typeof SampleInviteRoute
   TalkRoute: typeof TalkRoute
   TermsRoute: typeof TermsRoute
+  ApiTelemetryRoute: typeof ApiTelemetryRoute
   PartyIdRoute: typeof PartyIdRoute
   RsvpTokenRoute: typeof RsvpTokenRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
@@ -242,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collaborate': {
+      id: '/collaborate'
+      path: '/collaborate'
+      fullPath: '/collaborate'
+      preLoaderRoute: typeof CollaborateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
@@ -275,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/telemetry': {
+      id: '/api/telemetry'
+      path: '/api/telemetry'
+      fullPath: '/api/telemetry'
+      preLoaderRoute: typeof ApiTelemetryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/party/$id': {
@@ -320,11 +360,13 @@ const rootRouteChildren: RootRouteChildren = {
   AccountRoute: AccountRoute,
   AppRoute: AppRoute,
   AuthRoute: AuthRoute,
+  CollaborateRoute: CollaborateRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SampleInviteRoute: SampleInviteRoute,
   TalkRoute: TalkRoute,
   TermsRoute: TermsRoute,
+  ApiTelemetryRoute: ApiTelemetryRoute,
   PartyIdRoute: PartyIdRoute,
   RsvpTokenRoute: RsvpTokenRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,

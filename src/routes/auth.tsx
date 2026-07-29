@@ -139,7 +139,7 @@ function AuthPage() {
       const { error } =
         sentTo.kind === "reset"
           ? await resetPasswordForEmail(sentTo.email)
-          : await resendSignupConfirmation(sentTo.email);
+          : await resendSignupConfirmation(sentTo.email, returnTo);
       if (error) {
         toast.error("Couldn't send that email just now. Please try again shortly.");
         return;
