@@ -29,6 +29,10 @@ The release candidate completes these representative journeys:
   without losing the browser copy. Seed samples never become account data.
 - Host uses checklist, guest list, budget, shopping, timeline, bring board,
   invite sharing, Photo Drop, Reveal, and Day-of Mode.
+- Baby-shower planning asks for the parents' support and privacy boundaries
+  before suggesting activities or registry language. Graduation planning
+  coordinates ceremony logistics separately from the celebration and centers
+  the graduate's sharing preferences.
 - Guest opens a tokenized invite, RSVPs with household/dietary details,
   claims or releases a bring-board item, adds the event to a calendar, and
   opens the host's externally hosted Photo Drop.
@@ -49,7 +53,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 81 files, 599 tests passed                                              |
+| Vitest                | 82 files, 621 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 223 application cases passed; 84 intentional cross-project skips        |

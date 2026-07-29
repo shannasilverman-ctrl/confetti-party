@@ -459,6 +459,78 @@ test.describe("customer-backwards party intelligence", () => {
     ).toBeVisible();
   });
 
+  test("baby-shower smart start follows the parents' boundaries instead of a generic checklist", async ({
+    page,
+  }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("wizard-occasion-baby-shower").click();
+    await dialog
+      .getByLabel("Start with the idea")
+      .fill("A welcoming baby shower for Jordan and Alex");
+    const smartStart = dialog.getByTestId("gathering-smart-start");
+    await smartStart.getByLabel("Adults").fill("18");
+    await smartStart.getByLabel("Children").fill("3");
+
+    await expect(
+      smartStart.getByText("A baby shower that feels supportive, not performative"),
+    ).toBeVisible();
+    await expect(smartStart.getByText("8 easy-to-miss jobs covered")).toBeVisible();
+    await expect(smartStart.getByText("5 useful guest questions")).toBeVisible();
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    const intelligence = page.getByTestId("party-intelligence-card");
+    await expect(
+      intelligence.getByText("A baby shower that feels supportive, not performative"),
+    ).toBeVisible();
+    await intelligence.getByRole("button", { name: "Review the 150-minute flow" }).click();
+    await expect(
+      page.getByText("Welcome and one optional shared activity or conversation prompt"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Checklist", exact: true }).click();
+    await expect(
+      page.getByText(/Ask the parents what would feel supportive, what should stay private/),
+    ).toBeVisible();
+  });
+
+  test("graduation smart start coordinates the ceremony and the celebration", async ({ page }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("wizard-occasion-graduation").click();
+    await dialog.getByLabel("Start with the idea").fill("Taylor's graduation open house");
+    const smartStart = dialog.getByTestId("gathering-smart-start");
+    await smartStart.getByLabel("Adults").fill("30");
+    await smartStart.getByLabel("Children").fill("4");
+
+    await expect(
+      smartStart.getByText("A graduation celebration centered on the graduate"),
+    ).toBeVisible();
+    await expect(smartStart.getByText("8 easy-to-miss jobs covered")).toBeVisible();
+    await expect(smartStart.getByText("5 useful guest questions")).toBeVisible();
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    const intelligence = page.getByTestId("party-intelligence-card");
+    await expect(
+      intelligence.getByText("A graduation celebration centered on the graduate"),
+    ).toBeVisible();
+    await intelligence.getByRole("button", { name: "Review the 180-minute flow" }).click();
+    await expect(
+      page.getByText("Graduate and ceremony group arrive to a saved plate and easy reset"),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Checklist", exact: true }).click();
+    await expect(page.getByText(/Separate ceremony logistics from party logistics/)).toBeVisible();
+  });
+
   test("watch-party smart start understands kickoff, screen reliability, and food waves", async ({
     page,
   }) => {

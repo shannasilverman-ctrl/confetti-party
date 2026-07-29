@@ -219,6 +219,74 @@ describe("party intelligence", () => {
     );
   });
 
+  it("builds a parent-led, inclusive baby-shower plan", () => {
+    const playbook = partyPlaybook({
+      occasion: "baby-shower",
+      profile: {
+        version: 1,
+        expectedKids: 3,
+        expectedAdults: 18,
+        effort: "balanced",
+        format: "home",
+      },
+      startTime: "13:00",
+    });
+
+    expect(playbook).toMatchObject({
+      id: "baby-shower-v1",
+      title: "A baby shower that feels supportive, not performative",
+      recommendedDurationMinutes: 150,
+    });
+    expect(playbook?.timeline[1]).toEqual({
+      time: "13:25",
+      activity: "Welcome and one optional shared activity or conversation prompt",
+    });
+    expect(playbook?.tasks.some((task) => task.title.includes("what should stay private"))).toBe(
+      true,
+    );
+    expect(
+      playbook?.tasks.some((task) => task.title.includes("without assuming gifts, gender")),
+    ).toBe(true);
+    expect(
+      playbook?.guardrails.some((guardrail) => guardrail.id === "baby-shower-parent-boundaries"),
+    ).toBe(true);
+    expect(playbook?.rsvpQuestions.some((question) => question.includes("practical help"))).toBe(
+      true,
+    );
+  });
+
+  it("coordinates ceremony, privacy, food waves, and handoffs for graduation", () => {
+    const playbook = partyPlaybook({
+      occasion: "graduation",
+      profile: {
+        version: 1,
+        expectedKids: 4,
+        expectedAdults: 30,
+        effort: "easy",
+        format: "venue",
+      },
+      startTime: "16:00",
+    });
+
+    expect(playbook).toMatchObject({
+      id: "graduation-v1",
+      title: "A graduation celebration centered on the graduate",
+      recommendedDurationMinutes: 180,
+    });
+    expect(playbook?.timeline[1]).toEqual({
+      time: "16:35",
+      activity: "Graduate and ceremony group arrive to a saved plate and easy reset",
+    });
+    expect(playbook?.tasks.some((task) => task.title.includes("ceremony logistics"))).toBe(true);
+    expect(playbook?.tasks.some((task) => task.title.includes("secure card-and-gift"))).toBe(true);
+    expect(
+      playbook?.guardrails.some((guardrail) => guardrail.id === "graduation-graduate-consent"),
+    ).toBe(true);
+    expect(
+      playbook?.rsvpQuestions.some((question) => question.includes("after the ceremony")),
+    ).toBe(true);
+  });
+
   it("anchors watch-party prep before kickoff and covers the actual broadcast path", () => {
     const playbook = partyPlaybook({
       occasion: "game-day",

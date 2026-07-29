@@ -363,6 +363,108 @@ const ADULT_BIRTHDAY_TASKS: PlaybookTask[] = [
   ),
 ];
 
+const BABY_SHOWER_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask the parents what would feel supportive, what should stay private, and what they want to skip",
+    "3-5 weeks",
+    "The gathering should reflect the parents' comfort with attention, games, gifts, photos, names, and personal questions.",
+    "guests",
+  ),
+  playbookTask(
+    "Set the guest-list, cohost roles, and whether children or plus-ones are included",
+    "3-5 weeks",
+    "Clear invitation boundaries protect capacity and keep the parents from becoming the coordination desk.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose a format with comfortable seating, easy bathrooms, access, and a quiet place to step away",
+    "1-2 weeks",
+    "The space should work for the actual guests and give the people being celebrated room to rest or regroup.",
+    "timeline",
+  ),
+  playbookTask(
+    "Write invitation and registry guidance without assuming gifts, gender, names, or family structure",
+    "1-2 weeks",
+    "Direct, optional gift guidance is more useful than tradition-coded language or pressure to disclose personal details.",
+    "guests",
+  ),
+  playbookTask(
+    "Plan one optional shared moment and one easy social activity",
+    "1-2 weeks",
+    "Guests need a way to connect, but the parents should not have to perform through a packed schedule of games.",
+    "timeline",
+  ),
+  playbookTask(
+    "Build the food and drink plan from headcount, dietary needs, service style, and host effort",
+    "Party week",
+    "A clearly labeled, self-sufficient food setup lets every guest make comfortable choices without assumptions.",
+    "shopping",
+  ),
+  playbookTask(
+    "Assign greeting, food, gifts or cards, photos, the shared moment, and cleanup",
+    "Party week",
+    "Named owners keep the parents and primary host present instead of quietly carrying every transition.",
+    "timeline",
+  ),
+  playbookTask(
+    "Prepare a gift log, packing zone, leftovers, thank-you notes, and the trip home",
+    "Day of",
+    "A calm close protects gifts and personal information while preventing the final hour from landing on the parents.",
+    "timeline",
+  ),
+];
+
+const GRADUATION_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask the graduate how they want to be celebrated, who matters most, and what attention to avoid",
+    "3-5 weeks",
+    "The event should reflect the graduate rather than forcing a speech, surprise, display, or tradition they do not want.",
+    "guests",
+  ),
+  playbookTask(
+    "Separate ceremony logistics from party logistics and name an owner for each",
+    "3-5 weeks",
+    "Tickets, travel, parking, photos, and the celebration often overlap; distinct owners keep one delay from unraveling both.",
+    "timeline",
+  ),
+  playbookTask(
+    "Set the guest-list, drop-in window, plus-one rule, and realistic capacity",
+    "3-5 weeks",
+    "Graduation groups often mix family, friends, mentors, and classmates, so arrival expectations matter as much as the count.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose a weather, traffic, and ceremony-delay decision plan",
+    "1-2 weeks",
+    "A written fallback lets food, vendors, and guests adjust without making the graduate coordinate from the ceremony.",
+    "timeline",
+  ),
+  playbookTask(
+    "Confirm permission for photos, school details, displays, speeches, and public sharing",
+    "1-2 weeks",
+    "A meaningful display should not expose grades, schedules, addresses, or images the graduate did not agree to share.",
+    "theme",
+  ),
+  playbookTask(
+    "Plan food in arrival waves and protect a plate for the graduate and ceremony group",
+    "Party week",
+    "Guests may arrive over a long window; smaller service waves keep food safe and ensure the people being celebrated can eat.",
+    "shopping",
+  ),
+  playbookTask(
+    "Assign greeting, parking help, food, photos, cards, the shared moment, and cleanup",
+    "Party week",
+    "Clear ownership lets the host welcome different guest groups without losing cards, food timing, or the graduate.",
+    "timeline",
+  ),
+  playbookTask(
+    "Create a secure card-and-gift station and a named end-of-night handoff",
+    "Day of",
+    "Cards, cash, keepsakes, and gifts need one monitored location and one person responsible for taking them home.",
+    "timeline",
+  ),
+];
+
 const SHABBAT_TASKS: PlaybookTask[] = [
   playbookTask(
     "Ask the host which Shabbat practices, timing, and level of observance fit this table",
@@ -858,6 +960,114 @@ export function partyPlaybook(input: {
           title: "Every contribution gets an owner",
           detail:
             "Assign the exact dish, quantity, arrival state, and serving needs so 'bring a side' never produces four salads and no ice.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        ...standardGuardrails(),
+      ],
+    };
+  }
+
+  if (input.occasion === "baby-shower") {
+    return {
+      id: "baby-shower-v1",
+      title: "A baby shower that feels supportive, not performative",
+      promise:
+        "The parents set the boundaries; Confetti handles guest expectations, comfort, food, optional moments, gifts, and ownership without assuming gender, tradition, or family structure.",
+      recommendedDurationMinutes: 150,
+      tasks: BABY_SHOWER_TASKS,
+      timeline: timedTimeline(input.startTime, [
+        {
+          offset: 0,
+          activity: "Guests arrive, find food and drinks, and settle without a forced start",
+        },
+        { offset: 25, activity: "Welcome and one optional shared activity or conversation prompt" },
+        { offset: 65, activity: "Main food wave and unstructured time with the parents" },
+        {
+          offset: 100,
+          activity: "Optional stories, advice, gifts, or another parent-approved moment",
+        },
+        { offset: 130, activity: "Dessert, photos, and a gentle wind-down" },
+        { offset: 150, activity: "Gifts, leftovers, and the parents' trip home are handed off" },
+      ]),
+      rsvpQuestions: [
+        "How many adults and children are coming with you?",
+        "Any allergies, dietary needs, or foods you avoid?",
+        "Anything that would make seating, sound, access, or participation more comfortable?",
+        "Would you like to contribute food, setup, a story, or practical help?",
+        "Will you join from the start or arrive later?",
+      ],
+      guardrails: [
+        {
+          id: "baby-shower-parent-boundaries",
+          title: "Let the parents set the boundaries",
+          detail:
+            "Ask before planning surprises, games, belly touching, advice rounds, gift opening, photos, names, gendered language, or public posts.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        {
+          id: "baby-shower-inclusive-language",
+          title: "Use the family's own language",
+          detail:
+            "Mirror the names, roles, pronouns, family structure, and celebration language the parents choose instead of treating one path to parenthood as universal.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        ...standardGuardrails(),
+      ],
+    };
+  }
+
+  if (input.occasion === "graduation") {
+    return {
+      id: "graduation-v1",
+      title: "A graduation celebration centered on the graduate",
+      promise:
+        "Ceremony timing, mixed guest groups, food waves, memories, privacy, cards, and the trip home have clear owners—so the graduate gets to be present.",
+      recommendedDurationMinutes: 180,
+      tasks: GRADUATION_TASKS,
+      timeline: timedTimeline(input.startTime, [
+        { offset: 0, activity: "First arrivals land; food and a clear welcome are ready" },
+        {
+          offset: 35,
+          activity: "Graduate and ceremony group arrive to a saved plate and easy reset",
+        },
+        {
+          offset: 70,
+          activity: "Main food wave and open time across family, friends, and mentors",
+        },
+        {
+          offset: 110,
+          activity: "Graduate-approved toast, stories, photos, or recognition moment",
+        },
+        { offset: 140, activity: "Dessert and a final food wave for later arrivals" },
+        {
+          offset: 180,
+          activity: "Cards, gifts, leftovers, rides, and cleanup transfer to named owners",
+        },
+      ]),
+      rsvpQuestions: [
+        "How many adults and children are coming with you?",
+        "Will you join from the start, after the ceremony, or later in the open-house window?",
+        "Any allergies, dietary needs, or foods you avoid?",
+        "Anything that would make parking, seating, sound, or access more comfortable?",
+        "Would you like to contribute a photo, story, toast, food, or practical help?",
+      ],
+      guardrails: [
+        {
+          id: "graduation-graduate-consent",
+          title: "Get the graduate's yes before the spotlight",
+          detail:
+            "Confirm comfort with surprises, speeches, photos, school details, awards, displays, and public sharing before making them part of the event.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        {
+          id: "graduation-card-security",
+          title: "Give cards and gifts one protected handoff",
+          detail:
+            "Use one visible, monitored collection point and name the person who will take cards, cash, gifts, and keepsakes home.",
           source: "Confetti planning practice",
           level: "recommendation",
         },

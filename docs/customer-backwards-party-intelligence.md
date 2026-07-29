@@ -350,6 +350,9 @@ Already valuable:
 - transparent, overridable home-versus-venue recommendations for the preschool
   birthday golden path;
 - life-stage-aware preschool, school-age, and adult birthday playbooks;
+- parent-boundary-aware baby-shower planning and ceremony-aware graduation
+  planning, with inclusive language, practical handoffs, and tailored guest
+  questions;
 - Talk draft with assumptions and blocking unknowns;
 - RSVP and guest counts;
 - bring board;
@@ -363,7 +366,9 @@ Already valuable:
 
 Material gaps:
 
-- generic occasion defaults do not yet cover enough subtypes or life stages;
+- birthday, baby-shower, graduation, holiday, dinner, game-day, and cookout
+  planning now use curated playbooks; `other` and still-unmodeled subtypes
+  continue to use the general planning fallback;
 - the few durable facts captured in direct creation are not yet used by every
   occasion and workflow;
 - local search now carries host-entered finalists, quote provenance, status,
