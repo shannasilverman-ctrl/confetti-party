@@ -74,9 +74,27 @@ test.describe("Party route identity", () => {
     await expect(guest).toHaveAttribute("aria-pressed", "true");
     await expect(count).toHaveText("1 / 5 in");
 
-    await guest.click();
-    await expect(guest).toHaveAttribute("aria-pressed", "false");
-    await expect(count).toHaveText("0 / 5 in");
+    await page.goto(AVA, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Guests", exact: true }).click();
+    const rsvp = page.getByRole("combobox", { name: "RSVP for Ava Rossi (bride)" });
+    await rsvp.click();
+    await page.getByRole("option", { name: "No", exact: true }).click();
+
+    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
+    const updatedArrivals = page.getByRole("region", { name: "Arrivals" });
+    await expect(updatedArrivals.getByRole("status", { name: "Arrival count" })).toHaveText(
+      "0 / 4 in",
+    );
+    await expect(updatedArrivals.getByRole("button", { name: "Ava Rossi (bride)" })).toHaveCount(0);
+
+    await page.goto(AVA, { waitUntil: "domcontentloaded" });
+    await page.getByRole("button", { name: "Guests", exact: true }).click();
+    await page.getByRole("combobox", { name: "RSVP for Ava Rossi (bride)" }).click();
+    await page.getByRole("option", { name: "Yes", exact: true }).click();
+    await page.goto(`${AVA}/day-of`, { waitUntil: "domcontentloaded" });
+    await expect(
+      page.getByRole("region", { name: "Arrivals" }).getByRole("status", { name: "Arrival count" }),
+    ).toHaveText("0 / 5 in");
   });
 
   test("unknown party id → branded not-found on all three modes", async ({ page }) => {

@@ -325,15 +325,46 @@ export function mergeBringBoard(
   return { items, hadRemoveVsServerChange };
 }
 
-/** Key-union: keep the max ISO timestamp per key. */
+/**
+ * Three-way merge for arrival toggles.
+ *
+ * A key removed on one side must stay removed when the other side did not
+ * change that same guest. The previous key-union behavior resurrected an
+ * explicit checkout whenever another browser changed an unrelated check-in.
+ * When both sides changed the same guest concurrently, an arrival timestamp
+ * wins over a removal; when both recorded an arrival, keep the later ISO
+ * timestamp.
+ */
 export function mergeCheckins(
-  _baseline: Record<string, string>,
+  baseline: Record<string, string>,
   local: Record<string, string>,
   server: Record<string, string>,
 ): Record<string, string> {
-  const out: Record<string, string> = { ...server };
-  for (const [k, v] of Object.entries(local)) {
-    if (!out[k] || v > out[k]) out[k] = v;
+  const out: Record<string, string> = {};
+  const guestIds = new Set([
+    ...Object.keys(baseline),
+    ...Object.keys(local),
+    ...Object.keys(server),
+  ]);
+
+  for (const guestId of guestIds) {
+    const before = baseline[guestId];
+    const localValue = local[guestId];
+    const serverValue = server[guestId];
+    const localChanged = localValue !== before;
+    const serverChanged = serverValue !== before;
+
+    let selected: string | undefined;
+    if (!localChanged) selected = serverValue;
+    else if (!serverChanged) selected = localValue;
+    else if (localValue === serverValue) selected = localValue;
+    else if (localValue && serverValue) {
+      selected = localValue > serverValue ? localValue : serverValue;
+    } else {
+      selected = localValue ?? serverValue;
+    }
+
+    if (selected) out[guestId] = selected;
   }
   return out;
 }

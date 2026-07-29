@@ -49,7 +49,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 81 files, 596 tests passed                                              |
+| Vitest                | 81 files, 599 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 223 application cases passed; 84 intentional cross-project skips        |
@@ -202,7 +202,11 @@ green.
   see updates on open/refresh and that Confetti sends no text or push
   notification. Arrival check-ins are 44 px pressed-state toggles inside a
   named region; their atomic polite live count lets keyboard and assistive
-  technology users confirm each change without leaving the guest list.
+  technology users confirm each change without leaving the guest list. The
+  count includes only current yes RSVPs; changing or removing a guest clears
+  that guest's arrival, and an undo restores it. Three-way reconciliation
+  preserves an explicit checkout when another session changes a different
+  guest instead of resurrecting the stale arrival through a key union.
 - Signed-out Talk is deterministic and device-local. It extracts only facts
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an

@@ -600,15 +600,28 @@ function GuestsTab({ partyId }: { partyId: string }) {
 
   const updateGuest = (id: string, patch: Partial<Guest>) => {
     const prev = party.guests.find((gg) => gg.id === id);
-    updateParty(partyId, (p) => ({
-      ...p,
-      guests: p.guests.map((gg) => (gg.id === id ? { ...gg, ...patch } : gg)),
-    }));
+    updateParty(partyId, (p) => {
+      const checkins = { ...(p.checkins ?? {}) };
+      if (patch.rsvp && patch.rsvp !== "yes") delete checkins[id];
+      return {
+        ...p,
+        guests: p.guests.map((gg) => (gg.id === id ? { ...gg, ...patch } : gg)),
+        checkins,
+      };
+    });
     if (patch.rsvp === "yes" && prev && prev.rsvp !== "yes") celebrate("micro");
   };
 
   const remove = (id: string) =>
-    updateParty(partyId, (p) => ({ ...p, guests: p.guests.filter((gg) => gg.id !== id) }));
+    updateParty(partyId, (p) => {
+      const checkins = { ...(p.checkins ?? {}) };
+      delete checkins[id];
+      return {
+        ...p,
+        guests: p.guests.filter((gg) => gg.id !== id),
+        checkins,
+      };
+    });
 
   return (
     <div className="space-y-6">
@@ -776,7 +789,12 @@ function GuestsTab({ partyId }: { partyId: string }) {
                         if (p.guests.some((candidate) => candidate.id === guest.id)) return p;
                         const guests = [...p.guests];
                         guests.splice(Math.min(guestIndex, guests.length), 0, guest);
-                        return { ...p, guests };
+                        const checkins = { ...(p.checkins ?? {}) };
+                        const checkedInAt = party.checkins?.[guest.id];
+                        if (guest.rsvp === "yes" && checkedInAt) {
+                          checkins[guest.id] = checkedInAt;
+                        }
+                        return { ...p, guests, checkins };
                       });
                     }}
                     trigger={

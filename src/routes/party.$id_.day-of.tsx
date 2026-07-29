@@ -141,7 +141,7 @@ function DayOfPage() {
     }
   }
 
-  const arrived = Object.keys(checkins).length;
+  const arrived = yesGuests.reduce((count, guest) => count + (checkins[guest.id] ? 1 : 0), 0);
   const isLive = runSheet.phase === "before" || runSheet.phase === "live";
   const runSheetEyebrow =
     runSheet.phase === "preview"

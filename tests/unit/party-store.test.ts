@@ -236,6 +236,39 @@ describe("mergeCheckins", () => {
       g2: "2027-01-01T00:30:00Z",
     });
   });
+
+  it("preserves an explicit checkout when the server changes another guest", () => {
+    const merged = mergeCheckins(
+      { g1: "2027-01-01T01:00:00Z" },
+      {},
+      {
+        g1: "2027-01-01T01:00:00Z",
+        g2: "2027-01-01T01:05:00Z",
+      },
+    );
+    expect(merged).toEqual({ g2: "2027-01-01T01:05:00Z" });
+  });
+
+  it("preserves a server checkout when the host checks in another guest", () => {
+    const merged = mergeCheckins(
+      { g1: "2027-01-01T01:00:00Z" },
+      {
+        g1: "2027-01-01T01:00:00Z",
+        g2: "2027-01-01T01:05:00Z",
+      },
+      {},
+    );
+    expect(merged).toEqual({ g2: "2027-01-01T01:05:00Z" });
+  });
+
+  it("keeps a concurrent arrival over a checkout for the same guest", () => {
+    const merged = mergeCheckins(
+      { g1: "2027-01-01T01:00:00Z" },
+      {},
+      { g1: "2027-01-01T01:10:00Z" },
+    );
+    expect(merged).toEqual({ g1: "2027-01-01T01:10:00Z" });
+  });
 });
 
 describe("PartyStore — data integrity", () => {
