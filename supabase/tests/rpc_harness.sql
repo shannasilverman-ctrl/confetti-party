@@ -237,6 +237,20 @@ BEGIN
     RAISE EXCEPTION 'FAIL: get_rsvp_party_v2 leaked planning profile: %', proj::text;
   END IF;
 
+  UPDATE public.parties SET occasion = 'baby-shower' WHERE id = party_id;
+  proj := public.get_rsvp_party_v2(party_token);
+  IF proj->'rsvp_context' <> '{"kind":"baby-shower"}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: baby-shower RSVP context wrong: %', (proj->'rsvp_context')::text;
+  END IF;
+
+  UPDATE public.parties SET occasion = 'graduation' WHERE id = party_id;
+  proj := public.get_rsvp_party_v2(party_token);
+  IF proj->'rsvp_context' <> '{"kind":"graduation"}'::jsonb THEN
+    RAISE EXCEPTION 'FAIL: graduation RSVP context wrong: %', (proj->'rsvp_context')::text;
+  END IF;
+
+  UPDATE public.parties SET occasion = 'birthday' WHERE id = party_id;
+
   -- list_bring_board: same allowlist as bring_board items.
   proj := public.list_bring_board(party_token);
   IF jsonb_typeof(proj) <> 'array' OR jsonb_array_length(proj) <> 1 THEN

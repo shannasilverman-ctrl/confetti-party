@@ -125,6 +125,32 @@ describe("adaptive RSVP attendance copy", () => {
       accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
     });
   });
+
+  it("plans baby-shower attendance around the whole guest group", () => {
+    expect(contextualRsvpCopy({ kind: "baby-shower" })).toEqual({
+      adultLabel: "Adults coming",
+      kidLabel: "Children coming",
+      kidHint: "Include everyone in your group so seating, food, and space match.",
+      intro: "Count everyone joining so the host can plan a comfortable gathering.",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "Will you join from the start or arrive later?",
+      accessPrompt: "Anything that would make seating, sound, access, or participation easier?",
+    });
+  });
+
+  it("asks graduation guests for the timing that changes food waves and seating", () => {
+    expect(contextualRsvpCopy({ kind: "graduation" })).toEqual({
+      adultLabel: "Adults coming",
+      kidLabel: "Children coming",
+      kidHint: "Include everyone in your group so food waves and seating match.",
+      intro: "Count everyone joining so the host can plan the celebration around the real group.",
+      defaultAdults: 1,
+      defaultKids: 0,
+      arrivalQuestion: "When do you expect to join the celebration?",
+      accessPrompt: "Anything that would make parking, seating, sound, or access easier?",
+    });
+  });
 });
 
 describe("private RSVP response details", () => {
