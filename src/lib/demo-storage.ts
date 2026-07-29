@@ -126,8 +126,10 @@ export function loadDemoState(
   const store = outcome.data;
   let droppedInvalidParty = false;
 
-  // Merge samples: seed base, override with stored copy when the id still
-  // exists in code. Orphaned overrides (deleted from code) are discarded.
+  // Merge samples: keep the fresh code seed as the base and layer the stored
+  // user copy over it when the id still exists. This lets newly shipped
+  // top-level sample fields reach returning browsers without erasing explicit
+  // edits (including null values). Orphaned overrides are discarded.
   const merged = seeds.map((s) => {
     const rawOverride = store.samples[s.id];
     if (!rawOverride) return s;
@@ -137,7 +139,7 @@ export function loadDemoState(
       return s;
     }
     // Preserve the seed id explicitly — never let a stored blob rewrite id.
-    return { ...(parsedOverride.data as unknown as Party), id: s.id };
+    return { ...s, ...(parsedOverride.data as unknown as Party), id: s.id };
   });
 
   // Custom parties: drop any whose id collides with a seed to avoid duplicate

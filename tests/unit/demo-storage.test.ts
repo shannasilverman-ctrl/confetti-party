@@ -71,6 +71,54 @@ describe("demo-storage", () => {
     expect(out.parties[1]?.name).toBe("Party b"); // fresh seed
   });
 
+  it("backfills new seed fields into an older stored sample override", () => {
+    const s = new MemStorage();
+    const retrospective = {
+      worked: "The quieter second screen helped.",
+      updatedAt: "2030-01-02T00:00:00.000Z",
+    };
+    const freshSeed = seed("a", { retrospective });
+    const olderOverride = seed("a", { name: "My edited sample" });
+    delete (olderOverride as Partial<Party>).retrospective;
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { a: olderOverride },
+        custom: [],
+      }),
+    );
+
+    const out = loadDemoState([freshSeed], s);
+    expect(out.parties[0]).toMatchObject({
+      id: "a",
+      name: "My edited sample",
+      retrospective,
+    });
+  });
+
+  it("preserves an explicit stored null instead of restoring a new seed field", () => {
+    const s = new MemStorage();
+    const freshSeed = seed("a", {
+      retrospective: {
+        worked: "The quieter second screen helped.",
+        updatedAt: "2030-01-02T00:00:00.000Z",
+      },
+    });
+    const clearedOverride = seed("a", { retrospective: null });
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { a: clearedOverride },
+        custom: [],
+      }),
+    );
+
+    const out = loadDemoState([freshSeed], s);
+    expect(out.parties[0]?.retrospective).toBeNull();
+  });
+
   it("drops corrupt JSON and warns", () => {
     const s = new MemStorage();
     s.store.set(DEMO_STORAGE_KEY, "{not json");

@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 81 files, 593 tests passed                                              |
+| Vitest                | 81 files, 596 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 219 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 221 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 219 applicable cases (84 intentional
+The complete Playwright matrix contains 221 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
