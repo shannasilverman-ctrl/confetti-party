@@ -51,7 +51,7 @@ Cloudflare Worker build:
 | TypeScript            | Passed with `tsc --noEmit`                                              |
 | Vitest                | 67 files, 497 tests passed                                              |
 | Production build      | Passed                                                                  |
-| Initial client bundle | 366,169 bytes raw; 113,499 bytes gzip; within enforced budget           |
+| Initial client bundle | 366,169 bytes raw; 113,508 bytes gzip; within enforced budget           |
 | Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
