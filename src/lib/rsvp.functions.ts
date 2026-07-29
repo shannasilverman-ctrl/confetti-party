@@ -25,6 +25,8 @@ export type PublicRsvpContext = {
   kind:
     | "preschool-birthday"
     | "school-age-birthday"
+    | "child-birthday"
+    | "teen-birthday"
     | "adult-birthday"
     | "baby-shower"
     | "graduation";
@@ -67,6 +69,18 @@ export type ContextualRsvpCopy = {
 };
 
 export function contextualRsvpCopy(context?: PublicRsvpContext): ContextualRsvpCopy {
+  if (context?.kind === "child-birthday") {
+    return {
+      adultLabel: "Adults staying",
+      kidLabel: "Children coming",
+      kidHint: "Include the invited child and any siblings joining.",
+      intro: "Count who is coming so the host can plan food, space, and supervision.",
+      defaultAdults: 0,
+      defaultKids: 1,
+      arrivalQuestion: null,
+      accessPrompt: "Anything that would help your child feel comfortable or included?",
+    };
+  }
   if (context?.kind === "preschool-birthday") {
     return {
       adultLabel: context.adultLabel ?? "Adults staying",
@@ -101,6 +115,18 @@ export function contextualRsvpCopy(context?: PublicRsvpContext): ContextualRsvpC
       defaultKids: 0,
       arrivalQuestion: "When do you expect to join?",
       accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
+    };
+  }
+  if (context?.kind === "teen-birthday") {
+    return {
+      adultLabel: "Adults helping",
+      kidLabel: "Young people coming",
+      kidHint: "Include the invited teen and anyone else joining.",
+      intro: "Count everyone joining so food, space, and transportation match the real group.",
+      defaultAdults: 0,
+      defaultKids: 1,
+      arrivalQuestion: "When do you expect to join?",
+      accessPrompt: "Anything that would make the gathering more comfortable or accessible?",
     };
   }
   if (context?.kind === "baby-shower") {

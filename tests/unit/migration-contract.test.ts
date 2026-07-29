@@ -145,12 +145,21 @@ describe("migration contract: DB hardening batch", () => {
     expect(allSql).toMatch(
       /ADD COLUMN IF NOT EXISTS planning_profile jsonb NOT NULL DEFAULT '\{\}'::jsonb/,
     );
-    expect(confirm).toMatch(/jsonb_typeof\(clean_profile\) <> 'object'/);
+    expect(allSql).toMatch(/jsonb_typeof\(clean_profile\) <> 'object'/);
     expect(confirm).toMatch(
-      /'version','honoreeAge','expectedKids','expectedAdults','effort','format',\s+'foodRole','foodServiceStyle','eventTimeZone'/,
+      /'version','honoreeAge','honoreeLifeStage','expectedKids','expectedAdults','effort','format',\s+'foodRole','foodServiceStyle','eventTimeZone'/,
     );
-    expect(confirm).toMatch(/clean_profile->>'format' NOT IN \('home','venue','help-me-choose'\)/);
-    expect(confirm).toMatch(/planning_profile, host_note/);
+    expect(allSql).toMatch(/clean_profile->>'format' NOT IN \('home','venue','help-me-choose'\)/);
+    expect(allSql).toMatch(/planning_profile, host_note/);
+    expect(confirm).toMatch(/clean_profile->>'honoreeLifeStage'/);
+    expect(confirm).toMatch(/NOT IN \('child','teen','adult'\)/);
+    expect(confirm).toMatch(/jsonb_set\([\s\S]+?'\{honoreeLifeStage\}'/);
+    expect(allSql).toMatch(/WITH age_candidates AS MATERIALIZED/);
+    expect(allSql).toMatch(/parties_honoree_life_stage_check/);
+    expect(allSql).toMatch(/VALIDATE CONSTRAINT parties_honoree_life_stage_check/);
+    expect(allSql).toMatch(/canonicalize_birthday_life_stage/);
+    expect(allSql).toMatch(/BEFORE INSERT OR UPDATE OF occasion, planning_profile/);
+    expect(allSql).toMatch(/'\{honoreeAge\}',\s+to_jsonb\(c\.honoree_age\)/);
 
     const profileMigration = readFileSync(
       join(MIG_DIR, "20260726121000_party_planning_profile_contract.sql"),
@@ -211,6 +220,9 @@ describe("migration contract: DB hardening batch", () => {
     expect(projection).toMatch(/'kind', 'preschool-birthday'/);
     expect(projection).toMatch(/'kind', 'school-age-birthday'/);
     expect(projection).toMatch(/'kind', 'adult-birthday'/);
+    expect(projection).toMatch(/'kind', 'teen-birthday'/);
+    expect(projection).toMatch(/'kind', 'child-birthday'/);
+    expect(projection).toMatch(/stage_text \|\| '-birthday'/);
     expect(projection).toMatch(
       /WHEN 'baby-shower' THEN jsonb_build_object\('kind', 'baby-shower'\)/,
     );
@@ -219,6 +231,7 @@ describe("migration contract: DB hardening batch", () => {
     expect(projection).toMatch(/'\{event_time_zone\}'/);
     expect(projection).toMatch(/to_jsonb\(public_time_zone\)/);
     expect(projection).not.toMatch(/jsonb_build_object\('honoreeAge'/);
+    expect(projection).not.toMatch(/jsonb_build_object\('honoreeLifeStage'/);
     expect(projection).not.toMatch(/'effort'/);
     expect(projection).not.toMatch(/'planning_profile'/);
     expect(projection).not.toMatch(/expectedAdults|expectedKids|parent|graduate/i);

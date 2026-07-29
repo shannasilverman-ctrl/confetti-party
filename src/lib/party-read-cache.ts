@@ -107,6 +107,8 @@ function isPlanningProfile(value: unknown): boolean {
     if (value[key] !== undefined && !isFiniteNumber(value[key])) return false;
   }
   if (
+    (value.honoreeLifeStage !== undefined &&
+      !["child", "teen", "adult"].includes(String(value.honoreeLifeStage))) ||
     (value.effort !== undefined &&
       !["easy", "balanced", "all-out"].includes(String(value.effort))) ||
     (value.format !== undefined &&
@@ -308,10 +310,24 @@ export function safePartyReadSnapshot(snapshot: PartyReadSnapshot): PartyReadSna
   ) {
     return null;
   }
-  const parties = snapshot.parties.map(redactParty);
+  const sourceIds = new Set(snapshot.parties.map((party) => party.id));
+  if (
+    sourceIds.size !== snapshot.parties.length ||
+    Object.entries(snapshot.roles).some(
+      ([partyId, role]) => !sourceIds.has(partyId) || (role !== "owner" && role !== "cohost"),
+    ) ||
+    snapshot.parties.some((party) => !Object.hasOwn(snapshot.roles, party.id))
+  ) {
+    return null;
+  }
+  // Collaborator access can be revoked while a device is offline. Persist
+  // owner parties only so a stale cache never extends cohost authorization.
+  const parties = snapshot.parties
+    .filter((party) => snapshot.roles[party.id] === "owner")
+    .map(redactParty);
   const ids = new Set(parties.map((party) => party.id));
   if (ids.size !== parties.length) return null;
-  const roleEntries = Object.entries(snapshot.roles);
+  const roleEntries = Object.entries(snapshot.roles).filter(([partyId]) => ids.has(partyId));
   if (
     roleEntries.some(
       ([partyId, role]) => !ids.has(partyId) || (role !== "owner" && role !== "cohost"),
@@ -358,9 +374,7 @@ export function parsePartyReadSnapshot(
   const roles = value.roles;
   const roleEntries = Object.entries(roles);
   if (
-    roleEntries.some(
-      ([partyId, role]) => !partyIds.has(partyId) || (role !== "owner" && role !== "cohost"),
-    ) ||
+    roleEntries.some(([partyId, role]) => !partyIds.has(partyId) || role !== "owner") ||
     value.parties.some((party) => !Object.hasOwn(roles, party.id))
   ) {
     return null;

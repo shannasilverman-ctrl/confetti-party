@@ -16,9 +16,33 @@ import {
 import { safeParseDraftPatch, sanitizeStringList } from "./talk-schemas";
 import { demoReply } from "./talk-demo";
 import { resolveTalkEventTimeZone, talkTimeZoneIssueMessage } from "./talk-time-zone";
+import { birthdayLifeStage, type HonoreeLifeStage } from "./party-intelligence";
 
 const MAX_TURNS_PER_HOUR = 40;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+export function birthdayLifeStageProfilePatch(
+  persistedValue: unknown,
+  requestedStage: HonoreeLifeStage,
+): Record<string, unknown> | null {
+  const persistedProfile =
+    typeof persistedValue === "object" && persistedValue !== null && !Array.isArray(persistedValue)
+      ? (persistedValue as Record<string, unknown>)
+      : {};
+  const persistedStage = ["child", "teen", "adult"].includes(
+    String(persistedProfile.honoreeLifeStage),
+  )
+    ? (persistedProfile.honoreeLifeStage as HonoreeLifeStage)
+    : undefined;
+  const persistedAge =
+    typeof persistedProfile.honoreeAge === "number" ? persistedProfile.honoreeAge : undefined;
+  const expectedStage = birthdayLifeStage(persistedAge, persistedStage ?? requestedStage);
+  if (persistedStage === expectedStage) return null;
+  return {
+    ...persistedProfile,
+    honoreeLifeStage: expectedStage,
+  };
+}
 
 /**
  * Rolling per-hour turn limit. Given the stored ai_turns counter and its
@@ -73,7 +97,7 @@ type TurnResult = {
 const SCHEMA_HINT = `{
   "reply": "<= 3 short sentences, warm, ask ONE question at a time",
   "draftPatch": {
-    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string, "honoreeAge"?: number },
+    "identity": { "workingTitle"?: string, "occasion"?: "birthday"|"baby-shower"|"graduation"|"holiday"|"dinner-party"|"game-day"|"cookout"|"other", "holidayPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"hanukkah"|"christmas"|"passover"|"easter"|"diwali"|"eid"|"lunar-new-year", "tone"?: string, "honoreeAge"?: number, "honoreeLifeStage"?: "child"|"teen"|"adult" },
     "when": { "date"?: "YYYY-MM-DD", "startTime"?: "7:00 PM", "dateCertainty"?: "fixed"|"window"|"tbd", "anchors"?: [{ "label": string, "at": "7:30 PM", "kind"?: "kickoff"|"toast"|"meal"|"activity" }] },
     "where": { "display"?: string, "venueKind"?: "home"|"backyard"|"park"|"venue"|"virtual"|"unknown", "contingency"?: { "needed": true, "kind"?: "weather"|"backup-venue", "plan"?: string } },
     "people": { "expectedCount"?: number, "households"?: number, "kids"?: number, "adults"?: number },
@@ -380,15 +404,61 @@ export const confirmDraft = createServerFn({ method: "POST" })
       timeline: party.timeline,
       bringBoard: party.bringBoard,
     };
-    const { data: rpc, error: rpcErr } = await supabase.rpc("confirm_gathering_draft", {
+    let { data: rpc, error: rpcErr } = await supabase.rpc("confirm_gathering_draft", {
       _draft_id: data.draftId,
       _party: payload as unknown as never,
     });
+    if (
+      rpcErr?.code === "P0001" &&
+      /invalid payload/i.test(rpcErr.message ?? "") &&
+      planningProfile.honoreeLifeStage
+    ) {
+      const legacyPlanningProfile = { ...planningProfile };
+      delete legacyPlanningProfile.honoreeLifeStage;
+      const retry = await supabase.rpc("confirm_gathering_draft", {
+        _draft_id: data.draftId,
+        _party: {
+          ...payload,
+          planningProfile: legacyPlanningProfile,
+        } as unknown as never,
+      });
+      rpc = retry.data;
+      rpcErr = retry.error;
+    }
     if (rpcErr) {
       console.warn("[talk] confirm_gathering_draft error", rpcErr.code);
       throw new Error("Couldn't create the party. Please try again.");
     }
     const out = rpc as { party_id?: string; already_confirmed?: boolean } | null;
     if (!out?.party_id) throw new Error("Couldn't create the party. Please try again.");
+    if (planningProfile.honoreeLifeStage) {
+      const { data: persisted, error: readProfileErr } = await supabase
+        .from("parties")
+        .select("planning_profile")
+        .eq("id", out.party_id)
+        .single();
+      if (readProfileErr || !persisted) {
+        console.warn("[talk] life-stage verification error", readProfileErr?.code);
+        throw new Error(
+          "The party was created, but its age group could not be verified. Open the party details and try once more.",
+        );
+      }
+      const verifiedProfile = birthdayLifeStageProfilePatch(
+        persisted.planning_profile,
+        planningProfile.honoreeLifeStage,
+      );
+      if (verifiedProfile) {
+        const { error: profileErr } = await supabase
+          .from("parties")
+          .update({ planning_profile: verifiedProfile as never })
+          .eq("id", out.party_id);
+        if (profileErr) {
+          console.warn("[talk] life-stage compatibility update error", profileErr.code);
+          throw new Error(
+            "The party was created, but its age group could not be saved. Open the party details and try once more.",
+          );
+        }
+      }
+    }
     return { partyId: out.party_id, alreadyConfirmed: !!out.already_confirmed };
   });

@@ -84,6 +84,36 @@ describe("local planning recommendations", () => {
     expect(teen[0]?.reason).toContain("guest of honor actually wants");
   });
 
+  it("routes broad child, teen, and adult signals without guessing an exact child stage", () => {
+    const child = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 12,
+      budget: 600,
+      planningProfile: { version: 1, honoreeLifeStage: "child" },
+    });
+    const teen = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 12,
+      budget: 600,
+      planningProfile: { version: 1, honoreeLifeStage: "teen" },
+    });
+    const adult = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 12,
+      budget: 600,
+      planningProfile: { version: 1, honoreeLifeStage: "adult" },
+    });
+
+    expect(child.map((suggestion) => suggestion.id)).toEqual([
+      "birthday-child-flexible-space",
+      "birthday-child-food",
+      "birthday-child-home",
+    ]);
+    expect(JSON.stringify(child)).not.toMatch(/preschool|toddler|drop-off/i);
+    expect(teen[0]?.id).toBe("birthday-teen-experience");
+    expect(adult[0]?.id).toBe("birthday-adult-space");
+  });
+
   it("falls back to a near-me search when the host has not added a city", () => {
     expect(decodeURIComponent(mapsSearchUrl("party catering", "Our place"))).toContain(
       "party catering near me",

@@ -1,6 +1,6 @@
 import type { HolidayStarterId } from "./holiday-packs";
 import type { OccasionType } from "./party-context";
-import type { HostEffort, PartyFormat } from "./party-intelligence";
+import type { HonoreeLifeStage, HostEffort, PartyFormat } from "./party-intelligence";
 import { analyzePlanningIdea } from "./talk-demo";
 import { mergeDraftLog, type DraftPatch } from "./talk-materialize";
 
@@ -19,6 +19,11 @@ export type QuickStartInput = {
    * that inference. A blank touched field must stay blank.
    */
   honoreeAgeTouched: boolean;
+  honoreeLifeStage: HonoreeLifeStage | "";
+  /**
+   * Allows “Not sure” to clear a stage inferred from the planning idea.
+   */
+  honoreeLifeStageTouched: boolean;
   expectedKids: string;
   expectedAdults: string;
   effort: HostEffort;
@@ -66,9 +71,15 @@ export function resolveQuickStart(input: QuickStartInput, options: { now?: Date 
     ...(input.occasion === "birthday" && Number(input.honoreeAge) > 0
       ? { honoreeAge: Number(input.honoreeAge) }
       : {}),
+    ...(input.occasion === "birthday" && input.honoreeLifeStage
+      ? { honoreeLifeStage: input.honoreeLifeStage }
+      : {}),
   };
   if (input.occasion === "birthday" && input.honoreeAgeTouched && !input.honoreeAge.trim()) {
     delete identity.honoreeAge;
+  }
+  if (input.occasion === "birthday" && input.honoreeLifeStageTouched && !input.honoreeLifeStage) {
+    delete identity.honoreeLifeStage;
   }
   const explicit: DraftPatch = {
     identity,
@@ -118,6 +129,9 @@ export function resolveQuickStart(input: QuickStartInput, options: { now?: Date 
   const patch = mergeDraftLog([extracted, explicit]);
   if (input.occasion === "birthday" && input.honoreeAgeTouched && !input.honoreeAge.trim()) {
     delete patch.identity?.honoreeAge;
+  }
+  if (input.occasion === "birthday" && input.honoreeLifeStageTouched && !input.honoreeLifeStage) {
+    delete patch.identity?.honoreeLifeStage;
   }
 
   return {

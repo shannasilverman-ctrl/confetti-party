@@ -294,6 +294,15 @@ test.describe("customer-backwards party intelligence", () => {
     await expect(smartStart.getByLabel("Adults helping")).toBeVisible();
 
     await smartStart.getByLabel("Age they're turning").fill("40");
+    await smartStart.getByTestId("birthday-life-stage-adult").click();
+    await expect(smartStart.getByLabel("Age they're turning")).toHaveValue("40");
+    await smartStart.getByTestId("birthday-life-stage-unknown").click();
+    await expect(smartStart.getByLabel("Age they're turning")).toHaveValue("");
+    await expect(smartStart.getByTestId("birthday-life-stage-unknown")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await smartStart.getByLabel("Age they're turning").fill("40");
     await expect(smartStart.getByText("A 40th birthday that feels like the person")).toBeVisible();
     await expect(smartStart.getByText("About 180 minutes")).toBeVisible();
     await expect(smartStart.getByText("5 guest-ready RSVP questions")).toBeVisible();
@@ -439,6 +448,45 @@ test.describe("customer-backwards party intelligence", () => {
     if ((page.viewportSize()?.width ?? 1024) < 768) {
       await expect(page.getByTestId("party-mobile-nav")).toBeVisible();
     }
+  });
+
+  test("a broad adult birthday stays adult without requiring an exact age", async ({ page }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .getByLabel("Start with the idea")
+      .fill("Adult birthday dinner with three kids invited");
+
+    await expect(dialog.getByTestId("wizard-inferred-occasion")).toContainText("Birthday");
+    await expect(dialog.getByTestId("birthday-life-stage-adult")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(dialog.getByLabel("Adults coming")).toBeVisible();
+    await expect(dialog.getByLabel("Age they're turning")).toHaveValue("");
+    await expect(dialog.getByText("Contained play venue")).toHaveCount(0);
+
+    await dialog.getByTestId("wizard-create").click();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    await expect(
+      page.getByTestId("local-planning").getByText("A celebration space that fits the person"),
+    ).toBeVisible();
+    const partyId = page.url().split("/party/")[1]?.split(/[?#]/)[0];
+    expect(partyId).toBeTruthy();
+    const profile = await page.evaluate((id) => {
+      const stored = JSON.parse(localStorage.getItem("confetti:demo:v2") ?? "null") as {
+        custom?: Array<{
+          id: string;
+          planningProfile?: { honoreeAge?: number; honoreeLifeStage?: string };
+        }>;
+      } | null;
+      return stored?.custom?.find((party) => party.id === id)?.planningProfile;
+    }, partyId);
+    expect(profile).toMatchObject({ honoreeLifeStage: "adult" });
+    expect(profile?.honoreeAge).toBeUndefined();
   });
 
   test("Shabbat smart start builds the table, timing, quantities, and guest questions together", async ({
