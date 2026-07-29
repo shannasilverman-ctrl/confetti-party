@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 79 files, 577 tests passed                                              |
+| Vitest                | 79 files, 582 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 207 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 211 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 207 applicable cases (84 intentional
+The complete Playwright matrix contains 211 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -146,10 +146,14 @@ green.
 - Timed guest calendar exports require a host-confirmed, validated IANA event
   time zone. Google links carry that zone and calendar files contain absolute
   UTC instants, so traveling guests import the same moment. Missing, invalid,
-  and nonexistent daylight-saving wall times fail closed with actionable
-  guest copy; date-only events remain honest all-day exports. The public RSVP
-  projection exposes only the validated zone string, never the private
-  planning profile.
+  nonexistent, and repeated daylight-saving wall times fail closed with
+  actionable copy rather than silently choosing an instant. Host-entered zones
+  are canonicalized before persistence, and an idea that contains a start time
+  exposes its zone confirmation without making the host reopen optional
+  details. Impossible all-day dates never render a crashing calendar action;
+  valid date-only events remain honest all-day exports. The public RSVP
+  projection exposes only the validated zone string, never the private planning
+  profile.
 - Skipped date, guest-count, budget, and look decisions remain explicitly
   open across quick start, workspace, checklist, invitation, and Reveal
   surfaces. A placeholder date cannot be shared, checked off, or deleted into

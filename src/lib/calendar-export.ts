@@ -28,10 +28,21 @@ export function isValidEventTimeZone(value: unknown): value is string {
   }
 }
 
+export function canonicalEventTimeZone(value: unknown): string | null {
+  if (!isValidEventTimeZone(value)) return null;
+  try {
+    const canonical = new Intl.DateTimeFormat("en-US", { timeZone: value }).resolvedOptions()
+      .timeZone;
+    return isValidEventTimeZone(canonical) ? canonical : null;
+  } catch {
+    return null;
+  }
+}
+
 export function deviceEventTimeZone(): string | null {
   try {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return isValidEventTimeZone(zone) ? zone : null;
+    return canonicalEventTimeZone(zone);
   } catch {
     return null;
   }
@@ -76,25 +87,38 @@ export function zonedWallTimeToUtc(date: string, time: string, timeZone: string)
   const day = parseDateOnly(date);
   const clock = parseWallClockTime(time);
   if (!day || !clock) throw new Error("Party has an invalid date or time");
-  if (!isValidEventTimeZone(timeZone)) throw new Error("Party has an invalid time zone");
+  const canonicalTimeZone = canonicalEventTimeZone(timeZone);
+  if (!canonicalTimeZone) throw new Error("Party has an invalid time zone");
 
   const desired = { y: day.y, m: day.m, d: day.d, h: clock.h, min: clock.m, s: 0 };
   const desiredAsUtc = Date.UTC(day.y, day.m - 1, day.d, clock.h, clock.m, 0, 0);
-  let instantMs = desiredAsUtc;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const actual = zonedParts(new Date(instantMs), timeZone);
+  // Collect every offset in effect around the requested wall time, then test
+  // each possible instant. This catches both sides of a fall-back overlap
+  // instead of silently choosing one of two real instants.
+  const offsets = new Set<number>();
+  for (let hour = -36; hour <= 36; hour += 6) {
+    const sampleMs = desiredAsUtc + hour * 60 * 60 * 1000;
+    const actual = zonedParts(new Date(sampleMs), canonicalTimeZone);
     const actualAsUtc = Date.UTC(actual.y, actual.m - 1, actual.d, actual.h, actual.min, actual.s);
-    const correction = desiredAsUtc - actualAsUtc;
-    if (correction === 0) break;
-    instantMs += correction;
+    offsets.add(actualAsUtc - sampleMs);
   }
 
-  const instant = new Date(instantMs);
-  if (!sameWallTime(zonedParts(instant, timeZone), desired)) {
+  const matches = [...offsets]
+    .map((offset) => new Date(desiredAsUtc - offset))
+    .filter((instant) => sameWallTime(zonedParts(instant, canonicalTimeZone), desired))
+    .filter(
+      (instant, index, candidates) =>
+        candidates.findIndex((candidate) => candidate.getTime() === instant.getTime()) === index,
+    );
+
+  if (matches.length === 0) {
     throw new Error("Party time does not exist in the selected time zone");
   }
-  return instant;
+  if (matches.length > 1) {
+    throw new Error("Party time is ambiguous in the selected time zone");
+  }
+  return matches[0];
 }
 
 function localStamp(date: Date): string {
@@ -109,17 +133,25 @@ function localStamp(date: Date): string {
   ].join("");
 }
 
-export type CalendarExportIssue = "invalid-time" | "missing-time-zone" | "invalid-wall-time";
+export type CalendarExportIssue =
+  | "invalid-date"
+  | "invalid-time"
+  | "missing-time-zone"
+  | "nonexistent-wall-time"
+  | "ambiguous-wall-time";
 
 export function calendarExportIssue(party: CalendarParty): CalendarExportIssue | null {
+  if (!parseDateOnly(party.date)) return "invalid-date";
   if (!party.start_time?.trim()) return null;
   if (!parseWallClockTime(party.start_time)) return "invalid-time";
   if (!isValidEventTimeZone(party.event_time_zone)) return "missing-time-zone";
   try {
     zonedWallTimeToUtc(party.date, party.start_time, party.event_time_zone);
     return null;
-  } catch {
-    return "invalid-wall-time";
+  } catch (error) {
+    return error instanceof Error && /ambiguous/i.test(error.message)
+      ? "ambiguous-wall-time"
+      : "nonexistent-wall-time";
   }
 }
 
@@ -172,8 +204,9 @@ export function googleCalUrl(party: CalendarParty): string {
     details: party.details ?? DEFAULT_DETAILS,
   });
   if (party.location) params.set("location", party.location);
-  if (payload.icsAllDay === false && isValidEventTimeZone(party.event_time_zone)) {
-    params.set("ctz", party.event_time_zone);
+  const canonicalTimeZone = canonicalEventTimeZone(party.event_time_zone);
+  if (payload.icsAllDay === false && canonicalTimeZone) {
+    params.set("ctz", canonicalTimeZone);
   }
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }

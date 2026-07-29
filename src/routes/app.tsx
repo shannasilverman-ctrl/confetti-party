@@ -70,7 +70,12 @@ import { analyzePlanningIdea } from "@/lib/talk-demo";
 import { materializeDraft } from "@/lib/talk-materialize";
 import { resolveQuickStart } from "@/lib/quick-start";
 import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
-import { deviceEventTimeZone, isValidEventTimeZone } from "@/lib/calendar-export";
+import {
+  calendarExportIssue,
+  canonicalEventTimeZone,
+  deviceEventTimeZone,
+  isValidEventTimeZone,
+} from "@/lib/calendar-export";
 
 type AppSearch = { new?: boolean; claimDemo?: boolean };
 
@@ -670,6 +675,8 @@ function NewPartyWizard({
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
   const ideaAnalysis = useMemo(() => (name.trim() ? analyzePlanningIdea(name) : null), [name]);
+  const capturedStartTime =
+    startTime.trim() || ideaAnalysis?.draftPatch.when?.startTime?.trim() || "";
 
   useEffect(() => {
     setSuggestedTimeZone(deviceEventTimeZone());
@@ -717,13 +724,40 @@ function NewPartyWizard({
       optionalUnknowns,
     } = materializeDraft(resolved.patch);
     const cleanTimeZone = eventTimeZone.trim();
+    const canonicalTimeZone = canonicalEventTimeZone(cleanTimeZone);
     if (generated.startTime && !isValidEventTimeZone(cleanTimeZone)) {
       toast.error("Confirm the event time zone so guest calendar links stay accurate.");
       return;
     }
+    const dateIsOpen = blockingUnknowns.some((unknown) => unknown.field === "date");
+    const calendarIssue =
+      generated.startTime && !dateIsOpen
+        ? calendarExportIssue({
+            name: generated.name,
+            date: generated.date,
+            start_time: generated.startTime,
+            event_time_zone: canonicalTimeZone,
+          })
+        : null;
+    if (calendarIssue === "ambiguous-wall-time") {
+      toast.error(
+        "That start time happens twice when the clocks change. Choose a time outside that clock-change hour.",
+      );
+      return;
+    }
+    if (calendarIssue === "nonexistent-wall-time") {
+      toast.error(
+        "That start time does not exist when the clocks change. Choose another start time.",
+      );
+      return;
+    }
+    if (calendarIssue === "invalid-time") {
+      toast.error("Use a clear start time, such as 6:30 PM.");
+      return;
+    }
     const planningProfile: PartyPlanningProfile = {
       ...(generated.planningProfile ?? { version: 1 as const }),
-      ...(isValidEventTimeZone(cleanTimeZone) ? { eventTimeZone: cleanTimeZone } : {}),
+      ...(canonicalTimeZone ? { eventTimeZone: canonicalTimeZone } : {}),
     };
     const missing = new Set([
       ...blockingUnknowns.map((unknown) => unknown.field),
@@ -1082,33 +1116,6 @@ function NewPartyWizard({
                     />
                   </div>
                 </div>
-                {startTime.trim() && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-3">
-                    <Label htmlFor="event-time-zone">Event time zone</Label>
-                    <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        id="event-time-zone"
-                        value={eventTimeZone}
-                        onChange={(event) => setEventTimeZone(event.target.value)}
-                        placeholder="e.g. America/New_York"
-                        autoComplete="off"
-                      />
-                      {suggestedTimeZone && eventTimeZone !== suggestedTimeZone && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setEventTimeZone(suggestedTimeZone)}
-                        >
-                          Use {suggestedTimeZone}
-                        </Button>
-                      )}
-                    </div>
-                    <p className="mt-1.5 text-xs text-muted-foreground">
-                      Confirm the zone where the party happens so every guest gets the right
-                      calendar time.
-                    </p>
-                  </div>
-                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="guests">Guests (optional)</Label>
@@ -1135,6 +1142,42 @@ function NewPartyWizard({
                 </div>
               </div>
             </details>
+
+            {capturedStartTime && (
+              <div
+                className="rounded-xl border border-border bg-muted/30 p-3"
+                data-testid="wizard-time-zone-confirmation"
+              >
+                <p className="text-sm font-medium text-secondary">
+                  Confirm the time zone for {capturedStartTime}
+                </p>
+                <Label className="mt-2 block" htmlFor="event-time-zone">
+                  Event time zone
+                </Label>
+                <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    id="event-time-zone"
+                    value={eventTimeZone}
+                    onChange={(event) => setEventTimeZone(event.target.value)}
+                    placeholder="e.g. America/New_York"
+                    autoComplete="off"
+                  />
+                  {suggestedTimeZone && eventTimeZone !== suggestedTimeZone && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEventTimeZone(suggestedTimeZone)}
+                    >
+                      Use {suggestedTimeZone}
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Confirm the zone where the party happens so every guest gets the right calendar
+                  time.
+                </p>
+              </div>
+            )}
 
             {themeOptions.length > 0 && (
               <div>

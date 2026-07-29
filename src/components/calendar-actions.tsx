@@ -27,6 +27,16 @@ function downloadCalendarFile(party: CalendarParty): void {
 export function CalendarActions({ party }: { party: CalendarParty }) {
   const issue = calendarExportIssue(party);
   const canExport = issue === null;
+  const warning =
+    issue === "missing-time-zone"
+      ? "Ask the host to confirm the event time zone before adding this date."
+      : issue === "invalid-date"
+        ? "Ask the host to confirm the event date before adding it to a calendar."
+        : issue === "ambiguous-wall-time"
+          ? "This start time happens twice when the clocks change. Ask the host to choose a time outside that clock-change hour."
+          : issue === "nonexistent-wall-time"
+            ? "This start time does not exist when the clocks change. Ask the host to choose another time."
+            : "Ask the host to confirm the event start time before adding this date.";
 
   return (
     <div className="space-y-2">
@@ -75,9 +85,7 @@ export function CalendarActions({ party }: { party: CalendarParty }) {
           className="text-center text-xs font-medium text-warning-foreground"
           data-testid="calendar-time-zone-warning"
         >
-          {issue === "missing-time-zone"
-            ? "Ask the host to confirm the event time zone before adding this date."
-            : "Ask the host to confirm the event start time before adding this date."}
+          {warning}
         </p>
       )}
     </div>

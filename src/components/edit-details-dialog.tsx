@@ -25,7 +25,12 @@ import {
 } from "@/lib/party-intelligence";
 import { resizePartySizedShopping } from "@/lib/shopping";
 import { rebaseBudgetCategories } from "@/lib/budget";
-import { deviceEventTimeZone, isValidEventTimeZone } from "@/lib/calendar-export";
+import {
+  calendarExportIssue,
+  canonicalEventTimeZone,
+  deviceEventTimeZone,
+  isValidEventTimeZone,
+} from "@/lib/calendar-export";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 
@@ -89,13 +94,41 @@ export function EditDetailsDialog({
   const save = () => {
     if (!name.trim()) return;
     const cleanTimeZone = eventTimeZone.trim();
+    const canonicalTimeZone = canonicalEventTimeZone(cleanTimeZone);
     const startTimeChanged = startTime.trim() !== (party.startTime ?? "");
+    const dateChanged = !!date && date !== party.date;
+    const timeZoneChanged = cleanTimeZone !== (party.planningProfile?.eventTimeZone ?? "");
     if (cleanTimeZone && !isValidEventTimeZone(cleanTimeZone)) {
       toast.error("Use a valid IANA time zone, such as America/New_York.");
       return;
     }
     if (startTime.trim() && startTimeChanged && !isValidEventTimeZone(cleanTimeZone)) {
       toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      return;
+    }
+    const calendarIssue =
+      startTime.trim() && (startTimeChanged || dateChanged || timeZoneChanged)
+        ? calendarExportIssue({
+            name: name.trim(),
+            date: date || party.date,
+            start_time: startTime.trim(),
+            event_time_zone: canonicalTimeZone,
+          })
+        : null;
+    if (calendarIssue === "ambiguous-wall-time") {
+      toast.error(
+        "That start time happens twice when the clocks change. Choose a time outside that clock-change hour.",
+      );
+      return;
+    }
+    if (calendarIssue === "nonexistent-wall-time") {
+      toast.error(
+        "That start time does not exist when the clocks change. Choose another start time.",
+      );
+      return;
+    }
+    if (calendarIssue === "invalid-time") {
+      toast.error("Use a clear start time, such as 6:30 PM.");
       return;
     }
     const expectedAudience =
@@ -144,7 +177,7 @@ export function EditDetailsDialog({
         ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
         effort,
         format: partyFormat,
-        eventTimeZone: isValidEventTimeZone(cleanTimeZone) ? cleanTimeZone : undefined,
+        eventTimeZone: canonicalTimeZone ?? undefined,
       };
       next = reconcilePartyPlaybook(next, profile, () => newId());
       const audienceTotal = (profile.expectedKids ?? 0) + (profile.expectedAdults ?? 0);

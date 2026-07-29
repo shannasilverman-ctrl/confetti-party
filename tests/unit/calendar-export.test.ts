@@ -3,6 +3,7 @@ import type { PartyView } from "@/lib/rsvp.functions";
 import {
   buildIcs,
   calendarExportIssue,
+  canonicalEventTimeZone,
   foldIcsLine,
   googleCalUrl,
   isValidEventTimeZone,
@@ -130,5 +131,38 @@ describe("calendar export", () => {
     expect(() => zonedWallTimeToUtc("2027-03-14", "2:30 AM", "America/New_York")).toThrow(
       /does not exist/i,
     );
+  });
+
+  it("fails closed when a fall-back clock change makes the requested time ambiguous", () => {
+    const ambiguous = {
+      ...PARTY,
+      date: "2027-11-07",
+      start_time: "1:30 AM",
+      event_time_zone: "America/New_York",
+    };
+
+    expect(calendarExportIssue(ambiguous)).toBe("ambiguous-wall-time");
+    expect(() =>
+      zonedWallTimeToUtc(ambiguous.date, ambiguous.start_time, ambiguous.event_time_zone),
+    ).toThrow(/ambiguous/i);
+    expect(() => googleCalUrl(ambiguous)).toThrow(/ambiguous/i);
+  });
+
+  it("rejects impossible all-day dates before calendar actions render", () => {
+    const invalid = { ...PARTY, date: "2027-02-30", start_time: null };
+
+    expect(calendarExportIssue(invalid)).toBe("invalid-date");
+    expect(() => googleCalUrl(invalid)).toThrow(/invalid date/i);
+  });
+
+  it("canonicalizes validated zones before persistence", () => {
+    expect(canonicalEventTimeZone("UTC")).toBe("UTC");
+    expect(canonicalEventTimeZone("America/New_York")).toBe("America/New_York");
+    expect(canonicalEventTimeZone("america/new_york")).toBe("America/New_York");
+    expect(canonicalEventTimeZone("US/Eastern")).toBe("America/New_York");
+    expect(canonicalEventTimeZone("Not/A_Real_Zone")).toBeNull();
+
+    const url = new URL(googleCalUrl({ ...PARTY, event_time_zone: "US/Eastern" }));
+    expect(url.searchParams.get("ctz")).toBe("America/New_York");
   });
 });
