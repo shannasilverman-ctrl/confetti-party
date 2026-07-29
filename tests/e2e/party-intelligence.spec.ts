@@ -10,6 +10,33 @@ test.describe("customer-backwards party intelligence", () => {
     });
   });
 
+  test("a natural 54-year-old prompt stays in the adult birthday flow", async ({ page }) => {
+    await page.goto("/app");
+    await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    await page.getByTestId("new-party-trigger").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByTestId("wizard-occasion-birthday").click();
+    await dialog.getByLabel("Start with the idea").fill("Bday for a 54 yr old");
+
+    await expect(dialog.getByLabel("Age they're turning")).toHaveValue("54");
+    await expect(dialog.getByText("A 54th birthday that feels like the person")).toBeVisible();
+    await expect(dialog.getByText("Contained play venue")).toHaveCount(0);
+    await expect(dialog.getByLabel("Children coming")).toBeVisible();
+    await expect(dialog.getByLabel("Adults coming")).toBeVisible();
+    await expect(dialog.getByText("5 guest-ready RSVP questions")).toBeVisible();
+
+    await dialog.getByTestId("wizard-create").click();
+    await expect(dialog.getByText("Your plan is ready")).toBeVisible();
+    await dialog.getByTestId("wizard-open-plan").click();
+
+    await expect(page).toHaveURL(/\/party\//);
+    const intelligence = page.getByTestId("party-intelligence-card");
+    await expect(
+      intelligence.getByText("A 54th birthday that feels like the person"),
+    ).toBeVisible();
+    await expect(intelligence.getByText("Contained play venue")).toHaveCount(0);
+  });
+
   test("turning four creates an age-aware plan, not a generic birthday checklist", async ({
     page,
   }) => {

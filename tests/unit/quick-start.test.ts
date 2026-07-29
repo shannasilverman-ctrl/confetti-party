@@ -109,4 +109,26 @@ describe("truthful intelligent quick start", () => {
       expect.arrayContaining(["guestEstimate", "budget"]),
     );
   });
+
+  it("keeps an inferred adult age when the birthday field is not manually re-entered", () => {
+    const resolved = resolveQuickStart(
+      input({
+        idea: "Bday for a 54 yr old",
+        occasion: "birthday",
+      }),
+      { now: NOW },
+    );
+    const { party } = materializeDraft(resolved.patch, { now: NOW });
+
+    expect(party).toMatchObject({
+      occasion: "birthday",
+      planningProfile: { honoreeAge: 54 },
+    });
+    expect(party.tasks.map((task) => task.title)).toEqual(
+      expect.arrayContaining([
+        "Define the celebration brief: how it should feel, three priorities, and three things to skip",
+        "Set the guest-list rule, plus-one approach, and private must-invite list",
+      ]),
+    );
+  });
 });

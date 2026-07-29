@@ -147,7 +147,8 @@ function extractBirthdayAge(text: string): number | undefined {
   const match =
     text.match(/\bturn(?:s|ing)?\s+(\d{1,3})\b/i) ??
     text.match(/\b(\d{1,3})(?:st|nd|rd|th)?\s+birthday\b/i) ??
-    text.match(/\b(\d{1,3})[ -]?year[ -]?old\b/i);
+    text.match(/\b(\d{1,3})[ -]?(?:years?|yrs?)[ -]?old\b/i) ??
+    text.match(/\b(\d{1,3})[ -]?y\/?o\b/i);
   const age = match ? Number(match[1]) : NaN;
   return Number.isFinite(age) && age >= 1 && age <= 120 ? age : undefined;
 }
@@ -229,7 +230,7 @@ function buildPatch(
       occasion: "holiday",
       holidayPackId: pack.id,
     };
-  } else if (/\bbirthday\b/i.test(allUser)) {
+  } else if (birthdayAge || /\b(?:birthday|b-?day)\b/i.test(allUser)) {
     patch.identity = {
       workingTitle: birthdayAge ? `${ordinal(birthdayAge)} Birthday` : "Birthday",
       occasion: "birthday",

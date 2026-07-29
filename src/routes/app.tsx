@@ -676,6 +676,9 @@ function NewPartyWizard({
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
   const ideaAnalysis = useMemo(() => (name.trim() ? analyzePlanningIdea(name) : null), [name]);
+  const inferredBirthdayAge =
+    occasion === "birthday" ? ideaAnalysis?.draftPatch.identity?.honoreeAge : undefined;
+  const birthdayAge = honoreeAge || (inferredBirthdayAge ? String(inferredBirthdayAge) : "");
   const capturedStartTime =
     startTime.trim() || ideaAnalysis?.draftPatch.when?.startTime?.trim() || "";
 
@@ -1052,7 +1055,7 @@ function NewPartyWizard({
             )}
             {occasion === "birthday" && (
               <BirthdaySmartStart
-                age={honoreeAge}
+                age={birthdayAge}
                 onAgeChange={setHonoreeAge}
                 expectedKids={expectedKids}
                 onExpectedKidsChange={setExpectedKids}

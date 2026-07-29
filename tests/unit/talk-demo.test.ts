@@ -126,6 +126,19 @@ describe("input-aware local Talk planner", () => {
     expect(result.draftPatch.budget?.total).toBe(450);
   });
 
+  it.each([
+    "Birthday for a 54 yr old",
+    "Bday for a 54-year-old",
+    "54th birthday dinner",
+    "They are turning 54",
+    "Birthday for a 54 y/o",
+  ])("understands an adult birthday age in “%s”", (idea) => {
+    expect(analyzePlanningIdea(idea, { now: NOW }).draftPatch.identity).toMatchObject({
+      occasion: "birthday",
+      honoreeAge: 54,
+    });
+  });
+
   it("recognizes a holiday pack while keeping rituals optional downstream", () => {
     const result = demoReply(conversation("Shabbat dinner this Friday for 10 guests"), {
       now: NOW,
