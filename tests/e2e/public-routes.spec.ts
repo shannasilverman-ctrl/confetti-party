@@ -147,10 +147,9 @@ test("RSVP page: well-formed but unknown token → sanitized copy at 200", async
 test("/talk renders a signed-out demo experience (no redirect to /auth)", async ({ page }) => {
   await page.goto("/talk", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/talk/);
-  // Demo affordance visible and steers toward sign-up without forcing it.
-  await expect(page.getByText(/demo/i).first()).toBeVisible();
-  const signup = page.getByRole("link", { name: /sign up/i }).first();
-  await expect(signup).toBeVisible();
+  await expect(page.getByText("Private browser demo")).toBeVisible();
+  await expect(page.getByText(/No account, AI call, or upload/i)).toBeVisible();
+  await expect(page.getByTestId("talk-build-browser-plan")).toBeDisabled();
 });
 
 test("/talk makes a messy idea easy to start in text or voice", async ({ page }) => {
@@ -164,6 +163,38 @@ test("/talk makes a messy idea easy to start in text or voice", async ({ page })
 
   await page.getByRole("tab", { name: "Voice" }).click();
   await expect(page.getByRole("heading", { name: /Say it out loud/i })).toBeVisible();
+});
+
+test("/talk turns the host's words into a real browser-saved plan", async ({ page }) => {
+  await page.goto("/talk", { waitUntil: "domcontentloaded" });
+  await page
+    .getByLabel("Message Confetti")
+    .fill(
+      "A relaxed backyard birthday for 18 friends on August 15, 2027 with a $600 budget and vegetarian food",
+    );
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(
+    page.getByText(/I caught Birthday, 18 guests, \$600 budget, backyard/i),
+  ).toBeVisible();
+  await expect(page.getByText(/What I'm hearing/i)).toBeVisible();
+  const build = page.getByTestId("talk-build-browser-plan");
+  await expect(build).toBeEnabled();
+  await build.click();
+
+  await expect(page).toHaveURL(/\/party\/[0-9a-f-]+$/i);
+  await expect(page.getByRole("heading", { name: "Birthday", exact: true })).toBeVisible();
+  await expect(page.getByText("Sunday, August 15, 2027", { exact: true })).toBeVisible();
+  await page.getByTestId("edit-details-trigger").click();
+  await expect(page.getByLabel("Guest estimate (optional)")).toHaveValue("18");
+  await expect(page.getByLabel("Budget (optional)")).toHaveValue("600");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  const partyUrl = page.url();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(partyUrl);
+  await expect(page.getByRole("heading", { name: "Birthday", exact: true })).toBeVisible();
+  await expect(page.getByText("Sunday, August 15, 2027", { exact: true })).toBeVisible();
 });
 
 test("/app party cards use accessible non-nested interactive controls", async ({ page }) => {

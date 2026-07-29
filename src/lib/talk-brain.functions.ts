@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { detectPack, type PackId } from "./holiday-packs";
+import type { PackId } from "./holiday-packs";
 import { TALK_SYSTEM_PROMPT } from "./gathering-draft";
 import {
   materializeDraft,
@@ -14,6 +14,7 @@ import {
   type ReviewSummary,
 } from "./talk-materialize";
 import { safeParseDraftPatch, sanitizeStringList } from "./talk-schemas";
+import { demoReply } from "./talk-demo";
 
 const MAX_TURNS_PER_HOUR = 40;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -89,172 +90,10 @@ const SCHEMA_HINT = `{
   "suggestedPackId"?: "thanksgiving"|"friendsgiving"|"shabbat"|"..."
 }`;
 
-// -------- Deterministic demo brain --------
-
-function extractDate(text: string): string | undefined {
-  const iso = text.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return iso[0];
-  const md = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
-  if (md) {
-    const months = [
-      "jan",
-      "feb",
-      "mar",
-      "apr",
-      "may",
-      "jun",
-      "jul",
-      "aug",
-      "sep",
-      "oct",
-      "nov",
-      "dec",
-    ];
-    const m = months.indexOf(md[1].slice(0, 3).toLowerCase());
-    const d = parseInt(md[2], 10);
-    const year = new Date().getFullYear();
-    const dt = new Date(year, m, d);
-    if (dt.getTime() < Date.now()) dt.setFullYear(year + 1);
-    return dt.toISOString().slice(0, 10);
-  }
-  return undefined;
-}
-
-function extractCount(text: string): number | undefined {
-  const m = text.match(/\b(\d{1,3})\s*(?:people|guests?|adults?|folks?|of us)\b/i);
-  if (m) return parseInt(m[1], 10);
-  return undefined;
-}
-
-function extractAudience(text: string): { kids?: number; adults?: number } {
-  const kids = text.match(/\b(\d{1,3})\s*(?:kids?|children|children guests?)\b/i);
-  const adults = text.match(/\b(\d{1,3})\s*(?:adults?|parents?|grown[ -]?ups?)\b/i);
-  return {
-    ...(kids ? { kids: parseInt(kids[1], 10) } : {}),
-    ...(adults ? { adults: parseInt(adults[1], 10) } : {}),
-  };
-}
-
-function extractBirthdayAge(text: string): number | undefined {
-  const match =
-    text.match(/\bturn(?:s|ing)?\s+(\d{1,3})\b/i) ??
-    text.match(/\b(\d{1,3})(?:st|nd|rd|th)?\s+birthday\b/i) ??
-    text.match(/\b(\d{1,3})[ -]?year[ -]?old\b/i);
-  const age = match ? parseInt(match[1], 10) : NaN;
-  return Number.isFinite(age) && age >= 1 && age <= 120 ? age : undefined;
-}
-
-function extractBudget(text: string): number | undefined {
-  const m = text.match(/\$\s?(\d{2,5})/);
-  if (m) return parseInt(m[1], 10);
-  return undefined;
-}
-
 type TurnMessages = z.infer<typeof TurnInput>["messages"];
 
 function demoBrain(messages: TurnMessages): TurnResult {
-  const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  const allUser = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.content)
-    .join(" ");
-  const pack = detectPack(allUser);
-  const patch: DraftPatch = {};
-  const questions: string[] = [];
-  const assumptions: string[] = [];
-
-  const date = extractDate(allUser);
-  if (date) patch.when = { ...(patch.when ?? {}), date, dateCertainty: "fixed" };
-  const audience = extractAudience(allUser);
-  const count = extractCount(allUser);
-  const audienceTotal =
-    audience.kids != null || audience.adults != null
-      ? (audience.kids ?? 0) + (audience.adults ?? 0)
-      : undefined;
-  if (count || audienceTotal != null) {
-    patch.people = {
-      expectedCount: audienceTotal ?? count,
-      ...audience,
-    };
-  }
-  const budget = extractBudget(allUser);
-  if (budget) patch.budget = { total: budget, stance: "flexible" };
-
-  if (pack) {
-    patch.identity = { workingTitle: pack.label, occasion: "holiday", holidayPackId: pack.id };
-  } else if (/birthday/i.test(allUser)) {
-    patch.identity = {
-      workingTitle: "Birthday",
-      occasion: "birthday",
-      ...(extractBirthdayAge(allUser) ? { honoreeAge: extractBirthdayAge(allUser) } : {}),
-    };
-  } else if (/bbq|cookout|grill/i.test(allUser)) {
-    patch.identity = { workingTitle: "Backyard BBQ", occasion: "cookout" };
-  } else if (/watch|game day|super bowl|world cup/i.test(allUser)) {
-    patch.identity = { workingTitle: "Watch Party", occasion: "game-day" };
-    patch.vibe = { broadcast: { source: "tv", needsSoundCheck: true } };
-  }
-
-  if (/\b(?:at home|our house|my house)\b/i.test(allUser)) {
-    patch.where = { ...(patch.where ?? {}), venueKind: "home" };
-  } else if (/\bbackyard\b/i.test(allUser)) {
-    patch.where = { ...(patch.where ?? {}), venueKind: "backyard" };
-  } else if (/\b(?:at a venue|party venue|play gym|trampoline park)\b/i.test(allUser)) {
-    patch.where = { ...(patch.where ?? {}), venueKind: "venue" };
-  }
-  if (/\b(?:make it easy|easy|low effort|no cleanup)\b/i.test(allUser)) {
-    patch.effort = { ...(patch.effort ?? {}), level: "low" };
-  } else if (/\b(?:go all out|all out|big production)\b/i.test(allUser)) {
-    patch.effort = { ...(patch.effort ?? {}), level: "high" };
-  }
-
-  if (/potluck|everyone brings|bring a dish/i.test(allUser)) {
-    patch.food = { approach: "potluck" };
-    patch.contributions = { mode: "open-signup" };
-  } else if (/caterer|catering/i.test(allUser)) {
-    patch.food = { approach: "catering" };
-  }
-
-  let reply = "";
-  const turnCount = messages.filter((m) => m.role === "user").length;
-
-  if (turnCount === 1) {
-    reply = pack
-      ? `Love it — ${pack.label}. Want me to start from the ${pack.label} pack (rituals stay optional)? And when is it — a set date or a window?`
-      : `Got it. Tell me the shape of it: when, roughly how many people, and what should it feel like?`;
-    if (pack) patch.identity = { ...(patch.identity ?? {}), holidayPackId: pack.id };
-    if (!date) questions.push("What date (or window)?");
-  } else if (!date) {
-    reply = "When are you thinking? A firm date or a rough window both work.";
-    questions.push("What date (or window)?");
-  } else if (!count) {
-    reply = "How many people are you expecting? A rough number is fine.";
-    questions.push("Expected headcount?");
-  } else if (!patch.budget && !/no budget|no-limit|money is fine/i.test(allUser)) {
-    reply = "What kind of budget are we working with — strict, flexible, or no ceiling?";
-    questions.push("Budget?");
-  } else {
-    reply =
-      "Here's what I'm hearing: I have the essentials to draft this. Want to review the plan and confirm?";
-    assumptions.push(
-      pack
-        ? `Using the ${pack.label} pack as the starting template.`
-        : "Using a general gathering template.",
-    );
-  }
-
-  if (/help|stuck|overwhelm/i.test(lastUser)) {
-    reply = "One step at a time. Let's lock the date first — do you have one in mind?";
-  }
-
-  return {
-    reply,
-    draftPatch: patch,
-    openQuestions: questions,
-    assumptions,
-    suggestedPackId: pack?.id,
-    usedDemo: true,
-  };
+  return demoReply(messages);
 }
 
 // -------- Server functions --------

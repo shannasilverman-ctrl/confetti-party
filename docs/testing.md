@@ -49,13 +49,18 @@ and does not need this override.
   This includes browser-to-account claim validation, seed exclusion,
   authority stripping, owner collision denial, idempotent retry, partial
   failure, selective cleanup, masked-account confirmation, and identity
-  transition contracts.
+  transition contracts. The signed-out Talk parser is deterministic and
+  tested for explicit and relative dates, adult/kid totals, budget, setting,
+  dietary needs, holiday packs, bounded turns, and non-invention.
 - **E2E (`tests/e2e/`)** — Playwright hits the built app at desktop (1280x900)
   and mobile (390x844 / Pixel 7) for every public critical path: `/`,
   `/talk`, `/app`, `/party/ava-liam-wedding`, `/party/ava-liam-wedding/reveal`,
   `/party/ava-liam-wedding/day-of`, plus the RSVP not-found state on a
   synthetic UUID. Each page must render the full "Confetti" wordmark, expose
   a landmark (`<main>` or `<h1>`), and produce no horizontal overflow.
+  The Talk journey also enters a host's exact words, verifies the tailored
+  response, creates a browser-saved party, checks the explicit year, guest
+  count, and budget, then reloads the workspace on desktop and mobile.
 - **Accessibility** — `@axe-core/playwright` scans `/` and `/talk` and fails
   on any `serious` or `critical` WCAG 2.0 A/AA violation.
 
@@ -155,8 +160,8 @@ local/staging infrastructure.
   available in public CI. The E2E suite only asserts the not-found/error
   surface for an unknown token; the RPC-level happy path is now covered
   by `test:db`.
-- **AI/talk backend.** `/talk` is smoke-tested for render only; realtime
-  OpenAI calls are not exercised.
+- **AI/talk backend.** Signed-out local Talk and browser-plan creation are
+  covered end to end. Authenticated realtime OpenAI calls are not exercised.
 - **Auth flows.** `/app` renders the signed-out/demo shell in CI — signed-in
   personalization is not covered. The claim flow is exercised with
   credential-free client fakes and component tests, but a real

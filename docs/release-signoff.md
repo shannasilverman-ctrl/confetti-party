@@ -19,6 +19,10 @@ The release candidate completes these representative journeys:
 - Host starts from an idea, typed conversation, browser dictation, or
   configured realtime voice; reviews assumptions and open questions; then
   creates an editable party workspace.
+- A signed-out host can describe a party in their own words without an AI
+  call or upload. The local planner preserves explicit dates (including the
+  year), guest count, budget, setting, dietary needs, and tone, then creates a
+  real browser-saved workspace that survives reload.
 - A signed-out host can create a useful browser-saved plan before signup,
   carry the explicit claim intent through email confirmation, review exactly
   which custom plans will move into the masked destination account, and defer
@@ -45,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 66 files, 482 tests passed                                              |
+| Vitest                | 66 files, 486 tests passed                                              |
 | Production build      | Passed                                                                  |
-| Initial client bundle | 366,149 bytes raw; 113,496 bytes gzip; within enforced budget           |
-| Playwright            | 184 passed across desktop, mobile, and WebKit; 83 intentional skips     |
+| Initial client bundle | 366,169 bytes raw; 113,499 bytes gzip; within enforced budget           |
+| Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -60,6 +64,12 @@ axe checks. It also verifies reduced motion, the iOS 16 px text-input floor,
 fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
+
+The combined local Playwright process passed 182 cases before Wrangler
+4.114.0 exited near the end of the mobile project. The one interrupted mobile
+case and all three connection-refused WebKit cases passed immediately in
+fresh Worker processes (1/1 and 3/3). CI runs the device projects with fresh
+Workers and remains the exact-SHA release authority.
 
 The host dashboard also preserves the original Confetti visual contract:
 Outfit for product copy, Fraunces for expressive display type, warm editorial
@@ -101,6 +111,11 @@ green.
   inputs as four optional, directly actionable “next moves” before suggesting
   downstream work such as invitations or RSVP follow-up; the host can choose
   whichever answer feels easiest and leave the rest open.
+- Signed-out Talk is deterministic and device-local. It extracts only facts
+  present in the host's words, asks at most one next question, stops after
+  three turns, and can materialize a useful browser workspace without an
+  account. Unknown inputs remain explicit planning tasks instead of silently
+  becoming guest-visible facts.
 - Account export strips bring-item claim secrets. Account and party deletion
   have explicit confirmation and failure recovery.
 - Party membership is limited to owner and cohost roles. Owner transfer is

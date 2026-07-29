@@ -33,7 +33,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { ReviewSummary } from "@/lib/talk-materialize";
+import { materializeDraft, type ReviewSummary } from "@/lib/talk-materialize";
+import {
+  newId,
+  PLANNING_TASK_TITLES,
+  useParties,
+  type BringCategory,
+  type Party,
+  type Task,
+} from "@/lib/party-context";
 
 export const Route = createFileRoute("/talk")({
   ssr: false,
@@ -96,6 +104,7 @@ function friendlyTalkError(category: TalkErrorCategory, err: unknown): string {
 
 function TalkRoute() {
   const { user, loading } = useAuth();
+  const { createParty, updateParty, status: partyStatus } = useParties();
   const navigate = useNavigate();
 
   const [mode, setMode] = useState<"text" | "voice">("text");
@@ -250,7 +259,9 @@ function TalkRoute() {
 
   useEffect(() => {
     if (demoLimitReached) {
-      setStatusAnnouncement("Demo turns used. Sign up free to keep going and save your plan.");
+      setStatusAnnouncement(
+        "Demo turns used. Build the browser plan now, or sign up to keep planning across devices.",
+      );
     }
   }, [demoLimitReached]);
 
@@ -265,9 +276,10 @@ function TalkRoute() {
     setThinking(true);
     try {
       if (isDemo) {
-        // Bounded local demo — no network, no persistence, no server brain.
+        // Bounded local planner — input-aware, private to this browser, and
+        // deterministic. No server or AI request occurs before signup.
         await new Promise((r) => setTimeout(r, 500));
-        const d = demoReply(demoTurn);
+        const d = demoReply(next);
         setMessages((prev) => [...prev, { role: "assistant", content: d.reply }]);
         setOpenQs(d.openQuestions);
         setAssumptions(d.assumptions);
@@ -287,7 +299,114 @@ function TalkRoute() {
     } finally {
       setThinking(false);
     }
-  }, [typed, thinking, draftId, messages, isDemo, demoLimitReached, demoTurn]);
+  }, [typed, thinking, draftId, messages, isDemo, demoLimitReached]);
+
+  const createDemoPlan = useCallback(() => {
+    if (!isDemo || demoTurn === 0 || partyStatus !== "ready") return;
+    const result = demoReply(messages);
+    const { party, blockingUnknowns, optionalUnknowns } = materializeDraft(result.draftPatch);
+    const missing = new Set([
+      ...blockingUnknowns.map((unknown) => unknown.field),
+      ...optionalUnknowns.map((unknown) => unknown.field),
+    ]);
+    const planningTasks: Task[] = [
+      ...(missing.has("date")
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.date,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(missing.has("guestEstimate")
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.guests,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(missing.has("budget")
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.budget,
+              bucket: "6+ weeks out" as const,
+              done: false,
+            },
+          ]
+        : []),
+      ...(!party.theme
+        ? [
+            {
+              id: newId(),
+              title: PLANNING_TASK_TITLES.theme,
+              bucket: "3-5 weeks" as const,
+              done: false,
+            },
+          ]
+        : []),
+    ];
+    const seenTasks = new Set<string>();
+    const tasks = [...planningTasks, ...party.tasks].filter((task) => {
+      const key = task.title.trim().toLowerCase();
+      if (seenTasks.has(key)) return false;
+      seenTasks.add(key);
+      return true;
+    });
+    const allowedBringCategories = new Set<BringCategory>([
+      "Main",
+      "Sides",
+      "Dessert",
+      "Drinks",
+      "Ice / Serveware",
+      "Kids",
+      "Décor",
+    ]);
+    const bringBoard: NonNullable<Party["bringBoard"]> = party.bringBoard.map((item) => ({
+      ...item,
+      category: allowedBringCategories.has(item.category as BringCategory)
+        ? (item.category as BringCategory)
+        : "Sides",
+    }));
+
+    const id = createParty({
+      name: party.name,
+      occasion: party.occasion,
+      date: party.date,
+      startTime: party.startTime ?? undefined,
+      location: party.location ?? undefined,
+      guestEstimate: party.guestEstimate,
+      budget: party.budget,
+      theme: party.theme || "Make it yours",
+      planningProfile: party.planningProfile ?? undefined,
+    });
+    updateParty(id, (current) => ({
+      ...current,
+      name: party.name,
+      occasion: party.occasion,
+      date: party.date,
+      startTime: party.startTime ?? undefined,
+      location: party.location ?? undefined,
+      guestEstimate: party.guestEstimate,
+      budget: party.budget,
+      theme: party.theme || "Make it yours",
+      holidayPackId: party.holidayPackId ?? undefined,
+      planningProfile: party.planningProfile ?? undefined,
+      hostNote: party.hostNote ?? undefined,
+      tasks,
+      bringBoard,
+      shoppingItems: party.shoppingItems,
+      timeline: party.timeline,
+      budgetCategories: party.budgetCategories,
+    }));
+    celebrate("cannon");
+    void navigate({ to: "/party/$id", params: { id } });
+  }, [createParty, demoTurn, isDemo, messages, navigate, partyStatus, updateParty]);
 
   const openReview = useCallback(async () => {
     if (!draftId || isDemo) return;
@@ -604,15 +723,12 @@ function TalkRoute() {
                 {isDemo && (
                   <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-white/80 bg-white/72 px-4 py-3 text-xs text-secondary shadow-soft backdrop-blur">
                     <Badge variant="secondary" className="uppercase tracking-wide">
-                      Demo
+                      Private browser demo
                     </Badge>
                     <span className="min-w-0 flex-1">
-                      You're chatting with a preview brain — {DEMO_MAX_TURNS} turns, no account
-                      needed. Sign up free to save the plan and unlock voice.
+                      Confetti reads what you type locally for {DEMO_MAX_TURNS} turns, then builds a
+                      plan saved in this browser. No account, AI call, or upload.
                     </span>
-                    <Button asChild size="sm" variant="festive">
-                      <a href="/auth?mode=signup">Sign up free</a>
-                    </Button>
                   </div>
                 )}
                 <Card className="flex h-[540px] flex-col overflow-hidden rounded-[1.75rem] border-white/80 bg-white/92 shadow-lift md:h-[440px]">
@@ -680,7 +796,7 @@ function TalkRoute() {
                         }}
                         placeholder={
                           demoLimitReached
-                            ? "Demo turns used — sign up free to keep going."
+                            ? "Demo turns used — build the browser plan when ready."
                             : "Tell Confetti the brain dump…"
                         }
                         rows={2}
@@ -786,14 +902,21 @@ function TalkRoute() {
                 </Card>
                 {isDemo ? (
                   <>
-                    <Button asChild variant="festive" size="lg" className="w-full">
-                      <a href="/auth?mode=signup">
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> Sign up to save this plan
-                      </a>
+                    <Button
+                      variant="festive"
+                      size="lg"
+                      className="w-full"
+                      onClick={createDemoPlan}
+                      disabled={demoTurn === 0 || partyStatus !== "ready"}
+                      data-testid="talk-build-browser-plan"
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />{" "}
+                      {demoTurn === 0 ? "Share one idea first" : "Build my browser plan"}
                     </Button>
                     <p className="text-[11px] text-muted-foreground">
-                      Demo replies are canned so you can feel the flow. Real Confetti tailors the
-                      plan, saves your workspace, and unlocks voice.
+                      Your words stay on this device. Confetti leaves unknown details visibly open;
+                      sign up later only if you want the plan across devices and shareable guest
+                      links.
                     </p>
                   </>
                 ) : (

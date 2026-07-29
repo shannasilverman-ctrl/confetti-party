@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { routeProviderNeeds } from "@/lib/route-providers";
 
 describe("route provider loading contract", () => {
-  it.each(["/app", "/party/ava-liam-wedding", "/party/x/day-of"])(
+  it.each(["/app", "/talk", "/party/ava-liam-wedding", "/party/x/day-of"])(
     "loads auth and party state for %s",
     (path) => {
       expect(routeProviderNeeds(path)).toEqual({ auth: true, party: true });
     },
   );
 
-  it.each(["/", "/talk", "/auth", "/reset-password", "/account", "/collaborate"])(
+  it.each(["/", "/auth", "/reset-password", "/account", "/collaborate"])(
     "loads auth without party state for %s",
     (path) => {
       expect(routeProviderNeeds(path)).toEqual({ auth: true, party: false });
