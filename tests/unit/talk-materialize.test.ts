@@ -114,6 +114,7 @@ describe("materializeDraft — rich case", () => {
     expect(titles.some((t) => t.includes("coordinate contributions"))).toBe(true);
     expect(titles.some((t) => t.startsWith("optional: empty seat"))).toBe(true);
     expect(titles.some((t) => t.includes("peak moment: carving"))).toBe(true);
+    expect(titles).toContain("confirm rsvps");
 
     // Timeline includes both anchors and activities.
     const timelineLabels = party.timeline.map((t) => t.activity);

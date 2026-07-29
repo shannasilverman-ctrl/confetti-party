@@ -44,6 +44,7 @@ function baselineTasks(
     { title: "Send invites", bucket: "3-5 weeks" },
     { title: "Plan menu", bucket: "1-2 weeks" },
     { title: "Shop and prep", bucket: "Party week" },
+    { title: "Confirm RSVPs", bucket: "Party week" },
     { title: "Set up on the day", bucket: "Day of" },
   ];
   const extras: Partial<Record<OccasionType, Array<{ title: string; bucket: Bucket }>>> = {

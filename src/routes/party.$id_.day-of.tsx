@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { BrandLockup } from "@/components/brand";
 import { celebrate } from "@/components/confetti-burst";
 import { TaskDetailsDialog } from "@/components/task-details-dialog";
+import { prioritizeDayOfTasks } from "@/lib/day-of-actions";
 
 export const Route = createFileRoute("/party/$id_/day-of")({
   component: DayOfPage,
@@ -34,11 +35,7 @@ function DayOfPage() {
   const [postStatus, setPostStatus] = useState("");
   // Compute derived state before any early return so hook order is stable
   // across renders where the party may briefly disappear (e.g. delete).
-  const nextThree = useMemo(
-    () =>
-      (party?.tasks ?? []).filter((task) => !task.done && !planningDetailForTask(task)).slice(0, 3),
-    [party?.tasks],
-  );
+  const nextThree = useMemo(() => prioritizeDayOfTasks(party?.tasks ?? []), [party?.tasks]);
 
   if (status === "loading") {
     return (

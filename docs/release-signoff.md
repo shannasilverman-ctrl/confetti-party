@@ -49,7 +49,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 69 files, 516 tests passed                                              |
+| Vitest                | 70 files, 518 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
@@ -123,6 +123,10 @@ green.
   interpretation. An unselected catalog theme stays unselected: it contributes
   no themed tasks, supplies, projected spend, workspace badge, or invitation
   claim.
+- Every generated plan includes an explicit RSVP-confirmation step. Day-of Mode
+  keeps unfinished assigned commitments visible before unowned work, then
+  prioritizes tasks closest to the gathering so a handoff cannot disappear
+  merely because older checklist items were created first.
 - Signed-out Talk is deterministic and device-local. It extracts only facts
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an
