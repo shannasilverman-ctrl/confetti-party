@@ -30,6 +30,42 @@ values.
 | `OPENAI_TEXT_MODEL`             | server variable, optional   | Defaults to `gpt-5.6-terra`            |
 | `OPENAI_SAFETY_ID_SALT`         | server secret               | Privacy-preserving Realtime identifier |
 
+SMS planning is deliberately inactive unless all of these staging-only
+settings are present and valid:
+
+| Name                            | Visibility    | Purpose                                     |
+| ------------------------------- | ------------- | ------------------------------------------- |
+| `TWILIO_ACCOUNT_SID`            | server        | Binds signed requests to one Twilio account |
+| `TWILIO_AUTH_TOKEN`             | server secret | Validates the exact webhook signature       |
+| `TWILIO_MESSAGING_SERVICE_SID`  | server        | Binds inbound traffic to one service        |
+| `TWILIO_SMS_WEBHOOK_URL`        | server        | Exact HTTPS `/api/sms/inbound` signing URL  |
+| `TWILIO_SMS_STATUS_WEBHOOK_URL` | server        | Exact HTTPS `/api/sms/status` base URL      |
+| `TWILIO_SMS_TO_NUMBER`          | server        | Expected US destination number              |
+| `SMS_LOOKUP_SECRET`             | server secret | Base64 256-bit HMAC key for phone lookup    |
+| `SMS_RECEIPT_SECRET`            | server secret | Different base64 256-bit receipt HMAC key   |
+| `SMS_ENCRYPTION_KEY`            | server secret | Base64-encoded 256-bit AES-GCM key          |
+| `SMS_ENCRYPTION_KEY_ID`         | server        | Rotation id embedded in stored ciphertext   |
+
+Do not configure a production webhook or publish a number until
+`20260729123000_sms_staging_transport.sql` and the forward-only
+`20260729133000_sms_delivery_status.sql` expansion have been applied to an
+isolated Supabase project and `bun run test:db` passes there. Missing or
+malformed SMS configuration returns a generic `503`; it does not expose a dead
+product control.
+
+Keep both environment signing URLs fragmentless. Configure the Twilio inbound
+webhook with this reliability suffix:
+
+```text
+#rc=2&rp=ct,rt,5xx&ct=2000&rt=5000&tt=15000
+```
+
+Confetti appends the same suffix to every delivery callback. Twilio excludes
+connection-override fragments from signature calculation, so the Worker
+validates the exact base URL plus query receipt and deliberately omits the
+fragment. The two retries cover connection, read-timeout, and HTTP 5xx failures;
+4xx remains non-retryable.
+
 ## Safe release sequence
 
 1. Build and run the full automated suite from a clean commit.

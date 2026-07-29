@@ -80,15 +80,6 @@ export function planSmsMessage(
     };
   }
 
-  if (current.status === "stopped") {
-    return {
-      state: current,
-      reply: null,
-      kind: "ignored",
-      readyForClaim: false,
-    };
-  }
-
   if (command === "HELP" || command === "INFO") {
     return {
       state: current,
@@ -96,6 +87,15 @@ export function planSmsMessage(
         "Confetti helps you build a party plan one question at a time. Text your idea, SKIP to leave a detail open, RESET to restart, or STOP to opt out.",
       kind: "help",
       readyForClaim: readyForClaim(current.draft),
+    };
+  }
+
+  if (current.status === "stopped") {
+    return {
+      state: current,
+      reply: null,
+      kind: "ignored",
+      readyForClaim: false,
     };
   }
 

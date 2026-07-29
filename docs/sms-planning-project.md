@@ -1,7 +1,10 @@
 # Confetti text-message planning project
 
-Status: implementation-ready design; no phone number, paid provider, production
-data, or production webhook has been created.
+Status: Slice 1 is complete. Slice 2 now has an inactive secure inbound
+transport, delivery-status callback, reviewed schema, and local contract tests.
+It still requires the rollback-only database harness in isolated staging before
+activation. No phone number, paid provider, production data, production schema,
+or production webhook has been created.
 
 Owner outcome: a host can text Confetti in ordinary language, receive one useful
 question at a time, build a real party draft, and continue the same plan in the
@@ -252,12 +255,52 @@ button or “coming soon” flow.
 - STOP/START/HELP/restart/resume tests.
 - No provider, database, or secrets required.
 
-### Slice 2 — secure staging transport
+### Slice 2 — secure staging transport (implemented, activation gated)
 
-- Reviewed migration and server-only persistence.
-- Signed Twilio webhook and delivery callback.
-- Idempotency, rate limiting, redacted observability, and failure fallback.
-- Twilio test credentials and local webhook contract tests.
+- Reviewed migration and RPC-only persistence with encrypted phone/replies,
+  keyed lookup/body digests, 30-day unclaimed retention, 180-day replay
+  tombstones, and content-free consent events.
+- Signed inbound Twilio webhook using the exact configured HTTPS URL and every
+  provider parameter. Account, Messaging Service, US sender, destination,
+  body, and no-media boundaries are checked only after signature validation.
+- Transactional provider-SID idempotency, optimistic version retry,
+  per-contact and service-wide budgets, one rate-limit notice, silent
+  duplicate TwiML, redacted observability, and deterministic failure behavior.
+- Every outbound TwiML reply carries both `action` and `statusCallback` to the
+  same signed endpoint, as Twilio recommends for account-compatibility. An
+  opaque HMAC receipt correlates the provider's separate outbound SID without
+  exposing the sender or inbound content. Duplicate and regressive
+  out-of-order receipts are contained transactionally, while content-free
+  delivery events remain available for operational metrics.
+- Delivery tracking is a separate forward-only expansion migration. The
+  original nine-argument commit RPC remains available through the rollout so
+  the previous Worker stays a valid rollback target; remove that overload only
+  in a later contract migration after exact-release verification.
+- Phone lookup and delivery receipts use distinct base64-encoded 256-bit HMAC
+  keys. The inbound and status signing URLs must share one origin, and Twilio
+  connection overrides retry connect, read-timeout, and 5xx failures without
+  entering signature computation.
+- When Twilio supplies them, delivery callbacks are also bound to the expected
+  Messaging Service, sending number, and the recipient's keyed phone hash.
+  Permanent SID/recipient conflicts are acknowledged without retry storms and
+  emit only a fixed-category alert.
+- The receipt query value is a pseudonymous correlation identifier, not an
+  authentication credential. Restrict Twilio/Cloudflare access logs and retain
+  receipt-bearing URLs no longer than the associated 30-day unclaimed draft
+  window.
+- Official Twilio SDK signature fixtures plus local route, cryptography,
+  privacy, and schema contract tests.
+
+Still required before Slice 2 can be called active:
+
+- apply the migration to an isolated staging Supabase project and pass
+  `bun run test:db`, including its duplicate, delivery ordering, consent,
+  rate-limit, and rollback assertions;
+- configure staging secrets and deploy an isolated Worker;
+- send signed provider fixtures to the exact deployed route and verify cold
+  start and latency;
+- exercise real queued, delivered, and failed callbacks from an isolated
+  Twilio sender before a real-number pilot.
 
 ### Slice 3 — web handoff
 
