@@ -265,6 +265,13 @@ test("/app tells demo hosts where their parties are actually saved", async ({ pa
   await page.goto("/app", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Saved on this device.", { exact: false })).toBeVisible();
   await expect(page.getByText(/Sign up free to save your parties/i)).toHaveCount(0);
+
+  const keepLink = page.getByRole("link", { name: "Keep them everywhere" });
+  const href = await keepLink.getAttribute("href");
+  const destination = new URL(href ?? "", page.url());
+  expect(destination.pathname).toBe("/auth");
+  expect(destination.searchParams.get("mode")).toBe("signup");
+  expect(destination.searchParams.get("returnTo")).toBe("/app?claimDemo=1");
 });
 
 test("a date-TBD quick start never exposes its placeholder date to guests", async ({ page }) => {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEMO_MAX_BYTES, DEMO_STORAGE_KEY, loadDemoState, saveDemoState } from "@/lib/demo-storage";
+import {
+  DEMO_MAX_BYTES,
+  DEMO_STORAGE_KEY,
+  loadDemoCustomParties,
+  loadDemoState,
+  removeDemoCustomParties,
+  saveDemoState,
+} from "@/lib/demo-storage";
 import type { Party } from "@/lib/party-context";
 
 function seed(id: string, over: Partial<Party> = {}): Party {
@@ -114,6 +121,55 @@ describe("demo-storage", () => {
     const out = loadDemoState(seeds, s);
     expect(out.parties.map((p) => p.id)).toEqual(["a", "custom-1"]);
     expect(out.parties[0]?.name).toBe("Edited seed");
+  });
+
+  it("exposes only validated custom parties for an explicit account claim", () => {
+    const s = new MemStorage();
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { sample: seed("sample", { name: "Edited sample" }) },
+        custom: [seed("custom-1"), { id: "bad", name: "" }, seed("custom-2")],
+      }),
+    );
+
+    const out = loadDemoCustomParties(s);
+    expect(out.parties.map((party) => party.id)).toEqual(["custom-1", "custom-2"]);
+    expect(out.warning).toBe("corrupt");
+  });
+
+  it("removes only acknowledged custom parties and preserves samples and failures", () => {
+    const s = new MemStorage();
+    const invalid = { id: "keep-invalid", name: "" };
+    s.store.set(
+      DEMO_STORAGE_KEY,
+      JSON.stringify({
+        v: 2,
+        samples: { sample: seed("sample", { name: "Edited sample" }) },
+        custom: [seed("claimed"), seed("retry"), invalid],
+      }),
+    );
+
+    expect(removeDemoCustomParties(["claimed"], s)).toEqual({ ok: true });
+    const raw = JSON.parse(s.getItem(DEMO_STORAGE_KEY)!);
+    expect(raw.samples.sample.name).toBe("Edited sample");
+    expect(raw.custom.map((party: { id: string }) => party.id)).toEqual(["retry", "keep-invalid"]);
+    expect(loadDemoCustomParties(s).parties.map((party) => party.id)).toEqual(["retry"]);
+  });
+
+  it("leaves the browser copy untouched when selective cleanup cannot write", () => {
+    const s = new MemStorage();
+    const custom = seed("custom-1");
+    expect(saveDemoState([custom], [], s).ok).toBe(true);
+    const before = s.getItem(DEMO_STORAGE_KEY);
+    s.quota = 1;
+
+    expect(removeDemoCustomParties(["custom-1"], s)).toEqual({
+      ok: false,
+      reason: "quota",
+    });
+    expect(s.getItem(DEMO_STORAGE_KEY)).toBe(before);
   });
 
   it("keeps a decide-later party with no date across a save/load roundtrip", () => {

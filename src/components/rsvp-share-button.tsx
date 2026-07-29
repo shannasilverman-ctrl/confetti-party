@@ -14,6 +14,7 @@ import { Link } from "@tanstack/react-router";
 import { useParties, daysUntil, planningDetailIsOpen, type Party } from "@/lib/party-context";
 import { formatDateOnly } from "@/lib/date-only";
 import { partyHeroImage } from "@/lib/party-visual";
+import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
 
 export function RsvpShareButton({
   partyId,
@@ -153,7 +154,7 @@ function DemoRsvpDialog({
             Close
           </Button>
           <Button asChild variant="festive">
-            <Link to="/auth" search={{ mode: "signup" }}>
+            <Link to="/auth" search={{ mode: "signup", returnTo: DEMO_CLAIM_RETURN_TO }}>
               <Sparkles /> Sign up free
             </Link>
           </Button>

@@ -78,9 +78,9 @@ export type DemoStoreResult = {
   warning?: "corrupt" | "quota" | "oversized";
 };
 
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export type DemoStorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-function getStorage(): StorageLike | null {
+function getStorage(): DemoStorageLike | null {
   if (typeof window === "undefined") return null;
   try {
     // Access can throw in private mode.
@@ -102,7 +102,7 @@ function utf8Bytes(s: string): number {
  */
 export function loadDemoState(
   seeds: Party[],
-  storage: StorageLike | null = getStorage(),
+  storage: DemoStorageLike | null = getStorage(),
 ): DemoStoreResult {
   const seedIds = new Set(seeds.map((s) => s.id));
   if (!storage) return { parties: seeds };
@@ -169,7 +169,7 @@ export function loadDemoState(
 export function saveDemoState(
   parties: Party[],
   seeds: Party[],
-  storage: StorageLike | null = getStorage(),
+  storage: DemoStorageLike | null = getStorage(),
 ): { ok: boolean; reason?: "quota" | "oversized" } {
   if (!storage) return { ok: false, reason: "quota" };
   const seedIds = new Set(seeds.map((s) => s.id));
@@ -203,7 +203,105 @@ export function saveDemoState(
   }
 }
 
-export function clearDemoState(storage: StorageLike | null = getStorage()): void {
+export type DemoCustomStoreResult = {
+  parties: Party[];
+  warning?: "corrupt";
+};
+
+/**
+ * Read only user-created browser parties. Seed samples and their local
+ * overrides are deliberately excluded so account claiming can never turn
+ * Confetti's examples into a user's cloud data.
+ */
+export function loadDemoCustomParties(
+  storage: DemoStorageLike | null = getStorage(),
+): DemoCustomStoreResult {
+  if (!storage) return { parties: [] };
+  let raw: string | null;
+  try {
+    raw = storage.getItem(DEMO_STORAGE_KEY);
+  } catch {
+    return { parties: [] };
+  }
+  if (!raw) return { parties: [] };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { parties: [], warning: "corrupt" };
+  }
+  const outcome = StoredEnvelope.safeParse(parsed);
+  if (!outcome.success) return { parties: [], warning: "corrupt" };
+
+  let droppedInvalidParty = false;
+  const parties = outcome.data.custom
+    .flatMap((candidate) => {
+      const parsedParty = PartySchema.safeParse(candidate);
+      if (!parsedParty.success) {
+        droppedInvalidParty = true;
+        return [];
+      }
+      return [parsedParty.data as unknown as Party];
+    })
+    .slice(0, DEMO_MAX_PARTIES);
+
+  return {
+    parties,
+    ...(droppedInvalidParty ? { warning: "corrupt" as const } : {}),
+  };
+}
+
+/**
+ * Remove only custom parties that have been acknowledged by the cloud.
+ * Unknown/corrupt entries and sample overrides are preserved rather than
+ * being collateral damage. A failed cleanup is safe to retry because account
+ * claiming preserves ids and verifies existing owned rows first.
+ */
+export function removeDemoCustomParties(
+  ids: Iterable<string>,
+  storage: DemoStorageLike | null = getStorage(),
+): { ok: boolean; reason?: "corrupt" | "quota" | "oversized" } {
+  if (!storage) return { ok: false, reason: "quota" };
+  const selected = new Set(ids);
+  if (selected.size === 0) return { ok: true };
+
+  let raw: string | null;
+  try {
+    raw = storage.getItem(DEMO_STORAGE_KEY);
+  } catch {
+    return { ok: false, reason: "quota" };
+  }
+  if (!raw) return { ok: true };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: "corrupt" };
+  }
+  const outcome = StoredEnvelope.safeParse(parsed);
+  if (!outcome.success) return { ok: false, reason: "corrupt" };
+
+  const next = {
+    v: 2 as const,
+    samples: outcome.data.samples,
+    custom: outcome.data.custom.filter((candidate) => {
+      const party = PartySchema.safeParse(candidate);
+      return !party.success || !selected.has(party.data.id);
+    }),
+  };
+  const json = JSON.stringify(next);
+  if (utf8Bytes(json) > DEMO_MAX_BYTES) return { ok: false, reason: "oversized" };
+  try {
+    storage.setItem(DEMO_STORAGE_KEY, json);
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "quota" };
+  }
+}
+
+export function clearDemoState(storage: DemoStorageLike | null = getStorage()): void {
   if (!storage) return;
   try {
     storage.removeItem(DEMO_STORAGE_KEY);

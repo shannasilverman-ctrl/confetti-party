@@ -19,6 +19,10 @@ The release candidate completes these representative journeys:
 - Host starts from an idea, typed conversation, browser dictation, or
   configured realtime voice; reviews assumptions and open questions; then
   creates an editable party workspace.
+- A signed-out host can create a useful browser-saved plan before signup,
+  carry the explicit claim intent through email confirmation, review exactly
+  which custom plans will move into the masked destination account, and defer
+  without losing the browser copy. Seed samples never become account data.
 - Host uses checklist, guest list, budget, shopping, timeline, bring board,
   invite sharing, Photo Drop, Reveal, and Day-of Mode.
 - Guest opens a tokenized invite, RSVPs with household/dietary details,
@@ -41,9 +45,9 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 63 files, 467 tests passed                                              |
+| Vitest                | 66 files, 482 tests passed                                              |
 | Production build      | Passed                                                                  |
-| Initial client bundle | 366,067 bytes raw; 113,473 bytes gzip; within enforced budget           |
+| Initial client bundle | 366,149 bytes raw; 113,496 bytes gzip; within enforced budget           |
 | Playwright            | 184 passed across desktop, mobile, and WebKit; 83 intentional skips     |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
@@ -103,6 +107,12 @@ green.
   explicit, accepted-invitation audit rows survive account deletion, and an
   owner cannot delete an account while a cohost still depends on an owned
   party.
+- Browser-to-account claiming is explicit and owner-scoped. It reads only
+  validated custom parties, preserves their UUIDs for idempotent retry, strips
+  browser/server authority fields, accepts an existing row only for the exact
+  authenticated owner, and removes each browser copy only after a server row
+  is acknowledged. Partial failures leave every unacknowledged plan available
+  for retry; ordinary sign-in never imports browser plans automatically.
 - Firebase-to-Supabase work remains rehearsal-only. The versioned field map
   and dry-run planner fail closed on unknown paths, emit only counts and
   deterministic hashes, never email-match identities, and never promote
@@ -114,6 +124,11 @@ green.
   workspace has no dedicated local/staging `PG*` connection. Static migration
   contracts run in CI; the harness remains a required staging rehearsal
   before a higher-risk database launch.
+- The credential-free claim suite covers validation, seed exclusion,
+  collision denial, account isolation, idempotency, partial failure, selective
+  cleanup, route continuity, and confirmation UI. A real signup plus
+  browser-to-account insert/reload/RSVP-link pass still requires an isolated
+  staging Supabase account before production release.
 - Automated WebKit and keyboard tests passed, but a physical iPhone/Mobile
   Safari session and a manual assistive-technology pass have not yet been
   performed.

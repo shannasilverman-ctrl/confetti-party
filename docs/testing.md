@@ -45,10 +45,11 @@ and does not need this override.
 
 ## Layers
 
-- **Unit (`tests/unit/`)** — pure product logic and one small component
-  behavior test. Current coverage: affiliate link builders, holiday-pack
-  detection & materialization, shopping seed generation, and the `LogoLockup`
-  wordmark render.
+- **Unit (`tests/unit/`)** — pure product logic and focused component behavior.
+  This includes browser-to-account claim validation, seed exclusion,
+  authority stripping, owner collision denial, idempotent retry, partial
+  failure, selective cleanup, masked-account confirmation, and identity
+  transition contracts.
 - **E2E (`tests/e2e/`)** — Playwright hits the built app at desktop (1280x900)
   and mobile (390x844 / Pixel 7) for every public critical path: `/`,
   `/talk`, `/app`, `/party/ava-liam-wedding`, `/party/ava-liam-wedding/reveal`,
@@ -157,7 +158,9 @@ local/staging infrastructure.
 - **AI/talk backend.** `/talk` is smoke-tested for render only; realtime
   OpenAI calls are not exercised.
 - **Auth flows.** `/app` renders the signed-out/demo shell in CI — signed-in
-  personalization is not covered.
+  personalization is not covered. The claim flow is exercised with
+  credential-free client fakes and component tests, but a real
+  signup/confirmation/import/reload pass still belongs in staging.
 - **CI does not run `test:db`.** It needs live database credentials;
   keeping GitHub CI secret-free is deliberate. Run it locally against a
   branch database or during release rehearsal.

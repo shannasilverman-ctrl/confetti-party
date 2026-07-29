@@ -972,6 +972,8 @@ type SaveStateSnapshot = import("./party-persistence").SaveState;
 
 type Ctx = {
   parties: Party[];
+  /** Validated user-created browser parties available for an explicit account claim. */
+  demoClaimCandidates: Party[];
   /** Database-enforced access level for each loaded party. */
   partyRoles: Record<string, import("./collaboration.functions").PartyRole>;
   status: "loading" | "ready" | "error";
@@ -1008,13 +1010,21 @@ type Ctx = {
   resolveConflict: (id: string, choice: "mine" | "theirs") => void;
   /** Discard a locally-recoverable rejected draft. */
   discardLocalDraft: (id: string) => void;
+  /** Explicitly copy selected browser parties into the current account. */
+  claimDemoParties: (ids: string[]) => Promise<{
+    claimedIds: string[];
+    error: string | null;
+    cleanupPending: boolean;
+  }>;
 };
 
 import {
   loadDemoState as _loadDemoState,
   saveDemoState as _saveDemoState,
-  clearDemoState as _clearDemoState,
+  loadDemoCustomParties as _loadDemoCustomParties,
+  removeDemoCustomParties as _removeDemoCustomParties,
 } from "./demo-storage";
+import { claimDemoPartiesToAccount } from "./demo-claim";
 
 function baseSeeds(): Party[] {
   return [seedMaya(), seedAvaLiam(), seedGrad(), seedWorldCup()];
@@ -1114,6 +1124,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     Record<string, import("./party-persistence").PendingConflict>
   >({});
   const [insertRejected, setInsertRejected] = useState<Record<string, boolean>>({});
+  const [demoClaimCandidates, setDemoClaimCandidates] = useState<Party[]>([]);
   // Authoritative synchronous parties reference so updateParty is deterministic
   // regardless of React batching. Kept in lock-step with the setParties calls.
   const partiesRef = useRef<Party[]>([]);
@@ -1222,6 +1233,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }
     let cancelled = false;
     if (!user) {
+      setDemoClaimCandidates([]);
       const seeds = baseSeeds();
       const { parties: hydrated, warning } = _loadDemoState(seeds);
       const guided = hydrated.map((party) => ({
@@ -1268,8 +1280,8 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         setParties(loaded);
         setPartyRoles(loadedRoles);
         for (const p of loaded) store.seedBaseline(p, user.id);
+        setDemoClaimCandidates(_loadDemoCustomParties().parties);
         setStatus("ready");
-        _clearDemoState();
       });
     return () => {
       cancelled = true;
@@ -1301,6 +1313,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(
     () => ({
       parties,
+      demoClaimCandidates,
       partyRoles,
       status,
       isDemo,
@@ -1325,6 +1338,65 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           const { [id]: _drop, ...rest } = prev;
           return rest;
         });
+      },
+      claimDemoParties: async (ids) => {
+        if (!user) {
+          return {
+            claimedIds: [],
+            error: "Sign in before moving browser parties to an account.",
+            cleanupPending: false,
+          };
+        }
+        const requested = new Set(ids);
+        const stored = _loadDemoCustomParties().parties;
+        const selected = stored.filter((party) => requested.has(party.id));
+        if (selected.length !== requested.size || selected.length === 0) {
+          return {
+            claimedIds: [],
+            error: "Those browser parties are no longer available. Reload and try again.",
+            cleanupPending: false,
+          };
+        }
+
+        const identity = user.id;
+        const result = await claimDemoPartiesToAccount({
+          parties: selected,
+          userId: identity,
+          client: makeSupabaseClient(),
+        });
+        // Never attach results or delete browser data after an account switch.
+        if (prevIdentityRef.current !== identity) {
+          return {
+            claimedIds: [],
+            error: "Your account changed before the transfer finished. Nothing was removed.",
+            cleanupPending: false,
+          };
+        }
+
+        const claimedIds = result.claimed.map((row) => row.id);
+        if (result.claimed.length > 0) {
+          const canonical = result.claimed.map((row) => rowToParty(row));
+          applyPartiesUpdate((current) => {
+            const byId = new Map(current.map((party) => [party.id, party]));
+            for (const party of canonical) byId.set(party.id, party);
+            return [...byId.values()];
+          });
+          setPartyRoles((current) => ({
+            ...current,
+            ...Object.fromEntries(claimedIds.map((id) => [id, "owner" as const])),
+          }));
+          for (const party of canonical) store.seedBaseline(party, identity);
+        }
+
+        const cleanup = _removeDemoCustomParties(claimedIds);
+        setDemoClaimCandidates(_loadDemoCustomParties().parties);
+        return {
+          claimedIds,
+          error: result.failure
+            ? "One or more parties could not be moved. Your remaining browser copies are safe."
+            : null,
+          cleanupPending: !cleanup.ok,
+        };
       },
       refetch: () => setReloadKey((k) => k + 1),
       getParty: (id) => parties.find((p) => p.id === id),
@@ -1425,6 +1497,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     }),
     [
       parties,
+      demoClaimCandidates,
       partyRoles,
       status,
       isDemo,

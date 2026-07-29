@@ -34,6 +34,7 @@ import { formatDateOnly } from "@/lib/date-only";
 import { buildPartyBoothUrl } from "@/lib/photo-booth";
 import { openPrintableSign } from "@/lib/printable-sign";
 import { partyHeroImage } from "@/lib/party-visual";
+import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
 
 function formatDate(dateISO: string) {
   return formatDateOnly(dateISO, {
@@ -395,7 +396,7 @@ export function InviteDialog({
           </Button>
           {!isReal && (
             <Button asChild variant="festive">
-              <Link to="/auth" search={{ mode: "signup" }}>
+              <Link to="/auth" search={{ mode: "signup", returnTo: DEMO_CLAIM_RETURN_TO }}>
                 <Sparkles /> Sign up free
               </Link>
             </Button>

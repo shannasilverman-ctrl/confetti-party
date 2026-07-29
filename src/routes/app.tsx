@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DemoClaimDialog } from "@/components/demo-claim-dialog";
 import {
   CalendarDays,
   Users,
@@ -61,13 +62,19 @@ import {
   type PartyFormat,
   type PartyPlanningProfile,
 } from "@/lib/party-intelligence";
+import { useAuth } from "@/lib/auth";
+import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
 
-type AppSearch = { new?: boolean };
+type AppSearch = { new?: boolean; claimDemo?: boolean };
 
 export const Route = createFileRoute("/app")({
   component: Dashboard,
   validateSearch: (s: Record<string, unknown>): AppSearch => ({
     new: s.new === true || s.new === "true" || s.new === "1" || s.new === 1 ? true : undefined,
+    claimDemo:
+      s.claimDemo === true || s.claimDemo === "true" || s.claimDemo === "1" || s.claimDemo === 1
+        ? true
+        : undefined,
   }),
   head: () => ({
     meta: [
@@ -79,21 +86,44 @@ export const Route = createFileRoute("/app")({
 });
 
 function Dashboard() {
-  const { parties, status, isDemo, refetch, cloneParty } = useParties();
+  const { parties, status, isDemo, refetch, cloneParty, demoClaimCandidates, claimDemoParties } =
+    useParties();
+  const { user } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [wizardOpen, setWizardOpen] = useState(!!search.new);
+  const [claimOpen, setClaimOpen] = useState(false);
+  const [claimReminderDismissed, setClaimReminderDismissed] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const planningReady = status === "ready";
 
   useEffect(() => {
     if (search.new) {
       setWizardOpen(true);
-      void navigate({ to: "/app", search: {}, replace: true });
+      void navigate({
+        to: "/app",
+        search: search.claimDemo ? { claimDemo: true } : {},
+        replace: true,
+      });
     }
-  }, [search.new, navigate]);
+  }, [search.new, search.claimDemo, navigate]);
+
+  useEffect(() => {
+    if (!search.claimDemo || isDemo || status !== "ready") return;
+    if (demoClaimCandidates.length === 0) {
+      void navigate({ to: "/app", search: {}, replace: true });
+      return;
+    }
+    setClaimOpen(true);
+  }, [search.claimDemo, isDemo, status, demoClaimCandidates.length, navigate]);
 
   const showBanner = isDemo && !bannerDismissed;
+  const showClaimReminder =
+    !isDemo &&
+    status === "ready" &&
+    demoClaimCandidates.length > 0 &&
+    !claimOpen &&
+    !claimReminderDismissed;
   const isEmptyLoggedIn = !isDemo && status === "ready" && parties.length === 0;
   const featuredParty =
     status === "ready"
@@ -141,6 +171,38 @@ function Dashboard() {
 
       <AppSaveStatus />
 
+      {showClaimReminder && (
+        <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6" data-testid="demo-claim-reminder">
+          <div className="relative rounded-2xl border border-primary/15 bg-white/85 p-4 pr-14 shadow-soft backdrop-blur sm:flex sm:items-center sm:gap-3 sm:py-3">
+            <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary sm:mt-0" />
+              <p className="text-sm leading-5 text-secondary">
+                {demoClaimCandidates.length === 1
+                  ? "One party is still saved only in this browser."
+                  : `${demoClaimCandidates.length} parties are still saved only in this browser.`}
+                {" Nothing moves without your confirmation."}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="festive"
+              className="mt-3 w-full sm:mt-0 sm:w-auto"
+              onClick={() => setClaimOpen(true)}
+            >
+              Review browser {demoClaimCandidates.length === 1 ? "party" : "parties"}
+            </Button>
+            <button
+              type="button"
+              aria-label="Dismiss browser party reminder"
+              className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted sm:static"
+              onClick={() => setClaimReminderDismissed(true)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {showBanner && (
         <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6">
           <div className="relative rounded-2xl border border-primary/10 bg-white/75 p-4 pr-14 shadow-soft backdrop-blur sm:flex sm:items-center sm:gap-3 sm:py-3">
@@ -152,7 +214,7 @@ function Dashboard() {
               </p>
             </div>
             <Button asChild size="sm" variant="festive" className="mt-3 w-full sm:mt-0 sm:w-auto">
-              <Link to="/auth" search={{ mode: "signup" }}>
+              <Link to="/auth" search={{ mode: "signup", returnTo: DEMO_CLAIM_RETURN_TO }}>
                 Keep them everywhere
               </Link>
             </Button>
@@ -525,6 +587,22 @@ function Dashboard() {
       </main>
 
       <NewPartyWizard open={wizardOpen} onOpenChange={setWizardOpen} />
+      <DemoClaimDialog
+        open={claimOpen}
+        onOpenChange={setClaimOpen}
+        parties={demoClaimCandidates}
+        accountEmail={user?.email}
+        onClaim={claimDemoParties}
+        onFinish={(partyId) => {
+          setClaimOpen(false);
+          if (partyId) {
+            void navigate({ to: "/party/$id", params: { id: partyId } });
+          } else {
+            setClaimReminderDismissed(true);
+            void navigate({ to: "/app", search: {}, replace: true });
+          }
+        }}
+      />
       <LegalFooter />
     </div>
   );
