@@ -13,6 +13,7 @@ import { celebrate } from "@/components/confetti-burst";
 import { TaskDetailsDialog } from "@/components/task-details-dialog";
 import { prioritizeDayOfTasks } from "@/lib/day-of-actions";
 import { dayOfRunSheet, formatMinutesUntil } from "@/lib/day-of-run-sheet";
+import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
 
 export const Route = createFileRoute("/party/$id_/day-of")({
   component: DayOfPage,
@@ -163,6 +164,8 @@ function DayOfPage() {
           <BrandLockup />
           <div className="w-11" aria-hidden />
         </header>
+
+        <OfflineSnapshotNotice className="mt-3" />
 
         {isDemo && (
           <div

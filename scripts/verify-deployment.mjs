@@ -19,6 +19,7 @@ const HTML_ROUTES = [
   "/party/world-cup-final-watch",
 ];
 const ASSETS = [
+  ["/sw.js", "javascript"],
   ["/manifest.webmanifest", "application/manifest+json"],
   ["/apple-touch-icon.png", "image/png"],
   ["/app-icon-192.png", "image/png"],

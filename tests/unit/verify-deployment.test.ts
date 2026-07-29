@@ -116,11 +116,13 @@ describe("deployment verification", () => {
           { headers: { "content-type": "application/manifest+json" } },
         );
       }
-      const contentType = url.pathname.endsWith(".jpg")
-        ? "image/jpeg"
-        : url.pathname.endsWith(".webm")
-          ? "video/webm"
-          : "image/png";
+      const contentType = url.pathname.endsWith(".js")
+        ? "application/javascript"
+        : url.pathname.endsWith(".jpg")
+          ? "image/jpeg"
+          : url.pathname.endsWith(".webm")
+            ? "video/webm"
+            : "image/png";
       return new Response("asset", { headers: { "content-type": contentType } });
     };
 
@@ -133,7 +135,7 @@ describe("deployment verification", () => {
       baseUrl: "https://preview.example.com",
       releaseSha: RELEASE_SHA,
       htmlRoutes: 10,
-      assets: 11,
+      assets: 12,
     });
   });
 
@@ -205,11 +207,13 @@ describe("deployment verification", () => {
           { headers: { "content-type": "application/manifest+json" } },
         );
       }
-      const contentType = url.pathname.endsWith(".jpg")
-        ? "image/jpeg"
-        : url.pathname.endsWith(".webm")
-          ? "video/webm"
-          : "image/png";
+      const contentType = url.pathname.endsWith(".js")
+        ? "application/javascript"
+        : url.pathname.endsWith(".jpg")
+          ? "image/jpeg"
+          : url.pathname.endsWith(".webm")
+            ? "video/webm"
+            : "image/png";
       return new Response("asset", { headers: { "content-type": contentType } });
     };
 

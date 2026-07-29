@@ -77,6 +77,7 @@ import { formatDateOnly } from "@/lib/date-only";
 import { partyTabFromSearch, type PartyTabKey } from "@/lib/party-tabs";
 import { taskTimingWindow } from "@/lib/task-timing";
 import { generatedTaskMetadata } from "@/lib/task-guidance";
+import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
 
 export type TabKey = PartyTabKey;
 
@@ -218,6 +219,8 @@ function PartyWorkspace() {
               ) : null}
             </div>
           </div>
+
+          <OfflineSnapshotNotice className="mt-3" />
 
           <div className="relative mt-4 min-h-[23rem] overflow-hidden rounded-[2rem] bg-festive text-primary-foreground shadow-brand sm:min-h-[28rem] sm:rounded-[2.5rem]">
             <img

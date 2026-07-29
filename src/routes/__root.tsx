@@ -8,7 +8,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { routeProviderNeeds } from "@/lib/route-providers";
@@ -181,10 +181,25 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ServiceWorkerRegistration />
       {outlet}
       <Suspense fallback={null}>
         <LazyToaster />
       </Suspense>
     </QueryClientProvider>
   );
+}
+
+function ServiceWorkerRegistration() {
+  useEffect(() => {
+    if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker
+      .register(`/sw.js?v=${encodeURIComponent(__CONFETTI_RELEASE_SHA__)}`, { scope: "/" })
+      .catch(() => {
+        // The app remains fully usable online when browser policy or storage
+        // settings deny service workers.
+      });
+  }, []);
+
+  return null;
 }

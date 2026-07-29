@@ -1,6 +1,6 @@
 # Confetti beta release signoff
 
-Evidence date: 2026-07-28
+Evidence date: 2026-07-29
 
 ## Scope
 
@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 72 files, 526 tests passed                                              |
+| Vitest                | 74 files, 533 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 192 application cases passed; 83 intentional cross-project skips        |
+| Playwright            | 195 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,8 +65,8 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The combined local Playwright process passed all 192 applicable cases in one
-clean run (83 intentional cross-project skips), including all three WebKit
+The combined local Playwright process passed all 195 applicable cases in one
+clean run (84 intentional cross-project skips), including all three WebKit
 critical-path cases. CI runs the device projects with fresh Workers and
 remains the exact-SHA release authority.
 
@@ -92,6 +92,21 @@ green.
   server-deleted party, and removes a record only after cloud acknowledgement
   or explicit discard. Records omit RSVP bearer tokens, expire after seven
   days, and are capped at 20 per account, 60 total, and 1 MB each.
+- Authenticated read recovery uses a separate versioned, exact-user-scoped
+  IndexedDB snapshot. It stores at most 20 parties for at most three recent
+  accounts, expires after seven days, rejects malformed, future, duplicate,
+  oversized, wrong-user, and incomplete-role records, and strips RSVP bearer
+  tokens. It is used only for offline or transient network/server failures;
+  authentication, authorization, RLS, and validation failures remain
+  fail-closed. Signed-out and switched-away accounts remove their readable
+  snapshot from the shared device.
+- Cached host views identify themselves as an offline copy, show the last
+  complete server-sync time, warn that invitations and collaborator changes
+  may be newer, and keep the notice until a full account query succeeds. A
+  release-scoped service worker caches only the public application shell and
+  first-party static assets. It excludes API, RSVP, collaboration, auth,
+  account, and release-provenance routes; private party data never enters the
+  service-worker cache.
 - Public RSVP mutation RPCs have a private per-party database abuse budget.
 - Realtime voice reservations use a transaction-scoped Postgres advisory
   lock, enforcing the five-per-hour and two-concurrent limits across Worker
@@ -174,6 +189,12 @@ green.
   cleanup, route continuity, and confirmation UI. A real signup plus
   browser-to-account insert/reload/RSVP-link pass still requires an isolated
   staging Supabase account before production release.
+- Unit and production-browser tests prove read-cache validation, user
+  isolation, bearer-token removal, transient-error gating, truthful offline
+  labeling, release-scoped service-worker registration, and desktop/mobile
+  shell reopening with the network disabled. A real authenticated
+  online-load → offline cold reload → queued edit → concurrent guest change →
+  reconnect/reconcile pass still requires isolated staging credentials.
 - Automated WebKit and keyboard tests passed, but a physical iPhone/Mobile
   Safari session and a manual assistive-technology pass have not yet been
   performed.

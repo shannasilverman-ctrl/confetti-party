@@ -69,6 +69,7 @@ import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
 import { analyzePlanningIdea } from "@/lib/talk-demo";
 import { materializeDraft } from "@/lib/talk-materialize";
 import { resolveQuickStart } from "@/lib/quick-start";
+import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
 
 type AppSearch = { new?: boolean; claimDemo?: boolean };
 
@@ -91,8 +92,16 @@ export const Route = createFileRoute("/app")({
 });
 
 function Dashboard() {
-  const { parties, status, isDemo, refetch, cloneParty, demoClaimCandidates, claimDemoParties } =
-    useParties();
+  const {
+    parties,
+    status,
+    readState,
+    isDemo,
+    refetch,
+    cloneParty,
+    demoClaimCandidates,
+    claimDemoParties,
+  } = useParties();
   const { user } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -175,6 +184,12 @@ function Dashboard() {
       </header>
 
       <AppSaveStatus />
+
+      {readState.source === "cache" && (
+        <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6">
+          <OfflineSnapshotNotice />
+        </div>
+      )}
 
       {showClaimReminder && (
         <div className="mx-auto mt-3 max-w-6xl px-3 sm:px-6" data-testid="demo-claim-reminder">

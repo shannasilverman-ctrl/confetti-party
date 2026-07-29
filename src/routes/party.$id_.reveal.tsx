@@ -39,6 +39,7 @@ import { Progress } from "@/components/ui/progress";
 import { RetrospectiveDialog } from "@/components/retrospective-dialog";
 import { formatDateOnly, nextAnnualDateOnly } from "@/lib/date-only";
 import type { PartyTabKey } from "@/lib/party-tabs";
+import { OfflineSnapshotNotice } from "@/components/offline-snapshot-notice";
 
 export const Route = createFileRoute("/party/$id_/reveal")({
   component: RevealPage,
@@ -162,6 +163,8 @@ function RevealPage() {
             </Link>
           </Button>
         </header>
+
+        <OfflineSnapshotNotice className="mt-3" />
 
         {isDemo && (
           <div

@@ -52,7 +52,10 @@ and does not need this override.
   failure, selective cleanup, masked-account confirmation, and identity
   transition contracts. The signed-out Talk parser is deterministic and
   tested for explicit and relative dates, adult/kid totals, budget, setting,
-  dietary needs, holiday packs, bounded turns, and non-invention.
+  dietary needs, holiday packs, bounded turns, and non-invention. Authenticated
+  read-cache tests cover exact-user isolation, RSVP-token redaction, TTL and
+  future-clock rejection, count/size bounds, nested corruption, duplicate
+  parties, complete role maps, and permission-vs-transient failure gating.
 - **E2E (`tests/e2e/`)** — Playwright hits the built app at desktop (1280x900)
   and mobile (390x844 / Pixel 7) for every public critical path: `/`,
   `/talk`, `/app`, `/party/ava-liam-wedding`, `/party/ava-liam-wedding/reveal`,
@@ -62,6 +65,9 @@ and does not need this override.
   The Talk journey also enters a host's exact words, verifies the tailored
   response, creates a browser-saved party, checks the explicit year, guest
   count, and budget, then reloads the workspace on desktop and mobile.
+  The production asset contract also confirms the release-scoped service
+  worker excludes sensitive paths and reopens a previously controlled
+  dashboard shell with the browser network disabled on desktop and mobile.
 - **Accessibility** — `@axe-core/playwright` scans `/` and `/talk` and fails
   on any `serious` or `critical` WCAG 2.0 A/AA violation.
 
@@ -212,6 +218,12 @@ local/staging infrastructure.
   cleanup, and refusal to resurrect a deleted row. A real authenticated
   IndexedDB → reload → Supabase reconciliation pass still belongs in isolated
   staging because public CI has no user credentials.
+- **Authenticated offline read browser integration.** Unit tests cover
+  validated user-scoped snapshots and fallback gating, while Playwright covers
+  the public shell offline. A real authenticated Day-of/workspace cold reload,
+  offline edit, token absence, account switch, concurrent RSVP, and reconnect
+  reconciliation pass still belongs in isolated staging because public CI has
+  no user credentials.
 - **CI does not run `test:db`.** It needs live database credentials;
   keeping GitHub CI secret-free is deliberate. Run it locally against a
   branch database or during release rehearsal.

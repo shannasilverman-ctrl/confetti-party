@@ -28,6 +28,7 @@ const APP_ICON_FILES = [
   "public/app-icon-192.png",
   "public/app-icon-512.png",
 ];
+const SERVICE_WORKER_PATH = "public/sw.js";
 
 // Performance contract: enforce upper-bound sizes on branded imagery so
 // we do not silently regress LCP. Values are generous ceilings above the
@@ -141,6 +142,57 @@ test.describe("first-party image asset contract", () => {
       "content",
       "Confetti",
     );
+  });
+
+  test("production registers a release-scoped service worker without caching private routes", async ({
+    page,
+    request,
+  }) => {
+    test.skip(test.info().project.name !== "desktop", "service-worker source contract runs once");
+
+    const workerFile = statSync(resolve(process.cwd(), SERVICE_WORKER_PATH));
+    expect(workerFile.isFile(), `${SERVICE_WORKER_PATH} must exist as a file`).toBe(true);
+    const response = await request.get("/sw.js");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("javascript");
+    const source = await response.text();
+    expect(source).toContain('pathname.startsWith("/rsvp/")');
+    expect(source).toContain('pathname.startsWith("/api/")');
+
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    const scriptUrl = await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.ready;
+      return registration.active?.scriptURL ?? "";
+    });
+    expect(scriptUrl).toMatch(/\/sw\.js\?v=[0-9a-f]{40}$/);
+  });
+
+  test("a previously opened dashboard can reopen its public shell offline", async ({
+    page,
+    context,
+  }) => {
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.ready;
+    });
+    if (
+      !(await page.evaluate(() => {
+        return !!navigator.serviceWorker.controller;
+      }))
+    ) {
+      await page.reload({ waitUntil: "domcontentloaded" });
+    }
+    // One controlled online load fills the release-scoped runtime asset cache.
+    await page.reload({ waitUntil: "networkidle" });
+
+    try {
+      await context.setOffline(true);
+      await page.goto("/app?offline-smoke=1", { waitUntil: "domcontentloaded" });
+      await expect(page.getByTestId("party-dashboard")).toBeVisible();
+      await expect(page.getByTestId("party-dashboard")).toHaveAttribute("data-hydrated", "true");
+    } finally {
+      await context.setOffline(false);
+    }
   });
 
   test("install icons exist and resolve as PNG assets", async ({ request }) => {

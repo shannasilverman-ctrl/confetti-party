@@ -971,6 +971,11 @@ function seedAvaLiam(): Party {
 
 type SaveStateSnapshot = import("./party-persistence").SaveState;
 
+export type PartyReadState = {
+  source: "none" | "server" | "cache" | "demo";
+  lastSyncedAt: number | null;
+};
+
 type Ctx = {
   parties: Party[];
   /** Validated user-created browser parties available for an explicit account claim. */
@@ -978,6 +983,8 @@ type Ctx = {
   /** Database-enforced access level for each loaded party. */
   partyRoles: Record<string, import("./collaboration.functions").PartyRole>;
   status: "loading" | "ready" | "error";
+  /** Whether the current view is live, demo data, or a validated offline copy. */
+  readState: PartyReadState;
   isDemo: boolean;
   refetch: () => void;
   getParty: (id: string) => Party | undefined;
@@ -1038,13 +1045,19 @@ const PartyContext = createContext<Ctx | null>(null);
 import { rowToParty as _rowToParty, partyToColumns, type PartyRow } from "./party-persistence";
 import { PartyStore, type StoreEvent } from "./party-store";
 import { makePartyOutbox, type PartyOutbox } from "./party-outbox";
+import {
+  loadTransientPartyReadSnapshot,
+  makePartyReadCache,
+  PARTY_READ_CACHE_VERSION,
+  type PartyReadCache,
+} from "./party-read-cache";
 import { makeSupabaseClient } from "./party-supabase-client";
 
 function rowToParty(r: unknown): Party {
   return _rowToParty(r as PartyRow);
 }
 function partyToRow(p: Party, userId: string): PartyRow {
-  return partyToColumns(p, userId);
+  return { ...partyToColumns(p, userId), updated_at: p.updatedAt };
 }
 
 export function makeParty(
@@ -1120,6 +1133,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     Record<string, import("./collaboration.functions").PartyRole>
   >({});
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [readState, setReadState] = useState<PartyReadState>({
+    source: "none",
+    lastSyncedAt: null,
+  });
   const [reloadKey, setReloadKey] = useState(0);
   const [saveStates, setSaveStates] = useState<Record<string, SaveStateSnapshot>>({});
   const [conflicts, setConflicts] = useState<
@@ -1144,6 +1161,11 @@ export function PartyProvider({ children }: { children: ReactNode }) {
   // optimistic concurrency, 3-way merges, and bounded retry.
   const storeRef = useRef<PartyStore | null>(null);
   const outboxRef = useRef<PartyOutbox | undefined>(undefined);
+  const readCacheRef = useRef<PartyReadCache | null | undefined>(undefined);
+  if (readCacheRef.current === undefined) {
+    readCacheRef.current = makePartyReadCache() ?? null;
+  }
+  const readCache = readCacheRef.current ?? undefined;
   if (!storeRef.current) {
     outboxRef.current = makePartyOutbox();
     storeRef.current = new PartyStore({
@@ -1169,6 +1191,12 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           });
         } else if (ev.type === "server-row") {
           applyPartiesUpdate((prev) => prev.map((p) => (p.id === ev.id ? ev.party : p)));
+          // One acknowledged write is not proof that an account-wide cached
+          // snapshot is current. Keep the offline notice until the full
+          // authoritative query succeeds.
+          setReadState((current) =>
+            current.source === "cache" ? current : { source: "server", lastSyncedAt: Date.now() },
+          );
         } else if (ev.type === "toast") {
           if (ev.kind === "error") toast.error(ev.message);
           else toast.message(ev.message);
@@ -1180,10 +1208,13 @@ export function PartyProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onOnline = () => store.flushAll();
+    const onOnline = () => {
+      store.flushAll();
+      if (user) setReloadKey((key) => key + 1);
+    };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
-  }, [store]);
+  }, [store, user]);
 
   const lastFocusRefetchRef = useRef(0);
   useEffect(() => {
@@ -1221,6 +1252,10 @@ export function PartyProvider({ children }: { children: ReactNode }) {
     const prev = prevIdentityRef.current;
     const identityChanged = prev !== nextIdentity;
     if (identityChanged) {
+      // A signed-out or switched-away account must not leave a readable host
+      // snapshot on a shared device. Pending writes have their own redacted,
+      // user-scoped recovery lifecycle.
+      if (typeof prev === "string") readCache?.remove(prev);
       // Cancel in-flight retries and drop queued writes for the prior user.
       // Timers inside PartyStore.sleep() resolve into a cleared queue and
       // become no-ops via the epoch guard in runOne/handleConflict.
@@ -1234,6 +1269,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       tombstonesRef.current = new Set();
       warnedRef.current = new Set();
       setDemoWarning(null);
+      setReadState({ source: "none", lastSyncedAt: null });
       prevIdentityRef.current = nextIdentity;
     }
     let cancelled = false;
@@ -1252,10 +1288,52 @@ export function PartyProvider({ children }: { children: ReactNode }) {
         warnedRef.current.add(warning);
         setDemoWarning(warning);
       }
+      setReadState({ source: "demo", lastSyncedAt: null });
       setStatus("ready");
       return;
     }
     setStatus("loading");
+    const hydrateRows = async (
+      rows: PartyRow[],
+      loadedRoles: Record<string, "owner" | "cohost">,
+      nextReadState: PartyReadState,
+    ) => {
+      const loaded = rows.map((row) => rowToParty(row));
+      // A cached snapshot can also contain a never-landed local insert. Only
+      // rows carrying a server concurrency token may be presented to the
+      // outbox as server-known; otherwise restorePending would turn that
+      // insert into an UPDATE and could discard it on reconnect.
+      const authoritativeRows =
+        nextReadState.source === "cache"
+          ? rows.filter((row) => typeof row.updated_at === "string" && row.updated_at.length > 0)
+          : rows;
+      const authoritativeIds = new Set(authoritativeRows.map((row) => row.id));
+      for (const party of loaded) {
+        if (authoritativeIds.has(party.id)) store.seedBaseline(party, user.id);
+      }
+      const pending = await outboxRef.current?.load(user.id);
+      if (cancelled || user.id !== prevIdentityRef.current) return;
+      const restored = store.restorePending(pending ?? [], authoritativeRows, user.id, false);
+      const restoredById = new Map(restored.map((party) => [party.id, party]));
+      const hydrated = loaded.map((party) => restoredById.get(party.id) ?? party);
+      for (const party of restored) {
+        if (!rows.some((row) => row.id === party.id)) hydrated.push(party);
+      }
+      partiesRef.current = hydrated;
+      setParties(hydrated);
+      setPartyRoles({
+        ...loadedRoles,
+        ...Object.fromEntries(
+          restored
+            .filter((party) => !rows.some((row) => row.id === party.id))
+            .map((party) => [party.id, "owner" as const]),
+        ),
+      });
+      for (const party of restored) store.retry(party.id);
+      setDemoClaimCandidates(_loadDemoCustomParties().parties);
+      setReadState(nextReadState);
+      setStatus("ready");
+    };
     supabase
       .from("parties")
       .select("*")
@@ -1268,47 +1346,52 @@ export function PartyProvider({ children }: { children: ReactNode }) {
           console.warn("[parties] load failed", {
             code: (error as { code?: string }).code,
           });
+          const cached = await loadTransientPartyReadSnapshot(readCache, user.id, error);
+          if (cancelled || user.id !== prevIdentityRef.current) return;
+          if (cached) {
+            await hydrateRows(
+              cached.parties.map((party) => partyToRow(party, user.id)),
+              cached.roles,
+              { source: "cache", lastSyncedAt: cached.syncedAt },
+            );
+            return;
+          }
           partiesRef.current = [];
           setParties([]);
           setPartyRoles({});
+          setReadState({ source: "none", lastSyncedAt: null });
           setStatus("error");
           return;
         }
-        const rows = (data ?? []) as import("./party-persistence").PartyRow[];
-        const loaded = rows.map((r) => rowToParty(r));
+        const rows = (data ?? []) as PartyRow[];
         const loadedRoles = Object.fromEntries(
           (data ?? []).map((row) => [
             row.id,
             row.user_id === user.id ? ("owner" as const) : ("cohost" as const),
           ]),
         );
-        for (const p of loaded) store.seedBaseline(p, user.id);
-        const pending = await outboxRef.current?.load(user.id);
-        if (cancelled || user.id !== prevIdentityRef.current) return;
-        const restored = store.restorePending(pending ?? [], rows, user.id, false);
-        const restoredById = new Map(restored.map((party) => [party.id, party]));
-        const hydrated = loaded.map((party) => restoredById.get(party.id) ?? party);
-        for (const party of restored) {
-          if (!rows.some((row) => row.id === party.id)) hydrated.push(party);
-        }
-        partiesRef.current = hydrated;
-        setParties(hydrated);
-        setPartyRoles({
-          ...loadedRoles,
-          ...Object.fromEntries(
-            restored
-              .filter((party) => !rows.some((row) => row.id === party.id))
-              .map((party) => [party.id, "owner" as const]),
-          ),
+        await hydrateRows(rows, loadedRoles, {
+          source: "server",
+          lastSyncedAt: Date.now(),
         });
-        for (const party of restored) store.retry(party.id);
-        setDemoClaimCandidates(_loadDemoCustomParties().parties);
-        setStatus("ready");
       });
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, reloadKey, store]);
+  }, [user, authLoading, reloadKey, store, readCache]);
+
+  useEffect(() => {
+    if (!user || status !== "ready") return;
+    if (readState.source !== "server" && readState.source !== "cache") return;
+    if (readState.lastSyncedAt === null) return;
+    readCache?.put({
+      v: PARTY_READ_CACHE_VERSION,
+      userId: user.id,
+      syncedAt: readState.lastSyncedAt,
+      parties,
+      roles: partyRoles,
+    });
+  }, [parties, partyRoles, readCache, readState, status, user]);
 
   useEffect(() => {
     if (authLoading || user) return;
@@ -1338,6 +1421,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       demoClaimCandidates,
       partyRoles,
       status,
+      readState,
       isDemo,
       saveStates,
       conflicts,
@@ -1524,6 +1608,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       demoClaimCandidates,
       partyRoles,
       status,
+      readState,
       isDemo,
       user,
       store,
