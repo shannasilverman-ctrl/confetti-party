@@ -727,7 +727,9 @@ function NewPartyWizard({
     const cleanTimeZone = eventTimeZone.trim();
     const canonicalTimeZone = canonicalEventTimeZone(cleanTimeZone);
     if (generated.startTime && !isValidEventTimeZone(cleanTimeZone)) {
-      toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.", {
+        id: "event-time-zone-required",
+      });
       return;
     }
     const dateIsOpen = blockingUnknowns.some((unknown) => unknown.field === "date");

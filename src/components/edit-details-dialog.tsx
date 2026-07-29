@@ -103,7 +103,9 @@ export function EditDetailsDialog({
       return;
     }
     if (startTime.trim() && startTimeChanged && !isValidEventTimeZone(cleanTimeZone)) {
-      toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.", {
+        id: "event-time-zone-required",
+      });
       return;
     }
     const calendarIssue =
@@ -116,7 +118,9 @@ export function EditDetailsDialog({
           })
         : null;
     if (calendarIssue === "missing-time-zone") {
-      toast.error("Confirm the event time zone so guest calendar links stay accurate.");
+      toast.error("Confirm the event time zone so guest calendar links stay accurate.", {
+        id: "event-time-zone-required",
+      });
       return;
     }
     if (calendarIssue === "invalid-date") {
