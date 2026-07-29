@@ -283,7 +283,7 @@ test("a seeded party offers truthful local paths without fake marketplace data",
   await expect(
     local.getByText(/bring the finalists back here.*keep the choice, price, and follow-through/i),
   ).toBeVisible();
-  await expect(local.getByRole("link", { name: /Search venues/i })).toHaveAttribute(
+  await expect(local.getByRole("link", { name: /Compare nearby spaces/i })).toHaveAttribute(
     "href",
     /google\.com\/maps\/search/,
   );

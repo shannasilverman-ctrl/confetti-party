@@ -147,7 +147,7 @@ export type PartyPlaybook = {
   id: string;
   title: string;
   promise: string;
-  ageBand?: "toddler" | "preschool" | "school-age" | "teen" | "adult";
+  ageBand?: PartyAgeBand;
   recommendedDurationMinutes?: number;
   recommendedKidCount?: number;
   tasks: Array<Omit<Task, "id" | "done">>;
@@ -156,7 +156,15 @@ export type PartyPlaybook = {
   guardrails: PartyGuardrail[];
 };
 
-function ageBand(age?: number): PartyPlaybook["ageBand"] {
+export type PartyAgeBand = "toddler" | "preschool" | "school-age" | "teen" | "adult";
+
+/**
+ * One shared life-stage boundary keeps the playbook, local ideas, RSVP copy,
+ * and future recommendation surfaces from quietly disagreeing about age.
+ * Missing ages remain unknown; callers must not turn absence into a child
+ * default.
+ */
+export function birthdayAgeBand(age?: number): PartyAgeBand | undefined {
   if (age == null) return undefined;
   if (age <= 3) return "toddler";
   if (age <= 5) return "preschool";
@@ -309,6 +317,57 @@ const SCHOOL_AGE_BIRTHDAY_TASKS: PlaybookTask[] = [
     "Day of",
     "The birthday moment and the practical reset should not stop because a basic is still in a cupboard or car.",
     "shopping",
+  ),
+];
+
+const TEEN_BIRTHDAY_TASKS: PlaybookTask[] = [
+  playbookTask(
+    "Ask the teen for the guest mix, one must-have, and what would feel embarrassing or overdone",
+    "3-5 weeks",
+    "A teen birthday should reflect the person being celebrated, including their boundaries around attention, family, friends, surprises, and photos.",
+    "theme",
+  ),
+  playbookTask(
+    "Set the friend, family, sibling, and invitation boundaries together",
+    "3-5 weeks",
+    "Clear guest-list rules protect capacity and relationships without making the teen negotiate exceptions during the party.",
+    "guests",
+  ),
+  playbookTask(
+    "Choose one teen-approved anchor and leave real room to socialize",
+    "1-2 weeks",
+    "One activity, outing, meal, or creative moment gives the gathering shape without forcing a group of teens through a children's-party rotation.",
+    "timeline",
+  ),
+  playbookTask(
+    "Confirm supervision, independence, venue rules, waivers, and the transport plan",
+    "1-2 weeks",
+    "The host and families need a shared understanding of where adults will be, how much independence the group has, and how everyone gets home.",
+    "guests",
+  ),
+  playbookTask(
+    "Collect allergies, dietary needs, accessibility needs, and participation boundaries",
+    "1-2 weeks",
+    "Food and activities should work for the invited group without requiring anyone to disclose private details in front of friends.",
+    "guests",
+  ),
+  playbookTask(
+    "Agree on photos, posting, music, and any surprise before the day",
+    "Party week",
+    "Consent around images and attention matters; the teen should know what is public, staged, or optional.",
+    "guests",
+  ),
+  playbookTask(
+    "Send the arrival window, clothing or equipment note, transport details, and pickup plan",
+    "Party week",
+    "Teens and families can prepare without a chain of last-minute questions or unsafe assumptions about rides.",
+    "guests",
+  ),
+  playbookTask(
+    "Assign food, transport, the shared moment, payment, and a low-profile adult safety lead",
+    "Day of",
+    "Named support lets the teen own the social experience while the host quietly covers the responsibilities that cannot be delegated.",
+    "timeline",
   ),
 ];
 
@@ -698,7 +757,7 @@ export function partyPlaybook(input: {
   holidayPackId?: string;
 }): PartyPlaybook | null {
   const age = input.profile?.honoreeAge;
-  const band = ageBand(age);
+  const band = birthdayAgeBand(age);
 
   if (input.occasion === "birthday" && band === "preschool") {
     const turning = age ? `turning ${age}` : "preschool";
@@ -810,6 +869,52 @@ export function partyPlaybook(input: {
           title: "Make supervision and pickup explicit",
           detail:
             "State whether adults stay, who is supervising, the exact pickup window, and how the host should handle a changed pickup plan.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        ...standardGuardrails(),
+      ],
+    };
+  }
+
+  if (input.occasion === "birthday" && band === "teen") {
+    return {
+      id: "birthday-teen-v1",
+      title: `${age ? `${ordinal(age)} birthday` : "Teen birthday"} with room to be themselves`,
+      promise:
+        "A teen-chosen guest mix, one worthwhile anchor, real social time, and clear privacy, transport, and independence boundaries.",
+      ageBand: band,
+      recommendedDurationMinutes: 180,
+      tasks: TEEN_BIRTHDAY_TASKS,
+      timeline: timedTimeline(input.startTime, [
+        { offset: 0, activity: "Easy arrival, music, food cue, and space to settle in" },
+        { offset: 30, activity: "Teen-chosen activity, outing, meal, or shared experience" },
+        { offset: 95, activity: "Food, conversation, and flexible social time" },
+        { offset: 125, activity: "Cake, dessert, photos, or a shared moment—only as agreed" },
+        { offset: 150, activity: "Unstructured hangout and first ride check" },
+        { offset: 180, activity: "Clear pickup, transport, payment, and host closeout" },
+      ]),
+      rsvpQuestions: [
+        "Can you make it, and will you arrive with anyone else on the invitation?",
+        "Any allergies, dietary needs, accessibility needs, or activity boundaries?",
+        "Do you need a ride, have your own ride, or will an adult pick you up?",
+        "Do you need a waiver, specific clothing, or equipment?",
+        "Is it okay to include you in group photos, or would you rather not?",
+      ],
+      guardrails: [
+        {
+          id: "teen-honoree-consent",
+          title: "Let the teen define what feels celebratory",
+          detail:
+            "Confirm the guest mix, surprises, speeches, photos, posting, music, and family involvement with the teen before committing.",
+          source: "Confetti planning practice",
+          level: "recommendation",
+        },
+        {
+          id: "teen-independence-boundaries",
+          title: "Make independence and supervision visible",
+          detail:
+            "Agree on where adults will be, how the group can move through the venue or neighborhood, and how the host will handle a changed ride or pickup.",
           source: "Confetti planning practice",
           level: "recommendation",
         },

@@ -349,7 +349,10 @@ Already valuable:
 - fast optional-field party creation;
 - transparent, overridable home-versus-venue recommendations for the preschool
   birthday golden path;
-- life-stage-aware preschool, school-age, and adult birthday playbooks;
+- life-stage-aware toddler, preschool, school-age, teen, and adult birthday
+  playbooks;
+- age-aware local birthday recommendations that remain neutral when the
+  honoree age is unknown instead of assuming a children's party;
 - parent-boundary-aware baby-shower planning and ceremony-aware graduation
   planning, with inclusive language, practical handoffs, and tailored guest
   questions;
@@ -384,7 +387,7 @@ Material gaps:
   finish line through the host's existing share flow; copied, waiting,
   confirmed, and blocked states are host-recorded and unresolved handoffs stay
   visible without claiming Confetti can read external conversations;
-- birthday RSVP defaults now adapt to preschool, school-age, and adult
+- birthday RSVP defaults now adapt to preschool, school-age, teen, and adult
   planning context; baby-shower and graduation invitations also ask for the
   group size, arrival, and access details that affect seating and food waves;
   optional host-only answers feed an explainable impact layer for headcount,
@@ -397,16 +400,22 @@ Material gaps:
 - quantity recommendations now distinguish starting assumptions from confirmed
   facts; local and vendor recommendations do not yet consistently show
   confidence or verified-vs-estimated status;
+- exact birthday ages drive the current life-stage inference, but a durable
+  coarse life-stage signal is still needed for phrases such as “adult
+  birthday,” “teen birthday,” or “kids' birthday” when the host does not enter
+  an age;
 - retrospectives do not yet improve future playbooks.
 
 ## Delivery sequence
 
-1. Finish and QA the four-year-old birthday golden path.
-2. Add adult birthday and school-age birthday playbooks to prove reuse.
-3. Add holiday dinner/Shabbat as the contribution-and-food golden path.
-4. Add game day/BBQ as the time-anchor and quantity golden path.
-5. Add cohost ownership and linked actions.
-6. Add a provider-neutral local sourcing layer, then verified vendor inventory
+1. Preserve and continuously QA the child, teen, and adult birthday golden
+   paths.
+2. Add a durable coarse life-stage signal for natural-language planning when
+   an exact age is unnecessary or unknown.
+3. Expand holiday dinner/Shabbat as the contribution-and-food golden path.
+4. Expand game day/BBQ as the time-anchor and quantity golden path.
+5. Complete cohost permissions, ownership, and linked actions.
+6. Expand the provider-neutral local sourcing layer, then add verified vendor inventory
    only when contracts, availability, pricing, reviews, and support are real.
 7. Instrument time-to-first-plan, decisions avoided, open-decision completion,
    plan edits, guest completion, host task completion, and post-event host

@@ -33,7 +33,7 @@ function PrivacyPage() {
       <main className="mx-auto max-w-3xl px-6 py-6 pb-24">
         <h1 className="font-display text-3xl font-semibold text-secondary sm:text-4xl">Privacy</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated July 25, 2026. This is plain-language product information about how Confetti
+          Last updated July 29, 2026. This is plain-language product information about how Confetti
           (currently in beta) handles data. It is not legal advice or a compliance certification.
         </p>
 
@@ -48,7 +48,10 @@ function PrivacyPage() {
             <li>
               Party data you enter: name, date, optional start time and location, guest list (names,
               optional dietary and allergen tags), checklist, budget, shopping items, theme choices,
-              host notes, bring-board items, timeline, and retrospective notes.
+              host notes, bring-board items, timeline, retrospective notes, and optional planning
+              details such as the birthday honoree&apos;s age and the expected number of children
+              and adults. Confetti uses those optional details to change timing, activities, guest
+              questions, quantities, safety reminders, and local-search suggestions.
             </li>
             <li>
               Guest-facing RSVP token that lets anyone with the link view and respond to your party
@@ -122,6 +125,13 @@ function PrivacyPage() {
             are stored on your party. Confetti asks guests not to include medical records or
             emergency contact details. Public views of the guest page strip attendee identities from
             the bring board and only show aggregate counts.
+          </p>
+          <p className="mt-3 text-sm">
+            Planning details such as the exact honoree age and child/adult estimates stay in the
+            private host workspace and are available to cohosts the host explicitly accepts. They
+            are not included as hidden fields in the RSVP response. Guests can still see any age or
+            other detail the host chooses to keep in the party name, invitation preview, host note,
+            or guest update, so hosts should review those surfaces before sharing the RSVP link.
           </p>
 
           <h2 className="mt-8 font-display text-xl font-semibold">Questions</h2>

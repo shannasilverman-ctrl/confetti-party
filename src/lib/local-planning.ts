@@ -1,5 +1,9 @@
 import type { OccasionType } from "./party-context";
-import { preschoolPartyPaths, type PartyPlanningProfile } from "./party-intelligence";
+import {
+  birthdayAgeBand,
+  preschoolPartyPaths,
+  type PartyPlanningProfile,
+} from "./party-intelligence";
 
 export type LocalPlanningKind = "venue" | "food" | "experience" | "at-home";
 
@@ -45,19 +49,21 @@ type SuggestionSeed = Omit<LocalPlanningSuggestion, "searchUrl"> & { query?: str
 const OCCASION_SUGGESTIONS: Record<OccasionType, SuggestionSeed[]> = {
   birthday: [
     {
-      id: "birthday-active-venue",
+      id: "birthday-flexible-space",
       kind: "venue",
-      title: "Active-play venue",
-      reason: "Compare trampoline parks, play gyms, and indoor activity spaces before committing.",
-      query: "kids birthday party active play venue",
-      searchLabel: "Search venues",
+      title: "Flexible birthday space",
+      reason:
+        "Compare spaces by headcount, seating, sound, accessibility, food rules, and the kind of celebration you actually want.",
+      query: "birthday private event space",
+      searchLabel: "Compare nearby spaces",
     },
     {
       id: "birthday-easy-food",
       kind: "food",
       title: "Easy food + cake path",
-      reason: "Check grocery party platters and bakeries, then compare against pizza delivery.",
-      query: "grocery party platters birthday cake bakery",
+      reason:
+        "Compare prepared food, drop-off catering, and a bakery before deciding what the host should make.",
+      query: "birthday drop-off catering party platters bakery",
       searchLabel: "Search food options",
     },
     {
@@ -255,20 +261,18 @@ const OCCASION_SUGGESTIONS: Record<OccasionType, SuggestionSeed[]> = {
 };
 
 export function localPlanningSuggestions(input: LocalPlanningInput): LocalPlanningSuggestion[] {
-  const preschoolBirthday =
-    input.occasion === "birthday" &&
-    input.planningProfile?.honoreeAge != null &&
-    input.planningProfile.honoreeAge >= 4 &&
-    input.planningProfile.honoreeAge <= 5;
+  const birthdayBand =
+    input.occasion === "birthday" ? birthdayAgeBand(input.planningProfile?.honoreeAge) : undefined;
 
-  const seeds: SuggestionSeed[] = preschoolBirthday
-    ? preschoolBirthdaySuggestions(input)
-    : rankForHost(OCCASION_SUGGESTIONS[input.occasion], input.planningProfile);
+  const seeds: SuggestionSeed[] =
+    input.occasion === "birthday"
+      ? birthdaySuggestions(input, birthdayBand)
+      : rankForHost(OCCASION_SUGGESTIONS[input.occasion], input.planningProfile);
 
   const kids = input.planningProfile?.expectedKids;
   const adults = input.planningProfile?.expectedAdults;
   const audienceContext =
-    !preschoolBirthday && (kids != null || adults != null)
+    birthdayBand !== "preschool" && (kids != null || adults != null)
       ? ` The working audience is ${kids ?? 0} children and ${adults ?? 0} adults.`
       : "";
 
@@ -282,6 +286,141 @@ export function localPlanningSuggestions(input: LocalPlanningInput): LocalPlanni
     }${audienceContext}`,
   }));
 }
+
+function birthdaySuggestions(
+  input: LocalPlanningInput,
+  band: ReturnType<typeof birthdayAgeBand>,
+): SuggestionSeed[] {
+  if (band === "preschool") return preschoolBirthdaySuggestions(input);
+
+  const seeds =
+    band === "toddler"
+      ? TODDLER_BIRTHDAY_SUGGESTIONS
+      : band === "school-age"
+        ? SCHOOL_AGE_BIRTHDAY_SUGGESTIONS
+        : band === "teen"
+          ? TEEN_BIRTHDAY_SUGGESTIONS
+          : band === "adult"
+            ? ADULT_BIRTHDAY_SUGGESTIONS
+            : OCCASION_SUGGESTIONS.birthday;
+  return rankForHost(seeds, input.planningProfile);
+}
+
+const TODDLER_BIRTHDAY_SUGGESTIONS: SuggestionSeed[] = [
+  {
+    id: "birthday-toddler-space",
+    kind: "venue",
+    title: "Toddler-ready space",
+    reason:
+      "Compare a short-list for safe movement, close supervision, changing access, bathrooms, quiet space, food rules, and a compact party window.",
+    query: "toddler birthday party venue parent supervised play space",
+    searchLabel: "Compare toddler-ready spaces",
+  },
+  {
+    id: "birthday-toddler-food",
+    kind: "food",
+    title: "Simple child-and-adult food",
+    reason:
+      "Keep the menu easy to identify and serve, collect allergy details, and plan food for the accompanying adults too.",
+    query: "toddler birthday catering fruit platter allergy aware cake",
+    searchLabel: "Compare food nearby",
+  },
+  {
+    id: "birthday-toddler-home",
+    kind: "at-home",
+    title: "Short at-home play party",
+    reason:
+      "Use an easy arrival zone, one sensory or movement activity, food and cake, and a calm ending without over-programming.",
+    action: "theme",
+  },
+];
+
+const SCHOOL_AGE_BIRTHDAY_SUGGESTIONS: SuggestionSeed[] = [
+  {
+    id: "birthday-school-age-experience",
+    kind: "venue",
+    title: "One memorable activity",
+    reason:
+      "Compare one age-fitting anchor—creative, active, gaming, or hands-on—plus supervision, waivers, food, accessibility, and pickup rules.",
+    query: "school age birthday group activity venue",
+    searchLabel: "Compare activity venues",
+  },
+  {
+    id: "birthday-school-age-food",
+    kind: "food",
+    title: "Food for play and grown-ups",
+    reason:
+      "Choose food that is quick to serve between activities, with clear allergy details and enough for the adults who stay.",
+    query: "kids birthday pizza catering fruit tray allergy aware bakery",
+    searchLabel: "Compare food nearby",
+  },
+  {
+    id: "birthday-school-age-home",
+    kind: "at-home",
+    title: "At-home activity party",
+    reason:
+      "Build around one strong activity, flexible social time, food and cake, and a clear pickup rather than a packed rotation.",
+    action: "theme",
+  },
+];
+
+const TEEN_BIRTHDAY_SUGGESTIONS: SuggestionSeed[] = [
+  {
+    id: "birthday-teen-experience",
+    kind: "experience",
+    title: "A teen-chosen experience",
+    reason:
+      "Shortlist one social experience the guest of honor actually wants, then compare age rules, transport, food, accessibility, and group logistics.",
+    query: "teen birthday group experience private event",
+    searchLabel: "Compare group experiences",
+  },
+  {
+    id: "birthday-teen-food",
+    kind: "food",
+    title: "Food that can flex with the hangout",
+    reason:
+      "Compare easy drop-off food, drinks, and dessert that can be served without interrupting the main experience.",
+    query: "teen birthday drop-off catering dessert bakery",
+    searchLabel: "Compare food nearby",
+  },
+  {
+    id: "birthday-teen-home",
+    kind: "at-home",
+    title: "At-home hangout with one anchor",
+    reason:
+      "Let the teen choose the music, food, guest mix, and one optional shared activity while the host quietly covers comfort and safety.",
+    action: "theme",
+  },
+];
+
+const ADULT_BIRTHDAY_SUGGESTIONS: SuggestionSeed[] = [
+  {
+    id: "birthday-adult-space",
+    kind: "venue",
+    title: "A celebration space that fits the person",
+    reason:
+      "Compare private dining and flexible gathering spaces by conversation level, seating, accessibility, food and drink rules, privacy, and the real guest count.",
+    query: "adult birthday private dining flexible event space",
+    searchLabel: "Compare celebration spaces",
+  },
+  {
+    id: "birthday-adult-food",
+    kind: "food",
+    title: "Food and cake without losing the host",
+    reason:
+      "Compare restaurant trays, drop-off catering, prepared food, and a bakery so the host can be present for the celebration.",
+    query: "adult birthday drop-off catering restaurant trays bakery",
+    searchLabel: "Compare food nearby",
+  },
+  {
+    id: "birthday-adult-home",
+    kind: "at-home",
+    title: "At-home gathering with one shared moment",
+    reason:
+      "Shape the room around arrivals, conversation, food and drinks, then add one toast, story, activity, or surprise that suits the guest of honor.",
+    action: "theme",
+  },
+];
 
 function rankForHost(
   seeds: SuggestionSeed[],

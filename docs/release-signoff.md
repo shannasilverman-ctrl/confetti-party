@@ -145,7 +145,7 @@ green.
   sample persists the same field in a strict v2 browser schema, migrates valid
   v1 state without inventing a note, and clears both versions on reset.
 - The public RSVP projection exposes only a coarse occasion workflow. Birthday
-  invitations adapt for preschool, school-age, or adult attendance; baby
+  invitations adapt for preschool, school-age, teen, or adult attendance; baby
   showers and graduations adapt group-count, arrival, and access prompts.
   Private planning-profile details remain excluded.
 - Photo Drop stores only a validated HTTPS destination. Photos go directly

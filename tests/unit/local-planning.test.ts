@@ -22,6 +22,66 @@ describe("local planning recommendations", () => {
     );
     expect(suggestions.some((suggestion) => suggestion.action === "theme")).toBe(true);
     expect(JSON.stringify(suggestions)).not.toMatch(/rating|available now/i);
+    expect(JSON.stringify(suggestions)).not.toMatch(/trampoline|play gym|kids birthday/i);
+  });
+
+  it("never sends a 54th birthday into the children’s venue catalog", () => {
+    const suggestions = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 28,
+      budget: 1_200,
+      location: "Winter Garden, FL",
+      planningProfile: {
+        version: 1,
+        honoreeAge: 54,
+        expectedKids: 3,
+        expectedAdults: 25,
+        effort: "balanced",
+        format: "help-me-choose",
+      },
+    });
+
+    expect(suggestions.map((suggestion) => suggestion.id)).toEqual([
+      "birthday-adult-space",
+      "birthday-adult-food",
+      "birthday-adult-home",
+    ]);
+    expect(suggestions[0]?.title).toBe("A celebration space that fits the person");
+    expect(suggestions[0]?.reason).toContain("3 children and 25 adults");
+    expect(decodeURIComponent(suggestions[0]?.searchUrl ?? "")).toContain(
+      "adult birthday private dining flexible event space near Winter Garden, FL",
+    );
+    expect(JSON.stringify(suggestions)).not.toMatch(
+      /contained play|trampoline|play gym|parent handoff/i,
+    );
+  });
+
+  it("uses distinct school-age and teen local paths", () => {
+    const schoolAge = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 12,
+      budget: 700,
+      planningProfile: { version: 1, honoreeAge: 8 },
+    });
+    const teen = localPlanningSuggestions({
+      occasion: "birthday",
+      guestEstimate: 16,
+      budget: 900,
+      planningProfile: { version: 1, honoreeAge: 15 },
+    });
+
+    expect(schoolAge.map((suggestion) => suggestion.id)).toEqual([
+      "birthday-school-age-experience",
+      "birthday-school-age-food",
+      "birthday-school-age-home",
+    ]);
+    expect(teen.map((suggestion) => suggestion.id)).toEqual([
+      "birthday-teen-experience",
+      "birthday-teen-food",
+      "birthday-teen-home",
+    ]);
+    expect(schoolAge[0]?.reason).toContain("pickup rules");
+    expect(teen[0]?.reason).toContain("guest of honor actually wants");
   });
 
   it("falls back to a near-me search when the host has not added a city", () => {
