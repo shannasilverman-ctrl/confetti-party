@@ -12,6 +12,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { routeProviderNeeds } from "@/lib/route-providers";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 const LazyToaster = lazy(() =>
   import("@/components/ui/sonner").then((module) => ({ default: module.Toaster })),
@@ -48,6 +49,9 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  useEffect(() => {
+    trackProductEvent("client_render_failed", { once: true });
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

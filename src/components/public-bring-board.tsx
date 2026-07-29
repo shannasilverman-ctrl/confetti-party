@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { celebrate } from "@/components/confetti-burst";
 import { clearSecret, loadSecrets, saveSecret } from "@/lib/bring-secrets";
 import type { PublicBringItem } from "@/lib/rsvp.functions";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 type Props = {
   token: string;
@@ -225,6 +226,7 @@ export function PublicBringBoard({
       }
       setSecrets((prev) => ({ ...prev, [item.id]: secret }));
       setRows((prev) => prev.map((r) => (r.id === item.id ? { ...r, status: "claimed" } : r)));
+      trackProductEvent("bring_item_claimed");
       celebrate("micro", evt ? { x: evt.clientX, y: evt.clientY } : undefined);
       setStatus({ kind: "success", text: `You're on ${item.label}. Thanks!` });
       await awaitRefresh();

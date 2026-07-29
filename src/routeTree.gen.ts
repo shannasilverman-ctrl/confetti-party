@@ -19,6 +19,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SampleInviteRouteImport } from './routes/sample-invite'
 import { Route as TalkRouteImport } from './routes/talk'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as ApiTelemetryRouteImport } from './routes/api/telemetry'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
 import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
@@ -75,6 +76,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTelemetryRoute = ApiTelemetryRouteImport.update({
+  id: '/api/telemetry',
+  path: '/api/telemetry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartyIdRoute = PartyIdRouteImport.update({
   id: '/party/$id',
   path: '/party/$id',
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/sample-invite': typeof SampleInviteRoute
   '/talk': typeof TalkRoute
   '/terms': typeof TermsRoute
+  '/api/telemetry': typeof ApiTelemetryRoute
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/sample-invite'
     | '/talk'
     | '/terms'
+    | '/api/telemetry'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/sample-invite'
     | '/talk'
     | '/terms'
+    | '/api/telemetry'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/sample-invite'
     | '/talk'
     | '/terms'
+    | '/api/telemetry'
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
@@ -218,6 +230,7 @@ export interface RootRouteChildren {
   SampleInviteRoute: typeof SampleInviteRoute
   TalkRoute: typeof TalkRoute
   TermsRoute: typeof TermsRoute
+  ApiTelemetryRoute: typeof ApiTelemetryRoute
   PartyIdRoute: typeof PartyIdRoute
   RsvpTokenRoute: typeof RsvpTokenRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/telemetry': {
+      id: '/api/telemetry'
+      path: '/api/telemetry'
+      fullPath: '/api/telemetry'
+      preLoaderRoute: typeof ApiTelemetryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/party/$id': {
       id: '/party/$id'
       path: '/party/$id'
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   SampleInviteRoute: SampleInviteRoute,
   TalkRoute: TalkRoute,
   TermsRoute: TermsRoute,
+  ApiTelemetryRoute: ApiTelemetryRoute,
   PartyIdRoute: PartyIdRoute,
   RsvpTokenRoute: RsvpTokenRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,

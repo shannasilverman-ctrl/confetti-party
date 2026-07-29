@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 80 files, 588 tests passed                                              |
+| Vitest                | 81 files, 593 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 213 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 219 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 213 applicable cases (84 intentional
+The complete Playwright matrix contains 219 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -124,6 +124,14 @@ green.
 - RSVP, draft, account, and voice failures return generic client-safe errors.
   Operational logs exclude invite tokens, user ids, bearer/API keys, user
   content, and raw provider bodies.
+- Core activation and failure signals use a fixed, aggregate event dictionary
+  in Worker logs. Browser requests omit credentials and referrers; dynamic
+  party and invitation paths are reduced to broad surface names before the
+  request is built. The endpoint rejects unknown fields, arbitrary values, and
+  bodies over 256 bytes, and stores no analytics identifier, user content,
+  contact data, guest answer, party id, or invitation token. The documented
+  release readout reports raw event counts and directional event ratios rather
+  than pretending they are unique-user analytics.
 - Every yes/maybe RSVP offers one optional comfort/access note regardless of
   occasion. The response is capped at 200 characters, labeled host-only, and
   explicitly discourages medical records and emergency contacts. A no response

@@ -50,6 +50,7 @@ import {
   type Party,
   type Task,
 } from "@/lib/party-context";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 export const Route = createFileRoute("/talk")({
   ssr: false,
@@ -279,6 +280,7 @@ function TalkRoute() {
     if (!text || thinking) return;
     if (isDemo && demoLimitReached) return;
     if (!isDemo && !draftId) return;
+    trackProductEvent("planning_started", { once: true });
     const next: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages(next);
     setTyped("");
@@ -423,6 +425,7 @@ function TalkRoute() {
       theme: party.theme || "Make it yours",
       planningProfile,
     });
+    trackProductEvent("plan_created");
     updateParty(id, (current) => ({
       ...current,
       name: party.name,
@@ -496,6 +499,7 @@ function TalkRoute() {
             eventTimeZone: opts.eventTimeZone,
           },
         });
+        trackProductEvent("plan_created");
         celebrate("big");
         toast.success("Plan created — welcome to your workspace.");
         setReviewOpen(false);

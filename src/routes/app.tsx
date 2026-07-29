@@ -76,6 +76,7 @@ import {
   deviceEventTimeZone,
   isValidEventTimeZone,
 } from "@/lib/calendar-export";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 type AppSearch = { new?: boolean; claimDemo?: boolean };
 
@@ -857,6 +858,7 @@ function NewPartyWizard({
       holidayPackId: resolvedHolidayStarter,
       planningProfile,
     });
+    trackProductEvent("plan_created");
     updateParty(id, (current) => ({
       ...current,
       name: generated.name,

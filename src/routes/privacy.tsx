@@ -60,12 +60,20 @@ function PrivacyPage() {
               feature requires an OpenAI key to be configured and may be unavailable in this
               deployment.
             </li>
+            <li>
+              Privacy-minimal product events: an allowlisted action such as “plan created” or “RSVP
+              completed,” the broad page category where it happened, and the deployed release. These
+              events contain no account, party, guest, or device identifier; no invitation token; no
+              contact information; and none of the words you enter. They are used only to understand
+              whether core journeys work and where failures occur.
+            </li>
           </ul>
 
           <h2 className="mt-8 font-display text-xl font-semibold">What we do not collect</h2>
           <ul className="mt-3 list-disc space-y-1 pl-6 text-sm">
             <li>Payment information — Confetti has no billing.</li>
             <li>Cross-site tracking cookies or third-party ad networks.</li>
+            <li>Persistent analytics identifiers or cross-session behavioral profiles.</li>
             <li>Guest email addresses or phone numbers (unless you type them into a note).</li>
             <li>
               Photos used in Party Booth. The original and event-framed image are processed only in

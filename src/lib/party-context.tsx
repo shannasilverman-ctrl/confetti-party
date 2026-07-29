@@ -36,6 +36,7 @@ import { generatedTaskMetadata, withTaskGuidance } from "./task-guidance";
 import type { RsvpResponseDetails } from "./rsvp.functions";
 import { retrospectiveCarryForwardTasks } from "./retrospective-reuse";
 import { createBudgetCategories } from "./budget";
+import { trackProductEvent } from "./product-telemetry";
 
 export type OccasionType =
   | "birthday"
@@ -1153,6 +1154,7 @@ export function PartyProvider({ children }: { children: ReactNode }) {
       outbox: outboxRef.current,
       onEvent: (ev: StoreEvent) => {
         if (ev.type === "state") {
+          if (ev.state === "error") trackProductEvent("party_save_failed");
           setSaveStates((prev) => ({ ...prev, [ev.id]: ev.state }));
           setConflicts((prev) => {
             const next = { ...prev };

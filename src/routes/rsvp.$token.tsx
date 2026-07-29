@@ -40,6 +40,7 @@ import { PhotoDropCard } from "@/components/photo-drop-card";
 import { PersonalizedPhotoBooth } from "@/components/personalized-photo-booth";
 import { HostUpdatesFeed } from "@/components/host-updates-feed";
 import { CalendarActions } from "@/components/calendar-actions";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 type RSVPChoice = "yes" | "maybe" | "no";
 
@@ -311,6 +312,10 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
   const [error, setError] = useState<string | null>(null);
   const submitInFlight = useRef(false);
 
+  useEffect(() => {
+    trackProductEvent("invite_opened", { once: true });
+  }, []);
+
   const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (v: string) =>
     setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
 
@@ -415,9 +420,11 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
         response_details: rsvpResponseDetails(rsvp, arrivalPlan, accessNotes) as unknown as Json,
       });
       if (res.error) {
+        trackProductEvent("rsvp_failed");
         setError("We couldn't send your RSVP. Your answers are still here — please try again.");
         return;
       }
+      trackProductEvent("rsvp_completed");
       setSubmittedChoice(rsvp);
       setDone(true);
       if (rsvp === "yes") celebrate("cannon");
@@ -425,6 +432,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
       // count or Bring Board snapshot.
       await refresh();
     } catch {
+      trackProductEvent("rsvp_failed");
       setError("We couldn't send your RSVP. Your answers are still here — please try again.");
     } finally {
       submitInFlight.current = false;

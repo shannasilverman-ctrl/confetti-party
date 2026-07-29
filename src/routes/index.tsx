@@ -11,6 +11,7 @@ import { celebrate, fireCannon } from "@/components/confetti-burst";
 import { daysUntilUtc, formatDateOnly, nextWeekdayDateOnlyUtc } from "@/lib/date-only";
 import { VOCAB } from "@/lib/vocab";
 import { EventHeroCarousel } from "@/components/event-hero-carousel";
+import { trackProductEvent } from "@/lib/product-telemetry";
 import {
   ArrowRight,
   ArrowRight as ArrowRightIcon,
@@ -84,6 +85,7 @@ function Landing() {
   }, []);
 
   const startPlanning = (e: React.MouseEvent) => {
+    trackProductEvent("landing_plan_started");
     celebrate("cannon", { x: e.clientX, y: e.clientY });
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       void navigate({ to: "/app", search: { new: true } });

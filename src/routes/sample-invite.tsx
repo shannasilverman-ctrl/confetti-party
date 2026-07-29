@@ -36,6 +36,7 @@ import {
   type SampleRSVP,
   type SampleState,
 } from "@/lib/sample-invite-state";
+import { trackProductEvent } from "@/lib/product-telemetry";
 
 /**
  * The showroom sample invitation.
@@ -122,6 +123,10 @@ function SampleInvitePage() {
   const [loadNotice, setLoadNotice] = useState<string | null>(null);
   const [interactionKey, setInteractionKey] = useState(0);
 
+  useEffect(() => {
+    trackProductEvent("invite_opened", { once: true });
+  }, []);
+
   // Client-only load — never call localStorage during SSR.
   useEffect(() => {
     const { state: loaded, corruption } = loadSampleState();
@@ -168,6 +173,7 @@ function SampleInvitePage() {
 
   function onSubmit(entry: NonNullable<SampleState["rsvp"]>) {
     setState((prev) => ({ ...prev, rsvp: entry }));
+    trackProductEvent("rsvp_completed");
     if (entry.choice === "yes") celebrate("cannon");
   }
 
@@ -191,6 +197,7 @@ function SampleInvitePage() {
           : b,
       ),
     }));
+    trackProductEvent("bring_item_claimed");
     celebrate("micro");
     return { ok: true };
   }

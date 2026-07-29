@@ -92,6 +92,9 @@ jobs:
       - name: E2E tests — desktop public journeys
         run: bunx playwright test tests/e2e/public-routes.spec.ts --project=desktop
 
+      - name: E2E tests — desktop product telemetry
+        run: bunx playwright test tests/e2e/product-telemetry.spec.ts --project=desktop
+
       - name: E2E tests — mobile
         run: bun run test:e2e:mobile
 
