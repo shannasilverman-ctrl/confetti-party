@@ -36,6 +36,20 @@ export type RsvpResponseDetails = {
   accessNotes?: string;
 };
 
+export function rsvpResponseDetails(
+  rsvp: "yes" | "maybe" | "no",
+  arrivalPlan: ArrivalPlan | "",
+  accessNotes: string,
+): RsvpResponseDetails | undefined {
+  if (rsvp === "no") return undefined;
+  const cleanAccess = accessNotes.trim().slice(0, 200);
+  if (!arrivalPlan && !cleanAccess) return undefined;
+  return {
+    ...(arrivalPlan ? { arrivalPlan } : {}),
+    ...(cleanAccess ? { accessNotes: cleanAccess } : {}),
+  };
+}
+
 export type ContextualRsvpCopy = {
   adultLabel: string;
   kidLabel: string;
@@ -92,7 +106,7 @@ export function contextualRsvpCopy(context?: PublicRsvpContext): ContextualRsvpC
     defaultAdults: 1,
     defaultKids: 0,
     arrivalQuestion: null,
-    accessPrompt: null,
+    accessPrompt: "Anything that would help you participate or feel comfortable?",
   };
 }
 

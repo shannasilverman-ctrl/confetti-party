@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { attendanceCopy, contextualRsvpCopy, resolveRsvpLoaderData } from "@/lib/rsvp.functions";
+import {
+  attendanceCopy,
+  contextualRsvpCopy,
+  resolveRsvpLoaderData,
+  rsvpResponseDetails,
+} from "@/lib/rsvp.functions";
 
 const cfg = { origin: "https://x", supabaseUrl: "https://u", supabaseKey: "sb_publishable_x" };
 const T = "00000000-0000-0000-0000-000000000001";
@@ -88,12 +93,16 @@ describe("adaptive RSVP attendance copy", () => {
     });
   });
 
-  it("keeps the generic form concise for other events", () => {
+  it("keeps generic attendance concise while offering a private comfort prompt", () => {
     expect(attendanceCopy()).toEqual({
       adultLabel: "Adults",
       kidLabel: "Kids",
       kidHint: null,
       intro: null,
+    });
+    expect(contextualRsvpCopy()).toMatchObject({
+      arrivalQuestion: null,
+      accessPrompt: "Anything that would help you participate or feel comfortable?",
     });
   });
 
@@ -115,5 +124,22 @@ describe("adaptive RSVP attendance copy", () => {
       arrivalQuestion: "When do you expect to join?",
       accessPrompt: "Anything that would make seating, sound, or access more comfortable?",
     });
+  });
+});
+
+describe("private RSVP response details", () => {
+  it("keeps bounded yes/maybe details and trims the note", () => {
+    expect(rsvpResponseDetails("maybe", "arriving-later", "  A quiet seat would help.  ")).toEqual({
+      arrivalPlan: "arriving-later",
+      accessNotes: "A quiet seat would help.",
+    });
+    expect(rsvpResponseDetails("yes", "", "x".repeat(240))).toEqual({
+      accessNotes: "x".repeat(200),
+    });
+  });
+
+  it("omits empty details and clears every private detail for a no", () => {
+    expect(rsvpResponseDetails("yes", "", "   ")).toBeUndefined();
+    expect(rsvpResponseDetails("no", "arriving-later", "Keep this private")).toBeUndefined();
   });
 });

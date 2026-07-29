@@ -7,15 +7,16 @@ import {
   saveSampleState,
 } from "@/lib/sample-invite-state";
 
-function memoryStorage(initial?: string) {
-  let value = initial ?? null;
+function memoryStorage(initial?: string, initialKey = SAMPLE_STATE_STORAGE_KEY) {
+  const values = new Map<string, string>();
+  if (initial !== undefined) values.set(initialKey, initial);
   return {
-    getItem: vi.fn(() => value),
-    setItem: vi.fn((_key: string, next: string) => {
-      value = next;
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, next: string) => {
+      values.set(key, next);
     }),
-    removeItem: vi.fn(() => {
-      value = null;
+    removeItem: vi.fn((key: string) => {
+      values.delete(key);
     }),
   };
 }
@@ -32,12 +33,12 @@ describe("sample invite persistence", () => {
   it.each([
     ["{", "parse"],
     [
-      JSON.stringify({ v: 1, bring: [], baseline: { yes: 1, maybe: 1 }, rsvp: null, extra: true }),
+      JSON.stringify({ v: 2, bring: [], baseline: { yes: 1, maybe: 1 }, rsvp: null, extra: true }),
       "invalid",
     ],
     [
       JSON.stringify({
-        v: 1,
+        v: 2,
         bring: [{ id: "__proto__", category: "x", label: "x", qty: 1, status: "open" }],
         baseline: { yes: 1, maybe: 1 },
         rsvp: null,
@@ -46,7 +47,7 @@ describe("sample invite persistence", () => {
     ],
     [
       JSON.stringify({
-        v: 1,
+        v: 2,
         bring: [{ id: "x", category: "x", label: "x", qty: 0, status: "claimed" }],
         baseline: { yes: 1, maybe: 1 },
         rsvp: null,
@@ -110,6 +111,57 @@ describe("sample invite persistence", () => {
       ok: false,
       reason: "invalid",
     });
+  });
+
+  it("migrates the strict v1 sample without inventing a private note", () => {
+    const legacyKey = "confetti:sample-invite:v1";
+    const legacy = {
+      v: 1,
+      rsvp: {
+        name: "Rivera family",
+        choice: "yes",
+        adults: 2,
+        kids: 0,
+        dietary: ["Vegan"],
+        allergens: [],
+        at: "2027-01-01T00:00:00.000Z",
+      },
+      bring: defaultSampleState().bring,
+      baseline: { yes: 14, maybe: 3 },
+    };
+    const storage = memoryStorage(JSON.stringify(legacy), legacyKey);
+
+    const loaded = loadSampleState(storage);
+
+    expect(loaded.state).toMatchObject({
+      v: 2,
+      rsvp: { name: "Rivera family", choice: "yes" },
+    });
+    expect(loaded.state.rsvp).not.toHaveProperty("accessNotes");
+    expect(storage.setItem).toHaveBeenCalledWith(SAMPLE_STATE_STORAGE_KEY, expect.any(String));
+    expect(storage.removeItem).toHaveBeenCalledWith(legacyKey);
+  });
+
+  it("persists a bounded host-only note and rejects one attached to a no", () => {
+    const withNote = defaultSampleState();
+    withNote.rsvp = {
+      name: "Sam Rivera",
+      choice: "maybe",
+      adults: 0,
+      kids: 0,
+      dietary: [],
+      allergens: [],
+      accessNotes: "A seat away from the speakers would help.",
+      at: "2027-01-01T00:00:00.000Z",
+    };
+    const storage = memoryStorage();
+    expect(saveSampleState(withNote, storage)).toEqual({ ok: true });
+    expect(loadSampleState(storage).state.rsvp?.accessNotes).toBe(
+      "A seat away from the speakers would help.",
+    );
+
+    withNote.rsvp = { ...withNote.rsvp, choice: "no" };
+    expect(saveSampleState(withNote, storage)).toEqual({ ok: false, reason: "invalid" });
   });
 
   it("reports unavailable and quota failures instead of pretending persistence", () => {

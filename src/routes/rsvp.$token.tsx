@@ -28,6 +28,7 @@ import { celebrate } from "@/components/confetti-burst";
 import {
   contextualRsvpCopy,
   getRsvpLoaderData,
+  rsvpResponseDetails,
   type ArrivalPlan,
   type PartyView,
 } from "@/lib/rsvp.functions";
@@ -411,13 +412,7 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
         household_label: household.trim() ? household.trim().slice(0, 80) : undefined,
         dietary: dietaryOut.length ? (dietaryOut as unknown as Json) : undefined,
         allergens: allergensOut.length ? (allergensOut as unknown as Json) : undefined,
-        response_details:
-          rsvp !== "no" && (arrivalPlan || accessNotes.trim())
-            ? ({
-                ...(arrivalPlan ? { arrivalPlan } : {}),
-                ...(accessNotes.trim() ? { accessNotes: accessNotes.trim().slice(0, 200) } : {}),
-              } as unknown as Json)
-            : undefined,
+        response_details: rsvpResponseDetails(rsvp, arrivalPlan, accessNotes) as unknown as Json,
       });
       if (res.error) {
         setError("We couldn't send your RSVP. Your answers are still here — please try again.");
@@ -591,6 +586,10 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                 onValueChange={(v) => {
                   const next = v as RSVPChoice;
                   if (next === "yes" && rsvp !== "yes") celebrate("micro");
+                  if (next === "no") {
+                    setArrivalPlan("");
+                    setAccessNotes("");
+                  }
                   setRsvp(next);
                 }}
                 className="grid grid-cols-3 gap-2"
@@ -719,7 +718,8 @@ function RsvpForm({ token, party: initialParty }: { token: string; party: PartyV
                       className="min-h-20 resize-y bg-background"
                     />
                     <p className="text-[11px] text-muted-foreground">
-                      Please don&apos;t include medical records or emergency contact details.
+                      Host-only. Please don&apos;t include medical records or emergency contact
+                      details.
                     </p>
                   </div>
                 )}

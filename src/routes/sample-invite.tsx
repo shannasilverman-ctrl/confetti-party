@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { celebrate } from "@/components/confetti-burst";
 import { CalendarActions } from "@/components/calendar-actions";
@@ -366,6 +367,7 @@ function RsvpForm({
   const [dietaryOther, setDietaryOther] = useState("");
   const [allergens, setAllergens] = useState<string[]>([]);
   const [allergensOther, setAllergensOther] = useState("");
+  const [accessNotes, setAccessNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const toggle = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (v: string) =>
@@ -399,6 +401,8 @@ function RsvpForm({
       kids: choice === "yes" ? kids : 0,
       dietary: dietaryOut,
       allergens: allergensOut,
+      accessNotes:
+        choice !== "no" && accessNotes.trim() ? accessNotes.trim().slice(0, 200) : undefined,
       at: new Date().toISOString(),
     });
   }
@@ -451,7 +455,11 @@ function RsvpForm({
         <RadioGroup
           aria-label="Can you make it?"
           value={choice}
-          onValueChange={(v) => setChoice(v as SampleRSVP)}
+          onValueChange={(v) => {
+            const next = v as SampleRSVP;
+            if (next === "no") setAccessNotes("");
+            setChoice(next);
+          }}
           className="grid grid-cols-3 gap-2"
         >
           {(["yes", "maybe", "no"] as SampleRSVP[]).map((val) => (
@@ -496,6 +504,29 @@ function RsvpForm({
               className="min-h-11"
             />
           </div>
+        </div>
+      )}
+
+      {choice !== "no" && (
+        <div
+          className="space-y-2 rounded-2xl border border-primary/15 bg-primary/[0.04] p-4"
+          data-testid="sample-access-question"
+        >
+          <Label htmlFor="sample-access-notes">
+            Anything that would help you participate or feel comfortable?
+          </Label>
+          <Textarea
+            id="sample-access-notes"
+            value={accessNotes}
+            onChange={(event) => setAccessNotes(event.target.value)}
+            placeholder="Optional — share only what would help the host prepare"
+            maxLength={200}
+            aria-describedby="sample-access-notes-help"
+            className="min-h-20 resize-y bg-background"
+          />
+          <p id="sample-access-notes-help" className="text-[11px] text-muted-foreground">
+            Optional and host-only. Don&apos;t include medical records or emergency contact details.
+          </p>
         </div>
       )}
 

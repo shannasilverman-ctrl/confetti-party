@@ -440,6 +440,61 @@ test("sample invite exposes the same practical guest details and calendar action
   await expect(page.getByRole("link", { name: /Directions/i })).toBeVisible();
 });
 
+test("sample invite keeps an optional comfort note host-only and clears it on reset", async ({
+  page,
+}) => {
+  const privateNote = "A chair away from the speakers would help.";
+  await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
+  const sampleForm = page.getByTestId("sample-rsvp-form");
+  await expect(sampleForm).toHaveAttribute("data-hydrated", "true");
+
+  const accessNotes = sampleForm.getByRole("textbox", {
+    name: "Anything that would help you participate or feel comfortable?",
+  });
+  await expect(accessNotes).toBeVisible();
+  await expect(page.getByText(/Optional and host-only/i)).toBeVisible();
+  await expect(
+    page.getByText(/don.t include medical records or emergency contact details/i),
+  ).toBeVisible();
+
+  const attendanceChoice = sampleForm.getByRole("radiogroup", { name: "Can you make it?" });
+  await accessNotes.fill(privateNote);
+  await attendanceChoice.locator("label").filter({ hasText: /^no$/i }).click();
+  await expect(accessNotes).toBeHidden();
+  await attendanceChoice
+    .locator("label")
+    .filter({ hasText: /^maybe$/i })
+    .click();
+  await expect(accessNotes).toBeVisible();
+  await expect(accessNotes).toHaveValue("");
+
+  await sampleForm.getByRole("textbox", { name: "Your name" }).fill("Sam Rivera");
+  await accessNotes.fill(privateNote);
+  await sampleForm.getByRole("button", { name: "Send RSVP" }).click();
+  await expect(page.getByTestId("sample-success")).toBeVisible();
+  await expect(page.getByText(privateNote, { exact: true })).toHaveCount(0);
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem("confetti:sample-invite:v2");
+        return raw ? JSON.parse(raw).rsvp?.accessNotes : null;
+      }),
+    )
+    .toBe(privateNote);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("sample-success")).toBeVisible();
+  await expect(page.getByText(privateNote, { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Reset the sample invite" }).click();
+  await expect(sampleForm).toBeVisible();
+  await expect(accessNotes).toHaveValue("");
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("confetti:sample-invite:v2")))
+    .not.toContain(privateNote);
+});
+
 test("sample invite turns a guest photo into a private event keepsake", async ({ page }) => {
   await page.goto("/sample-invite", { waitUntil: "domcontentloaded" });
 

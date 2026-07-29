@@ -49,10 +49,10 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 76 files, 550 tests passed                                              |
+| Vitest                | 76 files, 554 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
-| Playwright            | 203 application cases passed; 84 intentional cross-project skips        |
+| Playwright            | 205 application cases passed; 84 intentional cross-project skips        |
 | GitHub Actions        | Required on the exact final branch head; run URL is recorded in the PR  |
 | Live deployment       | Required on the exact final SHA; version evidence is recorded in the PR |
 
@@ -65,7 +65,7 @@ fixed navigation and dialog containment, timezone-stable hydration, and that
 collaboration invite secrets never appear in HTTP request URLs. Project-only
 cases are skipped in the other Playwright projects by design.
 
-The complete Playwright matrix contains 203 applicable cases (84 intentional
+The complete Playwright matrix contains 205 applicable cases (84 intentional
 cross-project skips), including all three WebKit critical-path cases. CI runs
 the device projects in fresh-Worker slices and remains the exact-SHA release
 authority.
@@ -114,6 +114,14 @@ green.
 - RSVP, draft, account, and voice failures return generic client-safe errors.
   Operational logs exclude invite tokens, user ids, bearer/API keys, user
   content, and raw provider bodies.
+- Every yes/maybe RSVP offers one optional comfort/access note regardless of
+  occasion. The response is capped at 200 characters, labeled host-only, and
+  explicitly discourages medical records and emergency contacts. A no response
+  omits and clears the private detail. Host follow-through uses only a private,
+  deduplicated review action and never copies the note into public projections,
+  group message drafts, logs, or guest-facing success copy. The interactive
+  sample persists the same field in a strict v2 browser schema, migrates valid
+  v1 state without inventing a note, and clears both versions on reset.
 - Photo Drop stores only a validated HTTPS destination. Photos go directly
   to the host's selected provider; outbound links suppress referrers.
 - Party Booth builds a personalized event frame from the public invite name,
