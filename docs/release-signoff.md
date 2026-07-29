@@ -49,7 +49,7 @@ Cloudflare Worker build:
 | Prettier              | All files matched                                                       |
 | ESLint                | Passed                                                                  |
 | TypeScript            | Passed with `tsc --noEmit`                                              |
-| Vitest                | 68 files, 510 tests passed                                              |
+| Vitest                | 69 files, 516 tests passed                                              |
 | Production build      | Passed                                                                  |
 | Initial client bundle | Within enforced budget; exact SHA-bound bytes are recorded in CI        |
 | Playwright            | 186 application cases passed; 83 intentional cross-project skips        |
@@ -117,6 +117,12 @@ green.
   inputs as four optional, directly actionable “next moves” before suggesting
   downstream work such as invitations or RSVP follow-up; the host can choose
   whichever answer feels easiest and leave the rest open.
+- Quick start interprets supported facts in the host's idea locally and shows
+  the captured date, headcount, audience split, effort, food approach, and
+  dietary needs before building. Dedicated fields always override the text
+  interpretation. An unselected catalog theme stays unselected: it contributes
+  no themed tasks, supplies, projected spend, workspace badge, or invitation
+  claim.
 - Signed-out Talk is deterministic and device-local. It extracts only facts
   present in the host's words, asks at most one next question, stops after
   three turns, and can materialize a useful browser workspace without an

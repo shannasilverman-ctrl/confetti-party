@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { demoReply, DEMO_MAX_TURNS, type DemoMsg } from "@/lib/talk-demo";
+import { analyzePlanningIdea, demoReply, DEMO_MAX_TURNS, type DemoMsg } from "@/lib/talk-demo";
 
 const NOW = new Date(2026, 6, 28, 12);
 
@@ -71,6 +71,37 @@ describe("input-aware local Talk planner", () => {
         now: NOW,
       }).draftPatch.when?.date,
     ).toBe("2026-07-31");
+  });
+
+  it("understands bounded relative day and week dates deterministically", () => {
+    expect(
+      analyzePlanningIdea("A potluck in three weeks", { now: NOW }).draftPatch.when?.date,
+    ).toBe("2026-08-18");
+    expect(analyzePlanningIdea("A dinner in 10 days", { now: NOW }).draftPatch.when?.date).toBe(
+      "2026-08-07",
+    );
+    expect(analyzePlanningIdea("A gathering in 999 days", { now: NOW }).draftPatch.when?.date).toBe(
+      undefined,
+    );
+  });
+
+  it("summarizes only facts actually present in a free-text idea", () => {
+    const analysis = analyzePlanningIdea(
+      "A low-key neighborhood potluck in three weeks for about 12 people, with two kids and one gluten-free guest",
+      { now: NOW },
+    );
+
+    expect(analysis.draftPatch).toMatchObject({
+      identity: { workingTitle: "Potluck", occasion: "other", tone: "low-key" },
+      when: { date: "2026-08-18", dateCertainty: "fixed" },
+      people: { expectedCount: 12 },
+      effort: { level: "low" },
+      food: { approach: "potluck" },
+      constraints: { dietary: ["gluten-free"] },
+    });
+    expect(analysis.capturedFacts).toEqual(
+      expect.arrayContaining(["Potluck", "Aug 18, 2026", "12 people", "Low effort", "gluten-free"]),
+    );
   });
 
   it("preserves an explicit year instead of substituting the current year", () => {

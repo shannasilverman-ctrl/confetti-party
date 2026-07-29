@@ -269,7 +269,9 @@ export function InviteDialog({
               <h2 className="font-display text-4xl font-semibold leading-tight drop-shadow sm:text-5xl">
                 {party.name}
               </h2>
-              <p className="text-sm/relaxed text-white/85">{party.theme}</p>
+              {party.themeId && party.theme.trim() && (
+                <p className="text-sm/relaxed text-white/85">{party.theme}</p>
+              )}
 
               <div className="space-y-1.5 pt-2 text-sm">
                 <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   daysUntil,
   guestCounts,
@@ -8,6 +8,8 @@ import {
   useParties,
   OCCASION_LABELS,
   type OccasionType,
+  type BringCategory,
+  type Party,
   type Task,
   newId,
   openPlanningDetails,
@@ -54,7 +56,7 @@ import {
   Copy,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateOnly, nextWeekdayDateOnly } from "@/lib/date-only";
+import { formatDateOnly } from "@/lib/date-only";
 import {
   partyPlaybook,
   preschoolPartyPaths,
@@ -64,6 +66,9 @@ import {
 } from "@/lib/party-intelligence";
 import { useAuth } from "@/lib/auth";
 import { DEMO_CLAIM_RETURN_TO } from "@/lib/demo-claim";
+import { analyzePlanningIdea } from "@/lib/talk-demo";
+import { materializeDraft } from "@/lib/talk-materialize";
+import { resolveQuickStart } from "@/lib/quick-start";
 
 type AppSearch = { new?: boolean; claimDemo?: boolean };
 
@@ -626,7 +631,7 @@ function NewPartyWizard({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
-  const { createParty, getParty } = useParties();
+  const { createParty, getParty, updateParty } = useParties();
   const navigate = Route.useNavigate();
   const [step, setStep] = useState<"idea" | "done">("idea");
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -646,6 +651,7 @@ function NewPartyWizard({
   const [partyFormat, setPartyFormat] = useState<PartyFormat>("help-me-choose");
 
   const themeOptions = occasion ? themesForOccasion(occasion) : [];
+  const ideaAnalysis = useMemo(() => (name.trim() ? analyzePlanningIdea(name) : null), [name]);
 
   function reset() {
     setStep("idea");
@@ -667,24 +673,32 @@ function NewPartyWizard({
   }
 
   function finish() {
-    const chosenOccasion = occasion ?? "other";
-    const chosenTheme = theme ?? themesForOccasion(chosenOccasion)[0] ?? null;
-    const planningProfile: PartyPlanningProfile | undefined = occasion
-      ? {
-          version: 1,
-          ...(chosenOccasion === "birthday" && Number(honoreeAge) > 0
-            ? { honoreeAge: Number(honoreeAge) }
-            : {}),
-          ...(expectedKids !== "" ? { expectedKids: Number(expectedKids) || 0 } : {}),
-          ...(expectedAdults !== "" ? { expectedAdults: Number(expectedAdults) || 0 } : {}),
-          effort,
-          format: partyFormat,
-        }
-      : undefined;
-    const audienceEstimate = (Number(expectedKids) || 0) + (Number(expectedAdults) || 0);
-    const resolvedGuestEstimate = Number(guestEstimate) || audienceEstimate;
+    const resolved = resolveQuickStart({
+      idea: name,
+      occasion,
+      date,
+      startTime,
+      location,
+      guestEstimate,
+      budget,
+      holidayStarter,
+      honoreeAge,
+      expectedKids,
+      expectedAdults,
+      effort,
+      partyFormat,
+    });
+    const {
+      party: generated,
+      blockingUnknowns,
+      optionalUnknowns,
+    } = materializeDraft(resolved.patch);
+    const missing = new Set([
+      ...blockingUnknowns.map((unknown) => unknown.field),
+      ...optionalUnknowns.map((unknown) => unknown.field),
+    ]);
     const planningTasks: Task[] = [
-      ...(!date
+      ...(missing.has("date")
         ? [
             {
               id: newId(),
@@ -694,7 +708,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!resolvedGuestEstimate
+      ...(missing.has("guestEstimate")
         ? [
             {
               id: newId(),
@@ -704,7 +718,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!budget
+      ...(missing.has("budget")
         ? [
             {
               id: newId(),
@@ -714,7 +728,7 @@ function NewPartyWizard({
             },
           ]
         : []),
-      ...(!theme
+      ...(theme == null
         ? [
             {
               id: newId(),
@@ -727,7 +741,7 @@ function NewPartyWizard({
     ];
     // Seed a small set of theme decor tasks into the checklist.
     // Skip purely instructional ideas (estPrice 0) so seeded tasks are actionable items.
-    const themeTasks: Task[] = (chosenTheme?.decorIdeas ?? [])
+    const themeTasks: Task[] = (theme?.decorIdeas ?? [])
       .filter((idea) => idea.estPrice > 0)
       .slice(0, 4)
       .map((idea) => ({
@@ -736,23 +750,67 @@ function NewPartyWizard({
         bucket: idea.bucket,
         done: false,
       }));
-    const id = createParty({
-      name: name.trim() || `New ${OCCASION_LABELS[chosenOccasion]}`,
-      occasion: chosenOccasion,
-      // The data layer still requires a sortable date. A skipped date gets a
-      // neutral planning horizon and an explicit open task; UI surfaces treat
-      // that task as "Date TBD" rather than presenting the fallback as fact.
-      date: date || nextWeekdayDateOnly(6, 28),
-      startTime: startTime.trim() || undefined,
-      location: location.trim() || undefined,
-      guestEstimate: resolvedGuestEstimate,
-      budget: Number(budget) || 0,
-      theme: chosenTheme?.name ?? "Make it yours",
-      themeId: chosenTheme?.id,
-      extraTasks: [...planningTasks, ...themeTasks],
-      holidayPackId: chosenOccasion === "holiday" && holidayStarter ? holidayStarter : undefined,
-      planningProfile,
+    const seenTasks = new Set<string>();
+    const tasks = [...planningTasks, ...generated.tasks, ...themeTasks].filter((task) => {
+      const key = task.title.trim().toLowerCase();
+      if (seenTasks.has(key)) return false;
+      seenTasks.add(key);
+      return true;
     });
+    const allowedBringCategories = new Set<BringCategory>([
+      "Main",
+      "Sides",
+      "Dessert",
+      "Drinks",
+      "Ice / Serveware",
+      "Kids",
+      "Décor",
+    ]);
+    const bringBoard: NonNullable<Party["bringBoard"]> = generated.bringBoard.map((item) => ({
+      ...item,
+      category: allowedBringCategories.has(item.category as BringCategory)
+        ? (item.category as BringCategory)
+        : "Sides",
+    }));
+    const resolvedHolidayStarter = HOLIDAY_STARTERS.some(
+      (starter) => starter.id === generated.holidayPackId,
+    )
+      ? (generated.holidayPackId as HolidayStarterId)
+      : undefined;
+
+    const id = createParty({
+      name: generated.name,
+      occasion: generated.occasion,
+      date: generated.date,
+      startTime: generated.startTime ?? undefined,
+      location: generated.location ?? undefined,
+      guestEstimate: generated.guestEstimate,
+      budget: generated.budget,
+      theme: theme?.name ?? "",
+      themeId: theme?.id,
+      holidayPackId: resolvedHolidayStarter,
+      planningProfile: generated.planningProfile ?? undefined,
+    });
+    updateParty(id, (current) => ({
+      ...current,
+      name: generated.name,
+      occasion: generated.occasion,
+      date: generated.date,
+      startTime: generated.startTime ?? undefined,
+      location: generated.location ?? undefined,
+      guestEstimate: generated.guestEstimate,
+      budget: generated.budget,
+      theme: theme?.name ?? "",
+      themeId: theme?.id,
+      holidayPackId: resolvedHolidayStarter,
+      planningProfile: generated.planningProfile ?? undefined,
+      hostNote: generated.hostNote ?? undefined,
+      tasks,
+      bringBoard,
+      shoppingItems: theme ? current.shoppingItems : generated.shoppingItems,
+      timeline: generated.timeline,
+      budgetCategories: generated.budgetCategories,
+    }));
     setCreatedId(id);
     setStep("done");
     // Big physics cannon for the "your plan is ready" moment.
@@ -836,6 +894,25 @@ function NewPartyWizard({
                 placeholder="Sunday dinner, Maya's birthday, World Cup watch party…"
                 className="mt-1.5"
               />
+              {ideaAnalysis && ideaAnalysis.capturedFacts.length > 0 && (
+                <div
+                  className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5"
+                  data-testid="wizard-captured-facts"
+                  aria-live="polite"
+                >
+                  <p className="text-xs font-semibold text-secondary">Picked up from your idea</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {ideaAnalysis.capturedFacts.map((fact) => (
+                      <Badge key={fact} variant="secondary" className="font-normal">
+                        {fact}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    These become editable starting details. Anything we did not catch stays open.
+                  </p>
+                </div>
+              )}
             </div>
 
             <fieldset>
@@ -1047,7 +1124,10 @@ function NewPartyWizard({
             <div className="mx-auto mt-6 grid max-w-md grid-cols-2 gap-3">
               <PlanStat label="Tasks generated" value={createdParty.tasks.length} />
               <PlanStat label="Shopping items" value={createdParty.shoppingItems.length} />
-              <PlanStat label="Suggested look" value={createdParty.theme} />
+              <PlanStat
+                label="Look"
+                value={createdParty.themeId ? createdParty.theme : "To decide"}
+              />
               <PlanStat
                 label="Open decisions"
                 value={openPlanningDetails(createdParty).length || "None"}

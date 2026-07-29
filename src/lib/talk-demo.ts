@@ -43,6 +43,19 @@ function extractDate(text: string, now: Date): string | undefined {
   const iso = text.match(/\b\d{4}-\d{2}-\d{2}\b/)?.[0];
   if (iso && validIsoDate(iso)) return iso;
 
+  const relative = text.match(
+    /\bin\s+(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(days?|weeks?)\b/i,
+  );
+  if (relative) {
+    const quantity = smallNumber(relative[1]) ?? NaN;
+    const days = /week/i.test(relative[2]) ? quantity * 7 : quantity;
+    if (days >= 1 && days <= 365) {
+      const date = new Date(now);
+      date.setDate(date.getDate() + days);
+      return isoDate(date);
+    }
+  }
+
   if (/\btomorrow\b/i.test(text)) {
     const date = new Date(now);
     date.setDate(date.getDate() + 1);
@@ -99,12 +112,34 @@ function extractCount(text: string): number | undefined {
   return Number.isFinite(value) && value >= 1 && value <= 500 ? value : undefined;
 }
 
+function smallNumber(token: string): number | undefined {
+  const words: Record<string, number> = {
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eleven: 11,
+    twelve: 12,
+  };
+  if (/^\d{1,3}$/.test(token)) return Number(token);
+  return words[token.toLowerCase()];
+}
+
 function extractAudience(text: string): { kids?: number; adults?: number } {
-  const kids = text.match(/\b(\d{1,3})\s*(?:kids?|children)\b/i);
-  const adults = text.match(/\b(\d{1,3})\s*(?:adults?|parents?|grown[ -]?ups?)\b/i);
+  const number = "(\\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)";
+  const kids = text.match(new RegExp(`\\b${number}\\s*(?:kids?|children)\\b`, "i"));
+  const adults = text.match(
+    new RegExp(`\\b${number}\\s*(?:adults?|parents?|grown[ -]?ups?)\\b`, "i"),
+  );
   return {
-    ...(kids ? { kids: Number(kids[1]) } : {}),
-    ...(adults ? { adults: Number(adults[1]) } : {}),
+    ...(kids ? { kids: smallNumber(kids[1]) } : {}),
+    ...(adults ? { adults: smallNumber(adults[1]) } : {}),
   };
 }
 
@@ -144,6 +179,12 @@ function ordinal(value: number): string {
   return `${value}th`;
 }
 
+export type LocalPlanningAnalysis = {
+  draftPatch: DraftPatch;
+  capturedFacts: string[];
+  suggestedPackId?: PackId;
+};
+
 function buildPatch(
   allUser: string,
   now: Date,
@@ -156,6 +197,7 @@ function buildPatch(
   const date = extractDate(allUser, now);
   const audience = extractAudience(allUser);
   const explicitCount = extractCount(allUser);
+  const completeAudience = audience.kids != null && audience.adults != null;
   const audienceTotal =
     audience.kids != null || audience.adults != null
       ? (audience.kids ?? 0) + (audience.adults ?? 0)
@@ -175,7 +217,7 @@ function buildPatch(
 
   if (explicitCount || audienceTotal != null) {
     patch.people = {
-      expectedCount: audienceTotal ?? explicitCount,
+      expectedCount: completeAudience ? audienceTotal : (explicitCount ?? audienceTotal),
       ...audience,
     };
   }
@@ -204,6 +246,11 @@ function buildPatch(
     patch.vibe = { broadcast: { source: "tv", needsSoundCheck: true } };
   } else if (/\b(?:dinner|supper)\b/i.test(allUser)) {
     patch.identity = { workingTitle: "Dinner Party", occasion: "dinner-party" };
+  } else if (/\b(?:potluck|everyone brings|bring a dish)\b/i.test(allUser)) {
+    // Potluck describes how the gathering works, not a narrow cultural or
+    // occasion assumption. Keep the canonical occasion general while giving
+    // a sentence-length idea a usable working title.
+    patch.identity = { workingTitle: "Potluck", occasion: "other" };
   }
 
   if (/\bbackyard\b/i.test(allUser)) {
@@ -216,7 +263,7 @@ function buildPatch(
     patch.where = { venueKind: "venue" };
   }
 
-  if (/\b(?:easy|low[- ]?effort|low[- ]?lift|no cleanup|relaxed)\b/i.test(allUser)) {
+  if (/\b(?:easy|low[- ]?effort|low[- ]?lift|low[- ]?key|no cleanup|relaxed)\b/i.test(allUser)) {
     patch.effort = { level: "low" };
   } else if (/\b(?:go all out|all[- ]?out|big production|elaborate)\b/i.test(allUser)) {
     patch.effort = { level: "high" };
@@ -256,6 +303,39 @@ function buildPatch(
   return { patch, packId: pack?.id };
 }
 
+function displayIsoDate(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+export function analyzePlanningIdea(
+  idea: string,
+  options: { now?: Date } = {},
+): LocalPlanningAnalysis {
+  const { patch, packId } = buildPatch(idea, options.now ?? new Date());
+  const facts: string[] = [];
+  if (patch.identity?.workingTitle) facts.push(patch.identity.workingTitle);
+  if (patch.when?.date) facts.push(displayIsoDate(patch.when.date));
+  if (patch.people?.expectedCount) facts.push(`${patch.people.expectedCount} people`);
+  if (patch.people?.kids != null) facts.push(`${patch.people.kids} kids`);
+  if (patch.budget?.total != null) facts.push(`$${patch.budget.total.toLocaleString()} budget`);
+  if (patch.food?.approach === "potluck") facts.push("Potluck");
+  if (patch.effort?.level === "low") facts.push("Low effort");
+  for (const need of patch.constraints?.dietary ?? []) facts.push(need);
+
+  return {
+    draftPatch: patch,
+    capturedFacts: Array.from(new Set(facts)).slice(0, 8),
+    ...(packId ? { suggestedPackId: packId } : {}),
+  };
+}
+
 function capturedSummary(patch: DraftPatch): string[] {
   const captured: string[] = [];
   if (patch.identity?.workingTitle) captured.push(patch.identity.workingTitle);
@@ -270,7 +350,9 @@ export function demoReply(messages: DemoMsg[], options: { now?: Date } = {}): De
   const userMessages = messages.filter((message) => message.role === "user");
   const allUser = userMessages.map((message) => message.content).join(" ");
   const lastUser = userMessages.at(-1)?.content ?? "";
-  const { patch, packId } = buildPatch(allUser, options.now ?? new Date());
+  const analysis = analyzePlanningIdea(allUser, options);
+  const patch = analysis.draftPatch;
+  const packId = analysis.suggestedPackId;
   const turnCount = userMessages.length;
   const openQuestions: string[] = [];
 
