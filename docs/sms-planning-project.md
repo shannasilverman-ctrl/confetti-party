@@ -1,7 +1,10 @@
 # Confetti text-message planning project
 
-Status: implementation-ready design; no phone number, paid provider, production
-data, or production webhook has been created.
+Status: Slice 1 is complete. Slice 2 now has an inactive secure transport,
+reviewed schema, and local contract tests. It still requires the rollback-only
+database harness in isolated staging before activation. No phone number, paid
+provider, production data, production schema, or production webhook has been
+created.
 
 Owner outcome: a host can text Confetti in ordinary language, receive one useful
 question at a time, build a real party draft, and continue the same plan in the
@@ -252,12 +255,30 @@ button or “coming soon” flow.
 - STOP/START/HELP/restart/resume tests.
 - No provider, database, or secrets required.
 
-### Slice 2 — secure staging transport
+### Slice 2 — secure staging transport (implemented, activation gated)
 
-- Reviewed migration and server-only persistence.
-- Signed Twilio webhook and delivery callback.
-- Idempotency, rate limiting, redacted observability, and failure fallback.
-- Twilio test credentials and local webhook contract tests.
+- Reviewed migration and RPC-only persistence with encrypted phone/replies,
+  keyed lookup/body digests, 30-day unclaimed retention, 180-day replay
+  tombstones, and content-free consent events.
+- Signed inbound Twilio webhook using the exact configured HTTPS URL and every
+  provider parameter. Account, Messaging Service, US sender, destination,
+  body, and no-media boundaries are checked only after signature validation.
+- Transactional provider-SID idempotency, optimistic version retry,
+  per-contact and service-wide budgets, one rate-limit notice, silent
+  duplicate TwiML, redacted observability, and deterministic failure behavior.
+- Official Twilio SDK signature fixtures plus local route, cryptography,
+  privacy, and schema contract tests.
+
+Still required before Slice 2 can be called active:
+
+- apply the migration to an isolated staging Supabase project and pass
+  `bun run test:db`, including its duplicate, consent, rate-limit, and rollback
+  assertions;
+- configure staging secrets and deploy an isolated Worker;
+- send signed provider fixtures to the exact deployed route and verify cold
+  start and latency;
+- implement and test the signed delivery-status callback before a real-number
+  pilot.
 
 ### Slice 3 — web handoff
 

@@ -23,6 +23,7 @@ import { Route as ApiTelemetryRouteImport } from './routes/api/telemetry'
 import { Route as PartyIdRouteImport } from './routes/party.$id'
 import { Route as RsvpTokenRouteImport } from './routes/rsvp.$token'
 import { Route as ApiRealtimeSessionRouteImport } from './routes/api/realtime/session'
+import { Route as ApiSmsInboundRouteImport } from './routes/api/sms/inbound'
 import { Route as PartyIdDayOfRouteImport } from './routes/party.$id_.day-of'
 import { Route as PartyIdRevealRouteImport } from './routes/party.$id_.reveal'
 
@@ -96,6 +97,11 @@ const ApiRealtimeSessionRoute = ApiRealtimeSessionRouteImport.update({
   path: '/api/realtime/session',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSmsInboundRoute = ApiSmsInboundRouteImport.update({
+  id: '/api/sms/inbound',
+  path: '/api/sms/inbound',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PartyIdDayOfRoute = PartyIdDayOfRouteImport.update({
   id: '/party/$id_/day-of',
   path: '/party/$id/day-of',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/party/$id/day-of': typeof PartyIdDayOfRoute
   '/party/$id/reveal': typeof PartyIdRevealRoute
 }
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/party/$id/day-of': typeof PartyIdDayOfRoute
   '/party/$id/reveal': typeof PartyIdRevealRoute
 }
@@ -159,6 +167,7 @@ export interface FileRoutesById {
   '/party/$id': typeof PartyIdRoute
   '/rsvp/$token': typeof RsvpTokenRoute
   '/api/realtime/session': typeof ApiRealtimeSessionRoute
+  '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/party/$id_/day-of': typeof PartyIdDayOfRoute
   '/party/$id_/reveal': typeof PartyIdRevealRoute
 }
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/api/sms/inbound'
     | '/party/$id/day-of'
     | '/party/$id/reveal'
   fileRoutesByTo: FileRoutesByTo
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/api/sms/inbound'
     | '/party/$id/day-of'
     | '/party/$id/reveal'
   id:
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/party/$id'
     | '/rsvp/$token'
     | '/api/realtime/session'
+    | '/api/sms/inbound'
     | '/party/$id_/day-of'
     | '/party/$id_/reveal'
   fileRoutesById: FileRoutesById
@@ -234,6 +246,7 @@ export interface RootRouteChildren {
   PartyIdRoute: typeof PartyIdRoute
   RsvpTokenRoute: typeof RsvpTokenRoute
   ApiRealtimeSessionRoute: typeof ApiRealtimeSessionRoute
+  ApiSmsInboundRoute: typeof ApiSmsInboundRoute
   PartyIdDayOfRoute: typeof PartyIdDayOfRoute
   PartyIdRevealRoute: typeof PartyIdRevealRoute
 }
@@ -338,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRealtimeSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sms/inbound': {
+      id: '/api/sms/inbound'
+      path: '/api/sms/inbound'
+      fullPath: '/api/sms/inbound'
+      preLoaderRoute: typeof ApiSmsInboundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/party/$id_/day-of': {
       id: '/party/$id_/day-of'
       path: '/party/$id/day-of'
@@ -370,6 +390,7 @@ const rootRouteChildren: RootRouteChildren = {
   PartyIdRoute: PartyIdRoute,
   RsvpTokenRoute: RsvpTokenRoute,
   ApiRealtimeSessionRoute: ApiRealtimeSessionRoute,
+  ApiSmsInboundRoute: ApiSmsInboundRoute,
   PartyIdDayOfRoute: PartyIdDayOfRoute,
   PartyIdRevealRoute: PartyIdRevealRoute,
 }

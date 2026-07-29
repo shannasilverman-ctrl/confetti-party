@@ -235,4 +235,63 @@ describe("migration contract: DB hardening batch", () => {
       /GRANT EXECUTE ON FUNCTION public\.submit_rsvp_v2\([\s\S]*?\) TO anon, authenticated/,
     );
   });
+
+  test("SMS staging storage is content-minimal, RPC-only, deduplicated, and rate bounded", () => {
+    const sms = readFileSync(join(MIG_DIR, "20260729123000_sms_staging_transport.sql"), "utf8");
+
+    for (const table of [
+      "sms_contacts",
+      "sms_conversations",
+      "sms_messages",
+      "sms_service_budget",
+      "sms_replay_tombstones",
+      "sms_consent_events",
+    ]) {
+      expect(sms).toMatch(new RegExp(`ALTER TABLE public\\.${table} ENABLE ROW LEVEL SECURITY`));
+      expect(sms).toMatch(
+        new RegExp(
+          `REVOKE ALL ON TABLE public\\.${table} FROM PUBLIC, anon, authenticated, service_role`,
+        ),
+      );
+      expect(sms).not.toMatch(new RegExp(`GRANT[^;]+ON TABLE public\\.${table}`));
+    }
+
+    const messageTable =
+      sms.match(/CREATE TABLE IF NOT EXISTS public\.sms_messages \([\s\S]+?\n\);/)?.[0] ?? "";
+    expect(messageTable).not.toMatch(/\b(phone|body|reply)\s+text\b/);
+    expect(messageTable).toMatch(/body_digest text NOT NULL/);
+    expect(messageTable).toMatch(/reply_ciphertext text/);
+    expect(sms).toMatch(/provider_message_sid text PRIMARY KEY/);
+    expect(sms).toMatch(/expires_at timestamptz[^;]+180 days/);
+
+    const read = latestFunctionBody("get_sms_inbound_context");
+    expect(read).toMatch(/_body_digest text/);
+    expect(read).toMatch(/sms_replay_tombstones/);
+    expect(read).toMatch(/existing_phone_hash <> _phone_hash/);
+    expect(read).toMatch(/existing_body_digest <> _body_digest/);
+    expect(read).toMatch(/jsonb_build_object\('status', 'duplicate'\)/);
+    expect(read).not.toMatch(/replyCiphertext/);
+
+    const commit = latestFunctionBody("commit_sms_inbound");
+    expect(commit).toMatch(/pg_advisory_xact_lock\(hashtextextended\(_phone_hash, 0\)\)/);
+    expect(commit).toMatch(/conversation_row\.version <> _expected_version/);
+    expect(commit).toMatch(/rate_count >= 40/);
+    expect(commit).toMatch(/service_rate_count >= 200/);
+    expect(commit).toMatch(/_planning_kind NOT IN \('stopped', 'resumed', 'help'\)/);
+    expect(commit).toMatch(/version = version \+ 1/);
+    expect(commit).toMatch(/sms_consent_events/);
+    expect(commit).toMatch(/sms_replay_tombstones/);
+    expect(commit).toMatch(/WHEN limited\s+THEN NULL/);
+
+    expect(sms).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.get_sms_inbound_context\(text, text, text\)\s+TO service_role/,
+    );
+    expect(sms).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.commit_sms_inbound\([\s\S]+?\) TO service_role/,
+    );
+    expect(sms).not.toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.(?:get_sms_inbound_context|commit_sms_inbound)[\s\S]+?TO (?:anon|authenticated)/,
+    );
+    expect(sms).toMatch(/CREATE OR REPLACE FUNCTION public\.purge_expired_sms_data/);
+  });
 });

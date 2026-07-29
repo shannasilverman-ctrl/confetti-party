@@ -99,6 +99,20 @@ describe("provider-independent SMS planning", () => {
     expect(result.reply).toContain("STOP");
   });
 
+  it("provides HELP while stopped without reactivating the thread", () => {
+    const state: SmsPlanningState = {
+      status: "stopped",
+      draft: { identity: { occasion: "birthday", honoreeAge: 54 } },
+      turnCount: 1,
+    };
+    const result = planSmsMessage(state, "HELP", { now: NOW });
+
+    expect(result.kind).toBe("help");
+    expect(result.state).toEqual(state);
+    expect(result.state.status).toBe("stopped");
+    expect(result.reply).toContain("STOP");
+  });
+
   it("clears the draft only on an explicit reset command", () => {
     const first = planSmsMessage(EMPTY_SMS_PLANNING_STATE, "A 54th birthday", { now: NOW });
     const reset = planSmsMessage(first.state, "RESET", { now: NOW });
